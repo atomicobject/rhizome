@@ -7,7 +7,7 @@ import { MIN_CONCEPTS, MIN_DATED } from "../lib/site.ts";
 import { cmp } from "../lib/kinds.ts";
 import { TopicMap } from "./map.tsx";
 import { MarkLegend, Strip } from "./timeline.tsx";
-import { ListLink, NotEnough, RecordTitle, label, plural } from "./data.tsx";
+import { GapLink, ListLink, NotEnough, RecordTitle, label, plural } from "./data.tsx";
 
 function Links({ site, paths }: { site: Site; paths: string[] }) {
   return (
@@ -20,6 +20,30 @@ function Links({ site, paths }: { site: Site; paths: string[] }) {
       ))}
     </>
   );
+}
+
+/** The drawn crop's caption after `mapCaption`: only what the crop draws (R4 highlight rule). */
+function drawnCaption({
+  faint,
+  edges,
+  outside,
+}: {
+  faint: string[];
+  edges: unknown[];
+  outside: number;
+}) {
+  const near = faint.length
+    ? faint.length === 1
+      ? "The faint circle is another concept near it on the KB overview's map. "
+      : `The ${faint.length} faint circles are other concepts near it on the KB overview's map. `
+    : "";
+  const lines = edges.length
+    ? "Lines are the Related Concepts people recorded between the concepts drawn."
+    : "No Related Concepts are recorded between the concepts drawn.";
+  const rest = outside
+    ? ` ${plural(outside, "other concept")} of the KB ${outside === 1 ? "lies" : "lie"} outside this crop.`
+    : "";
+  return near + lines + rest;
 }
 
 /** `mapCaption` says what is in scope on the map; `ring` is the source ringed on the strip. */
@@ -60,26 +84,37 @@ export function ScopedPair({
   return (
     <div className="ak-scoped">
       <Section title="Where it sits on the topic map">
-        {!pair.map.drawable ? (
+        {pair.map.missing === "kb-map" ? (
           <NotEnough>
             The KB's topic map needs at least {MIN_CONCEPTS} concepts; it has {pair.map.concepts}.{" "}
             {own} <ListLink view="ao-kb.concepts">List the concepts</ListLink>.
           </NotEnough>
-        ) : topics.length ? (
-          <>
-            <TopicMap
-              site={site}
-              scope={scope.topics}
-              mark={scope.mark}
-              label="Where it sits on the topic map"
-            />
-            <p className="rz-caption">
-              {mapCaption} Faint circles are the rest of the KB; lines are the Related Concepts
-              people recorded.
-            </p>
-          </>
+        ) : pair.map.missing === "no-concept" ? (
+          <NotEnough>
+            This record's scope holds no concept, so there is nothing to place on the map.{" "}
+            <GapLink id="assertion-no-concept">Assertions in no concept</GapLink> ·{" "}
+            <ListLink view="ao-kb.overview">The KB's topic map</ListLink>.
+          </NotEnough>
+        ) : pair.map.missing === "alone" ? (
+          <NotEnough>
+            {own} No other concept falls inside its crop of the KB overview's map, so there is
+            nothing to place it against.{" "}
+            <ListLink view="ao-kb.overview">See it on the KB's topic map</ListLink>.
+          </NotEnough>
         ) : (
-          <p className="ak-empty">{mapCaption}</p>
+          pair.map.hood && (
+            <>
+              <TopicMap
+                site={site}
+                scope={scope.topics}
+                mark={scope.mark}
+                label="Where it sits on the topic map"
+              />
+              <p className="rz-caption">
+                {mapCaption} {drawnCaption(pair.map.hood)}
+              </p>
+            </>
+          )
         )}
       </Section>
       <Section title="When its sources are dated">

@@ -1,10 +1,12 @@
 // The topic map (SPEC-0135 R4): one node per concept at the library's deterministic positions.
 // On the KB overview every placed name is drawn; the scoped neighbourhood crops the same
-// positions to a record's scope, keeps the overview's encoding for in-scope nodes, and draws
-// the rest faint and neutral without labels.
+// positions to a record's scope, keeps the overview's encoding for in-scope nodes, draws the
+// other nodes inside the crop faint and neutral without labels, and draws only lines whose two
+// ends it draws.
 import { nodeHref, usePageNavigation } from "@rhizome/kit";
 import type { ViewNodeRef } from "@rhizome/kit";
-import { cropBox, layout } from "../lib/site.ts";
+import { layout } from "../lib/site.ts";
+import { neighbourhood } from "../lib/neighbourhood.ts";
 import type { MapNode, Site } from "../lib/site.ts";
 import { KIND_GROUPS, cmp, groupOf } from "../lib/kinds.ts";
 import { ChartBox, kindColor, useChart } from "./chart.tsx";
@@ -66,7 +68,8 @@ export function TopicMap({
   const { openNode } = usePageNavigation();
   const order = scope ? l.order.filter((i) => scope.has(l.nodes[i].path)) : l.order;
   const chart = useChart(order.length);
-  const box = scope ? cropBox(l, scope) : null;
+  const hood = scope ? neighbourhood(l, scope) : null;
+  const box = hood?.box;
   const scale = box ? box.w / SCOPED_WIDTH : 1;
   const hotNode = chart.hot === null ? null : l.nodes[order[chart.hot]];
   const near = hotNode ? new Set([hotNode.path, ...(site.related.get(hotNode.path) ?? [])]) : null;
@@ -87,7 +90,7 @@ export function TopicMap({
         style={{ maxWidth: scope ? SCOPED_WIDTH : l.width }}
         data-hover={near ? "" : undefined}
       >
-        {l.edges.map(([a, b]) => {
+        {(hood?.edges ?? l.edges).map(([a, b]) => {
           const pa = l.nodes[a],
             pb = l.nodes[b];
           const on = inScope(pa.path) && inScope(pb.path);
@@ -112,6 +115,7 @@ export function TopicMap({
           const n = l.nodes[i],
             k = order.indexOf(i),
             on = inScope(n.path);
+          if (hood && !hood.drawn.has(n.path)) return null;
           const dim = near && !near.has(n.path);
           const body = on ? (
             <Node n={n} />

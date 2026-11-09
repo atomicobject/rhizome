@@ -9,6 +9,7 @@ import type { Assertion as EvidenceAssertion, Source as EvidenceSource } from ".
 import { paragraphs } from "./prose.ts";
 import { KIND_GROUPS, KNOWN_CONFIDENCE, cmp, groupOf, isStored, kindConflict } from "./kinds.ts";
 import type { GroupId } from "./kinds.ts";
+import { neighbourhood } from "./neighbourhood.ts";
 
 // ---- Inputs: the orientation query's fields (R5) and the scope reads' (R2, R5) ----
 export type Link = { path: string };
@@ -296,23 +297,6 @@ export function layout(site: Site): Layout {
   return result;
 }
 
-/** The scoped neighbourhood's view box: the overview's positions cropped to the in-scope
- * nodes and their labels, never a rerun layout. Null when nothing is in scope. */
-export function cropBox(l: Layout, inScope: Set<string>, aspect = 2.6) {
-  const xs: number[] = [], ys: number[] = [];
-  for (const nd of l.nodes) {
-    if (!inScope.has(nd.path)) continue;
-    xs.push(nd.x - nd.r - 10, nd.x + nd.r + 10, nd.label.x, nd.label.x + nd.label.w);
-    ys.push(nd.y - nd.r - 10, nd.y + nd.r + 10, nd.label.y, nd.label.y + nd.label.h);
-  }
-  if (!xs.length) return null;
-  const x0 = Math.min(...xs) - 30, x1 = Math.max(...xs) + 30, y0 = Math.min(...ys) - 16, y1 = Math.max(...ys) + 16;
-  let w = Math.min(l.width, Math.max(x1 - x0, 320)), h = Math.max(y1 - y0, w / aspect);
-  if (h > (w / aspect) * 1.6) w = Math.min(l.width, (h * aspect) / 1.6);
-  h = Math.max(h, w / aspect);
-  return { x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - h / 2, w, h };
-}
-
 // ---- Sources by date (R4) ----
 const DAY = 864e5, stamp = (day: string) => Date.parse(`${day}T00:00:00Z`);
 /** One time domain for the site. A long empty stretch becomes an axis break; nothing is trimmed. */
@@ -467,13 +451,17 @@ export function artifactScope(site: Site, read: ArtifactRead, followUpReads: Cit
   return { supported, unresolved, links, concepts, topics: new Set(uniq([...concepts, ...conceptsOfAll(site, [...supported, ...links])])), sources: new Set(sources) };
 }
 
-/** The scoped pair's two halves, each with its "not enough to draw yet" state and the record's own counts. */
+/** The scoped pair's two halves, each with its "not enough to draw yet" state and the record's own
+ * counts. The map is not enough when the KB's map is not (`kb-map`), the scope holds no concept
+ * (`no-concept`), or its crop would draw one node with nothing to place it against (`alone`). */
 export function scopedPair(site: Site, scope: Scope) {
   const can = drawable(site), inScope = [...scope.topics];
+  const hood = can.map ? neighbourhood(layout(site), scope.topics) : null;
+  const missing = !can.map ? "kb-map" : !hood ? "no-concept" : hood.drawn.size < 2 ? "alone" : null;
   const dated = [...scope.sources].filter((s) => site.dates.get(s)?.date).sort((a, b) => cmp(site.dates.get(a)!.date!, site.dates.get(b)!.date!) || cmp(a, b));
   const undated = [...scope.sources].filter((s) => !site.dates.get(s)?.date).sort(cmp);
   return {
-    map: can.map ? { drawable: true as const, inScope, box: cropBox(layout(site), scope.topics) } : { drawable: false as const, inScope, concepts: site.concepts.length },
+    map: { drawable: !missing, missing, inScope, concepts: site.concepts.length, hood },
     strip: { drawable: can.timeline, datedInKb: site.dated.length, dated, undated },
   };
 }

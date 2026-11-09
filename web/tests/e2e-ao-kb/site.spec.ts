@@ -322,3 +322,40 @@ test("records opened in new tabs share one experience frame, and each tab return
   expect(await frameIdentity(page)).toBe(identity);
   expect(errors).toEqual([]);
 });
+
+const scopedMap = (page: Page, path: string, view: string) =>
+  page
+    .goto(`/notes?note=${encodeURIComponent(path)}&presentation=ao-kb.${view}`)
+    .then(() => frame(page).getByRole("region", { name: "Where it sits on the topic map" }));
+
+test("a scoped map's caption names only what it draws", async ({ page }) => {
+  const section = await scopedMap(page, "concepts/timetable.md", "concept");
+  const map = section.locator("svg");
+  await expect(map.locator("a.ak-mark")).toHaveCount(3);
+  await expect(map.locator(".ak-node-faint")).toHaveCount(0);
+  await expect(map.locator("line")).toHaveCount(2);
+  const caption = section.locator(".rz-caption");
+  await expect(caption).toContainText(
+    "Lines are the Related Concepts people recorded between the concepts drawn.",
+  );
+  await expect(caption).toContainText("1 other concept of the KB lies outside this crop.");
+  await expect(caption).not.toContainText("faint");
+});
+
+// Weather has no Related Concepts and sits apart; storm-briefing is cited by no assertion in a
+// concept; fare-review's scope is one concept with nothing near it.
+for (const [path, view, text] of [
+  ["concepts/weather.md", "concept", "No other concept falls inside its crop"],
+  ["artifacts/reviews/fare-review.md", "artifact", "No other concept falls inside its crop"],
+  ["sources/meetings/storm-briefing.md", "source", "This record's scope holds no concept"],
+] as const) {
+  test(`${path} has nothing to draw on its scoped map, and says why`, async ({ page }) => {
+    const section = await scopedMap(page, path, view);
+    const note = section.getByRole("note");
+    await expect(note).toContainText("Not enough to draw yet");
+    await expect(note).toContainText(text);
+    await expect(section.locator("svg")).toHaveCount(0);
+    await note.getByRole("link", { name: /the KB's topic map/i }).click();
+    await expect(page).toHaveURL(/presentation=ao-kb.overview/);
+  });
+}

@@ -8,7 +8,6 @@ import {
   buildSite,
   citationState,
   conceptScope,
-  cropBox,
   drawable,
   gap,
   GAPS,
@@ -25,6 +24,7 @@ import {
   timeline,
   tintPercent,
 } from "../../templates/starters/ao-kb/module/views/knowledge/lib/site.ts";
+import { cropBox, neighbourhood } from "../../templates/starters/ao-kb/module/views/knowledge/lib/neighbourhood.ts";
 import { breakdown, groupOf } from "../../templates/starters/ao-kb/module/views/knowledge/lib/kinds.ts";
 import { citations } from "../../templates/starters/ao-kb/module/views/knowledge/lib/knowledge.ts";
 
@@ -135,10 +135,14 @@ test("every not-enough-to-draw threshold, including each half of the scoped pair
 
   const three = buildSite(kb({ assertion: [A("a")], concept: [C("x", { inn: ["a"] }), C("y"), C("z")], source: ["01", "02", "03"].map((d) => S(`sources/2024-01-${d}-s.md`)) }));
   assert.deepEqual(drawable(three), { map: true, timeline: true, matrix: true });
-  const ok = scopedPair(three, { topics: new Set(["concepts/x.md"]), sources: new Set() });
+  const ok = scopedPair(three, { topics: new Set(["concepts/x.md", "concepts/y.md"]), sources: new Set() });
   assert.equal(ok.map.drawable, true);
-  assert.ok(ok.map.box.w > 0);
+  assert.equal(ok.map.missing, null);
+  assert.ok(ok.map.hood.box.w > 0);
   assert.equal(ok.strip.drawable, true);
+  // A scope with no concept has nothing to place on the map.
+  const none = scopedPair(three, { topics: new Set(), sources: new Set() });
+  assert.deepEqual([none.map.drawable, none.map.missing, none.map.hood], [false, "no-concept", null]);
   const noMembers = buildSite(kb({ assertion: [A("a")], concept: [C("x"), C("y"), C("z")] }));
   assert.equal(drawable(noMembers).matrix, false);
 });
@@ -310,6 +314,28 @@ test("topic map radii, hollow nodes, arcs threshold, height bounds, and the scop
   const box = cropBox(l, new Set(["concepts/big.md"]));
   assert.ok(box.x <= node("big").x - node("big").r && box.x + box.w >= node("big").x + node("big").r);
   assert.equal(cropBox(l, new Set()), null);
+});
+
+test("the scoped crop reports exactly what it draws, and a lone node is nothing to draw", () => {
+  const node = (name, x, y, r = 8) => ({ path: `concepts/${name}.md`, x, y, r, label: { x: x + r + 4, y: y - 8, w: 40, h: 16 } });
+  // a and its neighbour b sit together; c is far away; the box is at least 320 wide.
+  const l = { width: 760, height: 680, nodes: [node("a", 100, 100), node("b", 180, 120), node("c", 700, 600)], edges: [[0, 1], [0, 2], [1, 2]] };
+  const near = neighbourhood(l, new Set(["concepts/a.md"]));
+  assert.deepEqual([...near.drawn], ["concepts/a.md", "concepts/b.md"]);
+  assert.deepEqual(near.faint, ["concepts/b.md"]);
+  assert.deepEqual(near.edges, [[0, 1]], "a line to a node outside the crop is not drawn");
+  assert.equal(near.outside, 1);
+  assert.deepEqual(near.box, cropBox(l, new Set(["concepts/a.md"])));
+  const alone = neighbourhood(l, new Set(["concepts/c.md"]));
+  assert.deepEqual([[...alone.drawn], alone.faint, alone.edges, alone.outside], [["concepts/c.md"], [], [], 2]);
+  assert.equal(neighbourhood(l, new Set()), null);
+
+  // Three concepts spread over the overview: one alone draws nothing to place it against, while
+  // a concept page's scope (it and its Related Concepts) draws both.
+  const site = buildSite(kb({ assertion: [A("a")], concept: [C("x", { inn: ["a"], related: ["y"] }), C("y"), C("z")] }));
+  const map = (...cs) => scopedPair(site, { topics: new Set(cs.map((c) => `concepts/${c}.md`)), sources: new Set() }).map;
+  assert.deepEqual(["x", "y", "z"].map((c) => [map(c).drawable, map(c).missing]), Array(3).fill([false, "alone"]));
+  assert.deepEqual([map("x", "y").missing, map("x", "y").hood.edges.length], [null, 1]);
 });
 
 test("short names cut at a word boundary past 30 characters", () => {
