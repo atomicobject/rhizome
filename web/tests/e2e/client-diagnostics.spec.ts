@@ -165,10 +165,10 @@ test("experience frames reach rzm diagnostics perf by hash, under the profiling 
       { timeout: 60000, intervals: [5000] },
     )
     .toEqual({
-      frames: 1,
-      // The fixture's views never call markReady, so there is no data-ready
-      // mark, and the kit marks module-loaded only for single-view shells.
-      phases: expect.arrayContaining(["first-render", "location-painted", "shell-start"]),
+      // The page frame, reused for the record, and the sidebar panel's frame.
+      frames: 2,
+      // The fixture's pages call useMarkReady, so every kit phase is sampled.
+      phases: ["data-ready", "first-render", "location-painted", "module-loaded", "shell-start"],
       region: true,
     });
 

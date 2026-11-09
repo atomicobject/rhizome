@@ -1,4 +1,5 @@
-import { openNode, setViewParams, useViewParams } from "@rhizome/kit";
+import { useEffect } from "react";
+import { openNode, setViewParams, useMarkReady, useViewParams } from "@rhizome/kit";
 
 // The frame's document start: the same for every page one experience frame
 // renders, so a journey can tell a reused frame from a new one.
@@ -8,6 +9,9 @@ const claims = ["alpha", "beta", "gamma"];
 
 export default function ExperienceHome() {
   const { sort } = useViewParams();
+  const markReady = useMarkReady();
+  // The page reads nothing asynchronously, so its data is ready once it renders.
+  useEffect(() => markReady(), [markReady]);
 
   return (
     <main>

@@ -1,4 +1,5 @@
-import { setViewParams, useViewContext, useViewParams } from "@rhizome/kit";
+import { useEffect } from "react";
+import { setViewParams, useMarkReady, useViewContext, useViewParams } from "@rhizome/kit";
 
 // The frame's document start: the same for every page one experience frame
 // renders, so a journey can tell a reused frame from a new one.
@@ -8,6 +9,9 @@ export default function ClaimPage() {
   const context = useViewContext();
   const { section } = useViewParams();
   const path = context.kind === "node" ? context.ref.notePath : "";
+  const markReady = useMarkReady();
+  // The page reads nothing asynchronously, so its data is ready once it renders.
+  useEffect(() => markReady(), [markReady]);
 
   return (
     <main>
