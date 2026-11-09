@@ -15,6 +15,7 @@ import {
 import { isPlainObject, isString } from "../src/api/parse";
 import {
   CLOSE_PAGE_MESSAGE,
+  FRAME_READY_MESSAGE,
   LOCATION_ACCEPTED_MESSAGE,
   LOCATION_MESSAGE,
   LOCATION_RENDERED_MESSAGE,
@@ -186,7 +187,10 @@ export function createExperienceFrame(options: FrameOptions) {
     if (!isString(tabId) || !isString(navigationId)) return;
     post({ type: LOCATION_ACCEPTED_MESSAGE, tabId, navigationId });
 
-    if (isString(message.generation)) generation.set(message.generation);
+    // Only a frame without a generation takes one from a location: the host's
+    // cached invocation can trail what this frame has already applied.
+    if (isString(message.generation) && generation.current() === undefined)
+      generation.set(message.generation);
 
     const raw = isPlainObject(message.invocation) ? message.invocation : {};
     const existing = state.pages.find((each) => each.tabId === tabId);
@@ -291,6 +295,8 @@ export function createExperienceFrame(options: FrameOptions) {
   };
 
   window.addEventListener("message", onMessage);
+  // The host posts the first location only after this, so none is lost.
+  post({ type: FRAME_READY_MESSAGE });
 
   const rendered = new Set<string>();
 

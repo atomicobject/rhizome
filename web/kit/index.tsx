@@ -65,6 +65,8 @@ export {
 } from "./viewParams";
 
 import {
+  EXPERIENCE_FRAME_PARAM,
+  EXPERIENCE_FRAME_VALUE,
   OPEN_NOTE_MESSAGE,
   VIEW_RENDERED_MESSAGE,
   type IssueScope,
@@ -381,9 +383,15 @@ export async function mountView(load: () => Promise<ViewModule>, view: ViewConfi
 
   if (!container) throw new Error("mountView needs an element with id root");
 
+  const experience =
+    embedded &&
+    new URLSearchParams(window.location.search).get(EXPERIENCE_FRAME_PARAM) ===
+      EXPERIENCE_FRAME_VALUE;
+
   // A framing workspace keeps the view it shows until this one has drawn:
   // "starting" tells it to wait for the rendered message, not the page load.
-  document.documentElement.dataset.rhizomeView = "starting";
+  // An experience frame announces readiness and each page's paint instead.
+  if (!experience) document.documentElement.dataset.rhizomeView = "starting";
 
   if (embedded) {
     reportPhasesToHost();
@@ -392,11 +400,14 @@ export async function mountView(load: () => Promise<ViewModule>, view: ViewConfi
 
   await startView(load, view, {
     hosted: embedded,
-    render: (element) => createRoot(container).render(<FirstRender>{element}</FirstRender>),
+    experience,
+    render: (element) =>
+      createRoot(container).render(experience ? element : <FirstRender>{element}</FirstRender>),
     reload: () => window.location.reload(),
   });
+
   // A module that mounts itself has done so by now.
-  announceRendered();
+  if (!experience) announceRendered();
 }
 
 function announceRendered() {

@@ -33,6 +33,11 @@ export type ViewModule = { default?: ComponentType<ViewModuleProps & { view: Vie
 export type ViewStartup = {
   /** True when the workspace frames the view and forwards its events. */
   hosted: boolean;
+  /**
+   * True when a hosted shell's URL asks for an experience or panel frame
+   * (`frame=experience`); the shell then renders pages from location messages.
+   */
+  experience?: boolean;
   /** Called at most once, with the view or the reason it could not start. */
   render: (element: ReactElement) => void;
   reload: () => void;
@@ -175,6 +180,10 @@ export async function startView(
   view: ViewConfig,
   startup: ViewStartup,
 ) {
+  // The workspace renders an experience's views as pages of one frame when it
+  // asks for one; any other shell, experience view or not, is a single page.
+  if (startup.hosted && startup.experience) return startExperienceFrame(load, view, startup);
+
   let invocation: KitViewInvocation | Error;
 
   try {
@@ -182,14 +191,6 @@ export async function startView(
   } catch (error) {
     invocation = asError(error);
   }
-
-  // The workspace renders an experience's views as pages of one frame.
-  if (
-    startup.hosted &&
-    !(invocation instanceof Error) &&
-    invocation.view.experienceKey !== undefined
-  )
-    return startExperienceFrame(load, view, startup);
 
   return startPage(load, view, startup, invocation);
 }
