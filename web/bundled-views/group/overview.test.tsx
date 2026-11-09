@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { expect, it } from "vitest";
+import { beforeAll, expect, it } from "vitest";
 
 import {
   OPEN_COLLECTION_MESSAGE,
@@ -19,6 +19,14 @@ import { PATHS, PLANNING_GUIDE } from "./__fixtures__/groups.ts";
 import { fixtureModel, renderGroupView, scopeRoutes } from "./__fixtures__/harness.tsx";
 
 const loadOverview = () => import("./overview.tsx");
+
+// WHY: the first import transforms the overview's whole module graph, which
+// under parallel load costs the first test up to a second of its 5 s limit;
+// later tests only re-evaluate it. Transforming it here keeps that out of the
+// tests (renderGroupView resets modules, but Vite's transforms persist).
+beforeAll(async () => {
+  await loadOverview();
+});
 
 const WORKSPACE = { kind: "workspace" } as const;
 
