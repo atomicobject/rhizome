@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -110,6 +111,9 @@ func TestViewInvocationCarriesExperienceKeyAndGeneration(t *testing.T) {
 	}
 	if page.View.ExperienceKey == "" || page.Context.Group != "Knowledge" {
 		t.Fatalf("page invocation: %+v", page)
+	}
+	if page.Entry == "" || page.Check == "" || !strings.Contains(page.Check, customViewCheckPrefix) {
+		t.Fatalf("an experience frame loads a page from its entry and check URLs: %+v", page)
 	}
 	rec = getInvocation(srv, "site.panel", `{"kind":"group","group":"Knowledge"}`)
 	if err := json.Unmarshal(rec.Body.Bytes(), &panel); err != nil {

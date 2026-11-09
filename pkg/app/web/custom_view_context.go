@@ -39,6 +39,11 @@ type customViewInvocation struct {
 	Params         []viewconfig.ViewParam `json:"params,omitempty"`
 	VaultKey       string                 `json:"vaultKey,omitempty"`
 	PreferenceSlot string                 `json:"preferenceSlot,omitempty"`
+	// Entry and Check are the view's module URL and its load-error check URL.
+	// Only the invocation route sets them: an experience frame loads a page
+	// from them, while the view shell carries both in its own settings.
+	Entry string `json:"entry,omitempty"`
+	Check string `json:"check,omitempty"`
 }
 type customViewIdentity struct {
 	ID     string            `json:"id"`

@@ -58,10 +58,34 @@ func (s *Server) handlePublicViewInvocation(w http.ResponseWriter, r *http.Reque
 		writePublicError(w, http.StatusBadRequest, PublicErrorBadRequest, err)
 		return
 	}
+	if viewconfig.IsScriptEntry(def.SourceSpec.Entry) {
+		invocation.Entry = customViewEntryURL(s, def)
+		if invocation.Check, err = s.customViewCheckURL(def); err != nil {
+			writePublicError(w, http.StatusNotFound, PublicErrorNotFound, err)
+			return
+		}
+	}
 	if generation != "" {
 		w.Header().Set("Rhizome-Generation", generation)
 	}
 	writeJSON(w, http.StatusOK, invocation)
+}
+
+// customViewCheckURL is the load-error check route for the folder holding a
+// view's definition, as the view shell gives it to its page.
+func (s *Server) customViewCheckURL(def viewconfig.ViewDefinition) (string, error) {
+	folderRel, err := s.customViewFolder(def)
+	if err != nil {
+		return "", errors.New("custom view is outside the views folder")
+	}
+	folder := escapeURLPath(folderRel)
+	if folderRel == "." {
+		folder = ""
+	}
+	if def.Origin == viewconfig.OriginBundled {
+		return "/views/" + customViewBundledPrefix + customViewCheckPrefix + folder, nil
+	}
+	return definitionRoot(def).prefix() + customViewCheckPrefix + folder, nil
 }
 
 // checkPanelMount passes a panel view exactly when R6 resolves the context's
