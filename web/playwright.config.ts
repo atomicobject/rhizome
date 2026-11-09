@@ -27,6 +27,15 @@ export default defineConfig({
       testMatch: /html-notes\.spec\.ts/,
       dependencies: ["workspace"],
     },
+    // Rhizome Desktop renders in WKWebView. JavaScriptCore differs from V8 in
+    // ways the frames' protocol depends on (proper tail calls change a
+    // message's event.source), so the experience and board specs run here too.
+    {
+      name: "webkit",
+      testMatch: /(type-(board|cards)|experience-(frames|panel)|client-diagnostics)\.spec\.ts/,
+      // The host-resolver flag is Chromium-only.
+      use: { browserName: "webkit", launchOptions: { args: [] } },
+    },
   ],
   use: {
     baseURL: `http://127.0.0.1:${port}`,

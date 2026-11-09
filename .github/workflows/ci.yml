@@ -351,9 +351,9 @@ jobs:
         working-directory: web
         run: npm run generate:api
 
-      - name: Install Playwright Chromium
+      - name: Install Playwright Chromium and WebKit
         working-directory: web
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Run web e2e
         run: make web-e2e

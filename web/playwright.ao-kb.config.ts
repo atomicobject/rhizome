@@ -59,6 +59,17 @@ export default defineConfig({
       testMatch: /(site|panel)\.spec\.ts/,
       use: { ...use, baseURL: `http://127.0.0.1:${sitePort}` },
     },
+    // The desktop's engine (see playwright.config.ts).
+    {
+      name: "legacy-webkit",
+      testMatch: /(site|panel)\.spec\.ts/,
+      use: {
+        ...use,
+        baseURL: `http://127.0.0.1:${sitePort}`,
+        browserName: "webkit" as const,
+        launchOptions: { args: [] },
+      },
+    },
   ],
   webServer: [
     server(port, "testdata/ao-kb/booking"),
