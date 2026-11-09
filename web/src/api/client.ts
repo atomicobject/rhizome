@@ -320,24 +320,24 @@ async function apiErrorFromResponse(res: Response, url: string, signal?: AbortSi
   return new ApiError(fallback, { status: res.status, url });
 }
 
+function postInit<TRequest extends object>(body: TRequest, options: RequestOptions = {}) {
+  return {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    signal: options.signal,
+  } satisfies RequestInit;
+}
+
 function postJSON<TRequest extends object, TResponse>(
   url: string,
   body: TRequest,
   options: RequestOptions = {},
   retryRead = false,
 ) {
-  return fetchJSON<TResponse>(
-    url,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: options.signal,
-    },
-    retryRead,
-  );
+  return fetchJSON<TResponse>(url, postInit(body, options), retryRead);
 }
 
 async function postJSONAllowConflict<TRequest extends object, TResponse>(
@@ -638,16 +638,31 @@ export function getPublicView(id: string) {
   return fetchJSON<ViewCatalogEntry>(`/api/v1/views/${encodeURIComponent(id)}`);
 }
 
-export function executePublicView(
+export async function executePublicView(
   id: string,
   body: ViewExecuteRequest = {},
   options?: PublicReadOptions,
 ) {
-  return postJSON<ViewExecuteReadRequest, ViewExecuteResponse>(
-    `/api/v1/views/${encodeURIComponent(id)}/execute`,
-    withEditSessionSnapshot(body, options),
-    options,
-  );
+  return (await executePublicViewWithGeneration(id, body, options)).data;
+}
+
+/** A view execution and the index generation it was read at, from the Rhizome-Generation header (SPEC-0136 R4). */
+export async function executePublicViewWithGeneration(
+  id: string,
+  body: ViewExecuteRequest = {},
+  options?: PublicReadOptions,
+): Promise<{ data: ViewExecuteResponse; generation?: string }> {
+  const url = `/api/v1/views/${encodeURIComponent(id)}/execute`;
+  const request: ViewExecuteReadRequest = withEditSessionSnapshot(body, options);
+  const init = postInit(request, options);
+  const res = await fetchWithRetryAfter(url, init);
+
+  if (!res.ok) throw await apiErrorFromResponse(res, url, init.signal);
+
+  const generation = res.headers?.get?.("Rhizome-Generation") ?? undefined;
+  const data = await parseJSONResponse<ViewExecuteResponse>(res, url, init.signal);
+
+  return generation ? { data, generation } : { data };
 }
 
 /** Writes view state to view YAML (SPEC-0112); 400 for an invalid result, 409 for a stale fingerprint. */

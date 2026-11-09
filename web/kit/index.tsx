@@ -10,7 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
-import { executePublicView, queryPublicGraphQLOperation } from "../src/api/client";
+import { executePublicViewWithGeneration, queryPublicGraphQLOperation } from "../src/api/client";
 import type { JsonObject } from "../src/api/parse";
 import type { PublicGraphQLError } from "../src/api/publicGraphQLTypes";
 import { recordResponse, shareResponse } from "./coverage";
@@ -334,7 +334,25 @@ export function useSetField(readSession?: StagedSession) {
 
 /** Execute an existing native view definition through Rhizome's shared row executor. */
 export function executeView(id: string, request: ViewExecuteRequest = {}) {
-  return executePublicView(id, request);
+  return readViewRows(id, request, null);
+}
+
+// View rows name their generation in a header and follow the same rule as GraphQL reads.
+async function readViewRows(
+  id: string,
+  request: ViewExecuteRequest,
+  editSession: StagedSession,
+  signal?: AbortSignal,
+) {
+  const { data, generation } = await frameGeneration.read(async () => {
+    const response = await executePublicViewWithGeneration(id, request, { signal, editSession });
+
+    return { data: response, generation: response.generation };
+  }, signal);
+
+  recordResponse(data, generation === undefined ? undefined : { generation });
+
+  return data;
 }
 
 /** Native rows with the same staged edit-session and query-cache behavior as GraphQL reads. */
@@ -360,7 +378,7 @@ export function useViewRows(
       ...queryOptions,
       subscribed: active && queryOptions.subscribed !== false,
     },
-    queryFn: ({ signal, editSession }) => executePublicView(id, request, { signal, editSession }),
+    queryFn: ({ signal, editSession }) => readViewRows(id, request, editSession, signal),
   });
 
   return {

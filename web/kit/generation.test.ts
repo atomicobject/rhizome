@@ -127,6 +127,29 @@ describe("the frame generation rule", () => {
     expect(pending()).toHaveLength(0);
   });
 
+  it("refetches once a query without a generation that was in flight when the generation moved", async () => {
+    const replies: Array<(data: { rows: string }) => void> = [];
+
+    const observer = new QueryObserver(client, {
+      queryKey: ["plain"],
+      queryFn: () => new Promise<{ rows: string }>((resolve) => replies.push(resolve)),
+    });
+
+    stops.push(observer.subscribe(() => undefined));
+    await vi.advanceTimersByTimeAsync(0);
+
+    frame.set("G1");
+    replies[0]({ rows: "before G1" });
+    await settle();
+    expect(replies).toHaveLength(2);
+
+    replies[1]({ rows: "after G1" });
+    await settle();
+    await settle();
+    expect(replies).toHaveLength(2);
+    expect(observer.getCurrentResult().data).toEqual({ rows: "after G1" });
+  });
+
   it("applies two concurrent G1 responses with no refetch", async () => {
     frame.set("G0");
     await settle();

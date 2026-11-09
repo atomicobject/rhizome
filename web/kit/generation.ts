@@ -6,7 +6,9 @@
 // dropped and read once more; that second response is applied whatever it
 // says, so a burst of writes delays a query but never starves it. Whenever the
 // generation moves, every visible idle query answered at another generation
-// refetches once, coalesced into one batch.
+// refetches once, coalesced into one batch. A query whose responses name no
+// generation is behind when it last settled before the move, or when its fetch
+// was in flight at the move, since that response may predate it.
 import type { Query, QueryClient } from "@tanstack/react-query";
 
 import { isValidationSnapshotQuery } from "../src/api/queryKeys";
@@ -49,6 +51,8 @@ export function createFrameGeneration(): FrameGeneration {
   let burstStart: number | undefined;
   let waiters: Array<() => void> = [];
   const clients = new Set<QueryClient>();
+  // Queries with a fetch in flight when the generation last moved.
+  let racing = new WeakSet<Query>();
 
   const behind = (query: Query) => {
     if (isValidationSnapshotQuery(query)) return false;
@@ -57,7 +61,17 @@ export function createFrameGeneration(): FrameGeneration {
 
     if (answered !== undefined) return answered !== current;
 
-    return Math.max(query.state.dataUpdatedAt, query.state.errorUpdatedAt) < movedAt;
+    return (
+      racing.has(query) || Math.max(query.state.dataUpdatedAt, query.state.errorUpdatedAt) < movedAt
+    );
+  };
+
+  // A racing query without a generation is judged once it settles.
+  const settled = (query: Query) => {
+    if (!racing.has(query)) return;
+
+    if (responseGeneration(query.state.data) === undefined) schedule();
+    else racing.delete(query);
   };
 
   const flush = () => {
@@ -73,7 +87,14 @@ export function createFrameGeneration(): FrameGeneration {
       void client.refetchQueries(
         {
           type: "active",
-          predicate: (query) => query.state.fetchStatus === "idle" && behind(query),
+          predicate: (query) => {
+            if (query.state.fetchStatus !== "idle" || !behind(query)) return false;
+
+            // Refetched now, after the move, so it is no longer racing.
+            racing.delete(query);
+
+            return true;
+          },
         },
         { cancelRefetch: false },
       );
@@ -91,6 +112,12 @@ export function createFrameGeneration(): FrameGeneration {
     if (generation === undefined || generation === current) return;
     current = generation;
     movedAt = Date.now();
+    racing = new WeakSet();
+
+    for (const client of clients)
+      for (const query of client.getQueryCache().getAll())
+        if (query.state.fetchStatus === "fetching") racing.add(query);
+
     schedule();
   };
 
@@ -139,7 +166,15 @@ export function createFrameGeneration(): FrameGeneration {
     attach: (queryClient) => {
       clients.add(queryClient);
 
-      return () => clients.delete(queryClient);
+      const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+        if (event.type === "updated" && ["success", "error"].includes(event.action.type))
+          settled(event.query);
+      });
+
+      return () => {
+        unsubscribe();
+        clients.delete(queryClient);
+      };
     },
     stop: () => {
       clearTimeout(timer);
