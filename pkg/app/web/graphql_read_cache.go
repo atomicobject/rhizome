@@ -274,9 +274,9 @@ func graphQLFieldKey(parent *ast.Definition, name string) string {
 
 // selectionReadsNoteFiles reports whether set selects, at any depth, a field
 // read from note files: a built-in field outside graphQLIndexFields, or an
-// authored field the index does not hold (sections, ambient and reverse
-// relations, and fields without an indexed query capability), mirroring the
-// query layer's projection rule.
+// authored field the index does not hold (sections, relations the executor
+// resolves from note files, and fields without an indexed query capability),
+// mirroring the query layer's projection rule.
 func selectionReadsNoteFiles(schema *ontoschema.Schema, doc *ast.QueryDocument, set ast.SelectionSet) bool {
 	reads := false
 	visitGraphQLFields(doc, set, func(field *ast.Field) {
@@ -284,7 +284,7 @@ func selectionReadsNoteFiles(schema *ontoschema.Schema, doc *ast.QueryDocument, 
 			return
 		}
 		if authored := authoredGraphQLField(schema, field); authored != nil {
-			if !authoredFieldIndexed(schema, authored) {
+			if !authoredFieldIndexed(schema, field.ObjectDefinition, authored) {
 				reads = true
 				return
 			}
@@ -331,11 +331,16 @@ func isNoteDefinition(def *ast.Definition) bool {
 	return slices.Contains(def.Interfaces, "NoteNode") || slices.Contains(def.Interfaces, "Note")
 }
 
-func authoredFieldIndexed(schema *ontoschema.Schema, field *ontoschema.Field) bool {
+func authoredFieldIndexed(schema *ontoschema.Schema, parent *ast.Definition, field *ontoschema.Field) bool {
 	switch field.Kind {
 	case ontoschema.FieldKindScalar, ontoschema.FieldKindEnum, ontoschema.FieldKindLink:
 		_, ok := ontoschema.FieldQueryCapabilityForField(schema, field)
 		return ok
+	case ontoschema.FieldKindNeighbor, ontoschema.FieldKindReverse:
+		// Only a concrete note type's own field: a section resolves relations
+		// from its projection, and an abstract parent may be a section.
+		return parent.Kind == ast.Object && isNoteDefinition(parent) && schema.Types[parent.Name] != nil &&
+			ontologyquery.NoteRelationReadsIndexOnly(schema, field)
 	}
 	return false
 }

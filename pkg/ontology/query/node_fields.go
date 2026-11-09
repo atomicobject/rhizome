@@ -37,6 +37,27 @@ func NoteBuiltinFieldPrecedes(name string) bool {
 	return noteBuiltinFields[name]
 }
 
+// NoteRelationReadsIndexOnly reports whether a note node resolves the authored
+// relation field from the index's edges alone. An ambient @neighbors list
+// reads indexed body-link and backlink edges (resolveNeighborField), and a
+// @reverse list onto a note type reads indexed structural edges and hydrates
+// note records from the index (resolveReverseField). A SUBTREE neighbor scans
+// section bodies, and a reverse list whose targets may be sections, embedded
+// nodes, or records projects them from their note files (rootSection).
+func NoteRelationReadsIndexOnly(schema *ontoschema.Schema, field *ontoschema.Field) bool {
+	if schema == nil || field == nil || !field.List {
+		return false
+	}
+	switch field.Kind {
+	case ontoschema.FieldKindNeighbor:
+		return field.Scope != ontoschema.NeighborScopeSubtree
+	case ontoschema.FieldKindReverse:
+		target := schema.Types[field.TypeName]
+		return target != nil && target.Role == ontoschema.TypeRoleNote && target.Record == nil
+	}
+	return false
+}
+
 func (e *executor) resolveNodeField(ctx context.Context, node *noteRecord, field *ast.Field, path []string) (any, bool) {
 	if noteBuiltinFields[field.Name] {
 		return e.resolveNoteBuiltinField(ctx, node, field, path)

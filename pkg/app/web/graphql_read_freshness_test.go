@@ -100,6 +100,52 @@ func TestGraphQLReadCacheBypassesFieldsReadFromNoteFiles(t *testing.T) {
 	require.Zero(t, stats.Mismatches, "an index field read the changed file")
 }
 
+// A note type's ambient @neighbors and note-typed @reverse lists resolve from
+// the index's edges, so they are cached, and a read cached before the linking
+// notes change on disk equals a fresh one until the watcher's write moves the
+// generation (SPEC-0136 R4).
+func TestGraphQLReadCacheCachesNoteRelationsTheIndexHolds(t *testing.T) {
+	srv, fixture := newGraphQLReadCacheServer(t)
+	schemaFile := filepath.Join(fixture.root, ".rhizome", "ontology", "schema.graphql")
+	schema, err := os.ReadFile(schemaFile)
+	require.NoError(t, err)
+	declared := strings.Replace(string(schema), "  validation: Section @contains(level: H2, heading: \"Validation\", required: true)\n",
+		"  validation: Section @contains(level: H2, heading: \"Validation\", required: true)\n  taskLists: [Tasks!] @reverse(field: \"plan\")\n", 1)
+	declared = strings.Replace(declared, "  stories: StoriesSection @contains(level: H2, heading: \"Stories\")\n",
+		"  stories: StoriesSection @contains(level: H2, heading: \"Stories\")\n  linkedPlans: [Plan!] @neighbors(direction: OUTBOUND, type: \"Plan\")\n  linkingPlans: [Plan!] @neighbors(direction: INBOUND, type: \"Plan\")\n", 1)
+	require.NotEqual(t, string(schema), declared)
+	require.NoError(t, os.WriteFile(schemaFile, []byte(declared), 0o644))
+
+	query := `query {
+	  plan(first: 10) { path taskLists { path summary } }
+	  spec(first: 10) { path linkedPlans { path title } linkingPlans { path } }
+	}`
+	hash := readQueryHash("graphql", query, "")
+	payload := map[string]any{"query": query}
+	first := postGraphQL(t, srv, payload)
+	data := replyData(t, first)
+	spec := data["spec"].([]any)[0].(map[string]any)
+	require.NotEmpty(t, spec["linkedPlans"], string(first.body))
+	require.NotEmpty(t, spec["linkingPlans"], string(first.body))
+	require.NotEmpty(t, data["plan"].([]any)[0].(map[string]any)["taskLists"], string(first.body))
+
+	// Every hit is re-executed and compared after the links leave the files.
+	srv.reads.verifyRate = 1
+	for _, note := range []string{"spec.md", "plan.md"} {
+		require.NoError(t, os.WriteFile(filepath.Join(fixture.root, "specs", "100-demo", note), []byte("---\nsummary: No links now\n---\n# Unlinked\n"), 0o644))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(fixture.root, "specs", "100-demo", "tasks.md"), []byte("---\nsummary: No plan now\n---\n# Tasks\n"), 0o644))
+	hit := postGraphQL(t, srv, payload)
+	require.Equal(t, first.body, hit.body)
+	var flushed ReadCacheMetrics
+	srv.reads.record = func(metrics ReadCacheMetrics) { flushed = metrics }
+	srv.reads.Close()
+	stats := flushed.Queries[hash]
+	require.EqualValues(t, 1, stats.Hits, "%+v", stats)
+	require.Zero(t, stats.Bypasses, "%+v", stats)
+	require.Zero(t, stats.Mismatches, "a relation classified as indexed read the changed files")
+}
+
 // A note node resolves the built-in content field even when its type declares
 // one, so the classifier follows that precedence and never caches a body read
 // from disk as an indexed field.
