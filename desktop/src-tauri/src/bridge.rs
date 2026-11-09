@@ -1,4 +1,4 @@
-use crate::setup::{ScopeEdits, Secret, SetupChoices};
+use crate::setup::{ScopeEdits, Secret, SettingsChoices, SetupChoices};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{path::Path, process::Stdio, time::Duration};
@@ -41,6 +41,8 @@ pub struct Request<'a> {
     pub primary: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub setup: Option<&'a SetupChoices>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settings: Option<&'a SettingsChoices>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key: Option<&'a Secret>,
     #[serde(skip_serializing_if = "Option::is_none")]

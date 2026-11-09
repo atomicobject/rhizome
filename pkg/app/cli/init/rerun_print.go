@@ -212,6 +212,21 @@ func printPlanLines(out io.Writer, lines []planLine, all bool) {
 // printRerunResult reports what a rerun did, in the past tense.
 func (r *initRun) printRerunResult(plan rerunPlan, report syncReport) {
 	out := r.opts.Stdout
+	done := rerunDoneLines(plan, report)
+	fmt.Fprintln(out)
+	if len(done) == 0 && len(report.Kept) == 0 {
+		fmt.Fprintln(out, "Nothing changed.")
+	}
+	for _, line := range done {
+		fmt.Fprintf(out, "  %s %s\n", styleOK(out, "✓"), line)
+	}
+	printKeptAndWarnings(out, report)
+	warnEmbeddingsReadiness(r.opts.Env, plan.res.cfg, out)
+	warnCompressionReadiness(r.opts.Env, plan.res.cfg, out)
+}
+
+// rerunDoneLines are the past-tense lines a rerun reports after applying.
+func rerunDoneLines(plan rerunPlan, report syncReport) []string {
 	var done []string
 	for _, line := range append(append([]planLine{}, plan.settings...), plan.files...) {
 		if line.done != "" {
@@ -231,17 +246,7 @@ func (r *initRun) printRerunResult(plan rerunPlan, report syncReport) {
 			done = append(done, group.verb+" "+countNoun(n, group.noun)+group.suffix)
 		}
 	}
-	done = append(done, keptYourVersion(report.Declined)...)
-	fmt.Fprintln(out)
-	if len(done) == 0 && len(report.Kept) == 0 {
-		fmt.Fprintln(out, "Nothing changed.")
-	}
-	for _, line := range done {
-		fmt.Fprintf(out, "  %s %s\n", styleOK(out, "✓"), line)
-	}
-	printKeptAndWarnings(out, report)
-	warnEmbeddingsReadiness(r.opts.Env, plan.res.cfg, out)
-	warnCompressionReadiness(r.opts.Env, plan.res.cfg, out)
+	return append(done, keptYourVersion(report.Declined)...)
 }
 
 // keptYourVersion reports files a person kept, once per skill across agent

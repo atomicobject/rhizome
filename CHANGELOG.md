@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Rhizome Desktop's Settings has a tab for the repository the window shows, opened from the repository menu's Repository Settings…. It changes a set-up repository's workflow, add-ons, agents, and search provider, lists the files each change writes before anything is written, and applies them in one step. On a set-up folder, `rzm init --check --json` and `rzm init --json` now report and apply those settings instead of failing.
 - Optional `ao-kb` add-on reads an existing AO KB repository side by side with AO's own skills, which keep every write. It adds a Knowledge workspace (Attention, Concepts, Assertions, Knowledge trace) with honest evidence states, record pages for assertions, sources, and the selected product's model, and `check` and `refresh-bindings` actions that report install, binding, and index readiness separately.
 - YAML and JSON files named by an include become read-only typed records: keyed, mapping-key, composite, or positional identity, nested children, references, GraphQL queries, search with or without embeddings, and a native record reader. Bindings are declared with `@source(shape: RECORD, ...)`, `@contains`, and `@references`.
 - `.rhizome/source-ownership.yml` marks paths as owned by another tool. Rhizome refuses every write to them through the CLI, HTTP, GraphQL, MCP, and Obsidian URIs and shows the owner's reason in place of edit controls.

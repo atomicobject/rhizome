@@ -8,7 +8,7 @@ use crate::{
     pipeline,
     presence::Presence,
     security,
-    setup::{ScopeEdits, Secret, SetupChoices},
+    setup::{ScopeEdits, Secret, SettingsChoices, SetupChoices},
     state::{valid_id, Discovery, Library, Preferences},
     updater,
     windows::{self, Sessions},
@@ -145,6 +145,16 @@ pub enum Action {
         worktree: String,
         choices: SetupChoices,
         key: Option<Secret>,
+    },
+    SettingsReport {
+        id: String,
+        worktree: String,
+        choices: Option<SettingsChoices>,
+    },
+    SettingsApply {
+        id: String,
+        worktree: String,
+        choices: SettingsChoices,
     },
     Scope {
         id: String,
@@ -559,6 +569,40 @@ pub async fn desktop_request(
             )
             .await
         }
+        Action::SettingsReport {
+            id,
+            worktree,
+            choices,
+        } => {
+            worktree_action(
+                &state,
+                &id,
+                &worktree,
+                Request {
+                    operation: "settings-report",
+                    settings: choices.as_ref(),
+                    ..Request::default()
+                },
+            )
+            .await
+        }
+        Action::SettingsApply {
+            id,
+            worktree,
+            choices,
+        } => {
+            worktree_action(
+                &state,
+                &id,
+                &worktree,
+                Request {
+                    operation: "settings-apply",
+                    settings: Some(&choices),
+                    ..Request::default()
+                },
+            )
+            .await
+        }
         Action::Scope { id, worktree } => {
             worktree_action(
                 &state,
@@ -710,7 +754,7 @@ pub async fn desktop_request(
     }
 }
 
-/// Trust, setup, and scope run the worktree's selected executable only for a current
+/// Trust, setup, settings, and scope run the worktree's selected executable only for a current
 /// worktree of a saved repository.
 async fn worktree_action(
     state: &Desktop,

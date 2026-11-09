@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { THEMES } from "../../web/src/lib/themes";
 import { ProviderAccess } from "./ProviderAccess";
 import type { ProviderRuntime } from "./ProviderRoutes";
@@ -156,6 +156,17 @@ function Appearance({
   );
 }
 
+export type SettingsTab = "app" | "repository";
+
+/** The tab for the repository the window shows. */
+export interface RepositoryTab {
+  name: string;
+  branch?: string;
+  /** Changes on the tab that have not been applied. */
+  changed: boolean;
+  content: ReactNode;
+}
+
 export function Settings({
   info,
   link,
@@ -174,6 +185,9 @@ export function Settings({
   developmentBuilds = [],
   providerRuntimes = [],
   onProviderRestart,
+  repository,
+  tab = "app",
+  onTab,
 }: {
   info: GlobalInfo | null;
   link: LinkInfo | null;
@@ -192,8 +206,17 @@ export function Settings({
   developmentBuilds?: { repository: string; worktree: string; executable: string }[];
   providerRuntimes?: ProviderRuntime[];
   onProviderRestart?: (repository: string, worktree: string) => Promise<void>;
+  /** With a repository, Settings has a tab for this Mac and one for it. */
+  repository?: RepositoryTab;
+  tab?: SettingsTab;
+  onTab?: (tab: SettingsTab) => void;
 }) {
   const [path, setPath] = useState(selected ?? "");
+  /** The repository tab loads when first shown, then keeps its changes. */
+  const [repositoryShown, setRepositoryShown] = useState(tab === "repository");
+  useEffect(() => {
+    if (tab === "repository") setRepositoryShown(true);
+  }, [tab]);
   const [removingIntegration, setRemovingIntegration] = useState(false);
   const [integrationError, setIntegrationError] = useState("");
   const [integrationNotice, setIntegrationNotice] = useState("");
@@ -215,20 +238,8 @@ export function Settings({
   const action = link && linkAction[link.state];
   const shell = link?.shell;
   const updating = update?.state === "checking" || update?.state === "downloading";
-  return (
-    <section className="settings" aria-labelledby="installation-title">
-      <div className="section-heading">
-        <div>
-          <h1 id="installation-title">Rhizome</h1>
-          <p>The app, its command-line tool, and the runtime your repositories use.</p>
-        </div>
-        <div className="actions">
-          <button disabled={busy} onClick={onRefresh}>
-            Refresh
-          </button>
-          <button onClick={onClose}>Done</button>
-        </div>
-      </div>
+  const appSettings = (
+    <>
       <div className="installation-status">
         <div>
           <h2>
@@ -388,6 +399,89 @@ export function Settings({
             </button>
           </p>
         )}
+      </div>
+    </>
+  );
+  const about = "The app, its command-line tool, and the runtime your repositories use.";
+  const actions = (
+    <div className="actions">
+      {(!repository || tab === "app") && (
+        <button disabled={busy} onClick={onRefresh}>
+          Refresh
+        </button>
+      )}
+      <button onClick={onClose}>Done</button>
+    </div>
+  );
+  if (!repository) {
+    return (
+      <section className="settings" aria-labelledby="installation-title">
+        <div className="section-heading">
+          <div>
+            <h1 id="installation-title">Rhizome</h1>
+            <p>{about}</p>
+          </div>
+          {actions}
+        </div>
+        {appSettings}
+      </section>
+    );
+  }
+  const tabs: SettingsTab[] = ["app", "repository"];
+  const keys = (event: KeyboardEvent) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    const next = tabs[(tabs.indexOf(tab) + 1) % tabs.length];
+    onTab?.(next);
+    document.getElementById(`settings-tab-${next}`)?.focus();
+  };
+  return (
+    <section className="settings" aria-labelledby="settings-title">
+      <div className="section-heading">
+        <h1 id="settings-title">Settings</h1>
+        {actions}
+      </div>
+      <div className="settings-tabs" role="tablist" aria-label="Settings" onKeyDown={keys}>
+        <button
+          id="settings-tab-app"
+          role="tab"
+          aria-selected={tab === "app"}
+          aria-controls="settings-panel-app"
+          tabIndex={tab === "app" ? 0 : -1}
+          onClick={() => onTab?.("app")}
+        >
+          Rhizome on this Mac
+        </button>
+        <button
+          id="settings-tab-repository"
+          role="tab"
+          aria-selected={tab === "repository"}
+          aria-controls="settings-panel-repository"
+          tabIndex={tab === "repository" ? 0 : -1}
+          onClick={() => onTab?.("repository")}
+        >
+          {repository.name}
+          {repository.branch && <span className="branch">{repository.branch}</span>}
+          {repository.changed && (
+            <span className="changed-mark" role="img" aria-label="Changes not applied" />
+          )}
+        </button>
+      </div>
+      <div
+        id="settings-panel-app"
+        role="tabpanel"
+        aria-labelledby="settings-tab-app"
+        hidden={tab !== "app"}
+      >
+        <p className="settings-lede">{about}</p>
+        {appSettings}
+      </div>
+      <div
+        id="settings-panel-repository"
+        role="tabpanel"
+        aria-labelledby="settings-tab-repository"
+        hidden={tab !== "repository"}
+      >
+        {repositoryShown && repository.content}
       </div>
     </section>
   );

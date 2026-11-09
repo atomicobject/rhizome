@@ -117,6 +117,40 @@ func TestInitCommandJSONReportsAPlanWithoutWriting(t *testing.T) {
 	require.NoDirExists(t, filepath.Join(dir, ".rhizome"))
 }
 
+func TestInitCommandJSONReportsAndChangesAConfiguredFoldersSettings(t *testing.T) {
+	t.Setenv(repoSkipDelegateEnv, "1")
+	dir := t.TempDir()
+	writeCmdFixture(t, dir, "docs/readme.md", "# Docs\n")
+	ctx := vaultconfig.WithEnv(context.Background(), testkit.Env(t))
+	_, stderr, err := runRootCLI(t, ctx, []string{"init", "--path", dir, "--json", "--workflow", "none", "--search", "off"})
+	require.NoError(t, err, stderr)
+
+	type settings struct {
+		Configured bool   `json:"configured"`
+		Workflow   string `json:"workflow"`
+		Writes     struct {
+			Summary []string `json:"summary"`
+		} `json:"writes"`
+	}
+	stdout, stderr, err := runRootCLI(t, ctx, []string{"init", "--path", dir, "--check", "--json", "--workflow", "agentic-engineering"})
+	require.NoError(t, err, stderr)
+	var plan settings
+	require.NoError(t, json.Unmarshal([]byte(stdout), &plan), stdout)
+	require.True(t, plan.Configured)
+	require.Equal(t, "agentic-engineering", plan.Workflow)
+	require.NotEmpty(t, plan.Writes.Summary)
+	require.NoFileExists(t, filepath.Join(dir, ".agents", "skills", "agentic-engineering", "SKILL.md"))
+
+	stdout, stderr, err = runRootCLI(t, ctx, []string{"init", "--path", dir, "--json", "--workflow", "agentic-engineering"})
+	require.NoError(t, err, stderr)
+	var result struct {
+		Summary []string `json:"summary"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(stdout), &result), stdout)
+	require.NotEmpty(t, result.Summary)
+	require.FileExists(t, filepath.Join(dir, ".agents", "skills", "agentic-engineering", "SKILL.md"))
+}
+
 func TestInitCommandJSONFailuresAreJSON(t *testing.T) {
 
 	t.Setenv(repoSkipDelegateEnv, "1")
@@ -127,7 +161,7 @@ func TestInitCommandJSONFailuresAreJSON(t *testing.T) {
 		args            []string
 		stdin, code, in string
 	}{
-		"set up already":   {[]string{"init", "--path", configured, "--json"}, "", "not_first_run", ""},
+		"set up already":   {[]string{"init", "--path", configured, "--json", "--addons", "none"}, "", "not_first_run", ""},
 		"no key on a pipe": {[]string{"init", "--path", t.TempDir(), "--json", "--search-key-stdin"}, "  \n", "setup_failed", "no key"},
 	} {
 		t.Run(name, func(t *testing.T) {

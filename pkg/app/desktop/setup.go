@@ -25,6 +25,17 @@ type SetupChoices struct {
 	IncludeIgnored []string `json:"includeIgnored"`
 }
 
+// SettingsChoices change a set-up repository: the workflow, agents, and
+// search provider it should have, and the add-ons to turn on or off. Empty
+// fields, and absent agents, leave that setting as it is.
+type SettingsChoices struct {
+	Workflow     string   `json:"workflow"`
+	Agents       []string `json:"agents"`
+	Search       string   `json:"search"`
+	AddAddons    []string `json:"addAddons"`
+	RemoveAddons []string `json:"removeAddons"`
+}
+
 type ScopeEdits struct {
 	Skip           []string `json:"skip"`
 	RemoveRules    []string `json:"removeRules"`
@@ -64,6 +75,36 @@ func choiceFlags(choices *SetupChoices) []string {
 	return appendEntries(args, "--include-ignored", choices.IncludeIgnored)
 }
 
+// settingsFlags passes settings choices as a rerun's options, only for the
+// settings they change. An empty agent list still writes AGENTS.md and the
+// shared skills.
+func settingsFlags(choices *SettingsChoices) []string {
+	if choices == nil {
+		return nil
+	}
+	var args []string
+	if choices.Workflow != "" {
+		args = append(args, "--workflow", choices.Workflow)
+	}
+	if choices.Agents != nil {
+		agents := strings.Join(choices.Agents, ",")
+		if agents == "" {
+			agents = "shared"
+		}
+		args = append(args, "--agents", agents)
+	}
+	if choices.Search != "" {
+		args = append(args, "--search", choices.Search)
+	}
+	if len(choices.AddAddons) > 0 {
+		args = append(args, "--add-addon", strings.Join(choices.AddAddons, ","))
+	}
+	if len(choices.RemoveAddons) > 0 {
+		args = append(args, "--remove-addon", strings.Join(choices.RemoveAddons, ","))
+	}
+	return args
+}
+
 func appendEntries(args []string, flag string, entries []string) []string {
 	for _, entry := range entries {
 		args = append(args, flag, entry)
@@ -71,8 +112,35 @@ func appendEntries(args []string, flag string, entries []string) []string {
 	return args
 }
 
+// capability is what an operation needs from the selected executable: the
+// help text that names it, and what to say when it is missing.
+type capability struct {
+	configured bool
+	help       []string
+	marker     string
+	missing    string
+}
+
+var (
+	setupCapability = capability{
+		help: []string{"init", "--help"}, marker: "--search-key-stdin",
+		missing: "This Rhizome version cannot set up from the app. Update Rhizome or run `rzm init` in a terminal.",
+	}
+	scopeCapability = capability{
+		configured: true, help: []string{"index", "scope", "--help"}, marker: "--remove-rule",
+		missing: "This Rhizome version cannot show what gets indexed in the app. Update Rhizome, or run `rzm index --explain` and edit .rhizome/ignore.",
+	}
+	// The --json flag's help names repository settings once init supports
+	// them on a configured folder.
+	settingsCapability = capability{
+		configured: true, help: []string{"init", "--help"}, marker: "repository settings once set up",
+		missing: "This Rhizome version cannot change repository settings from the app. Update Rhizome or run `rzm init` in a terminal.",
+	}
+)
+
 // Selection stays inert until configuration and trust checks have passed.
-func (s *Service) setupTarget(ctx context.Context, req Request, configured bool) (FolderInfo, string, error) {
+func (s *Service) setupTarget(ctx context.Context, req Request, need capability) (FolderInfo, string, error) {
+	configured := need.configured
 	info, plan, err := s.inspect(req.Folder)
 	if err != nil {
 		return info, "", err
@@ -91,19 +159,12 @@ func (s *Service) setupTarget(ctx context.Context, req Request, configured bool)
 		return info, "", err
 	}
 	target := ex.Target
-	probe, flag := []string{"init", "--help"}, "--search-key-stdin"
-	if configured {
-		probe, flag = []string{"index", "scope", "--help"}, "--remove-rule"
-	}
-	help, err := repoexec.Probe(ctx, target, info.Path, probe...)
+	help, err := repoexec.Probe(ctx, target, info.Path, need.help...)
 	if errors.Is(err, context.DeadlineExceeded) {
 		return info, "", problem("runtime_error", "Rhizome took too long to answer. Try again.")
 	}
-	if err != nil || !strings.Contains(help, flag) {
-		if configured {
-			return info, "", problem("setup_unsupported", "This Rhizome version cannot show what gets indexed in the app. Update Rhizome, or run `rzm index --explain` and edit .rhizome/ignore.")
-		}
-		return info, "", problem("setup_unsupported", "This Rhizome version cannot set up from the app. Update Rhizome or run `rzm init` in a terminal.")
+	if err != nil || !strings.Contains(help, need.marker) {
+		return info, "", problem("setup_unsupported", need.missing)
 	}
 	return info, target, nil
 }
@@ -114,7 +175,7 @@ func (s *Service) SetupReport(ctx context.Context, req Request) (json.RawMessage
 	}
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	info, target, err := s.setupTarget(ctx, req, false)
+	info, target, err := s.setupTarget(ctx, req, setupCapability)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +189,7 @@ func (s *Service) Initialize(ctx context.Context, req Request) (InitializeResult
 	}
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
 	defer cancel()
-	info, target, err := s.setupTarget(ctx, req, false)
+	info, target, err := s.setupTarget(ctx, req, setupCapability)
 	if err != nil {
 		return InitializeResult{}, err
 	}
@@ -165,7 +226,7 @@ func (s *Service) Scope(ctx context.Context, req Request) (json.RawMessage, erro
 	}
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
-	info, target, err := s.setupTarget(ctx, req, true)
+	info, target, err := s.setupTarget(ctx, req, scopeCapability)
 	if err != nil {
 		return nil, err
 	}
@@ -176,6 +237,31 @@ func (s *Service) Scope(ctx context.Context, req Request) (json.RawMessage, erro
 		args = appendEntries(args, "--include-ignored", req.Edits.IncludeIgnored)
 	}
 	return runSetupJSON(ctx, target, info.Path, args, "", "scope_failed", false)
+}
+
+// Settings reports (settings-report) or changes (settings-apply) a set-up
+// repository's workflow, add-ons, agents, and search provider through the
+// worktree's selected executable. It never accepts a key.
+func (s *Service) Settings(ctx context.Context, req Request) (json.RawMessage, error) {
+	apply := req.Operation == "settings-apply"
+	if req.Key != "" || req.Setup != nil || (apply && req.Settings == nil) {
+		return nil, problem("invalid_request", "Provide settings choices without a search key.")
+	}
+	timeout := 2 * time.Minute
+	if apply {
+		timeout = 4 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	info, target, err := s.setupTarget(ctx, req, settingsCapability)
+	if err != nil {
+		return nil, err
+	}
+	args := []string{"init", "--path", info.Path, "--json"}
+	if !apply {
+		args = append(args, "--check")
+	}
+	return runSetupJSON(ctx, target, info.Path, append(args, settingsFlags(req.Settings)...), "", "settings_failed", apply)
 }
 
 // Only stdout's JSON object crosses the process boundary. A pin-only failure

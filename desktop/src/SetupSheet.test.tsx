@@ -37,6 +37,7 @@ const scope: Scope = {
 const plan: SetupPlan = {
   root: worktree,
   name: "acme",
+  configured: false,
   findings: {
     docs: "all Markdown (3 notes in docs/)",
     code: "Go (2 files)",
@@ -95,6 +96,8 @@ const plan: SetupPlan = {
 };
 const done: SetupResult = {
   root: worktree,
+  created: [],
+  updated: [],
   summary: [".rhizome/config.yml", "Voyage API Key saved to ~/.config/rhizome/config.yml"],
   commit: [".rhizome/", "AGENTS.md"],
   warnings: [],

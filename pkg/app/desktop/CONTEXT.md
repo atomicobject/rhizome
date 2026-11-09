@@ -74,6 +74,14 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   `setup_partial` when the folder is configured after the failed run, so the
   shell offers opening instead of a setup that can no longer run. A run that
   outlives its deadline reports that it timed out.
+- Settings-report and settings-apply change a set-up repository
+  (SPEC-0118 US3): they require configuration and trust, prepare the
+  worktree's selected executable, and probe `init --help` for "repository
+  settings once set up" before running `init --check --json` or `init --json`
+  with `--workflow`, `--agents`, `--search`, `--add-addon`, and
+  `--remove-addon`, each only when its choice is present. They reject a key
+  and setup choices; error documents become `settings_failed`, and a pin-only
+  install failure after an apply remains a result.
 - Scope and scope-edit require configuration and trust, prepare the worktree's
   selected executable, and probe `index scope --help` for `--remove-rule` before
   running `index scope --json`. JSON documents pass through; error documents

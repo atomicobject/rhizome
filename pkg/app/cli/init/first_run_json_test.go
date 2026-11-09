@@ -212,7 +212,7 @@ func TestApplyReportsAFailedPinnedInstallWithTheWrittenSetup(t *testing.T) {
 	require.FileExists(t, filepath.Join(root, ".rhizome", "config.yml"))
 }
 
-func TestMachineRunsAndFirstRunOptionsNeedAFolderThatIsNotSetUp(t *testing.T) {
+func TestFirstRunOptionsNeedAFolderThatIsNotSetUp(t *testing.T) {
 	env := testkit.Env(t)
 	env.LookupEnv = os.LookupEnv
 
@@ -220,9 +220,9 @@ func TestMachineRunsAndFirstRunOptionsNeedAFolderThatIsNotSetUp(t *testing.T) {
 	_, err := Apply(RunOptions{Env: env, Dir: root})
 	require.NoError(t, err)
 
-	_, err = Plan(RunOptions{Env: env, Dir: root})
+	_, err = Plan(RunOptions{Env: env, Dir: root, Addons: "none"})
 	require.ErrorIs(t, err, ErrNotFirstRun)
-	_, err = Apply(RunOptions{Env: env, Dir: root})
+	_, err = Apply(RunOptions{Env: env, Dir: root, Skip: []string{"cmd"}})
 	require.ErrorIs(t, err, ErrNotFirstRun)
 	err = Run(RunOptions{Env: env, Dir: root, Skip: []string{"cmd"}, Stdout: io.Discard, Stderr: io.Discard})
 	require.ErrorIs(t, err, ErrNotFirstRun)
