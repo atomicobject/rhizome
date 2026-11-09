@@ -103,3 +103,38 @@ func TestCatalogCarriesExperienceKeysAndPanels(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, panel, got)
 }
+
+// Hidden views stay out of the list and every target's choices but count
+// toward panels, as validation's tie check counts them (SPEC-0136 R6).
+func TestHiddenViewsTakePartInPanelResolution(t *testing.T) {
+	vault := t.TempDir()
+	site := ".rhizome/views/notes"
+	writeVaultFile(t, vault, site+"/experience.yml", "title: Notes\npanel: notes.panel\n")
+	writeCustomView(t, vault, site, "notes.panel", "{kind: panel}", "panel.tsx", "export default function Panel() { return null }")
+	writeCustomView(t, vault, site, "notes.secret", "{kind: standalone, hidden: true}", "secret.tsx", "export default function Secret() { return null }")
+	writeCustomView(t, vault, site, "notes.memo", "{kind: node, type: Memo, hidden: true}", "memo.tsx", "export default function Memo() { return null }")
+
+	service := New(ServiceOptions{VaultPath: vault, Schema: knowledgeSchema()})
+	catalog, err := service.Catalog(context.Background())
+	require.NoError(t, err)
+	panel := viewconfig.Panel{Kind: viewconfig.PanelView, ViewID: "notes.panel"}
+	for _, entry := range catalog.Views {
+		require.NotEqual(t, "notes.secret", entry.ID, "a hidden view is not listed")
+		if entry.ID == "notes.panel" {
+			panel.ExperienceKey = entry.ExperienceKey
+		}
+	}
+	require.NotEmpty(t, panel.ExperienceKey)
+	memo := catalogTarget(t, catalog, viewconfig.MountKindNode, "Memo")
+	require.Equal(t, panel, memo.Panel, "a hidden view's mount presents its type")
+	for _, choice := range memo.Choices {
+		require.NotEqual(t, "notes.memo", choice.ViewID, "a hidden view is never a choice")
+	}
+	for _, target := range catalog.Targets {
+		require.NotEqual(t, "notes.secret", target.Name, "a hidden standalone view has no target")
+	}
+
+	got, err := service.Panel(context.Background(), viewconfig.MountKindStandalone, "notes.secret")
+	require.NoError(t, err)
+	require.Equal(t, panel, got, "a hidden standalone view's experience owns its panel")
+}

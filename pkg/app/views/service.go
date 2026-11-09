@@ -36,15 +36,23 @@ func New(opts ServiceOptions) *Service {
 // Catalog lists views and the targets they serve. Generated workflow views
 // open as a Board when their open work fits one (SPEC-0112), and the targets'
 // default choices read the same decision.
+// Hidden views stay out of the list and the targets' choices but take part
+// in panel resolution, as validation counts them (SPEC-0136 R6).
 func (s *Service) Catalog(ctx context.Context) (Catalog, error) {
-	catalog, err := s.catalog(ctx, false)
+	catalog, err := s.catalog(ctx, true)
 	if err != nil {
 		return Catalog{}, err
 	}
-	for i := range catalog.Views {
-		catalog.Views[i].Defaults.Variant = s.generatedDefaultVariant(ctx, catalog.Views[i])
+	all := catalog.Views
+	catalog.Views = make([]CatalogEntry, 0, len(all))
+	for i := range all {
+		if all[i].Mount.Hidden {
+			continue
+		}
+		all[i].Defaults.Variant = s.generatedDefaultVariant(ctx, all[i])
+		catalog.Views = append(catalog.Views, all[i])
 	}
-	catalog.Targets = resolveTargets(s.opts.Schema, catalog.Views)
+	catalog.Targets = resolveTargets(s.opts.Schema, all)
 	return catalog, nil
 }
 
@@ -78,7 +86,7 @@ func (s *Service) catalog(ctx context.Context, includeHidden bool) (Catalog, err
 // Panel resolves the sidebar panel for one target, as Catalog reports it on
 // that target, without the catalog's count reads.
 func (s *Service) Panel(ctx context.Context, kind viewconfig.MountKind, name string) (viewconfig.Panel, error) {
-	catalog, err := s.catalog(ctx, false)
+	catalog, err := s.catalog(ctx, true)
 	if err != nil {
 		return viewconfig.Panel{}, err
 	}
@@ -190,6 +198,7 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 		stats = executionStats(s.opts.Schema, def, *profile, filtered, capabilities, counted, time.Now())
 		stats.Truncated = plan.SourceCompleteness == SourceBounded
 	}
+	clock := clockDependent(profile, constraints.Filters, capabilities)
 	sortRows(filtered, constraints.Sort, capabilities)
 	groupedRows, allGroups := groupRows(filtered, group, capabilities, entry.Generated)
 	pageRows, pageInfo := paginateRows(groupedRows, state.Page)
@@ -259,7 +268,7 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 	if capabilities == nil {
 		capabilities = []FieldCapability{}
 	}
-	return ExecuteResponse{View: entry, Variant: variant, State: state, Capabilities: capabilities, Columns: columns, Rows: pageRows, Groups: groups, Card: card, Board: board, PageInfo: pageInfo, Profile: profile, Stats: stats, Warnings: warnings, ConstraintPlan: source.ConstraintPlan, PushedConstraints: source.PushedConstraints, ResidualConstraints: source.ResidualConstraints, Plan: plan, DefinitionFingerprint: defFP, SourceFingerprint: sourceFP, ExecutionFingerprint: execFP}, nil
+	return ExecuteResponse{View: entry, Variant: variant, State: state, Capabilities: capabilities, Columns: columns, Rows: pageRows, Groups: groups, Card: card, Board: board, PageInfo: pageInfo, Profile: profile, Stats: stats, Warnings: warnings, ConstraintPlan: source.ConstraintPlan, PushedConstraints: source.PushedConstraints, ResidualConstraints: source.ResidualConstraints, Plan: plan, DefinitionFingerprint: defFP, SourceFingerprint: sourceFP, ExecutionFingerprint: execFP, ClockDependent: clock}, nil
 }
 func (s *Service) FieldCandidates(ctx context.Context, id string, req FieldCandidatesRequest) (FieldCandidatesResponse, error) {
 	entry, err := s.entry(ctx, id)

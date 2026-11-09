@@ -189,6 +189,9 @@ type ExecuteResponse struct {
 	DefinitionFingerprint string                `json:"definitionFingerprint"`
 	SourceFingerprint     string                `json:"sourceFingerprint"`
 	ExecutionFingerprint  string                `json:"executionFingerprint"`
+	// ClockDependent says the answer depends on the server clock (a stale
+	// count or stale filter), so the read cache never stores it.
+	ClockDependent bool `json:"-"`
 }
 type ExecutionState struct {
 	Variant      string                  `json:"variant,omitempty"`

@@ -38,6 +38,8 @@ func viewChoiceID(viewID, variant string) string {
 	return "view:" + string(encoded)
 }
 
+// resolveTargets lists targets and their choices from entries' visible views;
+// hidden entries count only toward each target's panel.
 func resolveTargets(schema *ontoschema.Schema, entries []CatalogEntry) []ViewTarget {
 	targets := map[string]ViewTarget{}
 	add := func(kind viewconfig.MountKind, name string) {

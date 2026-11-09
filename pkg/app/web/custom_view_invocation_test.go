@@ -28,6 +28,8 @@ func newExperienceTestServer(t *testing.T) *Server {
 		"site/home.tsx":       "export default function Home() { return null }",
 		"site/about.yaml":     customView("site.about", "{kind: standalone}", "about.tsx"),
 		"site/about.tsx":      "export default function About() { return null }",
+		"site/secret.yaml":    customView("site.secret", "{kind: standalone, hidden: true}", "secret.tsx"),
+		"site/secret.tsx":     "export default function Secret() { return null }",
 	})
 	for rel, body := range map[string]string{".rhizome/ontology/schema.graphql": `type Claim @node(paths: ["claims/*.md"]) @display(group: "Knowledge") { title: String @field }
 type Memo @node(paths: ["memos/*.md"]) { title: String @field }
@@ -79,6 +81,7 @@ func TestViewInvocationRouteChecksPagesAndPanels(t *testing.T) {
 		{"panel for an embedded node whose owner shows Folder", "site.panel", `{"kind":"node","type":"Quote","ref":{"notePath":"memos/m.md","kind":"EMBEDDED","nodeId":"q2","fragment":"^q2","typeName":"Quote"}}`, http.StatusBadRequest},
 		{"panel for a note Folder shows", "site.panel", `{"kind":"node","type":"Memo","ref":{"notePath":"memos/m.md","kind":"NOTE","typeName":"Memo"}}`, http.StatusBadRequest},
 		{"panel for the experience's standalone view", "site.panel", `{"kind":"standalone","view":"site.about"}`, http.StatusOK},
+		{"panel for the experience's hidden standalone view", "site.panel", `{"kind":"standalone","view":"site.secret"}`, http.StatusOK},
 		{"panel for another standalone view", "site.panel", `{"kind":"standalone","view":"poc.board"}`, http.StatusBadRequest},
 		{"panel for an unnamed standalone view", "site.panel", `{"kind":"standalone"}`, http.StatusBadRequest},
 		{"panel for the workspace", "site.panel", `{"kind":"workspace"}`, http.StatusBadRequest},

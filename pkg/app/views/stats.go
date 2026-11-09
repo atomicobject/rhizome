@@ -4,6 +4,7 @@ import (
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
@@ -38,6 +39,32 @@ func (r staleRule) matches(row TableRow) bool {
 	}
 	raw, ok := capabilityFieldValue(row, r.lifecycle.Key, r.lifecycle)
 	return ok && r.active[valueString(raw)]
+}
+
+// clockDependent reports whether an execution's answer depends on the server
+// clock: a stale rule over a lifecycle with active values decides its
+// statistics' stale count or a stale filter (SPEC-0136 R4).
+func clockDependent(profile *ontoschema.TypeProfile, filters []viewconfig.FilterSpec, capabilities []FieldCapability) bool {
+	usesClock := func(lifecycle FieldCapability) bool {
+		return len(newStaleRule(lifecycle, time.Time{}).active) > 0
+	}
+	if profile != nil {
+		if lifecycle, ok := resolveCapability(capabilities, profile.LifecycleField); ok && usesClock(lifecycle) {
+			return true
+		}
+	}
+	caps := capabilityMap(capabilities)
+	for _, filter := range filters {
+		field := strings.TrimSpace(filter.Field)
+		if _, ok := caps[field]; ok || field != staleFilterField {
+			continue
+		}
+		lifecycle, _ := resolveCapability(capabilities, firstCapabilityField(capabilities, "status"))
+		if usesClock(lifecycle) {
+			return true
+		}
+	}
+	return false
 }
 
 // executionStats summarizes every row that matched a type or interface view's
