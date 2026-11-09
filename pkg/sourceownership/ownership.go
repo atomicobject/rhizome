@@ -81,6 +81,7 @@ type Policy struct {
 	vault       paths.VaultPaths
 	declaration *Declaration
 	err         error
+	links       *paths.SymlinkCache
 }
 
 func Load(root string) *Policy {
@@ -90,6 +91,16 @@ func Load(root string) *Policy {
 		policy.declaration, policy.err = loadDeclaration(root)
 	}
 	return policy
+}
+
+// ForReads returns a copy for one read request that shares links' symlink
+// resolutions across every path it checks. Write admission keeps the original
+// policy, which resolves fresh, because a link can be retargeted without any
+// indexed or configuration change.
+func (p *Policy) ForReads(links *paths.SymlinkCache) *Policy {
+	read := *p
+	read.links = links
+	return &read
 }
 
 // Check loads current ownership for one complete write-admission boundary.
@@ -115,7 +126,7 @@ func (p *Policy) Check(affected []string) error {
 			return err
 		}
 		// Resolve parent aliases even when the destination does not exist yet.
-		physical, err := p.vault.RelPhysicalStrict(paths.ResolveAgainst(p.vault.Root(), input))
+		physical, err := p.vault.RelPhysicalStrictCached(paths.ResolveAgainst(p.vault.Root(), input), p.links)
 		if err != nil {
 			return err
 		}

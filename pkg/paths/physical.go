@@ -26,15 +26,21 @@ func ResolveAgainst(dir, p string) string {
 // link/../x names the parent of the link's target and a link out of the
 // vault is rejected. A relative path is rejected.
 func (v VaultPaths) RelPhysicalStrict(p string) (RelPath, error) {
+	return v.RelPhysicalStrictCached(p, nil)
+}
+
+// RelPhysicalStrictCached is RelPhysicalStrict sharing one read request's
+// prefix resolutions. Write admission passes nil to resolve fresh.
+func (v VaultPaths) RelPhysicalStrictCached(p string, links *SymlinkCache) (RelPath, error) {
 	if !filepath.IsAbs(p) {
 		return RelPath(""), ErrOutsideVault
 	}
-	return v.RelStrict(physicalPath(p))
+	return v.RelStrict(physicalPath(p, links))
 }
 
 // physicalPath resolves an absolute path one component at a time. Components
 // after the first missing one cannot be links and apply lexically.
-func physicalPath(p string) string {
+func physicalPath(p string, links *SymlinkCache) string {
 	p = filepath.FromSlash(p)
 	vol := filepath.VolumeName(p)
 	cur := vol + string(filepath.Separator)
@@ -49,7 +55,7 @@ func physicalPath(p string) string {
 		}
 		next := filepath.Join(cur, part)
 		if !missing {
-			if resolved, err := filepath.EvalSymlinks(next); err == nil {
+			if resolved, err := links.evalSymlinks(next); err == nil {
 				next = resolved
 			} else {
 				missing = true

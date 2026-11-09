@@ -90,7 +90,9 @@ func (s Selector) Select(raw paths.RelPath) (Selection, error) {
 		return Selection{}, err
 	}
 	language := codeanchor.Lang("")
-	if s.language != nil && inCodeRoots(paths.NormalizeAbsPathForCompare(absPath.String()), s.codeRoots) {
+	// ToAbs already resolved symlinks; resolving its result again returns the
+	// same path, so compare its normalized spelling directly.
+	if s.language != nil && inCodeRoots(filepath.ToSlash(filepath.Clean(absPath.String())), s.codeRoots) {
 		language = codeanchor.Lang(strings.TrimSpace(string(s.language(paths.CodePathRef{Rel: codePath, Abs: absPath}))))
 	}
 	decision, err := s.plan.Classify(path, language != "")
