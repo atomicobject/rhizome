@@ -5,8 +5,6 @@
  * every row. Nothing here reads a body. */
 
 export const ROOT_MAX = 5000;
-/** The `nodes(refs:)` maximum (SPEC-0136 R8). */
-export const BATCH_MAX = 200;
 
 const REF = "ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }";
 const CITATIONS = "sourcesSection { citations { recordedLink sources { path } } }";
@@ -24,43 +22,23 @@ export const ORIENTATION_QUERY = `{
   mapOfContent(first: ${ROOT_MAX}) { ${REF} path aoId title }
 }`;
 
-/** The selection each batched assertion read returns: its Sources-section citations. */
+/** The selection each batched assertion read returns: its Sources-section citations. Record
+ * pages pass it to the kit's `readNodes(refs, CITATION_SELECTION)` (SPEC-0136 R7), which chunks
+ * refs at the `nodes(refs:)` maximum, merges by canonical identity, and reports coverage:
+ * a concept's member assertions, a source's provenance-only candidates, and an artifact's
+ * resolved support values not already read. */
 export const CITATION_SELECTION = `... on Assertion { path ${CITATIONS} }`;
 
-/** One `nodes(refs:)` query per batch of at most BATCH_MAX refs, with `first` set to the
- * batch size so no ref falls past the default page.
- * ponytail: stands in for the kit's `readNodes` (SPEC-0136 R7) until it lands; switch the
- * views to `readNodes(refs, selection)` then, which also merges coverage. */
-export function batchedNodeQueries(refs: readonly string[], selection: string): string[] {
-  const unique = [...new Set(refs)];
-  const queries: string[] = [];
-  for (let at = 0; at < unique.length; at += BATCH_MAX) {
-    const batch = unique.slice(at, at + BATCH_MAX);
-    queries.push(
-      `{ nodes(refs: ${JSON.stringify(batch)}, first: ${batch.length}) { items { requestedRef node { ${selection} } error { code message } } pageInfo { truncated } } }`,
-    );
-  }
-  return queries;
-}
-
-/** Concept scope: the Sources-section citations of its member assertions, batched. */
-export const conceptScopeQueries = (memberPaths: readonly string[]) =>
-  batchedNodeQueries(memberPaths, CITATION_SELECTION);
-
 /** Source scope: every assertion that links the source, with its citations (declared, so no
- * `first`), then the provenance-only candidates the orientation query resolved to it. The
- * caller passes those not already among `linkingAssertions`; `citations()` decides. */
+ * `first`). The provenance-only candidates the orientation query resolved to the source and
+ * that are not among `linkingAssertions` are read with `readNodes`; `citations()` decides. */
 export const sourceScopeQuery = (sourcePath: string) =>
   `{ node(ref: ${JSON.stringify(sourcePath)}) { ... on Source { path linkingAssertions { path ${CITATIONS} } } } }`;
-export const sourceProvenanceQueries = (assertionPaths: readonly string[]) =>
-  batchedNodeQueries(assertionPaths, CITATION_SELECTION);
 
-/** Artifact scope: its recorded support values and references, then, batched, the citations of
- * support values that resolve to assertions not already read. */
+/** Artifact scope: its recorded support values and references. The citations of support values
+ * that resolve to assertions not already read follow with `readNodes`. */
 export const artifactScopeQuery = (artifactPath: string) =>
   `{ node(ref: ${JSON.stringify(artifactPath)}) { ... on Artifact { path supportValues additionalAssertionReferences { path ${CITATIONS} } conceptReferences { path } } } }`;
-export const artifactSupportQueries = (assertionPaths: readonly string[]) =>
-  batchedNodeQueries(assertionPaths, CITATION_SELECTION);
 
 /** Review's submission and curation lists: their own body-free query. The conflict registry
  * and the other curation documents form one inventory. */

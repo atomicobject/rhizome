@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/atomicobject/rhizome/internal/testkit"
@@ -21,8 +20,13 @@ import (
 
 // siteQueries runs the starter's query module, so these tests read exactly the text the views run.
 type siteQueries struct {
-	Orientation, Review, Source, Artifact string
-	Concept, Provenance                   []string
+	Orientation, Review, Source, Artifact, Citation string
+}
+
+// nodes reads refs with selection the way the kit's readNodes does (one batch, `first` set).
+func (q siteQueries) nodes(refs ...string) string {
+	quoted, _ := json.Marshal(refs)
+	return fmt.Sprintf(`{ nodes(refs: %s, first: %d) { items { requestedRef node { %s } error { code message } } pageInfo { truncated } } }`, quoted, len(refs), q.Citation)
 }
 
 func loadSiteQueries(t *testing.T, args map[string]any) siteQueries {
@@ -43,8 +47,7 @@ func loadSiteQueries(t *testing.T, args map[string]any) siteQueries {
 	require.NoError(t, err)
 	script := `const q = await import(process.argv[1]); const a = JSON.parse(process.argv[2]) ?? {};
 console.log(JSON.stringify({Orientation: q.ORIENTATION_QUERY, Review: q.REVIEW_DOCUMENTS_QUERY,
-  Concept: q.conceptScopeQueries(a.members ?? []), Source: q.sourceScopeQuery(a.source ?? ""),
-  Provenance: q.sourceProvenanceQueries(a.provenance ?? []), Artifact: q.artifactScopeQuery(a.artifact ?? "")}));`
+  Citation: q.CITATION_SELECTION, Source: q.sourceScopeQuery(a.source ?? ""), Artifact: q.artifactScopeQuery(a.artifact ?? "")}));`
 	out, err := exec.Command(node, "--experimental-strip-types", "--input-type=module", "-e", script, module, string(input)).CombinedOutput()
 	require.NoError(t, err, "%s", out)
 	var queries siteQueries
@@ -214,20 +217,17 @@ func TestAOKBLegacySiteData(t *testing.T) {
 	})
 	t.Run("scope reads", func(t *testing.T) {
 		queries := loadSiteQueries(t, map[string]any{
-			"members":    []string{"assertions/riders-check-board.md", "assertions/body-linked.md"},
-			"source":     "sources/documents/ferry-handbook.md",
-			"provenance": []string{"assertions/provenance-only.md"},
-			"artifact":   "artifacts/plans/service-plan.md",
+			"source":   "sources/documents/ferry-handbook.md",
+			"artifact": "artifacts/plans/service-plan.md",
 		})
-		require.Len(t, queries.Concept, 1)
-		data, _ := v.query(queries.Concept[0])
+		data, _ := v.query(queries.nodes("assertions/riders-check-board.md", "assertions/body-linked.md"))
 		items := aoRows(aoMap(data["nodes"])["items"])
 		require.Len(t, items, 2)
 		citations := aoRows(aoMap(aoMap(items[0]["node"])["sourcesSection"])["citations"])
 		require.Equal(t, []string{"sources/interviews/2026-03-04-rider-interview.md"}, sitePaths(citations[0]["sources"]))
 		data, _ = v.query(queries.Source)
 		require.Len(t, aoRows(aoMap(data["node"])["linkingAssertions"]), 22)
-		data, _ = v.query(queries.Provenance[0])
+		data, _ = v.query(queries.nodes("assertions/provenance-only.md"))
 		require.Equal(t, "assertions/provenance-only.md", aoString(aoMap(aoRows(aoMap(data["nodes"])["items"])[0]["node"])["path"]))
 		data, _ = v.query(queries.Artifact)
 		node := aoMap(data["node"])
@@ -235,19 +235,6 @@ func TestAOKBLegacySiteData(t *testing.T) {
 		require.Equal(t, []string{"concepts/timetable.md"}, sitePaths(node["conceptReferences"]))
 		require.Equal(t, []string{"assertions/storm-cancellations.md"}, sitePaths(node["additionalAssertionReferences"]))
 	})
-}
-
-func TestAOKBSiteQueriesBatchAtTheNodesMaximum(t *testing.T) {
-	members := make([]string, 450)
-	for i := range members {
-		members[i] = fmt.Sprintf("assertions/a-%03d.md", i)
-	}
-	queries := loadSiteQueries(t, map[string]any{"members": append(members, members[0])})
-	require.Len(t, queries.Concept, 3, "450 distinct refs read in batches of at most 200")
-	for i, size := range []int{200, 200, 50} {
-		require.Contains(t, queries.Concept[i], fmt.Sprintf("first: %d)", size))
-		require.Equal(t, size, strings.Count(queries.Concept[i], `"assertions/a-`))
-	}
 }
 
 func TestAOKBSiteQueriesOnCurrentAndProductFixtures(t *testing.T) {
