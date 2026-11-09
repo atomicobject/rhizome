@@ -40,6 +40,13 @@ func (r *initRun) settingsPlan(s setup) (SetupPlan, error) {
 		HooksBlocked:        hooksBlockedReason(plan.res),
 		Writes:              r.settingsWrites(plan),
 	}
+	// The current provider's readiness counts its saved settings, such as a
+	// remote Ollama endpoint.
+	for i := range doc.Search.Providers {
+		if doc.Search.Providers[i].ID == provider && provider != searchOff {
+			doc.Search.Providers[i].Ready = ready
+		}
+	}
 	for i, choice := range workflowChoices {
 		doc.Workflows = append(doc.Workflows, WorkflowOption{ID: choice.id, Label: choice.label, Description: choice.description, Recommended: i == 0})
 	}
@@ -63,12 +70,13 @@ func (r *initRun) applySettings(s setup) (SetupResult, error) {
 		}
 		return result, nil
 	}
+	created, updated := r.settingsSupportFiles(plan)
 	report, err := r.apply(plan.setup, plan.res)
 	if err != nil {
 		return result, err
 	}
-	result.Created = orEmpty(report.Created)
-	result.Updated = orEmpty(report.Updated)
+	result.Created = append(created, report.Created...)
+	result.Updated = append(updated, report.Updated...)
 	result.Kept = orEmpty(report.Kept)
 	result.Warnings = orEmpty(report.Warnings)
 	result.Summary = orEmpty(rerunDoneLines(plan, report))
@@ -107,23 +115,37 @@ func (r *initRun) settingsWrites(plan rerunPlan) SetupWrites {
 			addFile(path)
 		}
 	}
-	if plan.pending() {
-		for _, path := range r.configFiles(plan.res.cfg) {
-			addFile(path)
-		}
-		// Apply also writes these support files when they differ.
-		root := r.layout.ProjectRoot
-		if data, err := os.ReadFile(filepath.Join(root, ".rhizome", ".gitignore")); err != nil || string(data) != rhizomeGitIgnoreBody() {
-			addFile(".rhizome/.gitignore")
-		}
-		if planned, current, exists, err := plannedIgnore(root, plan.setup); err == nil && (!exists || planned != current) {
-			addFile(".rhizome/ignore")
-		}
+	created, updated := r.settingsSupportFiles(plan)
+	for _, path := range append(created, updated...) {
+		addFile(path)
 	}
 	for _, line := range plan.decisions {
 		writes.Kept = append(writes.Kept, line.paths...)
 	}
 	return writes
+}
+
+// settingsSupportFiles lists the settings and support files applying plan
+// writes besides its generated files, split into new and changed files.
+func (r *initRun) settingsSupportFiles(plan rerunPlan) (created, updated []string) {
+	created, updated = []string{}, []string{}
+	if !plan.pending() {
+		return created, updated
+	}
+	updated = append(updated, r.configFiles(plan.res.cfg)...)
+	root := r.layout.ProjectRoot
+	switch data, err := os.ReadFile(filepath.Join(root, ".rhizome", ".gitignore")); {
+	case err != nil:
+		created = append(created, ".rhizome/.gitignore")
+	case string(data) != rhizomeGitIgnoreBody():
+		updated = append(updated, ".rhizome/.gitignore")
+	}
+	if planned, current, exists, err := plannedIgnore(root, plan.setup); err == nil && !exists {
+		created = append(created, ".rhizome/ignore")
+	} else if err == nil && planned != current {
+		updated = append(updated, ".rhizome/ignore")
+	}
+	return created, updated
 }
 
 // currentSearch is the provider a setup uses and whether it can run now.

@@ -94,9 +94,10 @@ func TestSettingsPlanListsSupportFilesApplyWrites(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, plan.Writes.Files, ".rhizome/.gitignore")
 
-	_, err = Apply(RunOptions{Env: env, Dir: root})
+	result, err := Apply(RunOptions{Env: env, Dir: root})
 	require.NoError(t, err)
 	require.FileExists(t, filepath.Join(root, ".rhizome", ".gitignore"))
+	require.Contains(t, result.Created, ".rhizome/.gitignore")
 }
 
 func TestSettingsApplyNamesRemovedFilesToCommit(t *testing.T) {
@@ -118,6 +119,7 @@ func TestSettingsApplyChangesTheRepositoryAndReportsIt(t *testing.T) {
 
 	require.NotEmpty(t, result.Summary)
 	require.Contains(t, result.Summary, "Agents: Claude Code, Cursor")
+	require.Contains(t, result.Updated, ".rhizome/config.yml", "settings files are reported with the generated ones")
 	require.Contains(t, result.Commit, ".rhizome/")
 	require.FileExists(t, filepath.Join(root, ".cursor", "rules", "rhizome.mdc"))
 	require.Empty(t, result.Pin.Error)
