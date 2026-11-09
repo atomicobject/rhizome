@@ -730,10 +730,7 @@ export function App() {
           repository={target.repository}
           worktree={target.worktree}
           onChanged={setSettingsChanged}
-          onEditRules={() => {
-            setSettings(false);
-            setScopeView({ ...target, fromSettings: true });
-          }}
+          onEditRules={() => setScopeView({ ...target, fromSettings: true })}
           onManageInstallation={openSettings}
           onProviderSettings={() => {
             setSettingsTab("app");
@@ -746,9 +743,22 @@ export function App() {
     };
   }
 
+  function scopePage(view: { repository: string; worktree: string }) {
+    return (
+      <ScopePage
+        key={view.worktree}
+        repository={view.repository}
+        worktree={view.worktree}
+        name={repositories.find((r) => r.id === view.repository)?.name ?? ""}
+        onClose={() => setScopeView(null)}
+        onManageInstallation={openSettings}
+      />
+    );
+  }
+
   function content() {
     if (settings) {
-      return (
+      const page = (
         <Settings
           info={global}
           link={link}
@@ -828,22 +838,17 @@ export function App() {
           }
         />
       );
-    }
-    if (scopeView) {
+      // Settings stays mounted, in the same place, under a rules page it
+      // opened, so the repository tab keeps its unapplied changes.
+      const rules = scopeView?.fromSettings ? scopeView : null;
       return (
-        <ScopePage
-          key={scopeView.worktree}
-          repository={scopeView.repository}
-          worktree={scopeView.worktree}
-          name={repositories.find((r) => r.id === scopeView.repository)?.name ?? ""}
-          onClose={() => {
-            setScopeView(null);
-            if (scopeView.fromSettings) setSettings(true);
-          }}
-          onManageInstallation={openSettings}
-        />
+        <>
+          <div hidden={!!rules}>{page}</div>
+          {rules && scopePage(rules)}
+        </>
       );
     }
+    if (scopeView) return scopePage(scopeView);
     if (loadError) {
       return (
         <Notice title="Could not load your repositories" failure={loadError}>
@@ -1051,7 +1056,11 @@ export function App() {
               className="icon-button"
               aria-label="Settings"
               aria-pressed={settings}
-              onClick={() => (settings ? setSettings(false) : showSettings(settingsTab))}
+              onClick={() => {
+                if (!settings) return showSettings(settingsTab);
+                setSettings(false);
+                setScopeView(null);
+              }}
             >
               <svg viewBox="0 0 16 16" aria-hidden="true">
                 <circle cx="8" cy="8" r="2.2" />

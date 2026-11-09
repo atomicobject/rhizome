@@ -6,7 +6,10 @@
 // Docs: [[desktop-repository-setup#^SPEC-0118-US3]]
 package init
 
-import "path/filepath"
+import (
+	"os"
+	"path/filepath"
+)
 
 // settingsPlan reports a configured folder's settings with the run's options
 // applied, and what applying them would write.
@@ -103,6 +106,14 @@ func (r *initRun) settingsWrites(plan rerunPlan) SetupWrites {
 	if plan.pending() {
 		for _, path := range r.configFiles(plan.res.cfg) {
 			addFile(path)
+		}
+		// Apply also writes these support files when they differ.
+		root := r.layout.ProjectRoot
+		if data, err := os.ReadFile(filepath.Join(root, ".rhizome", ".gitignore")); err != nil || string(data) != rhizomeGitIgnoreBody() {
+			addFile(".rhizome/.gitignore")
+		}
+		if planned, current, exists, err := plannedIgnore(root, plan.setup); err == nil && (!exists || planned != current) {
+			addFile(".rhizome/ignore")
 		}
 	}
 	for _, line := range plan.decisions {

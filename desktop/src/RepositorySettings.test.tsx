@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { request, type SettingsChoices, type SetupPlan, type SetupResult } from "./api";
+import { providerAccessChanged } from "./ProviderAccess";
 import { RepositorySettings } from "./RepositorySettings";
 
 vi.mock("./api", async (importOriginal) => ({
@@ -280,6 +281,56 @@ describe("repository settings", () => {
     expect(within(bar).queryByRole("button", { name: "Discard" })).toBeNull();
     fireEvent.click(within(bar).getByRole("button", { name: "Update files" }));
     await waitFor(() => expect(calls("settings-apply")).toEqual([{ id, worktree, choices: {} }]));
+  });
+
+  it("names edited files with newer versions even with nothing to write", async () => {
+    serve({
+      "settings-report": () => ({
+        ...current,
+        writes: { summary: [], files: [], kept: [".agents/skills/rhizome/SKILL.md"] },
+      }),
+    });
+    tab();
+    const bar = await screen.findByRole("region", { name: "Unapplied changes" });
+    expect(within(bar).getByText("Files you edited have newer versions")).toBeVisible();
+    expect(within(bar).queryByRole("button", { name: "Update files" })).toBeNull();
+    expect(within(bar).getByText(/Left as you edited them/)).toBeInTheDocument();
+  });
+
+  it("refreshes provider readiness after a key is saved and keeps the changes", async () => {
+    let saved = false;
+    serve({
+      "settings-report": (args) => {
+        const plan = report((args as { choices?: SettingsChoices }).choices);
+        const providers = plan.search.providers.map((p) =>
+          p.id === "openai" ? { ...p, ready: saved } : p,
+        );
+        return { ...plan, search: { ...plan.search, providers } };
+      },
+    });
+    tab();
+    fireEvent.change(await screen.findByLabelText("Search"), { target: { value: "openai" } });
+    expect(screen.getByText("Needs a key on this Mac")).toBeVisible();
+    saved = true;
+    act(() => providerAccessChanged());
+    expect(await screen.findByText("Key found on this Mac")).toBeVisible();
+    expect(screen.getByLabelText("Search")).toHaveValue("openai");
+  });
+
+  it("clears a failed report when the changes are discarded", async () => {
+    serve({
+      "settings-report": (args) => {
+        if ((args as { choices?: SettingsChoices }).choices)
+          throw { code: "settings_failed", message: "boom" };
+        return { ...current, writes: { summary: ["Update 1 Rhizome file"], files: ["AGENTS.md"] } };
+      },
+    });
+    tab();
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Cursor/ }));
+    expect(await screen.findByText("boom")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    expect(screen.queryByText("boom")).toBeNull();
+    expect(screen.getByRole("button", { name: "Update files" })).toBeEnabled();
   });
 
   it("keeps the choices and shows the error when applying fails", async () => {

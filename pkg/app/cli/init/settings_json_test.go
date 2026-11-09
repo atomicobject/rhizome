@@ -75,6 +75,7 @@ func TestSettingsPlanListsWhatOptionsWouldWriteWithoutWriting(t *testing.T) {
 	require.True(t, agentEnabled(plan, "cursor"))
 	require.True(t, addon(t, plan, "compounding").Enabled)
 	require.False(t, addon(t, plan, templateActionItems).Enabled)
+	require.NotContains(t, plan.Writes.Files, ".rhizome/.gitignore", "an unchanged support file is not listed")
 	require.Contains(t, plan.Writes.Summary, "Agents: Claude Code → Claude Code, Cursor")
 	require.Contains(t, plan.Writes.Files, ".rhizome/workflows.yml")
 	require.Contains(t, plan.Writes.Files, ".cursor/rules/rhizome.mdc")
@@ -83,6 +84,19 @@ func TestSettingsPlanListsWhatOptionsWouldWriteWithoutWriting(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, string(before), string(after))
 	require.NoFileExists(t, filepath.Join(root, ".cursor", "rules", "rhizome.mdc"))
+}
+
+func TestSettingsPlanListsSupportFilesApplyWrites(t *testing.T) {
+	root, env := setUpRepo(t)
+	require.NoError(t, os.Remove(filepath.Join(root, ".rhizome", ".gitignore")))
+
+	plan, err := Plan(RunOptions{Env: env, Dir: root})
+	require.NoError(t, err)
+	require.Contains(t, plan.Writes.Files, ".rhizome/.gitignore")
+
+	_, err = Apply(RunOptions{Env: env, Dir: root})
+	require.NoError(t, err)
+	require.FileExists(t, filepath.Join(root, ".rhizome", ".gitignore"))
 }
 
 func TestSettingsApplyChangesTheRepositoryAndReportsIt(t *testing.T) {

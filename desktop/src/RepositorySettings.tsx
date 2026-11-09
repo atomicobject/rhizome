@@ -7,6 +7,7 @@ import {
   type SetupPlan,
   type SetupResult,
 } from "./api";
+import { onProviderAccessChanged } from "./ProviderAccess";
 import { Elapsed } from "./Status";
 
 /** How long the tab waits after a change before asking for a fresh report. */
@@ -142,6 +143,21 @@ export function RepositorySettings({
 
   useEffect(() => onChanged?.(rows.length > 0), [rows.length > 0]);
 
+  // A key saved on the app tab changes provider readiness; keep the draft.
+  useEffect(
+    () =>
+      onProviderAccessChanged(() => {
+        request("settings-report", { id, worktree })
+          .then((fresh) => {
+            if (!alive.current) return;
+            setCurrent(fresh);
+            setDraft((d) => d && { ...d });
+          })
+          .catch(() => {});
+      }),
+    [],
+  );
+
   // A changed draft asks for a fresh report of what it would write.
   useEffect(() => {
     if (!saved || !draft || !current) return;
@@ -149,6 +165,7 @@ export function RepositorySettings({
       // A report still on its way would describe changes that are gone.
       reports.current++;
       setRefreshing(false);
+      setProblem(null);
       setPlan(current);
       return;
     }
@@ -282,6 +299,7 @@ export function RepositorySettings({
     });
   const provider = current.search.providers.find((p) => p.id === draft.search);
   const pending = plan.writes.summary.length > 0;
+  const kept = plan.writes.kept ?? [];
   const rowClass = (row: Row) => (rows.includes(row) ? "setup-row changed" : "setup-row");
   const undoButton = (row: Row, label: string) =>
     rows.includes(row) && (
@@ -478,20 +496,24 @@ export function RepositorySettings({
         Other settings live in <span className="path">.rhizome/config.yml</span>.
       </p>
 
-      {(rows.length > 0 || pending || running || applyError) && (
+      {(rows.length > 0 || pending || kept.length > 0 || running || applyError) && (
         <div className="apply-bar" role="region" aria-label="Unapplied changes">
           <div className={refreshing ? "writes refreshing" : "writes"} aria-busy={refreshing}>
             <p className="apply-what">
               <ChangedMark />
               {rows.length > 0
                 ? `${plural(rows.length, "change")} not applied`
-                : "Rhizome has updates for this repository's files"}
+                : pending
+                  ? "Rhizome has updates for this repository's files"
+                  : "Files you edited have newer versions"}
             </p>
             <details>
               <summary>
                 {pending
                   ? `Writes ${plural(plan.writes.files.length, "file")}`
-                  : "Nothing to write"}
+                  : rows.length > 0
+                    ? "Nothing to write"
+                    : plural(kept.length, "edited file")}
                 {refreshing && <span className="muted"> · updating…</span>}
               </summary>
               <ul className="writes-summary">
@@ -506,10 +528,10 @@ export function RepositorySettings({
                   ))}
                 </ul>
               )}
-              {(plan.writes.kept?.length ?? 0) > 0 && (
+              {kept.length > 0 && (
                 <p className="hint">
-                  Left as you edited them: {joinWords(plan.writes.kept ?? [])}. Run{" "}
-                  <code>rzm init</code> in a terminal to take their updates.
+                  Left as you edited them: {joinWords(kept)}. Run <code>rzm init</code> in a
+                  terminal to take their updates.
                 </p>
               )}
             </details>
@@ -532,13 +554,15 @@ export function RepositorySettings({
                     Discard
                   </button>
                 )}
-                <button
-                  className="primary"
-                  disabled={refreshing || !pending || !!problem}
-                  onClick={() => void apply()}
-                >
-                  {rows.length > 0 ? "Apply changes" : "Update files"}
-                </button>
+                {(rows.length > 0 || pending) && (
+                  <button
+                    className="primary"
+                    disabled={refreshing || !pending || !!problem}
+                    onClick={() => void apply()}
+                  >
+                    {rows.length > 0 ? "Apply changes" : "Update files"}
+                  </button>
+                )}
               </>
             )}
           </div>

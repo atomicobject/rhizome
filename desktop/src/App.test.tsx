@@ -345,7 +345,7 @@ describe("desktop shell", () => {
         { id: "none", label: "Search and agent guidance only", description: "", recommended: true },
       ],
       addons: [],
-      agents: [],
+      agents: [{ id: "claude", label: "Claude Code", enabled: false }],
       search: {
         provider: "off",
         ready: false,
@@ -366,13 +366,17 @@ describe("desktop shell", () => {
     present();
     const item = (await repositoryMenu()).find((entry) => entry.label === "Repository Settings…")!;
     act(() => emit({ type: "menu", id: item.id! }));
-    fireEvent.click(await screen.findByRole("button", { name: "Edit rules…" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Claude Code/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit rules…" }));
     expect(
       await screen.findByRole("heading", { name: "What gets indexed in project" }),
     ).toBeVisible();
     expect(call).toHaveBeenCalledWith("scope", { id: repository.id, worktree: main });
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(screen.getByRole("tab", { name: /project/ })).toHaveAttribute("aria-selected", "true");
+    // The staged change survived the rules page.
+    expect(screen.getByRole("checkbox", { name: /Claude Code/ })).toBeChecked();
+    expect(screen.getByText("1 change not applied")).toBeVisible();
   });
 
   it("offers retry and starting without copying after a seeding failure", async () => {
