@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { JsonObject } from "../api/parse";
 import type { ExperienceShowing } from "../components/experienceFrameRecords";
-import { ExperienceFrames, RETAINED_FRAMES } from "../components/experienceFrames";
+import {
+  ExperienceFrames,
+  RETAINED_FRAMES,
+  SUSPEND_GRACE_MS,
+} from "../components/experienceFrames";
 import {
   FRAME_READY_MESSAGE,
   LOCATION_ACCEPTED_MESSAGE,
@@ -222,7 +226,7 @@ describe("experience frames measurement", () => {
 
     const leave = async (tabId: string) => {
       frames.hide(tabId);
-      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(SUSPEND_GRACE_MS);
     };
 
     await open(kb);

@@ -6,9 +6,12 @@ import type { ViewCatalogEntry, ViewChoice } from "../api/types";
 import {
   EDIT_SESSION_MESSAGE,
   FRAME_READY_MESSAGE,
+  LOCATION_ACCEPTED_MESSAGE,
   LOCATION_MESSAGE,
+  LOCATION_RENDERED_MESSAGE,
   RESUME_MESSAGE,
   SUSPEND_MESSAGE,
+  type ViewMessage,
 } from "../lib/customViewMessages";
 import { ViewHost } from "../views/ViewHost";
 import { ExperienceFrameLayer, ExperienceTabContext } from "./ExperienceFrameLayer";
@@ -69,16 +72,18 @@ const frames = () => document.querySelectorAll<HTMLIFrameElement>("iframe.experi
 
 afterEach(() => vi.restoreAllMocks());
 
-const frameReady = (frame: HTMLIFrameElement) =>
+const fromFrame = (frame: HTMLIFrameElement, data: ViewMessage) =>
   act(async () =>
     window.dispatchEvent(
       new MessageEvent("message", {
         origin: window.location.origin,
         source: frame.contentWindow,
-        data: { type: FRAME_READY_MESSAGE },
+        data,
       }),
     ),
   );
+
+const frameReady = (frame: HTMLIFrameElement) => fromFrame(frame, { type: FRAME_READY_MESSAGE });
 
 describe("ExperienceFrameLayer", () => {
   it("shows an experience's tabs of any kind in one frame laid over the active placeholder", async () => {
@@ -140,6 +145,58 @@ describe("ExperienceFrameLayer", () => {
     expect(posted.mock.calls.filter(([message]) => message.type === LOCATION_MESSAGE)).toEqual([]);
   });
 
+  // A resize lays out the page the frame shows, so it waits until the frame swapped pages.
+  it("keeps a frame's box until it accepts the new tab's location", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({ view: { id: "v", name: "v" }, context: { kind: "standalone" } }),
+          { headers: { "Content-Type": "application/json", "Rhizome-Generation": "g1" } },
+        ),
+    );
+    let placeholder = { width: 600, height: 400 };
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        return this.classList.contains("experience-placeholder")
+          ? DOMRect.fromRect(placeholder)
+          : DOMRect.fromRect({ width: 900, height: 700 });
+      },
+    );
+
+    const tabs = (active: string) => (
+      <Shell open={["home", "note:a.md"]}>
+        <Tab id="home" view="kb.home" active={active === "home"} />
+        <Tab id="note:a.md" view="kb.assertion" active={active === "note:a.md"} />
+      </Shell>
+    );
+
+    const { rerender } = render(tabs("home"));
+    await waitFor(() => expect(frames()).toHaveLength(1));
+    const [frame] = frames();
+    const located: { tabId: string; navigationId: string }[] = [];
+    vi.spyOn(frame!.contentWindow!, "postMessage").mockImplementation(
+      (message: { type: string; tabId: string; navigationId: string }) => {
+        if (message.type === LOCATION_MESSAGE) located.push(message);
+      },
+    );
+    await frameReady(frame!);
+    await waitFor(() => expect(located).toHaveLength(1));
+    await fromFrame(frame!, { ...located[0], type: LOCATION_ACCEPTED_MESSAGE });
+    await fromFrame(frame!, { ...located[0], type: LOCATION_RENDERED_MESSAGE, at: 1 });
+    await waitFor(() => expect(frame?.style.width).toBe("600px"));
+
+    placeholder = { width: 300, height: 200 };
+    rerender(tabs("note:a.md"));
+    await waitFor(() => expect(located.at(-1)?.tabId).toBe("note:a.md"));
+    await act(
+      async () => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined))),
+    );
+    expect(frame?.style.width).toBe("600px");
+
+    await fromFrame(frame!, { ...located.at(-1)!, type: LOCATION_ACCEPTED_MESSAGE });
+    await waitFor(() => expect(frame?.style).toMatchObject({ width: "300px", height: "200px" }));
+  });
+
   it("suspends the frame when its tab shows another view and resumes it on return", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(
       async () =>
@@ -185,8 +242,9 @@ describe("ExperienceFrameLayer", () => {
 
     rerender(<App experience={false} />);
     await act(async () => undefined);
-    expect(sent.at(-1)).toBe(SUSPEND_MESSAGE);
+    // Hidden and inert at once; suspended after the grace period.
     expect(frame).toHaveAttribute("inert");
+    await waitFor(() => expect(sent.at(-1)).toBe(SUSPEND_MESSAGE));
 
     rerender(<App experience />);
     await act(async () => undefined);

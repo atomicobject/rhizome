@@ -66,6 +66,15 @@ import {
  */
 export const RETAINED_FRAMES = 3;
 
+/**
+ * How long a frame whose tab left the screen waits, hidden and inert, before it is sent
+ * `rhizome:suspend`. Opening a record in a new tab hides the old tab one commit before the new
+ * tab's placeholder shows the same frame; suspending and resuming in between hid and re-showed
+ * the page it still held, a whole relayout of the largest AO KB's Assertions list (25,622 layout
+ * objects, 80 to 100 ms) per open (SPEC-0136 R10).
+ */
+export const SUSPEND_GRACE_MS = 250;
+
 type Options = {
   fetchInvocation: (showing: ExperienceShowing) => Promise<Invocation>;
   fetchGeneration: () => Promise<string | undefined>;
@@ -148,18 +157,19 @@ export class ExperienceFrames {
     void this.locate(frame, showing);
   }
 
-  /** A tab's page left the screen: its frame suspends unless another of its tabs shows. */
+  /** A tab's page left the screen: its frame hides at once and suspends unless another of its tabs shows. */
   hide(tabId: string) {
     const frame = [...this.frames.values()].find((each) => each.activeTab === tabId);
 
     if (!frame) return;
     frame.activeTab = null;
     this.requests.delete(tabId);
+    this.publish();
 
-    // Another tab of the same experience may show in this same commit.
-    queueMicrotask(() => {
+    // Another tab of the same experience may show in this commit or the next few.
+    setTimeout(() => {
       if (frame.activeTab === null && this.frames.get(frame.key) === frame) this.leave(frame);
-    });
+    }, SUSPEND_GRACE_MS);
   }
 
   /** Drop the pages of tabs that closed. */
@@ -459,6 +469,8 @@ export class ExperienceFrames {
         if (frame.awaiting?.navigationId === request.navigationId) {
           clearTimeout(frame.awaiting.timer);
           frame.awaiting = null;
+          frame.acceptedTab = frame.locatedTab;
+          this.publish();
         }
 
         return;

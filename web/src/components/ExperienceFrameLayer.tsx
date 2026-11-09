@@ -189,11 +189,20 @@ export function FrameLayer({
     : null;
 
   const rect = useCoverRect(layer, placeholder);
+  // Each frame's last box, which it keeps until it holds the active tab's page: resizing it
+  // sooner lays out the page it is leaving again, and an iframe without a box falls back to
+  // 300 by 150 (SPEC-0136 R10). Written while rendering; the same inputs give the same box.
+  const boxes = useRef(new Map<number, Rect>());
 
   return (
     <div ref={setLayer} className={panel ? "panel-frame-layer" : "experience-frame-layer"}>
       {views.map((view) => {
-        const placed = (view.visible || view.starting) && rect;
+        const last = boxes.current.get(view.id);
+
+        const placed =
+          rect && (view.visible || view.starting) && (view.onActivePage || !last) ? rect : last;
+
+        if (placed) boxes.current.set(view.id, placed);
 
         return (
           <iframe
@@ -210,7 +219,7 @@ export function FrameLayer({
             title={view.title}
             src={view.src}
             onLoad={onFrameLoad && ((event) => onFrameLoad(event.currentTarget))}
-            style={placed ? rect : undefined}
+            style={placed}
             aria-hidden={view.visible ? undefined : true}
             inert={view.visible ? undefined : true}
           />

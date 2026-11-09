@@ -20,7 +20,7 @@ import {
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import { STREAM_RECONNECTED_EVENT, VIEWS_CHANGED_EVENT } from "../query/vaultEvents";
 import { checkFolder, type ExperienceShowing } from "./experienceFrameRecords";
-import { ExperienceFrames, RETAINED_FRAMES } from "./experienceFrames";
+import { ExperienceFrames, RETAINED_FRAMES, SUSPEND_GRACE_MS } from "./experienceFrames";
 
 type Sent = { type: string } & JsonObject;
 
@@ -216,6 +216,31 @@ describe("ExperienceFrames", () => {
     expect(frame("exp_kb")!.view.starting).toBe(true);
   });
 
+  it("keeps a frame running when another of its tabs shows within the grace period", async () => {
+    const { frames, frame, from, lastLocation } = harness();
+    frames.show(showing(), null);
+    await vi.advanceTimersByTimeAsync(0);
+    from("exp_kb", { type: FRAME_READY_MESSAGE });
+    from("exp_kb", { ...lastLocation("exp_kb"), type: LOCATION_ACCEPTED_MESSAGE });
+    expect(frame("exp_kb")!.view.onActivePage).toBe(true);
+
+    frames.hide("home");
+    // Hidden at once, before the grace period ends.
+    expect(frame("exp_kb")!.view.visible || frame("exp_kb")!.view.starting).toBe(false);
+    await vi.advanceTimersByTimeAsync(SUSPEND_GRACE_MS - 1);
+    frames.show(showing({ tabId: "note:a.md", viewId: "kb.assertion" }), null);
+    await vi.advanceTimersByTimeAsync(SUSPEND_GRACE_MS);
+
+    const types = frame("exp_kb")!.sent.map((each) => each.type);
+    expect(types).not.toContain(SUSPEND_MESSAGE);
+    expect(types).not.toContain(RESUME_MESSAGE);
+    expect(lastLocation("exp_kb").tabId).toBe("note:a.md");
+    // It holds the new tab's page only once it accepts that location.
+    expect(frame("exp_kb")!.view.onActivePage).toBe(false);
+    from("exp_kb", { ...lastLocation("exp_kb"), type: LOCATION_ACCEPTED_MESSAGE });
+    expect(frame("exp_kb")!.view.onActivePage).toBe(true);
+  });
+
   it("suspends a hidden frame, forwards it no events, and resumes it with what changed", async () => {
     const { frames, frame, from } = harness();
     frames.setSession({ session: null });
@@ -224,7 +249,7 @@ describe("ExperienceFrames", () => {
     from("exp_kb", { type: FRAME_READY_MESSAGE });
 
     frames.hide("home");
-    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(SUSPEND_GRACE_MS);
     const sent = frame("exp_kb")!.sent;
     expect(sent.at(-1)).toEqual({ type: SUSPEND_MESSAGE });
     expect(frame("exp_kb")!.view.visible || frame("exp_kb")!.view.starting).toBe(false);
@@ -239,7 +264,7 @@ describe("ExperienceFrames", () => {
     expect(sent.at(-1)).toEqual({ type: RESUME_MESSAGE, generation: "g2" });
 
     frames.hide("home");
-    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(SUSPEND_GRACE_MS);
     // SAFETY: the store compares only the read lifecycle's revision.
     frames.setSession({ session: null, readLifecycle: { revision: 3 } as EditReadLifecycle });
     const before = sent.length;
@@ -307,13 +332,13 @@ describe("ExperienceFrames", () => {
     await vi.advanceTimersByTimeAsync(0);
     from("exp_kb", { type: FRAME_READY_MESSAGE }, true);
     frames.hide("panel");
-    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(SUSPEND_GRACE_MS);
     expect(frame("exp_kb", true)!.sent.at(-1)).toEqual({ type: SUSPEND_MESSAGE });
 
     frames.show(panelShowing(), null);
     expect(frame("exp_kb", true)!.sent.at(-1)).toMatchObject({ type: RESUME_MESSAGE });
     frames.hide("panel");
-    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(SUSPEND_GRACE_MS);
 
     // K pages shown after it leave the panel the least recently shown of K + 1.
     for (let index = 0; index < RETAINED_FRAMES; index += 1) {
@@ -323,7 +348,7 @@ describe("ExperienceFrames", () => {
 
     expect(frame("exp_kb", true)).not.toBeNull();
     frames.hide(`view:${RETAINED_FRAMES - 1}`);
-    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(SUSPEND_GRACE_MS);
     expect(frame("exp_kb", true)).toBeNull();
     expect(frames.views()).toHaveLength(RETAINED_FRAMES);
   });

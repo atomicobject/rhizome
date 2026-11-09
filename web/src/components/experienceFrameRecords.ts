@@ -67,6 +67,8 @@ export type Frame = PhaseClock & {
   pending: ExperienceLocation | null;
   /** The tab of the last location posted: the page the frame shows. */
   locatedTab: string | null;
+  /** The tab of the last location the frame accepted: by then it has swapped to that page. */
+  acceptedTab: string | null;
   awaiting: { navigationId: string; timer: ReturnType<typeof setTimeout> } | null;
   generationSent: boolean;
   /** The edit session last posted, compared by fingerprint and read revision. */
@@ -86,6 +88,8 @@ export type FrameView = {
   visible: boolean;
   /** Placed over the active placeholder but not yet painted, so hidden. */
   starting: boolean;
+  /** The frame accepted its active tab's location, so it holds that tab's page. */
+  onActivePage: boolean;
 };
 
 export const frameKey = ({
@@ -187,6 +191,7 @@ export function newFrame(showing: ExperienceShowing, id: number): Frame {
     pages: new Map(),
     pending: null,
     locatedTab: null,
+    acceptedTab: null,
     awaiting: null,
     generationSent: false,
     sessionSent: null,
@@ -212,5 +217,6 @@ export function frameView(frame: Frame): FrameView {
     title: frame.title,
     visible: active && painted,
     starting: active && !painted,
+    onActivePage: active && frame.acceptedTab === frame.activeTab,
   };
 }
