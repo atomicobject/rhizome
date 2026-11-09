@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 )
 
 var viewIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]*$`)
@@ -93,49 +92,6 @@ func normalizeView(def ViewDefinition) ViewDefinition {
 		}
 	}
 	return def
-}
-
-// jsonValue copies configuration into JSON-encodable form. yaml.v3 decodes a
-// nested map with any non-string key (`1:`, `true:`, `2026-01-02:`, `~:`) as
-// map[interface{}]interface{}; yamlKeyText turns those keys back into text.
-func jsonValue(value any) any {
-	switch value := value.(type) {
-	case map[string]any:
-		out := make(map[string]any, len(value))
-		for key, item := range value {
-			out[key] = jsonValue(item)
-		}
-		return out
-	case map[any]any:
-		out := make(map[string]any, len(value))
-		for key, item := range value {
-			out[yamlKeyText(key)] = jsonValue(item)
-		}
-		return out
-	case []any:
-		out := make([]any, len(value))
-		for i, item := range value {
-			out[i] = jsonValue(item)
-		}
-		return out
-	default:
-		return value
-	}
-}
-
-// yamlKeyText approximates the authored scalar for a decoded non-string key.
-func yamlKeyText(key any) string {
-	switch key := key.(type) {
-	case nil:
-		return "null"
-	case time.Time:
-		if key.Equal(key.Truncate(24*time.Hour)) && key.Location() == time.UTC {
-			return key.Format(time.DateOnly)
-		}
-		return key.Format(time.RFC3339Nano)
-	default:
-		return fmt.Sprint(key)
-	}
 }
 
 func normalizeVariants(variants *VariantSet) {
@@ -286,11 +242,7 @@ func validateMount(def ViewDefinition, opts ValidateOptions) []Issue {
 	case MountKindStandalone:
 		issues = append(issues, unexpectedMountFields(def, "mount.type", def.Mount.Type, "mount.interface", def.Mount.Interface)...)
 	case MountKindPanel:
-		// Whether an experience names it is checked with the experience.
-		issues = append(issues, unexpectedMountFields(def, "mount.type", def.Mount.Type, "mount.interface", def.Mount.Interface, "mount.group", def.Mount.Group)...)
-		if def.SourceSpec.Kind != SourceKindCustom {
-			issues = append(issues, issue(def, "unsupported_mount_kind", "mount.kind", "panel mounts require a custom source"))
-		}
+		issues = append(issues, validatePanelMount(def)...)
 	case "":
 		return []Issue{issue(def, "missing_required_field", "mount.kind", "mount.kind is required")}
 	default:

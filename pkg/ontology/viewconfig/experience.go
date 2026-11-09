@@ -254,6 +254,16 @@ func validateExperiences(views []ViewDefinition, issues []Issue, opts ValidateOp
 	return out
 }
 
+// validatePanelMount checks a panel mount's own fields; whether an
+// experience names it is checked with the experience.
+func validatePanelMount(def ViewDefinition) []Issue {
+	issues := unexpectedMountFields(def, "mount.type", def.Mount.Type, "mount.interface", def.Mount.Interface, "mount.group", def.Mount.Group)
+	if def.SourceSpec.Kind != SourceKindCustom {
+		issues = append(issues, issue(def, "unsupported_mount_kind", "mount.kind", "panel mounts require a custom source"))
+	}
+	return issues
+}
+
 func experienceFileIssues(exp *Experience, views []*ViewDefinition, invalidView map[string]bool, opts ValidateOptions) []Issue {
 	if exp.decodeErr != "" {
 		return []Issue{experienceIssue(exp, "experience_yaml_decode_error", "", exp.decodeErr, IssueFatal)}
