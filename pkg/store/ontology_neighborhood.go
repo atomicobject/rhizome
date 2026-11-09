@@ -27,57 +27,15 @@ func (s *Store) OntologyNeighborhood(ctx context.Context, q readmodel.Neighborho
 	q.Sources = uniqueSources
 	var out []OntologyEdgeRow
 	seen := map[OntologyEdgeRow]bool{}
-	relations := normalizeNonEmptyStrings(q.Relations)
-	provenance := normalizeNonEmptyStrings(q.Provenance)
-	batchSize := (sqliteValuesBatchMaxParams - len(relations) - len(provenance) - 1) / 2
+	q.Relations = normalizeNonEmptyStrings(q.Relations)
+	q.Provenance = normalizeNonEmptyStrings(q.Provenance)
+	q.DstTypes = normalizeNonEmptyStrings(q.DstTypes)
+	batchSize := (sqliteValuesBatchMaxParams - len(q.Relations) - len(q.Provenance) - len(q.DstTypes) - 1) / 2
 	if batchSize < 1 {
 		return nil, fmt.Errorf("too many neighborhood filter values")
 	}
 	for start := 0; start < len(q.Sources); start += batchSize {
-		batch := q.Sources[start:min(start+batchSize, len(q.Sources))]
-		args := make([]any, 0, len(batch)*2+len(relations)+len(provenance)+1)
-		for _, src := range batch {
-			args = append(args, src.Path, src.NodeID)
-		}
-		srcMatch := "e.src_path=r.path AND COALESCE(e.src_node_id,'')=r.node_id"
-		dstMatch := "e.dst_path=r.path AND COALESCE(e.dst_node_id,'')=r.node_id"
-		join := srcMatch
-		if q.Direction == "inbound" {
-			join = dstMatch
-		} else if q.Direction == "both" {
-			join = "(" + srcMatch + ") OR (" + dstMatch + ")"
-		}
-		conditions := []string{"1=1"}
-		if !q.IncludeAmbient {
-			conditions = append(conditions, "e.structural=1")
-		}
-		if !q.IncludeStructural {
-			conditions = append(conditions, "e.structural=0")
-		}
-		for _, filter := range []struct {
-			column string
-			values []string
-		}{{"relation_name", relations}, {"provenance", provenance}} {
-			if len(filter.values) > 0 {
-				conditions = append(conditions, fmt.Sprintf("e.%s IN (%s)", filter.column, strings.TrimSuffix(strings.Repeat("?,", len(filter.values)), ",")))
-				args = append(args, sliceAny(filter.values)...)
-			}
-		}
-		columns := "e.src_path, COALESCE(e.src_node_id,'') AS src_node_id, e.relation_name, e.dst_path, COALESCE(e.dst_node_id,'') AS dst_node_id, e.dst_type, e.provenance, e.structural, e.schema_hash, e.updated_at, e.occurrences_json"
-		embeddedTarget := "COALESCE(e.dst_node_id,'')<>''"
-		if q.Direction == "inbound" {
-			embeddedTarget = "COALESCE(e.src_node_id,'')<>''"
-		}
-		if q.Direction == "both" {
-			embeddedTarget = "COALESCE(e.src_node_id,'')<>'' OR COALESCE(e.dst_node_id,'')<>''"
-		}
-		query := fmt.Sprintf("WITH requested(path,node_id) AS (VALUES %s), matches AS (SELECT %s, ROW_NUMBER() OVER (PARTITION BY r.path,r.node_id ORDER BY e.structural DESC,e.provenance,e.relation_name,e.dst_path,e.dst_node_id,e.src_path,e.src_node_id) AS ordinal, MAX(CASE WHEN %s THEN 1 ELSE 0 END) OVER (PARTITION BY r.path,r.node_id) AS has_embedded_target FROM ontology_edges e JOIN requested r ON %s WHERE %s) SELECT DISTINCT src_path,src_node_id,relation_name,dst_path,dst_node_id,dst_type,provenance,structural,schema_hash,updated_at,occurrences_json FROM matches", strings.TrimSuffix(strings.Repeat("(?,?),", len(batch)), ","), columns, embeddedTarget, join, strings.Join(conditions, " AND "))
-		if q.PerSourceLimit > 0 {
-			// Embedded refs need catalog canonicalization before their final ordering.
-			query += " WHERE has_embedded_target=1 OR ordinal<=?"
-			args = append(args, q.PerSourceLimit)
-		}
-		query += " ORDER BY structural DESC,provenance,relation_name,src_path,src_node_id,dst_path,dst_node_id"
+		query, args := ontologyNeighborhoodSQL(q.Sources[start:min(start+batchSize, len(q.Sources))], q)
 		rows, err := s.db.QueryContext(ctx, query, args...)
 		if err != nil {
 			return nil, err
@@ -100,4 +58,66 @@ func (s *Store) OntologyNeighborhood(ctx context.Context, q readmodel.Neighborho
 		}
 	}
 	return out, nil
+}
+
+// ontologyNeighborhoodSQL builds one batch's statement over normalized
+// filters. The requested endpoints drive the join (CROSS JOIN fixes the loop
+// order) and the NOT NULL endpoint columns are compared directly, so every
+// parent seeks the edge index at any batch size. A COALESCE around them, or an
+// OR across both endpoints, stops SQLite from planning through the index above
+// about 150 parents.
+func ontologyNeighborhoodSQL(batch []readmodel.EdgeEndpoint, q readmodel.NeighborhoodQuery) (string, []any) {
+	conditions := []string{"1=1"}
+	var conditionArgs []any
+	if !q.IncludeAmbient {
+		conditions = append(conditions, "e.structural=1")
+	}
+	if !q.IncludeStructural {
+		conditions = append(conditions, "e.structural=0")
+	}
+	for _, filter := range []struct {
+		column string
+		values []string
+	}{{"relation_name", q.Relations}, {"provenance", q.Provenance}} {
+		if len(filter.values) > 0 {
+			conditions = append(conditions, fmt.Sprintf("e.%s IN (%s)", filter.column, sqlPlaceholderList(len(filter.values))))
+			conditionArgs = append(conditionArgs, sliceAny(filter.values)...)
+		}
+	}
+	if len(q.DstTypes) > 0 && q.Direction == "outbound" {
+		// Untyped note targets and embedded targets keep the caller's catalog
+		// type lookup, so they pass through.
+		conditions = append(conditions, fmt.Sprintf("(e.dst_type IN (%s) OR e.dst_type='' OR e.dst_node_id<>'')", sqlPlaceholderList(len(q.DstTypes))))
+		conditionArgs = append(conditionArgs, sliceAny(q.DstTypes)...)
+	}
+	args := make([]any, 0, len(batch)*2+2*len(conditionArgs)+1)
+	for _, src := range batch {
+		args = append(args, src.Path, src.NodeID)
+	}
+	// Each direction is its own seek; UNION keeps a self-loop once per parent.
+	branch := func(endpoint string) string {
+		args = append(args, conditionArgs...)
+		return fmt.Sprintf("SELECT r.path AS r_path, r.node_id AS r_node_id, e.src_path, e.src_node_id, e.relation_name, e.dst_path, e.dst_node_id, e.dst_type, e.provenance, e.structural, e.schema_hash, e.updated_at, e.occurrences_json FROM requested r CROSS JOIN ontology_edges e ON e.%[1]s_path=r.path AND e.%[1]s_node_id=r.node_id WHERE %[2]s", endpoint, strings.Join(conditions, " AND "))
+	}
+	var joined, embeddedTarget string
+	switch q.Direction {
+	case "inbound":
+		joined, embeddedTarget = branch("dst"), "src_node_id<>''"
+	case "both":
+		joined, embeddedTarget = branch("src")+" UNION "+branch("dst"), "src_node_id<>'' OR dst_node_id<>''"
+	default:
+		joined, embeddedTarget = branch("src"), "dst_node_id<>''"
+	}
+	query := fmt.Sprintf("WITH requested(path,node_id) AS MATERIALIZED (VALUES %s), joined AS (%s), matches AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY r_path,r_node_id ORDER BY structural DESC,provenance,relation_name,dst_path,dst_node_id,src_path,src_node_id) AS ordinal, MAX(CASE WHEN %s THEN 1 ELSE 0 END) OVER (PARTITION BY r_path,r_node_id) AS has_embedded_target FROM joined) SELECT DISTINCT src_path,src_node_id,relation_name,dst_path,dst_node_id,dst_type,provenance,structural,schema_hash,updated_at,occurrences_json FROM matches", strings.TrimSuffix(strings.Repeat("(?,?),", len(batch)), ","), joined, embeddedTarget)
+	if q.PerSourceLimit > 0 {
+		// Embedded refs need catalog canonicalization before their final ordering.
+		query += " WHERE has_embedded_target=1 OR ordinal<=?"
+		args = append(args, q.PerSourceLimit)
+	}
+	query += " ORDER BY structural DESC,provenance,relation_name,src_path,src_node_id,dst_path,dst_node_id"
+	return query, args
+}
+
+func sqlPlaceholderList(n int) string {
+	return strings.TrimSuffix(strings.Repeat("?,", n), ",")
 }

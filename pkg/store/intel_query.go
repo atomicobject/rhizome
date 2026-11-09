@@ -137,30 +137,7 @@ func (s *Store) CallAnchorsByPaths(ctx context.Context, paths []string, perPathL
 		args[i] = p
 	}
 
-	valueRows := strings.TrimSuffix(strings.Repeat("(?),", len(paths)), ",")
-	query := fmt.Sprintf(`
-		WITH requested(path) AS (VALUES %s), candidates AS (
-		SELECT DISTINCT
-			caller.path AS caller_path,
-			callee.anchor_id, callee.lang, callee.kind, callee.path, callee.symbol, callee.fqn,
-			callee.signature, callee.doc_comment, callee.start_byte, callee.end_byte,
-			callee.start_line, callee.end_line, callee.fingerprint, callee.updated_at
-		FROM intel_edges e
-		JOIN intel_code_anchors caller ON caller.id = e.src_row_id
-		JOIN intel_code_anchors callee ON callee.id = e.dst_row_id
-		WHERE e.kind = 'calls' AND e.src_type = 'anchor' AND e.dst_type = 'anchor' AND caller.path IN (SELECT path FROM requested)
-		UNION
-		SELECT r.source_path,
-			callee.anchor_id, callee.lang, callee.kind, callee.path, callee.symbol, callee.fqn,
-			callee.signature, callee.doc_comment, callee.start_byte, callee.end_byte,
-			callee.start_line, callee.end_line, callee.fingerprint, callee.updated_at
-		FROM intel_go_derived_relationships r
-		JOIN intel_go_package_relationship_state st ON st.package_key=r.package_key AND st.valid=1
-		JOIN intel_code_anchors callee ON callee.fqn=r.target_fqn
-		WHERE r.kind='calls' AND r.source_path IN (SELECT path FROM requested)
-		)
-		SELECT * FROM candidates ORDER BY caller_path, fqn, anchor_id
-	`, valueRows)
+	query := callAnchorsByPathsSQL(len(paths))
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -261,4 +238,33 @@ func readCallAnchors(rows *sql.Rows, perCallerLimit, perFQNLimit int) (map[strin
 		fqnCounts[caller][fqn]++
 	}
 	return out, rows.Err()
+}
+
+// callAnchorsByPathsSQL selects calls from n caller paths. The requested paths
+// feed IN subqueries, which SQLite answers by seeking the caller-path and
+// source-path indexes at any n.
+func callAnchorsByPathsSQL(n int) string {
+	return fmt.Sprintf(`
+		WITH requested(path) AS (VALUES %s), candidates AS (
+		SELECT DISTINCT
+			caller.path AS caller_path,
+			callee.anchor_id, callee.lang, callee.kind, callee.path, callee.symbol, callee.fqn,
+			callee.signature, callee.doc_comment, callee.start_byte, callee.end_byte,
+			callee.start_line, callee.end_line, callee.fingerprint, callee.updated_at
+		FROM requested q
+		CROSS JOIN intel_code_anchors caller ON caller.path = q.path
+		CROSS JOIN intel_edges e ON e.kind = 'calls' AND e.src_type = 'anchor' AND e.src_row_id = caller.id AND e.dst_type = 'anchor'
+		JOIN intel_code_anchors callee ON callee.id = e.dst_row_id
+		UNION
+		SELECT r.source_path,
+			callee.anchor_id, callee.lang, callee.kind, callee.path, callee.symbol, callee.fqn,
+			callee.signature, callee.doc_comment, callee.start_byte, callee.end_byte,
+			callee.start_line, callee.end_line, callee.fingerprint, callee.updated_at
+		FROM requested q
+		CROSS JOIN intel_go_derived_relationships r ON r.source_path = q.path AND r.kind='calls'
+		JOIN intel_go_package_relationship_state st ON st.package_key=r.package_key AND st.valid=1
+		JOIN intel_code_anchors callee ON callee.lang='go' AND callee.fqn=r.target_fqn
+		)
+		SELECT * FROM candidates ORDER BY caller_path, fqn, anchor_id
+	`, strings.TrimSuffix(strings.Repeat("(?),", n), ","))
 }

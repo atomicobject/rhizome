@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	"slices"
 )
 
 // Neighborhood returns one-hop ontology relations around many source refs.
@@ -51,6 +52,11 @@ func (s *Scope) Neighborhood(ctx context.Context, req NeighborhoodRequest) (Neig
 			nodeID = ""
 		}
 		query.Sources = append(query.Sources, readmodel.EdgeEndpoint{Path: ref.NotePath, NodeID: nodeID})
+	}
+	if req.Direction == TraversalDirectionOutbound {
+		// Edge rows carry the outbound target's indexed type, so SQL can drop
+		// other types before Go applies the exact filter below.
+		query.DstTypes = s.indexedTargetTypes(req.TargetTypes, req.TargetInterfaces)
 	}
 	// Target filters must see every candidate before the per-source limit.
 	if len(req.TargetTypes) == 0 && len(req.TargetInterfaces) == 0 && len(req.TargetKinds) == 0 && req.Direction != TraversalDirectionBoth && req.FirstPerSource > 0 {
@@ -102,6 +108,30 @@ func (s *Scope) Neighborhood(ctx context.Context, req NeighborhoodRequest) (Neig
 		result.Nodes = nodes
 	}
 	return result, nil
+}
+
+// indexedTargetTypes lists every concrete type the target filters can admit,
+// or nil when there is no filter or an interface cannot be expanded.
+func (s *Scope) indexedTargetTypes(types, interfaces []string) []string {
+	out := normalizeStrings(types)
+	if len(interfaces) == 0 {
+		return out
+	}
+	if s.service.Schema == nil {
+		return nil
+	}
+	wanted := stringSet(interfaces)
+	for name, doc := range s.service.Schema.Types {
+		for _, implemented := range doc.Implements {
+			if _, ok := wanted[implemented]; ok {
+				out = append(out, name)
+				break
+			}
+		}
+	}
+	// Sorted, so the scope's row cache sees one query shape.
+	slices.Sort(out)
+	return slices.Compact(out)
 }
 
 // Edges is a Neighborhood shorthand that skips target hydration.

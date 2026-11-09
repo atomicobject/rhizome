@@ -51,24 +51,11 @@ func ownershipCurrentStatesTx(ctx context.Context, tx *sql.Tx, transitions []Own
 			end = len(notePaths)
 		}
 		batch := notePaths[start:end]
-		values := strings.TrimSuffix(strings.Repeat("(?, ?),", len(batch)), ",")
 		args := make([]any, 0, len(batch)*2)
 		for _, path := range batch {
 			args = append(args, path, normalizeCodeLookupPath(path))
 		}
-		rows, err := tx.QueryContext(ctx, fmt.Sprintf(`
-			WITH requested(path, code_path) AS (VALUES %s)
-			SELECT requested.path,
-				EXISTS(SELECT 1 FROM files WHERE files.path = requested.code_path),
-				n.id IS NOT NULL,
-				COALESCE(n.id, 0), requested.path, COALESCE(n.title, ''), COALESCE(n.content_hash, ''), COALESCE(n.indexer_version, ''),
-				COALESCE(n.mtime, 0), COALESCE(n.size, 0), COALESCE(n.indexed_at, 0), COALESCE(n.format_id, 'markdown'),
-				COALESCE(p.provider_version, ''), COALESCE(p.projection_version, ''), COALESCE(p.source_content_hash, ''),
-				COALESCE(p.status, 'stale'), COALESCE(p.diagnostic_code, ''), COALESCE(p.diagnostic_detail, ''), COALESCE(p.updated_at, 0)
-			FROM requested
-			LEFT JOIN notes n ON n.path = requested.path AND n.indexed_at > 0
-			LEFT JOIN note_projection_state p ON p.note_id = n.id
-		`, values), args...)
+		rows, err := tx.QueryContext(ctx, ownershipCurrentStatesSQL(len(batch)), args...)
 		if err != nil {
 			return nil, err
 		}
@@ -97,4 +84,22 @@ func ownershipCurrentStatesTx(ctx context.Context, tx *sql.Tx, transitions []Own
 		}
 	}
 	return states, nil
+}
+
+// ownershipCurrentStatesSQL reads n requested paths. LEFT JOIN keeps the
+// requested rows as the outer loop, so each path seeks notes by path.
+func ownershipCurrentStatesSQL(n int) string {
+	return fmt.Sprintf(`
+			WITH requested(path, code_path) AS (VALUES %s)
+			SELECT requested.path,
+				EXISTS(SELECT 1 FROM files WHERE files.path = requested.code_path),
+				n.id IS NOT NULL,
+				COALESCE(n.id, 0), requested.path, COALESCE(n.title, ''), COALESCE(n.content_hash, ''), COALESCE(n.indexer_version, ''),
+				COALESCE(n.mtime, 0), COALESCE(n.size, 0), COALESCE(n.indexed_at, 0), COALESCE(n.format_id, 'markdown'),
+				COALESCE(p.provider_version, ''), COALESCE(p.projection_version, ''), COALESCE(p.source_content_hash, ''),
+				COALESCE(p.status, 'stale'), COALESCE(p.diagnostic_code, ''), COALESCE(p.diagnostic_detail, ''), COALESCE(p.updated_at, 0)
+			FROM requested
+			LEFT JOIN notes n ON n.path = requested.path AND n.indexed_at > 0
+			LEFT JOIN note_projection_state p ON p.note_id = n.id
+		`, strings.TrimSuffix(strings.Repeat("(?, ?),", n), ","))
 }
