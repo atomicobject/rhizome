@@ -45,7 +45,7 @@ func loadSiteQueries(t *testing.T, args map[string]any) siteQueries {
 	require.NoError(t, err)
 	input, err := json.Marshal(args)
 	require.NoError(t, err)
-	// import() takes a URL; a raw Windows path (D:\\...) reads as scheme "d:".
+	// import() takes a URL; a raw Windows path (D:\...) reads as scheme "d:".
 	script := `const q = await import((await import("node:url")).pathToFileURL(process.argv[1]).href); const a = JSON.parse(process.argv[2]) ?? {};
 console.log(JSON.stringify({Orientation: q.ORIENTATION_QUERY, Related: q.RELATED_CONCEPTS_QUERY, Review: q.REVIEW_DOCUMENTS_QUERY,
   Citation: q.CITATION_SELECTION, Source: q.sourceScopeQuery(a.source ?? ""), Artifact: q.artifactScopeQuery(a.artifact ?? "")}));`
