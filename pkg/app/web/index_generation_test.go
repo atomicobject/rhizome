@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
 	"github.com/stretchr/testify/require"
@@ -86,4 +87,47 @@ func TestEventsAndStatusCarryTheIndexGeneration(t *testing.T) {
 	capabilities, err := srv.publicCapabilities(ctx)
 	require.NoError(t, err)
 	require.Equal(t, event.Generation, capabilities.Index.Generation)
+}
+
+// While the views poller runs, the views component is the poller's latest
+// stamp instead of a walk of every views folder, and a views.changed event
+// carries a generation that includes the change it announces.
+func TestViewsGenerationUsesThePollerStamp(t *testing.T) {
+	fixture := prepareOntologyFixtureVault(t)
+	srv := newFixtureServer(t, fixture, nil)
+	walked := srv.viewsGeneration()
+	stamp := "views=fixed\n"
+	srv.viewWatch.stamp.Store(&stamp)
+	require.NotEqual(t, walked, srv.viewsGeneration(), "the stamp is used, not a walk")
+	srv.viewWatch.stamp.Store(nil)
+	require.Equal(t, walked, srv.viewsGeneration())
+
+	events, unsubscribe := srv.globalEvents.Subscribe()
+	defer unsubscribe()
+	ctx, cancel := context.WithCancel(t.Context())
+	done := srv.pollViewFolders(ctx, 10*time.Millisecond)
+	defer func() {
+		cancel()
+		<-done
+	}()
+	require.Equal(t, walked, srv.viewsGeneration(), "the poller's stamp matches a walk")
+	dir := filepath.Join(fixture.root, ".rhizome", "views", "site")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "page.yaml"), []byte(customView("site.page", "{kind: standalone}", "page.tsx")), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "page.tsx"), []byte("export default function Page() { return null }\n"), 0o644))
+	timeout := time.After(10 * time.Second)
+	for {
+		select {
+		case event := <-events:
+			if event.Kind != "views.changed" {
+				continue
+			}
+			views := strings.Split(event.Generation, ".")[3]
+			require.NotEqual(t, walked, views, "the event's generation includes the change")
+			require.Equal(t, views, srv.viewsGeneration())
+			return
+		case <-timeout:
+			t.Fatal("no views.changed event")
+		}
+	}
 }

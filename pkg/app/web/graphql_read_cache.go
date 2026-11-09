@@ -5,16 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"hash/fnv"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/queryengine"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
-	"github.com/atomicobject/rhizome/pkg/paths"
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
@@ -43,9 +39,10 @@ var graphQLCoveredOntologyFields = map[string]bool{
 
 // publicGraphQLBody answers one public GraphQL request as a response body
 // carrying extensions.generation. Reads without an edit session, semantic
-// arguments, a bypassed root, or a caller-dependent field go through the read
-// cache after readiness admission (SPEC-0136 R4).
-func (s *Server) publicGraphQLBody(ctx context.Context, generation string, req OntologyQueryRequest) ([]byte, error) {
+// arguments, a bypassed root, a caller-dependent field, or a field read from
+// note files go through the read cache after readiness admission, when the
+// generation is cacheable (SPEC-0136 R4).
+func (s *Server) publicGraphQLBody(ctx context.Context, generation string, cacheable bool, req OntologyQueryRequest) ([]byte, error) {
 	queryHash := readQueryHash("graphql", req.Query, strings.TrimSpace(req.OperationName))
 	if req.EditSession != nil {
 		s.reads.bypass(queryHash)
@@ -88,16 +85,19 @@ func (s *Server) publicGraphQLBody(ctx context.Context, generation string, req O
 	if store == nil {
 		return nil, fmt.Errorf("ontology is unavailable")
 	}
-	run := func(ctx context.Context) ([]byte, bool, error) {
+	execute := func(ctx context.Context, prepared *ontologyquery.PreparedQuery, exactSnapshot *exactNoteReadSnapshot) (ontologyquery.Result, error) {
 		deps, err := s.ontologyQueryDepsForExactPaths(ontology.NewService(store, defs.schema), nil, exactSnapshot)
 		if err != nil {
-			return nil, false, err
+			return ontologyquery.Result{}, err
 		}
 		engine, err := queryengine.New(defs.schema, defs.exec, deps)
 		if err != nil {
-			return nil, false, err
+			return ontologyquery.Result{}, err
 		}
-		result, err := engine.Run(ctx, prepared)
+		return engine.Run(ctx, prepared)
+	}
+	run := func(ctx context.Context) ([]byte, bool, error) {
+		result, err := execute(ctx, prepared, exactSnapshot)
 		if err != nil {
 			return nil, false, err
 		}
@@ -107,74 +107,36 @@ func (s *Server) publicGraphQLBody(ctx context.Context, generation string, req O
 		}
 		return body, graphQLResultStorable(result) && s.readStillCurrent(ctx, generation), nil
 	}
-	if graphQLReadBypassed(defs.exec, prepared) {
+	direct := func() ([]byte, error) {
 		s.reads.bypass(queryHash)
 		body, _, err := run(ctx)
 		return body, err
+	}
+	if !cacheable || graphQLReadBypassed(defs, prepared) {
+		return direct()
+	}
+	resolve := resolveRefsWith(func(ctx context.Context, prepared *ontologyquery.PreparedQuery) (ontologyquery.Result, error) {
+		return execute(ctx, prepared, nil)
+	}, defs.exec)
+	witness, err := s.namedSourceWitness(ctx, generation, prepared, resolve)
+	if err != nil {
+		return direct()
 	}
 	variables, err := json.Marshal(prepared.Variables)
 	if err != nil {
 		return nil, err
 	}
-	key := generation + "|" + s.namedSourceWitness(prepared) + "|" + readQueryHash("graphql", req.Query, strings.TrimSpace(req.OperationName), string(variables))
+	key := readCacheKey(generation, witness, "graphql", req.Query, strings.TrimSpace(req.OperationName), string(variables))
 	return s.reads.do(ctx, key, queryHash, run)
 }
 
-// namedSourceWitness stamps the source file of every note a root names by
-// path or ref. Exact reads check their source on disk, which changes before
-// the watcher's store write advances the generation; with the stamp in the
-// key, a deleted or edited note misses at once. Roots that select by type or
-// filter read only the index and rely on the generation alone.
-func (s *Server) namedSourceWitness(prepared *ontologyquery.PreparedQuery) string {
-	if prepared.Introspection {
-		return ""
-	}
-	var notePaths []string
-	addRef := func(value any) {
-		raw, _ := value.(string)
-		if hash := strings.IndexByte(raw, '#'); hash >= 0 {
-			raw = raw[:hash]
-		}
-		if clean, err := paths.CleanNotePath(strings.TrimSpace(raw)); err == nil && clean.String() != "" {
-			notePaths = append(notePaths, clean.String())
-		}
-	}
-	visitGraphQLFields(prepared.Document, prepared.Operation.SelectionSet, func(root *ast.Field) {
-		args := root.ArgumentMap(prepared.Variables)
-		switch root.Name {
-		case "node", "resolve":
-			addRef(args["ref"])
-		case "note":
-			addRef(args["path"])
-			addRef(args["ref"])
-		case "nodes":
-			refs, _ := args["refs"].([]any)
-			for _, ref := range refs {
-				addRef(ref)
-			}
-		}
-	})
-	if len(notePaths) == 0 {
-		return ""
-	}
-	sort.Strings(notePaths)
-	hash := fnv.New64a()
-	for _, notePath := range notePaths {
-		info, err := os.Stat(filepath.Join(s.cfg.VaultPath, filepath.FromSlash(notePath)))
-		if err != nil {
-			fmt.Fprintf(hash, "%s|missing\n", notePath)
-			continue
-		}
-		fmt.Fprintf(hash, "%s|%d|%d\n", notePath, info.ModTime().UnixNano(), info.Size())
-	}
-	return fmt.Sprintf("%x", hash.Sum64())
-}
-
 // readStillCurrent reports whether a body read at generation may be stored:
-// the generation did not change during execution and the index is ready, so
-// a startup read cannot outlive the readiness transition.
+// the generation did not change during execution, no write was open when it
+// was read, and the index is ready, so a startup read cannot outlive the
+// readiness transition.
 func (s *Server) readStillCurrent(ctx context.Context, generation string) bool {
-	return s.runtime.IndexReady() && s.IndexGeneration(ctx) == generation
+	current, cacheable := s.indexGeneration(ctx)
+	return cacheable && current == generation && s.runtime.IndexReady()
 }
 
 func graphQLResponseBody(resp ontologyquery.Result, generation string) ([]byte, error) {
@@ -214,13 +176,14 @@ func graphQLResultStorable(resp ontologyquery.Result) bool {
 
 // graphQLReadBypassed reports whether a prepared read depends on state the
 // generation does not cover.
-func graphQLReadBypassed(exec *ontologyquery.ExecutableSchema, prepared *ontologyquery.PreparedQuery) bool {
+func graphQLReadBypassed(defs *ontologyDefinitions, prepared *ontologyquery.PreparedQuery) bool {
 	if prepared.UsesSemantic || prepared.UsesSearch {
 		return true
 	}
 	if prepared.Introspection {
 		return false
 	}
+	exec := defs.exec
 	bypassed := false
 	visitGraphQLFields(prepared.Document, prepared.Operation.SelectionSet, func(root *ast.Field) {
 		switch {
@@ -232,12 +195,96 @@ func graphQLReadBypassed(exec *ontologyquery.ExecutableSchema, prepared *ontolog
 					bypassed = true
 				}
 			})
-		case !graphQLCoveredRoots[root.Name] && exec.RootTypes[root.Name] == "" && root.Name != "__typename":
+		case root.Name == "validation" || root.Name == "__typename":
+		case graphQLCoveredRoots[root.Name] || exec.RootTypes[root.Name] != "":
+			if selectionReadsNoteFiles(defs.schema, prepared.Document, root.SelectionSet) {
+				bypassed = true
+			}
+		default:
 			// A root this file does not classify is never cached.
 			bypassed = true
 		}
 	})
 	return bypassed
+}
+
+// graphQLIndexFields are the built-in fields, on every type the node and note
+// roots reach, that read only the index. graphQLNoteFileFields are the ones
+// that read note files on disk, which change before the watcher's write moves
+// the generation. A request selecting any field outside graphQLIndexFields at
+// any depth bypasses the cache, so a new field is never cached until someone
+// classifies it here; TestGraphQLReadCacheClassifiesEveryReachableField fails
+// until they do.
+var graphQLIndexFields = map[string]bool{
+	"__typename": true, "ref": true, "nodeId": true, "nodeKind": true, "path": true, "title": true,
+	"resolvedType": true, "format": true, "sourceRepresentation": true, "evidenceRepresentation": true,
+	"sourceCapabilities": true, "frontmatter": true, "tags": true, "score": true, "linked": true,
+	"backlinked": true, "connected": true, "updatedAt": true, "issueCount": true, "id": true,
+	"notePath": true, "fragment": true, "kind": true, "structural": true, "typeName": true,
+	"items": true, "requestedRef": true, "node": true, "error": true, "pageInfo": true, "nodes": true,
+	"warnings": true, "code": true, "message": true, "queryShapeVersion": true, "requestedFirst": true,
+	"returnedCount": true, "truncated": true, "maxFirst": true, "input": true, "found": true,
+	"candidates": true, "reason": true,
+}
+
+var graphQLNoteFileFields = map[string]bool{
+	// Note and section bodies and the structure projected from them.
+	"content": true, "children": true, "level": true,
+	// Projections of the document: locators, workspace, and graphs that
+	// scan section bodies for links.
+	"locator": true, "workspace": true, "neighborhood": true, "localGraph": true,
+	// Code nodes, which read code files.
+	"language": true, "symbols": true, "symbol": true, "fqn": true, "signature": true, "docComment": true,
+}
+
+// selectionReadsNoteFiles reports whether set selects, at any depth, a field
+// read from note files: a built-in field outside graphQLIndexFields, or an
+// authored field the index does not hold (sections, ambient and reverse
+// relations, and fields without an indexed query capability), mirroring the
+// query layer's projection rule.
+func selectionReadsNoteFiles(schema *ontoschema.Schema, doc *ast.QueryDocument, set ast.SelectionSet) bool {
+	reads := false
+	visitGraphQLFields(doc, set, func(field *ast.Field) {
+		if reads {
+			return
+		}
+		if authored := authoredGraphQLField(schema, field); authored != nil {
+			if !authoredFieldIndexed(schema, authored) {
+				reads = true
+				return
+			}
+		} else if !graphQLIndexFields[field.Name] {
+			reads = true
+			return
+		}
+		reads = selectionReadsNoteFiles(schema, doc, field.SelectionSet)
+	})
+	return reads
+}
+
+// authoredGraphQLField returns the ontology field a selected field reads,
+// when its parent is an authored type or interface.
+func authoredGraphQLField(schema *ontoschema.Schema, field *ast.Field) *ontoschema.Field {
+	if schema == nil || field.ObjectDefinition == nil {
+		return nil
+	}
+	parent := field.ObjectDefinition.Name
+	if noteType := schema.Types[parent]; noteType != nil {
+		return noteType.ByName[field.Name]
+	}
+	if iface := schema.Interfaces[parent]; iface != nil {
+		return iface.ByName[field.Name]
+	}
+	return nil
+}
+
+func authoredFieldIndexed(schema *ontoschema.Schema, field *ontoschema.Field) bool {
+	switch field.Kind {
+	case ontoschema.FieldKindScalar, ontoschema.FieldKindEnum, ontoschema.FieldKindLink:
+		_, ok := ontoschema.FieldQueryCapabilityForField(schema, field)
+		return ok
+	}
+	return false
 }
 
 // visitGraphQLFields calls visit for each field directly in set, looking

@@ -141,7 +141,7 @@ func (s *Server) handlePublicViewExecute(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	}
-	generation := s.IndexGeneration(r.Context())
+	generation, cacheable := s.indexGeneration(r.Context())
 	setGenerationHeader(w, generation)
 	overlayReq, err := publicViewEditSessionRequest(req.EditSession)
 	if err != nil {
@@ -149,7 +149,7 @@ func (s *Server) handlePublicViewExecute(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if overlayReq == nil {
-		body, err := s.cachedViewExecution(r.Context(), generation, viewID, req)
+		body, err := s.cachedViewExecution(r.Context(), generation, cacheable, viewID, req)
 		if err != nil {
 			writePublicViewExecutionError(w, err)
 			return

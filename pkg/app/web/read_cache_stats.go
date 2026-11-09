@@ -106,6 +106,17 @@ func (c *readCache) Metrics() ReadCacheMetrics {
 	return metrics
 }
 
+// readCacheKey keys a read on its generation and the full SHA-256 digest of
+// everything else it depends on, so two different reads never share a key.
+func readCacheKey(generation string, parts ...string) string {
+	hash := sha256.New()
+	for _, part := range parts {
+		hash.Write([]byte(part))
+		hash.Write([]byte{0})
+	}
+	return generation + "|" + hex.EncodeToString(hash.Sum(nil))
+}
+
 // readQueryHash names a query in statistics without recording its text.
 func readQueryHash(parts ...string) string {
 	hash := sha256.New()

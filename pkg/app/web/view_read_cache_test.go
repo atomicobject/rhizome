@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	appviews "github.com/atomicobject/rhizome/pkg/app/views"
@@ -81,4 +82,30 @@ func TestViewCatalogCarriesTheGenerationHeader(t *testing.T) {
 	srv.Handler().ServeHTTP(res, newApplicationRequest(http.MethodGet, "/api/v1/views", nil))
 	require.Equal(t, http.StatusOK, res.Code)
 	require.Equal(t, srv.IndexGeneration(t.Context()), res.Header().Get(GenerationHeader))
+}
+
+// A view whose statistics count stale rows depends on the clock, which no
+// generation component covers, so it is executed every time (SPEC-0136 R4).
+func TestViewExecutionThatReadsTheClockIsNotStored(t *testing.T) {
+	fixture := prepareOntologyFixtureVault(t)
+	schemaPath := filepath.Join(fixture.root, ".rhizome", "ontology", "schema.graphql")
+	schema, err := os.ReadFile(schemaPath)
+	require.NoError(t, err)
+	withLifecycle := strings.Replace(string(schema), "type Plan\n  @node(paths: [\"specs/*/plan.md\"], label: \"Plan\", keyField: \"summary\") {\n", "type Plan\n  @node(paths: [\"specs/*/plan.md\"], label: \"Plan\", keyField: \"summary\") {\n  status: PlanStatus @field @display(importance: KEY)\n", 1)
+	require.NotEqual(t, string(schema), withLifecycle)
+	withLifecycle += "\nenum PlanStatus {\n  drafting @view(stage: \"open\")\n  building @view(stage: \"active\")\n}\n"
+	require.NoError(t, os.WriteFile(schemaPath, []byte(withLifecycle), 0o644))
+	srv := newFixtureServer(t, fixture, nil)
+	dir := filepath.Join(fixture.root, ".rhizome", "views")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "plans.yaml"), []byte("apiVersion: rhizome.view.v1\nid: plans\nname: Plans\nsource:\n  kind: ontology_type\n  type: Plan\nmount:\n  kind: standalone\nvariants:\n  table:\n    columns:\n      - field: title\n"), 0o644))
+
+	first, resp := executeView(t, srv, "plans", appviews.ExecuteRequest{})
+	require.NotNil(t, resp.Stats, "a type view reports statistics")
+	second, _ := executeView(t, srv, "plans", appviews.ExecuteRequest{})
+	require.Equal(t, first, second)
+	stats := srv.reads.Metrics()
+	require.EqualValues(t, 2, stats.Queries[readQueryHash("view", "plans")].Executions)
+	require.Zero(t, stats.Queries[readQueryHash("view", "plans")].Hits)
+	require.Zero(t, stats.Entries)
 }

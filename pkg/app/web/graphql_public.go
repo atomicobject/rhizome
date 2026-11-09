@@ -65,9 +65,9 @@ func (s *Server) handlePublicGraphQL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	generation := s.IndexGeneration(r.Context())
+	generation, cacheable := s.indexGeneration(r.Context())
 	traceStep("generation")
-	responseBody, err := s.publicGraphQLBody(r.Context(), generation, req)
+	responseBody, err := s.publicGraphQLBody(r.Context(), generation, cacheable, req)
 	traceStep("execute")
 	if err != nil {
 		if errors.Is(err, errIndexInitializing) {

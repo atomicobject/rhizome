@@ -114,6 +114,7 @@ type Server struct {
 	graphCache          *graphResponseCache
 	generation          indexGenerationState
 	reads               *readCache
+	refPaths            refPathMemo
 	nodeProjectionCache *nodeProjectionCache
 	noteMetadata        notemeta.Indexer
 	noteFormats         noteformat.Runtime
@@ -259,6 +260,9 @@ func (s *Server) Close() error {
 		s.reads.Close()
 	}
 	var errs []string
+	if err := s.closeDataVersion(); err != nil {
+		errs = append(errs, err.Error())
+	}
 	for _, closeFn := range s.cleanup {
 		if closeFn == nil {
 			continue
