@@ -30,6 +30,9 @@
 }
 .ak-mark {
   cursor: pointer;
+}
+/* The mark's own ring is its focus ring; the page outline would draw a box around it. */
+.ak-chart .ak-mark:focus-visible {
   outline: none;
 }
 .ak-hit {
@@ -161,7 +164,6 @@
 }
 .ak-matrix th {
   padding: 4px 2px;
-  overflow-wrap: anywhere;
   font: 500 13px / 1.3 var(--font-sans);
   color: var(--text-muted);
   text-align: center;
@@ -229,4 +231,12 @@
   .ak-dim {
     transition: none;
   }
+}
+/* On narrow frames the matrix scrolls sideways; concept names stay in view. */
+.ak-matrix tbody th,
+.ak-matrix .ak-row-head {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
 }

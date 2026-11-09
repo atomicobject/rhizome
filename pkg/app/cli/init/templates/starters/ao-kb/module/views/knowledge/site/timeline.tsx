@@ -142,15 +142,17 @@ export function Timeline({ site }: { site: Site }) {
   const chart = useChart(t.order.length),
     link = useOpenSource(site);
   const k = new Map(t.order.map((p, i) => [p, i]));
+  // Drawn at the frame's width (up to the natural width) so labels stay 13px.
+  const W = Math.max(480, Math.min(TL_W, chart.width || TL_W));
   const H = TOP + t.rows.length * ROW_H + 30,
-    x = (u: number) => LABEL_W + u * (TL_W - LABEL_W - 12);
+    x = (u: number) => LABEL_W + u * (W - LABEL_W - 12);
   return (
     <ChartBox
       chart={chart}
       className="ak-timeline"
       label={`Sources by date, ${plural(site.dated.length, "dated source")} in ${plural(t.rows.length, "folder")}. Arrow keys move by date; Enter opens a source.`}
     >
-      <svg viewBox={`0 0 ${TL_W} ${H}`} style={{ maxWidth: TL_W }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: W }}>
         <Axis site={site} x={x} y0={TOP} y1={H - 24} yt={H - 6} />
         {t.rows.map((row, ri) => {
           const y = TOP + ri * ROW_H + ROW_H / 2;
@@ -165,7 +167,7 @@ export function Timeline({ site }: { site: Site }) {
                 {row.label}
                 <title>{folderLabel(row.folder)}</title>
               </text>
-              <line className="ak-baseline" x1={LABEL_W} x2={TL_W - 12} y1={y} y2={y} />
+              <line className="ak-baseline" x1={LABEL_W} x2={W - 12} y1={y} y2={y} />
               {row.marks.map((p, i) => (
                 <a
                   key={p}
@@ -193,7 +195,8 @@ export function Strip({ site, dated, ring }: { site: Site; dated: string[]; ring
   const axis = timeAxis(site)!,
     chart = useChart(dated.length),
     link = useOpenSource(site);
-  const x = (u: number) => ST_L + u * (ST_W - 2 * ST_L);
+  const W = Math.max(320, Math.min(ST_W, chart.width || ST_W));
+  const x = (u: number) => ST_L + u * (W - 2 * ST_L);
   const inScope = new Set(dated);
   const xs = dated.map((p) => ({
     x: x(axis.at(site.dates.get(p)!.date!)),
@@ -206,9 +209,9 @@ export function Strip({ site, dated, ring }: { site: Site; dated: string[]; ring
       className="ak-strip"
       label={`${plural(dated.length, "dated source")} of ${site.dated.length} in the KB. Arrow keys move by date; Enter opens a source.`}
     >
-      <svg viewBox={`0 0 ${ST_W} ${ST_H}`} style={{ maxWidth: ST_W }}>
+      <svg viewBox={`0 0 ${W} ${ST_H}`} style={{ maxWidth: W }}>
         <Axis site={site} x={x} y0={4} y1={ST_H - 22} yt={ST_H - 5} />
-        <line className="ak-baseline" x1={ST_L} x2={ST_W - ST_L} y1={ST_Y} y2={ST_Y} />
+        <line className="ak-baseline" x1={ST_L} x2={W - ST_L} y1={ST_Y} y2={ST_Y} />
         {site.dated
           .filter((p) => !inScope.has(p))
           .map((p) => (

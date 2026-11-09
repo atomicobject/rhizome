@@ -1,7 +1,7 @@
 // One interaction pattern for every site chart (SPEC-0135 R8): the chart is one tab stop with a
 // roving tabindex, arrow keys move through its marks in the order the library gives, Enter (and
 // Space in the matrix) activates, and the hover tooltip also shows on focus.
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import "./charts.css";
 
@@ -14,6 +14,15 @@ export function useChart(count: number) {
   const box = useRef<HTMLDivElement>(null);
   const items = useRef<(Element | null)[]>([]);
   const at = Math.min(active, Math.max(0, count - 1));
+  // The frame's width, so a chart can draw at 1:1 and keep its 13px labels (R8).
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const show = useCallback((text: string, el: Element | null) => {
     const outer = box.current?.getBoundingClientRect(),
@@ -73,7 +82,7 @@ export function useChart(count: number) {
     e.preventDefault();
   };
 
-  return { box, item, onKeyDown, hot, active: at, move, tip };
+  return { box, item, onKeyDown, hot, active: at, move, tip, width };
 }
 
 /** The chart's frame: the tooltip floats inside it, above the focused or hovered mark. */
