@@ -443,7 +443,12 @@ func (s *Server) serveCustomViewShell(w http.ResponseWriter, r *http.Request, id
 	config, _ := json.Marshal(settings)
 	entryJSON, _ := json.Marshal(entryURL)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprintf(w, customViewShell, html.EscapeString(def.Name), s.kitBase()+"boot.js", invocationScript(invocation), entryJSON, config)
+	// An experience that opts out of Tailwind skips loading its compiler (SPEC-0136 R5).
+	bootAttrs := ""
+	if def.Experience != nil && !def.Experience.UsesTailwind() {
+		bootAttrs = ` data-tailwind="false"`
+	}
+	_, _ = fmt.Fprintf(w, customViewShell, html.EscapeString(def.Name), s.kitBase()+"boot.js", bootAttrs, invocationScript(invocation), entryJSON, config)
 }
 
 func escapeURLPath(rel string) string {
@@ -477,7 +482,7 @@ const customViewShell = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>%s</title>
-<script src="%s"></script>
+<script src="%s"%s></script>
 </head>
 <body>
 <div id="root"></div>
