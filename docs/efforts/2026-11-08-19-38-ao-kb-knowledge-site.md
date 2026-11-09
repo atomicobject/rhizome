@@ -135,9 +135,9 @@ The same copy reproduced the planning counts exactly: 181 concept-side outbound 
 #### Batch C. Site pages (after B, the platform's P4 and P5, and the foundation review; its exit e2e after A, P3, and P6)
 
 - **Outcome:** US1 to US5 work in the browser on the legacy fixture. Advances R1, R2a, R3, R4, R8.
-- **Ownership:** the `--kind-*` tokens in `web/src/tokens.css` (R3), added after the platform's P7 lands `--chrome-link`, with their palette and contrast results; starter views other than `data.tsx`, `lib/model.ts`, and `trace.tsx` (Batch A's), including `lib/knowledge.ts`, `concepts.tsx`, and `assertions.tsx`; the AO KB e2e harness (`web/scripts/run-ao-kb-e2e-server.mjs`, `web/playwright.ao-kb.config.ts`) and `web/tests/e2e-ao-kb/site.spec.ts`.
+- **Ownership:** the `--kind-*` tokens in `web/src/tokens.css` (R3), lines disjoint from P7's `--chrome-link`, with their palette and contrast results; starter views other than `data.tsx`, `lib/model.ts`, `trace.tsx`, and `lib/queries.ts` (Batch A's), `lib/site.ts` and `lib/kinds.ts` (Batch B's), and `panel.{yaml,tsx}` (Batch F's), including `lib/knowledge.ts`, `concepts.tsx`, and `assertions.tsx`; the AO KB e2e harness (`web/scripts/run-ao-kb-e2e-server.mjs`, `web/playwright.ao-kb.config.ts`) and `web/tests/e2e-ao-kb/site.spec.ts`.
 - **Work:**
-  - `module/views/knowledge/experience.yml` as SPEC-0135 R6 states, with `tailwind: false`; every Knowledge view exports its component as the module default; record pages use `RecordPage` and show the record before the orientation query finishes; batched scope reads use `readNodes`.
+  - `module/views/knowledge/experience.yml` as SPEC-0135 R6 states but without the `panel` line, with `tailwind: false` (Batch F adds `panel` with its view and owns the file from then on); every Knowledge view exports its component as the module default; record pages use `RecordPage` and show the record before the orientation query finishes; batched scope reads use `readNodes`.
   - New group views: `ao-kb.overview`, named "KB overview" (default; `attention.yaml` loses `default` per D2), `ao-kb.review`, `ao-kb.sources`, and `ao-kb.artifacts`. New node views: `ao-kb.concept`, `ao-kb.artifact`. Params exactly as R2a.
   - Existing views: `concepts.tsx`, `filterAssertions` in `lib/knowledge.ts`, and the Assertions list's concept chips switch to the library's membership, and the unused `CEILING` export goes once Batch A lands; `assertions` and `concepts` gain their R2a params; the Assertions list gains the US4 breakdown line; `assertion.tsx` gets inline facts and the US3 citation table; `source.tsx` gets the scoped pair, the `assertion` param, the US3 mention states, and separate extracted and citing lists.
   - Charts in `views/knowledge/site/` (`map.tsx`, `timeline.tsx`, `matrix.tsx`, `scoped.tsx`), sharing one tooltip-on-focus pattern and roving focus. The matrix uses the ARIA grid pattern R4 names.
@@ -158,8 +158,8 @@ The same copy reproduced the planning counts exactly: 181 concept-side outbound 
 #### Batch F. Knowledge panel view (after A, B, C, and the platform's P4, P5, and P7)
 
 - **Outcome:** US7 complete for AO KBs.
-- **Work:** `views/knowledge/panel.{yaml,tsx}` (`ao-kb.panel`, `mount: { kind: panel }`) with the KB title, Find by title (Enter opens the first match; "Search all text" sends open-search with no folder), the site links and counted lists, the locator from the site library with the record's scope read, and the Recent list built from `useViewLocation` and kept with `useViewPreference` so it survives eviction.
-- **Exit evidence:** its own `web/tests/e2e-ao-kb/panel.spec.ts` through the panel, on Batch C's harness; the Batch D copies rechecked for the panel.
+- **Work:** `views/knowledge/panel.{yaml,tsx}` (`ao-kb.panel`, `mount: { kind: panel }`) with the KB title, Find by title (Enter opens the first match; "Search all text" sends open-search with no folder), the site links and counted lists, the locator from the site library with the record's scope read, the `panel` line in `experience.yml`, and the Recent list built from `useViewLocation` and kept in `sessionStorage` keyed by vault and experience (R6), so it survives eviction within the window.
+- **Exit evidence:** its own `web/tests/e2e-ao-kb/panel.spec.ts` through the panel on Batch C's harness, including Recent after the panel frame is evicted and recreated and two windows keeping separate Recent lists; view validation passes with the `panel` line; the Batch D copies rechecked for the panel.
 
 #### Batch G. Custom-first view switcher (independent; can start any time)
 
@@ -180,14 +180,14 @@ All synthetic and never containing real client text.
 
 | Batch | Starts | Blocks | Lane |
 | --- | --- | --- | --- |
-| A | after approval | D | starter ontology, setup route, query module, kit coverage |
+| A | after approval; its kit coverage commit lands first, before the platform's P5 | D | starter ontology, setup route, query module, kit coverage |
 | B | after approval | C | starter library |
 | C | after B, P4, P5, and the foundation review; its exit e2e after A, P3, and P6 | D | starter views except A's and F's files, AO KB e2e harness and `site.spec.ts` |
 | F | after A, B, C, P4, P5, and P7 | D | `panel.{yaml,tsx}` and `panel.spec.ts` |
 | G | any time | D | web selector |
 | D | with P10, after A, C, F, and G | the pull request | coordinator |
 
-Lanes own disjoint files: in the starter's views, Batch A owns `data.tsx`, `lib/model.ts`, `trace.tsx`, and `lib/queries.ts`, Batch B owns `lib/site.ts` (and `lib/kinds.ts`), and Batch C owns the rest. Each lane runs web E2E on its own port and cleans up its worktree and scratch copies when done. The coordinator inspects integrated changes before each pull request.
+Lanes own disjoint files: in the starter's views, Batch A owns `data.tsx`, `lib/model.ts`, `trace.tsx`, and `lib/queries.ts`, Batch B owns `lib/site.ts` (and `lib/kinds.ts`), Batch F owns `panel.{yaml,tsx}`, `panel.spec.ts`, and the `panel` line of `experience.yml`, and Batch C owns the rest. Each lane runs web E2E on its own port and cleans up its worktree and scratch copies when done. The coordinator inspects integrated changes before each pull request.
 
 ### Review gates
 
