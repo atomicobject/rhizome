@@ -26,6 +26,9 @@ type defaultSourceResolver struct {
 
 func (r defaultSourceResolver) ResolveSource(ctx context.Context, view viewconfig.ViewDefinition, req ExecuteRequest) (SourceResult, error) {
 	r.linkTargetResolver = pushdown.NewCatalogLinkResolver(r.opts.Schema, r.opts.Store)
+	if err := r.filterFieldError(view, req.Filters); err != nil {
+		return SourceResult{}, err
+	}
 	req, bindingWarnings := r.bindRuntimeFilterValues(ctx, req)
 	scope := r.nodeReadScope()
 	if len(bindingWarnings) > 0 {
