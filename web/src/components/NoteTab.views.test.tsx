@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { isString } from "../api/parse";
 import type { PublicNode } from "../api/publicGraphQLTypes";
@@ -108,6 +108,14 @@ function frameContext() {
 describe("focused node presentations", () => {
   const http = withFakeFetch();
   withFakeEventSource();
+
+  // WHY: the Markdown presentation lazy-loads the source editor. Its first
+  // import transforms @atomic-editor/editor, which on a loaded worker outlasts
+  // a findBy timeout. Loading it here keeps module transform time out of the
+  // presentation assertions.
+  beforeAll(async () => {
+    await import("./markdownEditor/AtomicMarkdownEditor");
+  });
   beforeEach(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();
