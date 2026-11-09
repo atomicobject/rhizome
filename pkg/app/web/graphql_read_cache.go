@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/queryengine"
@@ -211,30 +212,64 @@ func graphQLReadBypassed(defs *ontologyDefinitions, prepared *ontologyquery.Prep
 // graphQLIndexFields are the built-in fields, on every type the node and note
 // roots reach, that read only the index. graphQLNoteFileFields are the ones
 // that read note files on disk, which change before the watcher's write moves
-// the generation. A request selecting any field outside graphQLIndexFields at
-// any depth bypasses the cache, so a new field is never cached until someone
-// classifies it here; TestGraphQLReadCacheClassifiesEveryReachableField fails
-// until they do.
-var graphQLIndexFields = map[string]bool{
-	"__typename": true, "ref": true, "nodeId": true, "nodeKind": true, "path": true, "title": true,
-	"resolvedType": true, "format": true, "sourceRepresentation": true, "evidenceRepresentation": true,
-	"sourceCapabilities": true, "frontmatter": true, "tags": true, "score": true, "linked": true,
-	"backlinked": true, "connected": true, "updatedAt": true, "issueCount": true, "id": true,
-	"notePath": true, "fragment": true, "kind": true, "structural": true, "typeName": true,
-	"items": true, "requestedRef": true, "node": true, "error": true, "pageInfo": true, "nodes": true,
-	"warnings": true, "code": true, "message": true, "queryShapeVersion": true, "requestedFirst": true,
-	"returnedCount": true, "truncated": true, "maxFirst": true, "input": true, "found": true,
-	"candidates": true, "reason": true,
+// the generation. Both are keyed by graphQLFieldKey, so a field on a new type
+// is never cached because an index field elsewhere shares its name. A request
+// selecting any field outside graphQLIndexFields at any depth bypasses the
+// cache; TestGraphQLReadCacheClassifiesEveryReachableField fails until a new
+// field is classified here.
+var graphQLIndexFields = graphQLFieldKeys(map[string][]string{
+	"Node":              {"nodeId", "nodeKind", "path", "ref", "resolvedType", "title"},
+	"Note":              {"backlinked", "connected", "evidenceRepresentation", "format", "frontmatter", "issueCount", "linked", "nodeId", "nodeKind", "path", "ref", "resolvedType", "score", "sourceCapabilities", "sourceRepresentation", "tags", "title", "updatedAt"},
+	"NoteNode":          {"backlinked", "connected", "evidenceRepresentation", "format", "frontmatter", "issueCount", "linked", "nodeId", "nodeKind", "path", "ref", "resolvedType", "score", "sourceCapabilities", "sourceRepresentation", "tags", "title", "updatedAt"},
+	"Section":           {"id", "issueCount", "nodeId", "nodeKind", "notePath", "path", "ref", "resolvedType", "title", "updatedAt"},
+	"CodeFile":          {"nodeId", "nodeKind", "path", "ref", "resolvedType", "title"},
+	"CodeSymbol":        {"nodeId", "nodeKind", "path", "ref", "resolvedType", "title"},
+	"NodeRef":           {"fragment", "kind", "nodeId", "notePath", "path", "ref", "structural", "typeName"},
+	"NodeRefResolution": {"candidates", "found", "input", "kind", "path", "reason", "ref", "resolvedType", "title"},
+	"NodeBatchResult":   {"items", "pageInfo"},
+	"NodeBatchItem":     {"error", "node", "ref", "requestedRef"},
+	"NoteConnection":    {"nodes", "pageInfo", "warnings"},
+	"PageInfo":          {"maxFirst", "queryShapeVersion", "requestedFirst", "returnedCount", "truncated"},
+	"RuntimeWarning":    {"code", "message", "path"},
+})
+
+var graphQLNoteFileFields = graphQLFieldKeys(map[string][]string{
+	// Note and section bodies and the structure projected from them, the
+	// locators, workspace, and graphs that scan section bodies for links.
+	"Node":     {"localGraph", "locator", "neighborhood", "workspace"},
+	"Note":     {"content", "localGraph", "locator", "neighborhood", "workspace"},
+	"NoteNode": {"content", "localGraph", "locator", "neighborhood", "workspace"},
+	"Section":  {"children", "content", "level", "localGraph", "locator", "neighborhood", "workspace"},
+	// Code nodes, which read code files.
+	"CodeFile":   {"language", "localGraph", "locator", "neighborhood", "symbols", "workspace"},
+	"CodeSymbol": {"docComment", "fqn", "language", "localGraph", "locator", "neighborhood", "signature", "symbol", "workspace"},
+})
+
+func graphQLFieldKeys(fields map[string][]string) map[string]bool {
+	keys := map[string]bool{}
+	for owner, names := range fields {
+		for _, name := range names {
+			keys[owner+"."+name] = true
+		}
+	}
+	return keys
 }
 
-var graphQLNoteFileFields = map[string]bool{
-	// Note and section bodies and the structure projected from them.
-	"content": true, "children": true, "level": true,
-	// Projections of the document: locators, workspace, and graphs that
-	// scan section bodies for links.
-	"locator": true, "workspace": true, "neighborhood": true, "localGraph": true,
-	// Code nodes, which read code files.
-	"language": true, "symbols": true, "symbol": true, "fqn": true, "signature": true, "docComment": true,
+// graphQLFieldKey keys a built-in field by its parent type, or, on a type that
+// implements NoteNode or Section (every authored type does), by that
+// interface, since authored type names come from each vault's schema.
+func graphQLFieldKey(parent *ast.Definition, name string) string {
+	if parent == nil {
+		return ""
+	}
+	owner := parent.Name
+	for _, iface := range parent.Interfaces {
+		if iface == "NoteNode" || iface == "Section" {
+			owner = iface
+			break
+		}
+	}
+	return owner + "." + name
 }
 
 // selectionReadsNoteFiles reports whether set selects, at any depth, a field
@@ -253,7 +288,7 @@ func selectionReadsNoteFiles(schema *ontoschema.Schema, doc *ast.QueryDocument, 
 				reads = true
 				return
 			}
-		} else if !graphQLIndexFields[field.Name] {
+		} else if field.Name != "__typename" && !graphQLIndexFields[graphQLFieldKey(field.ObjectDefinition, field.Name)] {
 			reads = true
 			return
 		}
@@ -263,9 +298,14 @@ func selectionReadsNoteFiles(schema *ontoschema.Schema, doc *ast.QueryDocument, 
 }
 
 // authoredGraphQLField returns the ontology field a selected field reads,
-// when its parent is an authored type or interface.
+// when its parent is an authored type or interface and the executor resolves
+// the authored field: a note node resolves some built-in names first, even
+// when its type declares a field of the same name.
 func authoredGraphQLField(schema *ontoschema.Schema, field *ast.Field) *ontoschema.Field {
 	if schema == nil || field.ObjectDefinition == nil {
+		return nil
+	}
+	if isNoteDefinition(field.ObjectDefinition) && ontologyquery.NoteBuiltinFieldPrecedes(field.Name) {
 		return nil
 	}
 	parent := field.ObjectDefinition.Name
@@ -276,6 +316,10 @@ func authoredGraphQLField(schema *ontoschema.Schema, field *ast.Field) *ontosche
 		return iface.ByName[field.Name]
 	}
 	return nil
+}
+
+func isNoteDefinition(def *ast.Definition) bool {
+	return def.Name == "NoteNode" || def.Name == "Note" || slices.Contains(def.Interfaces, "NoteNode") || slices.Contains(def.Interfaces, "Note")
 }
 
 func authoredFieldIndexed(schema *ontoschema.Schema, field *ontoschema.Field) bool {

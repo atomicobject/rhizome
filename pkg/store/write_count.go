@@ -2,13 +2,8 @@ package store
 
 import (
 	"context"
-	"database/sql"
-	"errors"
-	"fmt"
-	"sync"
+	"strings"
 	"sync/atomic"
-
-	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 )
 
 // writeSequence is a sequence lock over every withWrite and withWriteTx in
@@ -44,57 +39,26 @@ func WritesOpen(sequence uint64) bool {
 	return sequence&writesOpenMask != 0
 }
 
-// DataVersion reads PRAGMA data_version on one connection reserved for it.
-// The value changes whenever another connection, in this process or another,
-// commits to the database, so it witnesses writes the process-wide sequence
-// cannot see (a note operation or validation projection run by another
-// process). Values are compared for equality only.
-type DataVersion struct {
-	mu   sync.Mutex
-	db   *sql.DB
-	conn *sql.Conn
+// bumpWriteGeneration advances the write counter. Writes that run before
+// the counter's migration (baseline bootstrap, embedding cache repair) find
+// no table; with no counter to read, readers already treat the generation as
+// unwitnessed, so there is nothing to advance.
+func bumpWriteGeneration(ctx context.Context, db execer) error {
+	_, err := db.ExecContext(ctx, `UPDATE write_generation SET value = value + 1 WHERE id = 1`)
+	if err != nil && strings.Contains(err.Error(), "no such table: write_generation") {
+		return nil
+	}
+	return err
 }
 
-// OpenDataVersion opens a read-only connection to the store's main database
-// file that only DataVersion.Read uses.
-func (s *Store) OpenDataVersion(ctx context.Context) (*DataVersion, error) {
-	if s == nil || s.db == nil {
-		return nil, errors.New("store is not open")
-	}
-	var seq int
-	var name, file string
-	if err := s.db.QueryRowContext(ctx, `SELECT seq, name, file FROM pragma_database_list WHERE name = 'main'`).Scan(&seq, &name, &file); err != nil {
-		return nil, fmt.Errorf("locate database file: %w", err)
-	}
-	if file == "" {
-		return nil, errors.New("database has no file")
-	}
-	db, err := sqliteutil.OpenDSN(sqliteutil.DSNWithOptions(file, sqliteutil.DSNOptions{ReadOnly: true}), sqliteutil.Options{MaxOpenConns: 1, MaxIdleConns: 1})
-	if err != nil {
-		return nil, err
-	}
-	// One pinned connection: data_version compares commits against the
-	// connection that read it, so it must never change connections.
-	conn, err := db.Conn(ctx)
-	if err != nil {
-		_ = db.Close()
-		return nil, err
-	}
-	return &DataVersion{db: db, conn: conn}, nil
-}
-
-// Read returns the connection's current data_version.
-func (d *DataVersion) Read(ctx context.Context) (int64, error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	var version int64
-	err := d.conn.QueryRowContext(ctx, `PRAGMA data_version`).Scan(&version)
-	return version, err
-}
-
-// Close releases the reserved connection.
-func (d *DataVersion) Close() error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return errors.Join(d.conn.Close(), d.db.Close())
+// WriteGeneration reads the counter every withWrite and withWriteTx advances,
+// inside the write's transaction where it has one. Unlike the process-wide
+// sequence it witnesses store writes from other processes, and unlike
+// PRAGMA data_version it ignores the embedding stores, which share the
+// database file but write through their own runtime. Values are compared for
+// equality only.
+func (s *Store) WriteGeneration(ctx context.Context) (int64, error) {
+	var value int64
+	err := s.db.QueryRowContext(ctx, `SELECT value FROM write_generation WHERE id = 1`).Scan(&value)
+	return value, err
 }

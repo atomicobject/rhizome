@@ -33,9 +33,14 @@ func TestWriteCountAdvancesForEveryWritePath(t *testing.T) {
 	}
 	for _, tc := range cases {
 		before := WriteSequence()
+		counterBefore, err := store.WriteGeneration(ctx)
+		require.NoError(t, err)
 		require.NoError(t, tc.write(), tc.name)
 		after := WriteSequence()
+		counterAfter, err := store.WriteGeneration(ctx)
+		require.NoError(t, err)
 		require.NotEqual(t, before, after, tc.name)
+		require.NotEqual(t, counterBefore, counterAfter, tc.name)
 		require.False(t, WritesOpen(after), tc.name)
 	}
 }
@@ -69,34 +74,43 @@ func TestWriteSequenceIsOpenUntilTheWriteHasCommitted(t *testing.T) {
 	require.False(t, WritesOpen(WriteSequence()))
 }
 
-// A commit through a connection the sequence cannot see (another process)
-// still moves the data version.
-func TestDataVersionMovesForACommitOnAnotherConnection(t *testing.T) {
+// The write counter moves for a store write from another handle, as from
+// another process, and for a failed withWrite whose work may have committed,
+// but not for a commit that bypasses the store, such as an embedding store's.
+func TestWriteGenerationWitnessesStoreWritesOnly(t *testing.T) {
 	ctx := context.Background()
-	path := currentSchemaTestDBPath(t, "data-version.db")
+	path := currentSchemaTestDBPath(t, "write-generation.db")
 	store, err := Open(path)
 	require.NoError(t, err)
 	defer func() { _ = store.Close() }()
-	version, err := store.OpenDataVersion(ctx)
-	require.NoError(t, err)
-	defer func() { _ = version.Close() }()
+	read := func() int64 {
+		value, err := store.WriteGeneration(ctx)
+		require.NoError(t, err)
+		return value
+	}
 
-	first, err := version.Read(ctx)
-	require.NoError(t, err)
-	again, err := version.Read(ctx)
-	require.NoError(t, err)
-	require.Equal(t, first, again, "nothing committed")
-
-	other, err := sqliteutil.OpenDSN(sqliteutil.DSN(path), sqliteutil.Options{MaxOpenConns: 1})
+	first := read()
+	other, err := Open(path)
 	require.NoError(t, err)
 	defer func() { _ = other.Close() }()
-	sequence := WriteSequence()
-	_, err = other.ExecContext(ctx, `CREATE TABLE other_process (id INTEGER); INSERT INTO other_process VALUES (1)`)
+	_, err = other.SetValidationRunning(ctx)
 	require.NoError(t, err)
-	require.Equal(t, sequence, WriteSequence(), "the write bypassed the store")
-	moved, err := version.Read(ctx)
+	afterOther := read()
+	require.NotEqual(t, first, afterOther, "another handle's write")
+
+	require.Error(t, store.withWrite(ctx, func(context.Context, *sql.DB) error { return errors.New("boom") }))
+	afterFailed := read()
+	require.NotEqual(t, afterOther, afterFailed, "a failed withWrite")
+
+	require.Error(t, store.withWriteTx(ctx, func(*sql.Tx) error { return errors.New("boom") }))
+	require.Equal(t, afterFailed, read(), "a rolled-back withWriteTx")
+
+	bypass, err := sqliteutil.OpenDSN(sqliteutil.DSN(path), sqliteutil.Options{MaxOpenConns: 1})
 	require.NoError(t, err)
-	require.NotEqual(t, first, moved)
+	defer func() { _ = bypass.Close() }()
+	_, err = bypass.ExecContext(ctx, `CREATE TABLE bypass (id INTEGER); INSERT INTO bypass VALUES (1)`)
+	require.NoError(t, err)
+	require.Equal(t, afterFailed, read(), "a commit outside the store")
 }
 
 func TestValidationGenerationReadsTheRunCounter(t *testing.T) {

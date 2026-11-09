@@ -60,6 +60,8 @@ func (s *Server) watchViewFolders() (release func()) {
 			if w.listeners == 0 {
 				w.stop()
 				w.stop = nil
+				// Without a poller, the generation stamps view folders itself.
+				w.stamp.Store(nil)
 			}
 		})
 	}
@@ -91,8 +93,10 @@ func (s *Server) announceViewFolderChanges(ctx context.Context, interval time.Du
 		var next map[string]string
 		whole, next = s.viewFolderStamps(whole)
 		// Publish the stamp before announcing, so an event's generation
-		// carries the change it announces.
-		s.viewWatch.stamp.Store(&whole)
+		// carries the change it announces. Readers keep the pointer, so
+		// publish a copy, never the loop variable the next tick reassigns.
+		published := whole
+		s.viewWatch.stamp.Store(&published)
 		if next == nil {
 			continue
 		}

@@ -103,6 +103,11 @@ func (s *Store) withWrite(ctx context.Context, fn func(ctx context.Context, db *
 	holdStart := time.Now()
 	beginWrite()
 	err := fn(ctx, s.db)
+	// fn may have committed before failing, so the counter moves either way,
+	// and a cancelled caller must not leave its commits unwitnessed.
+	if bumpErr := bumpWriteGeneration(context.WithoutCancel(ctx), s.db); err == nil {
+		err = bumpErr
+	}
 	endWrite()
 	hold := time.Since(holdStart)
 	mu.Unlock()
@@ -118,7 +123,12 @@ func (s *Store) withWriteTx(ctx context.Context, fn func(tx *sql.Tx) error) erro
 	wait := time.Since(waitStart)
 	holdStart := time.Now()
 	beginWrite()
-	err := sqliteutil.ExecTxWithRetry(ctx, s.db, fn)
+	err := sqliteutil.ExecTxWithRetry(ctx, s.db, func(tx *sql.Tx) error {
+		if err := fn(tx); err != nil {
+			return err
+		}
+		return bumpWriteGeneration(ctx, tx)
+	})
 	endWrite()
 	hold := time.Since(holdStart)
 	mu.Unlock()

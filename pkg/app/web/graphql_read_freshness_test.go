@@ -10,9 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/embeddings"
+	embedsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
+	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/stretchr/testify/require"
+	"github.com/vektah/gqlparser/v2/ast"
 )
 
 func replyData(t *testing.T, reply graphQLReply) map[string]any {
@@ -96,18 +100,49 @@ func TestGraphQLReadCacheBypassesFieldsReadFromNoteFiles(t *testing.T) {
 	require.Zero(t, stats.Mismatches, "an index field read the changed file")
 }
 
+// A note node resolves the built-in content field even when its type declares
+// one, so the classifier follows that precedence and never caches a body read
+// from disk as an indexed field.
+func TestGraphQLReadCacheFollowsBuiltinPrecedenceOverAuthoredFields(t *testing.T) {
+	srv, fixture := newGraphQLReadCacheServer(t)
+	schemaFile := filepath.Join(fixture.root, ".rhizome", "ontology", "schema.graphql")
+	schema, err := os.ReadFile(schemaFile)
+	require.NoError(t, err)
+	declared := strings.Replace(string(schema), "type Plan\n  @node(paths: [\"specs/*/plan.md\"], label: \"Plan\", keyField: \"summary\") {\n", "type Plan\n  @node(paths: [\"specs/*/plan.md\"], label: \"Plan\", keyField: \"summary\") {\n  content: String @field\n", 1)
+	require.NotEqual(t, string(schema), declared)
+	require.NoError(t, os.WriteFile(schemaFile, []byte(declared), 0o644))
+
+	query := map[string]any{"query": `query { plan(first: 10) { path content } }`}
+	plans, _ := replyData(t, postGraphQL(t, srv, query))["plan"].([]any)
+	require.Len(t, plans, 1)
+	require.NotContains(t, plans[0].(map[string]any)["content"], "Edited on disk.")
+
+	planFile := filepath.Join(fixture.root, "specs", "100-demo", "plan.md")
+	data, err := os.ReadFile(planFile)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(planFile, append(data, []byte("\nEdited on disk.\n")...), 0o644))
+	plans, _ = replyData(t, postGraphQL(t, srv, query))["plan"].([]any)
+	require.Len(t, plans, 1)
+	require.Contains(t, plans[0].(map[string]any)["content"], "Edited on disk.", "the built-in body is read fresh")
+	require.Zero(t, srv.reads.Metrics().Queries[readQueryHash("graphql", query["query"].(string), "")].Hits)
+}
+
 // Every built-in field the node and note roots can reach, short of a field
-// read from note files, is classified as an index field or a note-file field.
-// A new field fails here until someone decides; until then it bypasses.
+// read from note files, is classified by type as an index field or a
+// note-file field, and every classified field is reachable. A new field fails
+// here until someone decides; until then it bypasses, even when an index
+// field on another type shares its name.
 func TestGraphQLReadCacheClassifiesEveryReachableField(t *testing.T) {
 	srv, _ := newGraphQLReadCacheServer(t)
 	defs, err := srv.ontologyDefinitions()
 	require.NoError(t, err)
 	schema := defs.exec.Schema
-	for name := range graphQLIndexFields {
-		require.False(t, graphQLNoteFileFields[name], "%q is classified twice", name)
+	for key := range graphQLIndexFields {
+		require.False(t, graphQLNoteFileFields[key], "%q is classified twice", key)
 	}
+	require.False(t, graphQLIndexFields[graphQLFieldKey(&ast.Definition{Name: "FutureType"}, "title")], "a name alone classifies nothing")
 	seen := map[string]bool{}
+	reached := map[string]bool{}
 	var visit func(typeName string)
 	visit = func(typeName string) {
 		if seen[typeName] {
@@ -127,13 +162,16 @@ func TestGraphQLReadCacheClassifiesEveryReachableField(t *testing.T) {
 			if strings.HasPrefix(field.Name, "__") {
 				continue
 			}
-			if (authoredType != nil && authoredType.ByName[field.Name] != nil) || (authoredInterface != nil && authoredInterface.ByName[field.Name] != nil) {
+			builtinFirst := isNoteDefinition(def) && ontologyquery.NoteBuiltinFieldPrecedes(field.Name)
+			if !builtinFirst && ((authoredType != nil && authoredType.ByName[field.Name] != nil) || (authoredInterface != nil && authoredInterface.ByName[field.Name] != nil)) {
 				// Authored fields follow the query layer's projection rule.
 				visit(field.Type.Name())
 				continue
 			}
-			require.True(t, graphQLIndexFields[field.Name] || graphQLNoteFileFields[field.Name], "field %s.%s must be classified as an index field or a note-file field", typeName, field.Name)
-			if graphQLIndexFields[field.Name] {
+			key := graphQLFieldKey(def, field.Name)
+			reached[key] = true
+			require.True(t, graphQLIndexFields[key] || graphQLNoteFileFields[key], "field %s.%s (%s) must be classified as an index field or a note-file field", typeName, field.Name, key)
+			if graphQLIndexFields[key] {
 				visit(field.Type.Name())
 			}
 		}
@@ -144,25 +182,57 @@ func TestGraphQLReadCacheClassifiesEveryReachableField(t *testing.T) {
 		}
 	}
 	require.True(t, seen["NoteNode"] && seen["NodeRefResolution"] && seen["Plan"], "the walk reached the node types")
+	for _, classified := range []map[string]bool{graphQLIndexFields, graphQLNoteFileFields} {
+		for key := range classified {
+			require.True(t, reached[key], "%s is classified but unreachable", key)
+		}
+	}
 }
 
-// A commit from another process, which this process's write sequence cannot
-// see, still moves the generation through the store's data version.
-func TestIndexGenerationMovesForAWriteFromAnotherProcess(t *testing.T) {
+// A store write from another process, which this process's write sequence
+// cannot see, moves the generation through the store's write counter.
+func TestIndexGenerationMovesForAStoreWriteFromAnotherProcess(t *testing.T) {
 	srv, fixture := newGraphQLReadCacheServer(t)
 	hash := readQueryHash("graphql", planQuery, "")
 	replyData(t, postGraphQL(t, srv, map[string]any{"query": planQuery}))
 	before := srv.IndexGeneration(t.Context())
 
-	other := openFixtureDB(t, fixture, "")
-	sequence := semdb.WriteSequence()
-	_, err := other.ExecContext(t.Context(), `CREATE TABLE other_process (id INTEGER); INSERT INTO other_process VALUES (1)`)
+	// A second handle has its own pool and write mutex, as another process's
+	// store does; only the process-wide sequence is shared, so compare the
+	// counter alone.
+	other, err := semdb.Open(filepath.Join(fixture.root, ".rhizome", "db.sqlite"))
 	require.NoError(t, err)
-	require.Equal(t, sequence, semdb.WriteSequence(), "the write bypassed this process's stores")
+	t.Cleanup(func() { _ = other.Close() })
+	_, err = other.SetValidationRunning(t.Context())
+	require.NoError(t, err)
 
-	require.NotEqual(t, before, srv.IndexGeneration(t.Context()))
+	after := srv.IndexGeneration(t.Context())
+	require.NotEqual(t, writeCounter(before), writeCounter(after), "the counter witnesses the other handle's write")
 	replyData(t, postGraphQL(t, srv, map[string]any{"query": planQuery}))
 	require.EqualValues(t, 2, srv.reads.Metrics().Queries[hash].Executions, "the cached read is not served after another process's write")
+}
+
+// The embedding stores share the database file but write on their own
+// connections; their commits leave the generation alone, so an embedding
+// pass does not make pages refetch (SPEC-0136 R4).
+func TestIndexGenerationIgnoresEmbeddingCommits(t *testing.T) {
+	srv, fixture := newGraphQLReadCacheServer(t)
+	ctx := t.Context()
+	notes, err := embedsqlite.OpenNotes(ctx, embedsqlite.File(filepath.Join(fixture.root, ".rhizome", "db.sqlite")), embedsqlite.Options{Access: embedsqlite.WriteIndex, Dimensions: 4})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = notes.Close() })
+	before := srv.IndexGeneration(ctx)
+
+	sequence := semdb.WriteSequence()
+	require.NoError(t, notes.UpsertNoteMeta(ctx, embeddings.NoteFileInfo{ID: "note", Title: "Note", Path: "note.md"}))
+	require.NoError(t, notes.UpsertNoteChunks(ctx, "note", []embeddings.ChunkInput{embeddings.NewChunkInput(0, "text", "Note", "Heading")}, []embeddings.Embedding{{1, 0, 0, 0}}))
+	require.Equal(t, sequence, semdb.WriteSequence(), "the embedding write bypassed this process's stores")
+	require.Equal(t, before, srv.IndexGeneration(ctx))
+}
+
+func writeCounter(generation string) string {
+	writes := strings.Split(generation, ".")[1]
+	return writes[strings.Index(writes, "-")+1:]
 }
 
 // While a store write is open, a read neither hits nor stores, so no request

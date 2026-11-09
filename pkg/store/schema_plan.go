@@ -9,9 +9,9 @@ import (
 
 const (
 	intelBaselineVersion          = 56
-	currentSchemaVersion          = 80
+	currentSchemaVersion          = 81
 	intelVecTablePrefix           = "intel_embeddings_vec_d"
-	currentIntelSchemaFingerprint = "intel-schema-v80-2026-11-06-record-context"
+	currentIntelSchemaFingerprint = "intel-schema-v81-2026-11-09-write-generation"
 )
 
 // forwardSchemaMigrations contains only migrations added after the consolidated
@@ -86,6 +86,7 @@ var forwardSchemaMigrations = []domains.TxStep{
 	backfillEmbeddingCacheSchema,        // v77 -> v78
 	addOntologyStructureSchema,          // v78 -> v79
 	addOntologyRecordContextSchema,      // v79 -> v80
+	createWriteGenerationSchema,         // v80 -> v81
 }
 
 func (s *Store) ensureSchemaVersion(ctx context.Context, target int) error {

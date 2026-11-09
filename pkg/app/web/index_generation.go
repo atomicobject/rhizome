@@ -31,10 +31,6 @@ type indexGenerationState struct {
 	mu               sync.Mutex
 	validationWrites string
 	validation       string
-
-	dataVersionMu    sync.Mutex
-	dataVersionStore *semdb.Store
-	dataVersion      *semdb.DataVersion
 }
 
 // IndexGeneration returns the opaque index generation
@@ -47,8 +43,8 @@ func (s *Server) IndexGeneration(ctx context.Context) string {
 }
 
 // indexGeneration also reports whether reads at the generation may use the
-// read cache: not while a store write is open, and not when the store's data
-// version could not be read.
+// read cache: not while a store write is open, and not when the store's write
+// generation could not be read.
 func (s *Server) indexGeneration(ctx context.Context) (string, bool) {
 	state := &s.generation
 	state.once.Do(func() {
@@ -62,56 +58,22 @@ func (s *Server) indexGeneration(ctx context.Context) (string, bool) {
 }
 
 // writesGeneration combines this process's write sequence with the store's
-// data version, which moves for commits from other processes too (note
-// operations and validation projections can write the live database). The
-// sequence is read first, so a write that starts after it and commits before
-// the data version is read only makes the label older than the data.
+// write generation, which store writes from other processes move too (note
+// operations and validation projections can write the live database), while
+// embedding writes, on their own connections, leave it alone. The sequence is
+// read first, so a write that starts after it and commits before the counter
+// is read only makes the label older than the data.
 func (s *Server) writesGeneration(ctx context.Context) (string, bool) {
 	sequence := semdb.WriteSequence()
 	store := s.runtime.Intel()
 	if store == nil {
 		return fmt.Sprintf("%x-none", sequence), !semdb.WritesOpen(sequence)
 	}
-	version, err := s.readDataVersion(ctx, store)
+	counter, err := store.WriteGeneration(ctx)
 	if err != nil {
 		return fmt.Sprintf("%x-unwitnessed", sequence), false
 	}
-	return fmt.Sprintf("%x-%x", sequence, version), !semdb.WritesOpen(sequence)
-}
-
-// readDataVersion reads the data version on the connection reserved for
-// store, opening it on first use and again after the runtime swaps stores.
-func (s *Server) readDataVersion(ctx context.Context, store *semdb.Store) (int64, error) {
-	state := &s.generation
-	state.dataVersionMu.Lock()
-	if state.dataVersionStore != store || state.dataVersion == nil {
-		if state.dataVersion != nil {
-			_ = state.dataVersion.Close()
-		}
-		version, err := store.OpenDataVersion(ctx)
-		if err != nil {
-			state.dataVersionStore, state.dataVersion = nil, nil
-			state.dataVersionMu.Unlock()
-			return 0, err
-		}
-		state.dataVersionStore, state.dataVersion = store, version
-	}
-	version := state.dataVersion
-	state.dataVersionMu.Unlock()
-	return version.Read(ctx)
-}
-
-// closeDataVersion releases the reserved connection when the server closes.
-func (s *Server) closeDataVersion() error {
-	state := &s.generation
-	state.dataVersionMu.Lock()
-	defer state.dataVersionMu.Unlock()
-	if state.dataVersion == nil {
-		return nil
-	}
-	err := state.dataVersion.Close()
-	state.dataVersionStore, state.dataVersion = nil, nil
-	return err
+	return fmt.Sprintf("%x-%x", sequence, counter), !semdb.WritesOpen(sequence)
 }
 
 // setGenerationHeader writes the index generation read before the response's

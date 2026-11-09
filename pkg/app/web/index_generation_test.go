@@ -131,3 +131,19 @@ func TestViewsGenerationUsesThePollerStamp(t *testing.T) {
 		}
 	}
 }
+
+// Once the last event-stream listener releases, the views component walks
+// the folders again, so a definition edit with no stream connected still
+// moves the generation.
+func TestViewsGenerationMovesAfterTheLastWatchReleases(t *testing.T) {
+	fixture := prepareOntologyFixtureVault(t)
+	srv := newFixtureServer(t, fixture, nil)
+	release := srv.watchViewFolders()
+	before := srv.viewsGeneration()
+	release()
+
+	dir := filepath.Join(fixture.root, ".rhizome", "views")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "specs.yaml"), []byte("apiVersion: rhizome.view.v1\nid: specs\nname: Specs\nsource: {kind: ontology_type, type: Spec}\n"), 0o644))
+	require.NotEqual(t, before, srv.viewsGeneration())
+}
