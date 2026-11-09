@@ -2,9 +2,12 @@ package web
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/atomicobject/rhizome/pkg/vault/watchhub"
+	"io/fs"
 	"net/http"
 	"net/netip"
 	"net/url"
@@ -178,6 +181,7 @@ func (s *Server) registerRoutes() {
 
 	// Static UI
 	if s.assets != nil {
+		s.mux.HandleFunc(kitPrefix, s.handleKit)
 		root := http.FS(s.assets)
 		s.mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" || r.URL.Path == "/index.html" {
@@ -195,6 +199,61 @@ func (s *Server) registerRoutes() {
 			serveFile(w, r, root, clean)
 		}))
 	}
+}
+
+const kitPrefix = "/kit/v1/"
+
+// kitBase is the build-stamped kit prefix the view shell references
+// (SPEC-0136 R5).
+func (s *Server) kitBase() string { return kitPrefix + s.kitStamp() + "/" }
+
+// kitStamp hashes the embedded kit, so it changes exactly when any kit file
+// does and a copy cached under it can be immutable.
+func (s *Server) kitStamp() string {
+	s.kitBuildOnce.Do(func() {
+		h := sha256.New()
+		if s.assets != nil {
+			_ = fs.WalkDir(s.assets, "kit/v1", func(name string, d fs.DirEntry, err error) error {
+				if err != nil || d.IsDir() {
+					return err
+				}
+				data, err := fs.ReadFile(s.assets, name)
+				if err != nil {
+					return err
+				}
+				_, _ = fmt.Fprintf(h, "%s\x00%d\x00", name, len(data))
+				h.Write(data)
+				return nil
+			})
+		}
+		s.kitBuild = hex.EncodeToString(h.Sum(nil))[:16]
+	})
+	return s.kitBuild
+}
+
+// handleKit serves /kit/v1/<build>/<file> as immutable, and /kit/v1/<file>,
+// which pages written before the stamp still use, revalidated by the build.
+func (s *Server) handleKit(w http.ResponseWriter, r *http.Request) {
+	rest, ok := strings.CutPrefix(path.Clean(r.URL.Path), kitPrefix)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	stamp := s.kitStamp()
+	cacheControl, etag := "no-cache", `"`+stamp+`"`
+	if file, stamped := strings.CutPrefix(rest, stamp+"/"); stamped {
+		rest, cacheControl, etag = file, "public, max-age=31536000, immutable", ""
+	}
+	name := "kit/v1/" + rest
+	if info, err := fs.Stat(s.assets, name); err != nil || info.IsDir() {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Cache-Control", cacheControl)
+	if etag != "" {
+		w.Header().Set("ETag", etag)
+	}
+	serveFile(w, r, http.FS(s.assets), name)
 }
 
 func rejectUnknownAPI(w http.ResponseWriter, r *http.Request) {

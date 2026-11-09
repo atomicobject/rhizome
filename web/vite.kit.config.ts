@@ -3,6 +3,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
 
+import { buildKitStylesheet, kitTheme } from "./kitStylesheet";
+
 // Builds the custom view kit (SPEC-0105) into the embedded assets, after the
 // main UI build because that build empties assets/dist. Every entry is an ES
 // module named by boot.js's import map; shared chunks keep one React instance.
@@ -48,24 +50,21 @@ function cjsReexport(): Plugin {
 function bootScript(): Plugin {
   return {
     name: "rhizome-kit-boot",
-    generateBundle() {
-      const theme = [
-        path.resolve(__dirname, "src/fonts.css"),
-        path.resolve(__dirname, "src/tokens.css"),
-        path.join(kitDir, "theme.css"),
-        path.join(kitDir, "components.css"),
-        path.resolve(__dirname, "src/diagram.css"),
-      ]
-        .map((file) => readFileSync(file, "utf8"))
-        .join("\n");
+    async generateBundle() {
+      const boot = readFileSync(path.join(kitDir, "boot.js"), "utf8").replace("__MODULES__", () =>
+        JSON.stringify(importMap),
+      );
 
-      const boot = readFileSync(path.join(kitDir, "boot.js"), "utf8")
-        .replace("__THEME__", () => JSON.stringify(theme))
-        .replace("__MODULES__", () => JSON.stringify(importMap));
+      const runtime = readFileSync(path.join(kitDir, "tailwind.js"), "utf8").replace(
+        "__THEME__",
+        () => JSON.stringify(kitTheme),
+      );
 
-      const tailwind = readFileSync(require.resolve("@tailwindcss/browser"), "utf8");
+      const compiler = readFileSync(require.resolve("@tailwindcss/browser"), "utf8");
 
-      this.emitFile({ type: "asset", fileName: "boot.js", source: `${boot}\n${tailwind}` });
+      this.emitFile({ type: "asset", fileName: "boot.js", source: boot });
+      this.emitFile({ type: "asset", fileName: "tailwind.js", source: `${runtime}\n${compiler}` });
+      this.emitFile({ type: "asset", fileName: "kit.css", source: await buildKitStylesheet() });
     },
   };
 }

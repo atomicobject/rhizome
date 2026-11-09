@@ -10,6 +10,8 @@
     "playwright.ao-kb.config.ts",
     "vite.config.ts",
     "vite.kit.config.ts",
+    "kitStylesheet.ts",
+    "kitStylesheet.test.ts",
     "devProxyConfig.ts",
     "devProxyConfig.test.ts",
     "devSupervisorRuntime.ts",

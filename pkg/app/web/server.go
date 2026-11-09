@@ -125,6 +125,8 @@ type Server struct {
 	watchHubUnsub       func()
 	htmlViewers         *htmlViewerRegistry
 	viewModules         viewModuleCache
+	kitBuildOnce        sync.Once
+	kitBuild            string
 	viewWatch           viewFolderWatch
 	tasksTestLaunch     func(vaultPath, file string) error
 	tasksLaunch         func(vaultPath, itemID string) error // nil starts `rzm tasks run`

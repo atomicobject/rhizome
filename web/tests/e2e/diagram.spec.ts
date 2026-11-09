@@ -5,7 +5,7 @@ for (const activation of ["click", "Enter", "middle"]) {
   test(`custom view diagram opens the linked note with ${activation}`, async ({ page }) => {
     const peleRequests: string[] = [];
     page.on("request", (request) => {
-      if (new URL(request.url()).pathname.startsWith("/kit/v1/chunks/pele-")) {
+      if (new URL(request.url()).pathname.match(/^\/kit\/v1\/[0-9a-f]{16}\/chunks\/pele-/)) {
         peleRequests.push(request.url());
       }
     });
