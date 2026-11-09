@@ -1,6 +1,6 @@
 # AO KB knowledge workspace
 
-The optional `ao-kb` starter presents an existing AO KB's Markdown knowledge in Rhizome and compiles the selected product's model into read-only bindings. The AO KB root must be the vault root, at schemaVersion 8, or at 4 through 7 for a single-product KB, which sets up knowledge-only (see "Older AO schema versions" below). It installs Assertion, Source, Concept, Artifact, ConflictRegistry/ConflictEntry, and the read-only MapOfContent, Submission, and CurationDocument types in the Knowledge group, a workspace with Attention, Concepts, Assertions, and Knowledge trace, assertion and source presentations, claim-to-source, reverse-impact, concept-evidence, and artifact-evidence recipes, and the binding compiler. The selected model is indexed read-only, with native evidence links and per-file sync observations.
+The optional `ao-kb` starter presents an existing AO KB's Markdown knowledge in Rhizome and compiles the selected product's model into read-only bindings. The AO KB root must be the vault root, at schemaVersion 8, or at 4 through 7 for a single-product KB, which sets up knowledge-only (see "Older AO schema versions" below). It installs Assertion, Source, Concept, Artifact, ConflictRegistry/ConflictEntry, and the read-only MapOfContent, Submission, and CurationDocument types in the Knowledge group, the Knowledge site (see "The Knowledge site" below), claim-to-source, reverse-impact, concept-evidence, and artifact-evidence recipes, and the binding compiler. The selected model is indexed read-only, with native evidence links and per-file sync observations.
 
 ## Setup
 
@@ -21,6 +21,35 @@ Report **starter installed**, **bindings ready**, and **index ready** separately
 A single-product KB at AO schemaVersion 4 through 7 sets up knowledge-only, without migrating and without uv or Python. Knowledge reads through a read-only adapter for AO's documented key renames: `assertionKind` for `kind`, `format` for a source's kind, `attestedBy` for `speaker`, and `supportingAssertions` for an artifact's `supported_by`, each read only when the current key is absent. Raw values are shown as stored. Product-model bindings need schemaVersion 8, so the model stage is `not applicable`: refresh publishes knowledge bindings and records the model manifest as `not applicable` with the reason; the check reports `bindingsReady` with `modelReady: false`, and its model dependency, model bindings, and model source ownership rows say `not applicable`; the index wrapper indexes, skips model-record verification, and writes a receipt that `indexReady` compares. AO's own migration is the way to enable the model. A legacy product-mode account is reported `ao_schema_unsupported`.
 
 Every index receipt carries a site source signature over every Markdown file the Knowledge site reads: `assertions/`, `concepts/`, `artifacts/`, and `sources/` (except `sources/_raw/`), `_moc.md` and `MOCs/`, `_improvements/` (except `_archive/` and `_pending-attachments/`), and `.kb/curation/*.md`, at the account root and the selected product's root, plus the model sources at schemaVersion 8. Editing, adding, or deleting any of them, including an underscore-named artifact AO's reader skips, asks for one reindex. Receipts written before this signature existed expire once after upgrade.
+
+## The Knowledge site
+
+Opening the Knowledge group shows **KB overview**, the site's default page; the group's views are KB overview, Review, Concepts, Assertions, Sources, Artifacts, Attention, and Knowledge trace, and Assertion, Concept, Source, and Artifact records open in their own pages. All of them share one frame, so records opened in new tabs reuse it. While a tab shows a Knowledge subject, the **Knowledge** panel at the bottom of the Notes sidebar offers Find by title, links to KB overview and Review, concepts, source and artifact folders, and assertion kinds with counts, a locator on record pages, and a Recent list for this window. It can be split, minimised to its title bar, or cover the sidebar; Escape returns from cover to split.
+
+Every mark and number comes from indexed authored records or a computation the caption names. Nothing infers links, topics, dates, kinds, or confidence, and a missing value is shown as missing rather than replaced with a default, an ingestion date, or a file modification time. Whole-KB counts say so when a read was not complete. The labels mean exactly this:
+
+| Label | Meaning |
+| --- | --- |
+| Statements, Intent and rules, Risks and questions, Other kinds | Kind groups that collect raw `kind` values: Statements holds `fact`, `observation`, `need` (legacy `tribal-knowledge`, `customer-voice`); Intent and rules holds `decision`, `rule`, `preference`, `goal`, `principle` (legacy `constraint`, `trade-off`); Risks and questions holds `risk`, `hypothesis`, `question` (legacy `assumption`); Other kinds names every other value with its count. A group judges neither truth nor resolution, and the raw kind is always shown beside it. |
+| Stored confidence | The confidence value an assertion records. Counts name `hypothesis` and `guess` only; other values are neither validated nor unvalidated. Kind `hypothesis` and confidence `hypothesis` appear under different headings. |
+| Kind not recorded | The assertion has neither `kind` nor `assertionKind`. |
+| Sources by date | Sources plotted on a time axis by the date each records, not the KB's construction history. A filled mark is a recorded date (`sourceDate`, `meetingDate`, or `date`); a hollow mark labelled "Date in file name" takes its date from the file name. |
+| No recorded date | The source records no date; an unreadable recorded date is counted separately. |
+| against the N dated sources | A record's strip is drawn against the dated sources only; undated ones in its scope are listed as links. |
+| No resolved extraction, mixed or none | A dated source whose extraction IDs resolve to no assertion; a mark whose resolved extracted assertions have no majority kind group. |
+| Lines are the Related Concepts people recorded | Topic-map lines come only from each concept's `## Related Concepts` section. A solid neutral node is too small for kind arcs, not a node of Other kinds. |
+| What the KB says about it | A concept's member assertions: those that link it and those it links, deduplicated. Many are hypotheses or guesses. |
+| Supported by (recorded), Assertions it links, Recorded but not resolved | An artifact's `supported_by` (legacy `supportingAssertions`) values that resolve to an assertion; other assertions it only links; recorded support values that match no assertion, or several, shown with their raw text. |
+| Assertions extracted from it, Assertions that cite it | A source's `extractedAssertionIds`, and the assertions that cite it as a source or as their `provenanceSource`. |
+| Recorded passage | The citation's recorded locator resolves, and "Open in source" opens at that passage. |
+| No passage locator recorded | The citation records no locator. "Open in source" then opens at the first paragraph that links the assertion, labelled "This source links to the assertion here" (a backlink, not a passage or evidence), or at the top with "This source does not link to the assertion". |
+| Source kind, Source folder | The source's own `kind` (legacy `format`), and the folder it sits in; folders are groupings, not kinds. |
+| Submissions by status | `_improvements/` records with a `status` that are not findings, grouped by status verbatim; the headline counts `pending` only. Findings are listed separately, and archived submissions are not listed. |
+| Curation registries and reports | Every Markdown document directly under `.kb/curation/`, with its authored `updatedAt` or "No recorded date". |
+| Find by title | Matches titles and concept aliases, not text; "Search all text" hands the query to Rhizome search. |
+| not enough to draw yet | A visual has too little data; it names what is missing and links to the matching gap on Review. |
+
+Review's Gaps block counts live gaps from the current index on every load, each with its rule, a link to the matching records, and a copyable AO KB command. A legacy KB browses the same site; its raw kinds show as stored and group through AO's retired-name table.
 
 ## Supported versions and syntax limits
 
