@@ -204,6 +204,16 @@
   --type-12-ink: light-dark(#00652e, #38bc78);
   --type-13: light-dark(#98420a, #df8746);
   --type-13-ink: light-dark(#98420a, #df8746);
+  /* ---- Knowledge kind groups (SPEC-0135 R3) ----
+     Three hues and the neutral for the AO KB site's kind groups. Light values
+     are type hues 1, 10, and 6; dark values are those hues mixed toward their
+     light values, because the house dark values fail the colour-vision check
+     beside each other. Checked with the dataviz palette validator; results are
+     in EFF-2026-11-08-19-38. Never teal, green, red, or gold. */
+  --kind-statements: light-dark(#1264df, #4b92f5);
+  --kind-intent: light-dark(#9c168e, #c65ab9);
+  --kind-risks: light-dark(#d05200, #e36e1d);
+  --kind-other: var(--type-8);
   /* Code in graphs: a mid gray lighter than the untyped neutral, so strong fills stay with notes. */
   --graph-code: light-dark(#b3b0ab, #6e6a65);
 
