@@ -1,6 +1,6 @@
 # Legacy AO KB fixture
 
-Synthetic ferry-service knowledge only; no real people, client, or KB text. This directory is the AO KB root and the Rhizome vault root. It is shaped like the legacy KBs SPEC-0135 must read without migrating: `.kb/config/vault.md` records schemaVersion 5, `profile`, and `productMode: single`, and `.kb/config/manifest.json` is a scaffold stamp with no `siteEngine`. Tests copy it and rewrite the stamp to 4 for the schema-4 variant. This README is an ordinary untyped note.
+Synthetic ferry-service knowledge only; no real people, client, or KB text. This directory is the AO KB root and the Rhizome vault root. It is shaped like the legacy KBs SPEC-0135 must read without migrating: `.kb/config/vault.md` records schemaVersion 5, `profile`, and `productMode: single`, and `.kb/config/manifest.json` is a scaffold stamp with no `siteEngine`. Tests copy it and rewrite the stamp to 4 for the schema-4 variant. This README and `notes/untyped.md` are ordinary untyped notes; the second sits in a folder of its own so the sidebar panel spec can open it and see the built-in Folder panel.
 
 What each record exercises:
 
