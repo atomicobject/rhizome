@@ -302,6 +302,10 @@ describe("activation and replacement", () => {
     expect(scrollTo).toHaveBeenLastCalledWith(0, 420);
     await locate("tab-2", "n-2", { view: "record", context: record("b.md") });
     expect(scrollTo).toHaveBeenLastCalledWith(0, 30);
+
+    // Another record in the same tab is a new page, so it starts at the top.
+    await locate("tab-2", "n-3", { view: "record", context: record("c.md") });
+    expect(scrollTo).toHaveBeenLastCalledWith(0, 0);
   });
 
   it(`keeps at most ${RETAINED_PAGES} hidden pages and drops the least recently shown`, async () => {
@@ -359,6 +363,11 @@ describe("hidden pages and suspended frames", () => {
     await host({ type: RESUME_MESSAGE, generation: "G1" });
     expect(screen.getByTestId("b").textContent).toContain("active");
     expect(generation.current()).toBe("G1");
+
+    // A location for a suspended frame shows it again.
+    await host({ type: SUSPEND_MESSAGE });
+    await locate("tab-a", "n-a", { view: "a" });
+    expect(screen.getByTestId("a").textContent).toContain("active");
   });
 });
 

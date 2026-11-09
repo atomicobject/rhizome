@@ -189,6 +189,7 @@ export function createExperienceFrame(options: FrameOptions) {
     if (isString(message.generation)) generation.set(message.generation);
 
     const raw = isPlainObject(message.invocation) ? message.invocation : {};
+    const existing = state.pages.find((each) => each.tabId === tabId);
     let page: Page;
 
     try {
@@ -212,7 +213,6 @@ export function createExperienceFrame(options: FrameOptions) {
             ]);
 
       const binding = { tabId, navigationId, invocation, params };
-      const existing = state.pages.find((each) => each.tabId === tabId);
       const view: ViewConfig = { ...invocation.view };
 
       page =
@@ -252,15 +252,17 @@ export function createExperienceFrame(options: FrameOptions) {
       };
     }
 
-    const showing = state.activeTabId !== tabId;
+    // A location shows its tab, so it also ends a suspension.
+    const showing = state.activeTabId !== tabId || state.suspended;
 
-    if (showing) {
+    // A shown or replaced page restores its own scroll; a new one starts at the top.
+    if (showing || page.key !== existing?.key) {
       clock += 1;
       page = { ...page, shownAt: clock };
     }
 
     const others = leaving(state.pages).filter((each) => each.tabId !== tabId);
-    publish({ ...state, pages: retain([...others, page], tabId), activeTabId: tabId });
+    publish({ pages: retain([...others, page], tabId), activeTabId: tabId, suspended: false });
 
     // A page shown again refetches only what is behind the generation.
     if (showing) generation.schedule();
