@@ -20,7 +20,9 @@ import { useBindingFreshness, useKnowledge } from "./data.tsx";
 import { membership } from "./lib/site.ts";
 import "./knowledge.css";
 
-export const today = () => new Date().toLocaleDateString("en-CA");
+/** Today's local date as YYYY-MM-DD (what "en-CA" formats), without an Intl formatter per call. */
+export const today = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 /** Shown wherever model data appears: published bindings that are not ready are never
  * presented as current. Nothing while reading or when ready. */
 export function ModelFreshness({ className = "ak-footnote" }: { className?: string }) {
@@ -31,18 +33,18 @@ export function ModelFreshness({ className = "ak-footnote" }: { className?: stri
     </p>
   ) : null;
 }
+// One formatter for every date cell; building one per cell cost 55 ms per render of a long list.
+const DATE = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
 export function DateValue({ value }: { value?: string | null }) {
   const time = value ? Date.parse(value) : NaN;
   return (
     <span title={value || undefined}>
-      {Number.isFinite(time)
-        ? new Date(time).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            timeZone: "UTC",
-          })
-        : value || "Not recorded"}
+      {Number.isFinite(time) ? DATE.format(time) : value || "Not recorded"}
     </span>
   );
 }

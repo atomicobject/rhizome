@@ -287,9 +287,21 @@ export function dateNumber(value?: string | null) {
     ? n
     : NaN;
 }
+// Superseded targets per edge list, so a list of every assertion checks each in constant time
+// instead of scanning every edge per row (127 ms per render of the largest real KB's list).
+const superseded = new WeakMap<Edge[], Set<string>>();
+function supersededTargets(edges: Edge[]) {
+  let targets = superseded.get(edges);
+  if (!targets)
+    superseded.set(
+      edges,
+      (targets = new Set(edges.filter((e) => e.rel === "supersedes").map((e) => e.to))),
+    );
+  return targets;
+}
 export function badges(a: Assertion, edges: Edge[], today: string) {
   return [
-    edges.some((e) => e.rel === "supersedes" && e.to === a.path) ? "Superseded" : "",
+    supersededTargets(edges).has(a.path) ? "Superseded" : "",
     dateNumber(a.validUntil) < dateNumber(today) ? "Expired" : "",
   ].filter(Boolean);
 }
