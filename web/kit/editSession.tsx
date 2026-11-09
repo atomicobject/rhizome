@@ -140,16 +140,21 @@ export function connectWorkspaceHost(parent: Window, answerTimeoutMs = 5_000): W
     const { data } = event;
 
     if (data?.type === EDIT_SESSION_MESSAGE) {
-      state = {
-        answered: true,
-        session: data.session ?? null,
-        readLifecycle: data.readLifecycle ?? INITIAL_EDIT_READ_LIFECYCLE,
-      };
+      const session: StagedSession = data.session ?? null;
+      const readLifecycle: EditReadLifecycle = data.readLifecycle ?? INITIAL_EDIT_READ_LIFECYCLE;
+
+      // A host re-sends the session on resume; an identical one changes nothing.
+      const same =
+        state.answered &&
+        editSessionFingerprint(session) === editSessionFingerprint(state.session) &&
+        readLifecycle.revision === state.readLifecycle.revision;
+
+      if (!same) state = { answered: true, session, readLifecycle };
 
       for (const resolve of waiting) resolve();
       waiting.clear();
 
-      for (const listener of listeners) listener();
+      if (!same) for (const listener of listeners) listener();
     }
 
     if (data?.type === STAGE_RESULT_MESSAGE) {
