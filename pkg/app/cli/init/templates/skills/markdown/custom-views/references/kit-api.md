@@ -4,8 +4,11 @@
 
 | Export | Use |
 | --- | --- |
-| `getViewContext()` / `useViewContext()` | Read the invocation's type/interface/group/node/standalone context. The hook works in React; the accessor also works in HTML modules. A context change remounts the page. |
-| `getViewConfiguration()` | Read the definition's JSON-compatible `configuration` object, or `undefined`. It is authored configuration, never trusted from a URL override. |
+| `getViewContext()` / `useViewContext()` | Read the invocation's type/interface/group/node/standalone context. The hook works in React; the accessor also works in HTML modules. A context change remounts the page. In an [experience](experiences.md) the hook reads the page it renders in and the accessor the page on screen, so components use the hook. |
+| `getViewConfiguration()` / `useViewConfiguration()` | Read the definition's JSON-compatible `configuration` object, or `undefined`. It is authored configuration, never trusted from a URL override. |
+| `useViewLocation()` | `{ viewId, tabId?, context, params, configuration? }` for the page this component renders in; `tabId` is the workbench tab (`panel` in a panel) and is set only in an experience frame. |
+| `useViewActive()` | False while the page is hidden or its frame suspended. Kit queries and action polling pause on their own; stop your own timers, intervals, and animations with it. |
+| `markReady()` / `useMarkReady()` | Mark the page's required reads as resolved, once; performance diagnostics time data-ready from it. `useMarkReady()` returns the function bound to the calling page, for async work that may finish while the page is hidden; `markReady()` marks the page on screen. |
 | `getViewInvocation()` | Read `{ view: { id, name, origin }, context, configuration }`; the same values except `origin` arrive as default-export component props (`ViewModuleProps`). `origin` is `bundled` or `repository`. |
 | `useViewPreference<T>(key, { defaultValue, validate, slot? })` | Read and update one personal setting for the current view instance. Returns `{ value, overridden, loading, pending, error, set, update, reset, retry }`. Mutations return promises. |
 | `getViewPreference<T>(key, { defaultValue, validate, slot? })` | The same setting in HTML or non-React code: `getSnapshot()`, `subscribe(listener)` returning an unsubscribe function, and promise-based `set`, `update`, `reset`, `retry`. |
@@ -13,6 +16,8 @@
 | `executeView(id, request?)` | The same native row executor as a promise against committed state. Custom definitions do not execute as native collections. |
 | `useGraphQL<T>(query, variables?, options?)` | TanStack `useQuery` over the vault's read-only GraphQL endpoint. Returns `{ data, error, isPending, displaySession, savedEditsPending, editOutcome, partialErrors, ... }`. Reads include workspace edits and refresh on vault changes. `options.optimistic(data, displaySession)` can apply staged field values to your result shape while reads catch up. A response with errors fails the query unless `options.partial` is set and every error lies inside a root field that returned data, such as a record missing a required field. GraphQL then nulls the failing field, or its nearest nullable parent when the field is non-null (which can be the whole record), and `partialErrors` lists the tolerated errors (`{ message, path? }`) so the view can tell which records they touched. |
 | `graphql<T>(query, variables?)` | The same request as a promise, against committed state. Throws on GraphQL errors. |
+| `readNodes<T>(refs, selection, { signal? })` | Read every node `refs` names with `selection` (fields of the node, usually inline fragments such as `... on Assertion { path title }`) in batches of `NODES_BATCH_MAX` (200), against committed state. Returns `{ nodes, unresolved, errors, truncated, complete }`: one node per distinct canonical identity in ref order, refs that resolved to nothing with the server's reason, field errors from every batch, capped reads, and whether all of it was clean. Batches answered at different index generations are read once more. A failed batch throws. |
+| `truncation(data)` | The capped reads in data `graphql` or `useGraphQL` returned, from `extensions.truncated`: `[{ path, returned, limit }]` for each `nodes(refs:)`, `search`, or `neighborhood` read that stopped at its limit, one entry per response path without list indices. Empty when nothing was cut off. Say what was not read instead of presenting the length. |
 | `typedRootCoverage(data)` | Typed-root coverage for data that `graphql` or `useGraphQL` returned, by response alias: `{ assertion: { status, requestedFirst, returnedCount, offset, hasMore, nextOffset } }`. Status `complete` means the root returned every match; any other status (`capped`, `unknown_page_bound`, `unknown_candidate_bound`) means the array is not the whole set, so say what was not read instead of presenting its length as a total. Undefined for data the kit did not read or a query with no generated type root. It is keyed by the data object, so it follows the data on screen, and `useGraphQL`'s return shape is unchanged. Nested lists are not covered: declared relation fields (`@neighbors`, `@contains`) without `first` return every row, so leave `first` off them in whole-set reads. |
 | `useSetField(readSession?)` | Mutation: `mutate({ target, field, value })`. Writes through the surrounding `EditSession`. Pass `query.displaySession` when editing a `useGraphQL` result. |
 | `setField(target, field, value)` | Commits the same write as a promise, whatever the `EditSession`. |
@@ -29,8 +34,10 @@
 | `useViewParams()` / `getViewParams()` / `subscribeViewParams(listener)` / `setViewParams(patch)` | Read and change the view's declared URL params. See [View params](#view-params). |
 | `useActionQuery(id, input?, options?)` / `useActionCommand(id)` / `ActionError` | Run a module action. See [Module actions](#module-actions). |
 | `openCollection(name)` | Open a type or interface collection in the workspace. |
-| `openSearch({ folder, query? })` | Open a project search tab filtered to a vault folder, listing the folder's notes, or ranking matches when `query` is set. `folder: "/"` lists the notes at the vault root, which sit in no folder. |
+| `openSearch({ folder?, query? })` | Open a project search tab, ranking matches when `query` is set. `folder` filters it to a vault folder, listing the folder's notes without a query; `folder: "/"` lists the notes at the vault root, which sit in no folder. Without `folder` the search covers the whole vault. |
 | `openIssues(scope?)` | Open the issues panel, optionally scoped to `{ kind: "type" \| "interface" \| "note", key }`. Without a scope, a view presenting a note opens that note's issues; a view anywhere else, or a standalone page, opens every issue. |
+| `usePageNavigation()` | `{ openNode, openView, openNote, openIssues, openCollection, openSearch, setViewParams }` bound to the page this component renders in. In an experience a hidden page's late call, such as a debounced param change after a tab switch, still names its own page; the imperative exports act for the page on screen. |
+| `RecordPage` | The record-page shell for experiences. See [Record pages](experiences.md#record-pages). |
 | `embedded` | `true` when the Rhizome UI frames the view, `false` when it is the page. A cross-origin parent, such as an IDE preview, does not count: the view runs as its own page there. |
 
 Context shapes:
@@ -258,7 +265,9 @@ A view's kit queries stay current without polling. A frame hosted by the workspa
 - Validation changes refresh validation summaries and display-group issue counts.
 - A reconnected stream refreshes everything, because missed events are not replayed. A hosted repository view also compares its folder stamp then and reloads if its source changed while the stream was down.
 
-A `views.changed` event reloads a repository view whose own folder changed. Bundled views never reload. A standalone repository page also checks its folder each second as a fallback; a hosted frame does not.
+A `views.changed` event reloads a repository view whose own folder changed; an experience frame is rebuilt at the active tab's location, and its other tabs' pages rebuild when shown. Bundled views never reload. A standalone repository page also checks its folder each second as a fallback; a hosted frame does not.
+
+In an experience, GraphQL and view responses carry the index generation, and a retained page shown again, or a resumed frame, refetches only queries whose generation or edit session changed. A hidden page or suspended frame refetches nothing until it is shown.
 
 ## `@rhizome/ui`
 
