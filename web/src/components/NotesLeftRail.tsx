@@ -10,6 +10,8 @@ import type { ActivePanel } from "./activePanel";
 import { panelFrameId } from "./ExperienceFrameLayer";
 import type { ExperienceFrames } from "./experienceFrames";
 import { FolderPanel } from "./FolderPanel";
+import { DiagnosticRegion } from "../diagnostics/DiagnosticRegion";
+import { PANEL_SLOT_REGION } from "../diagnostics/clientMetrics";
 import { panelIdentity, type SidebarPanel, SidebarPanelSlot } from "./SidebarPanelSlot";
 import { type PanelServices, SidebarPanelFrames, SidebarPanelView } from "./SidebarPanelView";
 import { PSEUDO_TYPE_ALL, PSEUDO_TYPE_ISSUES, PSEUDO_TYPE_MODIFIED } from "./notesRoute";
@@ -266,24 +268,26 @@ export const NotesLeftRail = memo(function NotesLeftRail({
 
   return (
     <aside className="notes-left-rail" aria-label="Notes navigation">
-      <SidebarPanelSlot vaultKey={vaultKey} panel={slotPanel} navigation={navigation}>
-        {folderNote !== null ? (
-          <FolderPanel
-            notePath={folderNote}
-            active={active}
-            onOpenNote={panelServices && ((path) => panelServices.onOpenNote(path, "activate"))}
-          />
-        ) : hostsView && panel?.kind === "view" && context ? (
-          <SidebarPanelView
-            frames={frames}
-            view={panelView}
-            experienceKey={panel.experienceKey}
-            context={context}
-            services={panelServices}
-            active={active}
-          />
-        ) : null}
-      </SidebarPanelSlot>
+      <DiagnosticRegion name={PANEL_SLOT_REGION}>
+        <SidebarPanelSlot vaultKey={vaultKey} panel={slotPanel} navigation={navigation}>
+          {folderNote !== null ? (
+            <FolderPanel
+              notePath={folderNote}
+              active={active}
+              onOpenNote={panelServices && ((path) => panelServices.onOpenNote(path, "activate"))}
+            />
+          ) : hostsView && panel?.kind === "view" && context ? (
+            <SidebarPanelView
+              frames={frames}
+              view={panelView}
+              experienceKey={panel.experienceKey}
+              context={context}
+              services={panelServices}
+              active={active}
+            />
+          ) : null}
+        </SidebarPanelSlot>
+      </DiagnosticRegion>
       {frames ? <SidebarPanelFrames frames={frames} /> : null}
     </aside>
   );
