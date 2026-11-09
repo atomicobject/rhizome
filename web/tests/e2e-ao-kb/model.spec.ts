@@ -5,7 +5,8 @@ import { expect, test, type FrameLocator, type Page } from "@playwright/test";
 
 const frame = (page: Page) => page.frameLocator("iframe");
 
-const traceFrame = (page: Page) => page.frameLocator('iframe[src*="/views/ao-kb.trace?"]');
+// The Knowledge experience's one frame, on screen (SPEC-0136 R2).
+const traceFrame = (page: Page) => page.frameLocator("iframe.experience-frame[data-shown]");
 
 const FEATURES = "artifacts/_assets/_model/features.yaml";
 
@@ -66,8 +67,10 @@ test("two rows of one YAML file open as distinct records with their own locators
   await expect(sameFile.getByText("FEAT-cancel", { exact: true })).toBeVisible();
   await sameFile.getByRole("link", { name: "Cancel an appointment", exact: true }).click();
   await heading(f, "Cancel an appointment");
-  await expect(f.locator(".ak-lead")).toContainText("FEAT-cancel");
-  await expect(f.locator(".ak-lead")).toContainText("features.yaml › /features/1");
+  // The frame keeps the previous record's page mounted, hidden.
+  const lead = f.locator(".ak-lead").filter({ visible: true });
+  await expect(lead).toContainText("FEAT-cancel");
+  await expect(lead).toContainText("features.yaml › /features/1");
   expect(page.url()).not.toBe(book);
   expect(decodeURIComponent(new URL(page.url()).hash)).toMatch(/^#record:v1:[0-9a-f]+$/);
   await page.goBack();

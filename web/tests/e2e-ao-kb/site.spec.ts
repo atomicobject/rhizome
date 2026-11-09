@@ -195,37 +195,20 @@ test("Sources by date is one tab stop; arrows move by date and Enter opens a sou
   await expect(page).toHaveURL(/presentation=ao-kb.source/);
 });
 
-const sourceFrame = (page: Page) =>
-  page.frames().find((f) => f.url().includes("/views/ao-kb.source"));
-
 for (const [slug, inline, landing] of [
   ["recorded-passage", "Recorded passage", "Recorded passage"],
   ["bad-locator", "Unresolved source/locator", "Nothing is highlighted"],
   ["not-body-linked", "No passage locator recorded", "This source does not link to the assertion."],
   ["body-linked", "No passage locator recorded", "This source links to the assertion here"],
 ] as const) {
-  test(`Open in source: ${slug} shows its state and passes the assertion`, async ({ page }) => {
-    await page.goto(
-      `/notes?note=${encodeURIComponent(`assertions/${slug}.md`)}&presentation=ao-kb.assertion`,
-    );
+  test(`Open in source: ${slug} passes the assertion and lands on its state`, async ({ page }) => {
+    const assertion = `assertions/${slug}.md`;
+    await page.goto(`/notes?note=${encodeURIComponent(assertion)}&presentation=ao-kb.assertion`);
     const sources = frame(page).getByRole("region", { name: "Sources", exact: true });
     await expect(sources.getByText(inline, { exact: true })).toBeVisible();
     await sources.getByRole("link", { name: "Open in source", exact: true }).click();
-    await expect
-      .poll(() => sourceFrame(page)?.url())
-      .toContain(`assertion=${encodeURIComponent(`assertions/${slug}.md`)}`);
-  });
-
-  // The host keeps a node presentation's declared params only once workbench tabs retain them
-  // (SPEC-0135 R6a, the platform's P6); until then the frame's params lose `assertion`.
-  test.fixme(`Open in source: ${slug} lands on its state in the workspace`, async ({ page }) => {
-    await page.goto(
-      `/notes?note=${encodeURIComponent(`assertions/${slug}.md`)}&presentation=ao-kb.assertion`,
-    );
-    await frame(page)
-      .getByRole("region", { name: "Sources", exact: true })
-      .getByRole("link", { name: "Open in source" })
-      .click();
+    await expect(page).toHaveURL(/presentation=ao-kb\.source/);
+    expect(new URL(page.url()).searchParams.get("assertion")).toBe(assertion);
     await expect(frame(page).getByRole("status").filter({ hasText: "Opened from" })).toContainText(
       landing,
     );
@@ -251,20 +234,90 @@ test("a filtered list survives a reload and a copied URL", async ({ page, contex
   await expect(await assertionsShown(page)).toHaveCount(21);
   const copy = await context.newPage();
   await copy.goto(page.url());
+  await expect(await assertionsShown(copy)).toHaveCount(21);
   await copy.close();
 });
 
-// The workspace URL drops a node presentation's params today; R6a (the platform's P6) keeps them.
-test.fixme("a source's assertion param survives a reload, a copied URL, and a tab switch", async ({
+test("a source's assertion param survives a reload and a copied URL", async ({ page, context }) => {
+  const linked = (p: Page) =>
+    frame(p).getByText("This source links to the assertion here", { exact: true });
+
+  await page.goto(
+    `/notes?note=${encodeURIComponent("sources/documents/ferry-handbook.md")}&presentation=ao-kb.source&assertion=${encodeURIComponent("assertions/body-linked.md")}`,
+  );
+  await expect(linked(page)).toBeVisible();
+  await page.reload();
+  await expect(linked(page)).toBeVisible();
+  const copy = await context.newPage();
+  await copy.goto(page.url());
+  await expect(linked(copy)).toBeVisible();
+  await copy.close();
+});
+
+const tab = (page: Page, name: RegExp) =>
+  page.getByRole("tablist", { name: "Open notes" }).getByRole("tab", { name });
+
+// A marker set in the experience frame's window on the first call; a new frame would not have it.
+async function frameIdentity(page: Page) {
+  const iframe = await page.locator("iframe.experience-frame").elementHandle();
+
+  return (await iframe!.contentFrame())!.evaluate(() => {
+    const w: Window & { kbFrame?: number } = window;
+    w.kbFrame ??= Math.random();
+
+    return w.kbFrame;
+  });
+}
+
+test("records opened in new tabs share one experience frame, and each tab returns to its record", async ({
   page,
 }) => {
-  const source = `/notes?note=${encodeURIComponent("sources/documents/ferry-handbook.md")}&presentation=ao-kb.source&assertion=${encodeURIComponent("assertions/body-linked.md")}`;
-  await page.goto(source);
+  const errors = consoleErrors(page);
+
+  const recordHeading = (name: string) =>
+    frame(page).getByRole("heading", { name, exact: true, level: 1 });
+
+  const landing = frame(page).getByRole("status").filter({ hasText: "Opened from" });
+
+  const map = frame(page).getByRole("group", { name: /^Topic map, 4 concepts/ });
+
+  await page.goto(group());
   await expect(
-    frame(page).getByText("This source links to the assertion here", { exact: true }),
+    frame(page).getByRole("heading", { name: "Harbor Ferry", exact: true }),
   ).toBeVisible();
-  await page.reload();
-  await expect(
-    frame(page).getByText("This source links to the assertion here", { exact: true }),
-  ).toBeVisible();
+  const identity = await frameIdentity(page);
+
+  // Each record opens in a tab of its own: Timetable from the KB overview, then an assertion
+  // and its source.
+  await map.getByRole("link").first().focus();
+  await page.keyboard.press("Enter");
+  await expect(recordHeading("Timetable")).toBeVisible();
+  await frame(page).getByRole("link", { name: "Body linked", exact: true }).click();
+  await frame(page)
+    .getByRole("region", { name: "Sources", exact: true })
+    .getByRole("link", { name: "Open in source", exact: true })
+    .click();
+  await expect(recordHeading("ferry handbook")).toBeVisible();
+  await expect(landing).toContainText("This source links to the assertion here");
+
+  // From the overview again, Tickets.
+  await tab(page, /^Home$/).click();
+  await map.getByRole("link").first().focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
+  await expect(recordHeading("Tickets")).toBeVisible();
+  await expect(tab(page, /Tickets/)).toHaveAttribute("aria-selected", "true");
+
+  // Returning to a tab shows its record; the source keeps the assertion it was opened from.
+  await tab(page, /ferry handbook/i).click();
+  await expect(recordHeading("ferry handbook")).toBeVisible();
+  await expect(landing).toContainText("This source links to the assertion here");
+  await tab(page, /^Timetable/).click();
+  await expect(recordHeading("Timetable")).toBeVisible();
+  await tab(page, /Tickets/).click();
+  await expect(recordHeading("Tickets")).toBeVisible();
+
+  await expect(page.locator("iframe")).toHaveCount(1);
+  expect(await frameIdentity(page)).toBe(identity);
+  expect(errors).toEqual([]);
 });

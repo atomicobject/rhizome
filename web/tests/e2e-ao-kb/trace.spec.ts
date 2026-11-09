@@ -7,7 +7,8 @@ const SOURCE = "sources/clinic-operations-sync.md";
 const url = (params: Record<string, string> = {}) =>
   `/notes/group/Knowledge?${new URLSearchParams({ presentation: "ao-kb.trace", ...params })}`;
 
-const frame = (page: Page) => page.frameLocator('iframe[src*="/views/ao-kb.trace?"]');
+// The Knowledge experience's one frame, on screen (SPEC-0136 R2).
+const frame = (page: Page) => page.frameLocator("iframe.experience-frame[data-shown]");
 
 async function openTrace(page: Page, params: Record<string, string> = {}) {
   await page.goto(url(params));
@@ -75,7 +76,7 @@ test("dense columns disclose hidden types and expand without changing the counte
 test("definition configuration lowers the real query budget independently of the display cap", async ({
   page,
 }) => {
-  await page.route("**/views/ao-kb.trace?*", async (route) => {
+  await page.route("**/api/v1/views/ao-kb.trace/invocation?*", async (route) => {
     const response = await route.fetch();
     const body = (await response.text()).replace(/"queryBudget":200/g, '"queryBudget":12');
     await route.fulfill({ response, body });
@@ -174,7 +175,7 @@ test("keyboard cards and list links work, source extraction is separate, and unk
   await recordButton.press("Enter");
   await expect(page).toHaveURL(/note=assertions%2Fclinic-patient-books-own-slot.md/);
   await expect(
-    page.frameLocator('iframe[src*="/views/ao-kb.assertion?"]').getByRole("heading", {
+    frame(page).getByRole("heading", {
       name: "Patients book their own slots",
       exact: true,
     }),
