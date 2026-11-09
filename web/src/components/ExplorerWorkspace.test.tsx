@@ -415,6 +415,50 @@ describe("ExplorerWorkspace", () => {
     expect(document.querySelector(".explorer-pane")).toBeNull();
   });
 
+  it("opens on the folder a ?folder= link names, as the Notes Folder panel links it", async () => {
+    http
+      .json(
+        "GET",
+        "/api/v1/graphs/folders",
+        folderOverview({
+          nodes: [
+            { id: "a", label: "a", kind: "note", path: "notes/decisions/a.md" },
+            { id: "b", label: "b", kind: "note", path: "notes/other/b.md" },
+          ],
+          edges: [],
+          truncated: false,
+        }),
+      )
+      .on("GET", "/api/v1/files/tree", (request) => {
+        const path = request.query.get("path");
+
+        if (!path)
+          return jsonReply(tree({ path: "notes", name: "notes", kind: "dir", hasChildren: true }));
+
+        return jsonReply({
+          path,
+          entries:
+            path === "notes"
+              ? [
+                  { path: "notes/decisions", name: "decisions", kind: "dir", hasChildren: true },
+                  { path: "notes/other", name: "other", kind: "dir", hasChildren: true },
+                ]
+              : [],
+        });
+      });
+    window.history.replaceState({}, "", "/explorer?folder=notes%2Fdecisions");
+
+    renderExplorer();
+
+    // The rail opens down to the folder and marks it; the header names it.
+    expect(await screen.findByRole("button", { name: "decisions" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(await screen.findByText(/notes \/ decisions ·/)).toBeVisible();
+    expect(document.querySelector(".explorer-pane")).toBeNull();
+  });
+
   it("shows suggestions only for the latest debounced query", async () => {
     const oldSuggestions = deferredReply<SearchResponse>();
     const currentSuggestions = deferredReply<SearchResponse>();

@@ -1,7 +1,7 @@
 import { EMPTY_GRAPH, type ExplorerSelection } from "./ExplorerWorkspaceState";
 import { useQuery } from "@tanstack/react-query";
 import { FolderOpen } from "lucide-react";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getFileView,
   getFolderGraph,
@@ -40,6 +40,10 @@ type ExplorerWorkspaceProps = {
   sidebarHint?: string | null;
 };
 
+/** A folder path and each folder above it. */
+const folderAncestors = (path: string) =>
+  path.split("/").map((_, index, parts) => parts.slice(0, index + 1).join("/"));
+
 export function ExplorerWorkspace({
   vaultName,
   sidebarTitle,
@@ -47,10 +51,22 @@ export function ExplorerWorkspace({
 }: ExplorerWorkspaceProps) {
   const browserLocation = useLocationSnapshot();
   const deepLink = explorerFileFromLocation(browserLocation.search);
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+
+  // `?folder=` opens Explorer on a folder, as the Notes sidebar's Folder panel links it.
+  const [folderLink] = useState(() =>
+    deepLink ? null : new URLSearchParams(browserLocation.search).get("folder")?.trim() || null,
+  );
+
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
+    () => new Set(folderLink ? folderAncestors(folderLink) : []),
+  );
 
   const [selection, setSelection] = useState<ExplorerSelection>(() =>
-    deepLink ? { kind: "file", path: deepLink.path } : { kind: "root" },
+    deepLink
+      ? { kind: "file", path: deepLink.path }
+      : folderLink
+        ? { kind: "module", path: folderLink }
+        : { kind: "root" },
   );
 
   const [selectedLine, setSelectedLine] = useState<number | undefined>(deepLink?.line);
@@ -171,7 +187,7 @@ export function ExplorerWorkspace({
       if (line && line > 0) params.set("line", String(line));
       window.history.pushState({}, "", `/explorer?${params.toString()}`);
       notifyLocationChange();
-    } else if (new URLSearchParams(window.location.search).has("file")) {
+    } else if (/[?&](file|folder)=/.test(window.location.search)) {
       window.history.replaceState({}, "", "/explorer");
       notifyLocationChange();
     }
@@ -215,20 +231,22 @@ export function ExplorerWorkspace({
   );
 
   useRevealRail(folderExplorer.initial, atRoot, selectedFilePath, setExpandedPaths);
+
+  // The linked folder opens in the graph once; `expand` is new on every render.
+  const linkExpanded = useRef(false);
+
+  useEffect(() => {
+    if (!folderLink || linkExpanded.current) return;
+    linkExpanded.current = true;
+    folderExplorer.expand(folderLink);
+  });
   const folders = byFolder ? folderExplorer.drawn : null;
   const searchPathSet = useMemo(() => new Set(searchPaths), [searchPaths]);
   const drawn = useExplorerGraph(folders, graph, selection, searchPathSet);
 
   const focusModule = useCallback(
     (path: string) => {
-      setExpandedPaths((previous) => {
-        const next = new Set(previous);
-        const parts = path.split("/");
-
-        parts.forEach((_, index) => next.add(parts.slice(0, index + 1).join("/")));
-
-        return next;
-      });
+      setExpandedPaths((previous) => new Set([...previous, ...folderAncestors(path)]));
       folderExplorer.expand(path);
       select({ kind: "module", path });
     },
