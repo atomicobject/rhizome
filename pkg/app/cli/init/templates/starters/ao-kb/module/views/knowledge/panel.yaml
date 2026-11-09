@@ -1,0 +1,8 @@
+apiVersion: rhizome.view.v1
+id: ao-kb.panel
+name: Knowledge
+source:
+  kind: custom
+  entry: panel.tsx
+mount:
+  kind: panel
