@@ -119,7 +119,7 @@ The same copy reproduced the planning counts exactly: 181 concept-side outbound 
   - Product mode: the generated admission scopes `MapOfContent`, `Submission`, and `CurationDocument` to the account root and the selected product's root.
   - Query module (`lib/queries.ts`): the R5 orientation query string (with `provenanceSource`), the three scope-read builders (the Source builder reads `linkingAssertions` without `first`), and Review's document query, exported for the views and for Go tests. The module imports nothing from `@rhizome/kit`, as `lib/model.ts` already does, so the Go tests read the strings by running `node --experimental-strip-types` on it.
   - Completeness (`views/knowledge/data.tsx` only): roots at `first: 5000`, nested `first` removed, the concept-side `linkedAssertions { path }` and `linkingAssertions { path }` added, coverage read through the kit, and the coverage status used instead of `CEILING`. Nothing else in the Concepts, Assertions, and Attention evidence read changes. The switch of those pages to the library's membership is Batch C's.
-  - Kit (`web/kit/index.tsx`, `web/src/api/publicGraphQLTypes.ts`): carry `extensions` through and expose typed-root coverage as an accessor keyed by the result's data object, as the kit's tolerated-errors pattern already does, so `useGraphQL`'s return shape is unchanged and coverage stays with the data it describes when structural sharing keeps an old object. Document the shape in the custom-views kit reference under `pkg/app/cli/init/templates/skills/`.
+  - Kit (`web/kit/index.tsx`, `web/src/api/publicGraphQLTypes.ts`): carry `extensions` through and expose typed-root coverage as an accessor keyed by the result's data object, as the kit's tolerated-errors pattern already does, so `useGraphQL`'s return shape is unchanged and coverage stays with the data it describes when structural sharing keeps an old object. This commit is integrated before the platform's P5 starts, and P5 owns `extensions` plumbing in `index.tsx` from then on. The kit reference documentation goes to the platform's P9.
   - Fixtures, all synthetic (see Fixtures): `testdata/ao-kb-legacy/` new; one map of content, one submission, and one curation document added to `testdata/ao-kb-product`.
 - **Exit evidence:** `pkg/app/cli/init` ontology and starter tests for every R9 ontology case, including the knowledge-only refresh, check, index, and check sequence on the legacy fixture with uv absent from PATH, the site source signature cases on both schema routes, and the exported orientation query run on the legacy, booking, and product fixtures; `testdata/ao-kb/expected-knowledge.graphql` and the product fixture's expectations updated and reviewed as changed contracts, with `TestAOKBRecipesAndIndexParity` passing unchanged because booking's files do not change; a kit unit test for coverage; integration tests (`-tags=integration`) because fixtures index; `make build`, `rzm init`, and `rzm init --check` exiting 0.
 - **Escalation:** a needed core change to `@field`, `@neighbors`, or matchers, or AO tooling that contradicts the retired-name table.
@@ -132,10 +132,10 @@ The same copy reproduced the planning counts exactly: 181 concept-side outbound 
 - **Exit evidence:** `pkg/app/cli/init/testdata/ao-kb/site.test.mjs`, run by `TestAoKbScripts`, covering every R9 library case and printing layout timings at 21, 48, and 200 concepts.
 - **Escalation:** none expected; a layout that is not stable under shuffled input is a defect, not a design question.
 
-#### Batch C. Site pages (after B and the platform's P4 and P5; its exit e2e after A and P6)
+#### Batch C. Site pages (after B, the platform's P4 and P5, and the foundation review; its exit e2e after A, P3, and P6)
 
 - **Outcome:** US1 to US5 work in the browser on the legacy fixture. Advances R1, R2a, R3, R4, R8.
-- **Ownership:** the `--kind-*` tokens in `web/src/tokens.css` (R3) with their palette and contrast results; starter views other than `data.tsx`, `lib/model.ts`, and `trace.tsx` (Batch A's), including `lib/knowledge.ts`, `concepts.tsx`, and `assertions.tsx`; the AO KB e2e harness (`web/scripts/run-ao-kb-e2e-server.mjs`, `web/playwright.ao-kb.config.ts`) and `web/tests/e2e-ao-kb/site.spec.ts`.
+- **Ownership:** the `--kind-*` tokens in `web/src/tokens.css` (R3), added after the platform's P7 lands `--chrome-link`, with their palette and contrast results; starter views other than `data.tsx`, `lib/model.ts`, and `trace.tsx` (Batch A's), including `lib/knowledge.ts`, `concepts.tsx`, and `assertions.tsx`; the AO KB e2e harness (`web/scripts/run-ao-kb-e2e-server.mjs`, `web/playwright.ao-kb.config.ts`) and `web/tests/e2e-ao-kb/site.spec.ts`.
 - **Work:**
   - `module/views/knowledge/experience.yml` as SPEC-0135 R6 states, with `tailwind: false`; every Knowledge view exports its component as the module default; record pages use `RecordPage` and show the record before the orientation query finishes; batched scope reads use `readNodes`.
   - New group views: `ao-kb.overview`, named "KB overview" (default; `attention.yaml` loses `default` per D2), `ao-kb.review`, `ao-kb.sources`, and `ao-kb.artifacts`. New node views: `ao-kb.concept`, `ao-kb.artifact`. Params exactly as R2a.
@@ -148,24 +148,24 @@ The same copy reproduced the planning counts exactly: 181 concept-side outbound 
 - **Exit evidence:** `site.spec.ts` in `make web-e2e` covering R9's journey, keyboard through each chart, and no console errors; the existing AO KB specs unchanged and passing; view validation passes.
 - **Escalation:** a page that cannot meet R5 without bodies in the orientation query.
 
-#### Batch D. Real-KB proof (after A, C, F, G, and the platform's P6 and P7)
+#### Batch D. Real-KB proof (with the platform's P10, as one pass over the same disposable copies)
 
 - **Outcome:** the site is shown to be true on three real KBs before review. Advances R1, R5, R9.
 - **Work:** follow the AGENTS.md dogfood route with this checkout's built binary on disposable copies of a large legacy KB, a medium legacy KB, and a current-schema KB (the one with 48 concepts, no Related Concepts, mostly `principle` assertions, and nested source folders that share a long parent), each in a scratch directory with embeddings off and provider keys absent. Run the legacy copies through the setup skill's knowledge-only route. Check every caption's numbers against the library's output, every R1 label, and the matrix-to-list agreement; edit and delete one record in a copy and confirm the KB overview's counts follow after reindex; review screenshots locally in both appearances, never committed. Delete the copies afterward. Then the pull request gates and the SPEC-0133, SPEC-0105, and SPEC-0110 amendments.
 - **Exit evidence:** in Execution Notes, per KB: the exact orientation query and scope-read strings (from `lib/queries.ts`), the record inventory, root coverage statuses, the five samples and medians, the uncapped evidence read's median for Concepts, Assertions, and Attention, and the setup commands' results; orientation query under one second and scope reads under 250 ms median on each KB; the pull request merge-ready under review-and-approval policy.
 - **Escalation:** a read over its threshold, or a label that cannot be made true from the data. Both return to Drew with measurements.
 
-#### Batch F. Knowledge panel view (after the platform's P4, P5, and P7)
+#### Batch F. Knowledge panel view (after A, B, C, and the platform's P4, P5, and P7)
 
 - **Outcome:** US7 complete for AO KBs.
 - **Work:** `views/knowledge/panel.{yaml,tsx}` (`ao-kb.panel`, `mount: { kind: panel }`) with the KB title, Find by title (Enter opens the first match; "Search all text" sends open-search with no folder), the site links and counted lists, the locator from the site library with the record's scope read, and the Recent list built from `useViewLocation` and kept with `useViewPreference` so it survives eviction.
-- **Exit evidence:** e2e extending `site.spec.ts` through the panel; the Batch D copies rechecked for the panel.
+- **Exit evidence:** its own `web/tests/e2e-ao-kb/panel.spec.ts` through the panel, on Batch C's harness; the Batch D copies rechecked for the panel.
 
 #### Batch G. Custom-first view switcher (independent; can start any time)
 
 - **Outcome:** US8 and R7.
-- **Ownership:** `web/src/views/ViewSelector.tsx`, its test, and CSS.
-- **Work:** order custom then standard, ranking by the choice's `custom` flag, not its renderer (bundled and ejected standard views also render as custom); measure with a ResizeObserver including trailing controls; overflow into "More"; keep the selected view visible; keep default marking, reset, and keyboard behaviour. Amend SPEC-0110's order sentence and any restating text in SPEC-0111, SPEC-0112, SPEC-0117, and SPEC-0126.
+- **Ownership:** `web/src/views/ViewSelector.tsx`, its test, its CSS, and its own e2e spec `web/tests/e2e/view-switcher.spec.ts`. The SPEC-0110 and related order sentences go to the platform's P9.
+- **Work:** order custom then standard, ranking by the choice's `custom` flag, not its renderer (bundled and ejected standard views also render as custom); measure with a ResizeObserver including trailing controls; overflow into "More"; keep the selected view visible; keep default marking, reset, and keyboard behaviour. The platform's P9 amends SPEC-0110's order sentence and any restating text in SPEC-0111, SPEC-0112, SPEC-0117, and SPEC-0126.
 - **Exit evidence:** unit tests with stubbed widths for order, overflow, selection in overflow, focus after a resize moves the focused choice into overflow; one e2e at wide and narrow widths.
 
 ### Fixtures
@@ -182,10 +182,10 @@ All synthetic and never containing real client text.
 | --- | --- | --- | --- |
 | A | after approval | D | starter ontology, setup route, query module, kit coverage |
 | B | after approval | C | starter library |
-| C | after B and the platform's P4 and P5; its exit e2e after A and P6 | D | starter views except A's files, AO KB e2e harness |
-| F | after the platform's P4, P5, and P7 | D | starter panel view |
+| C | after B, P4, P5, and the foundation review; its exit e2e after A, P3, and P6 | D | starter views except A's and F's files, AO KB e2e harness and `site.spec.ts` |
+| F | after A, B, C, P4, P5, and P7 | D | `panel.{yaml,tsx}` and `panel.spec.ts` |
 | G | any time | D | web selector |
-| D | after A, C, F, G, P6, and P7 | the pull request | coordinator |
+| D | with P10, after A, C, F, and G | the pull request | coordinator |
 
 Lanes own disjoint files: in the starter's views, Batch A owns `data.tsx`, `lib/model.ts`, `trace.tsx`, and `lib/queries.ts`, Batch B owns `lib/site.ts` (and `lib/kinds.ts`), and Batch C owns the rest. Each lane runs web E2E on its own port and cleans up its worktree and scratch copies when done. The coordinator inspects integrated changes before each pull request.
 
