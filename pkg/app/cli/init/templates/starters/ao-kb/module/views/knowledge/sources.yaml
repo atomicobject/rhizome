@@ -1,0 +1,13 @@
+apiVersion: rhizome.view.v1
+id: ao-kb.sources
+name: Sources
+source:
+  kind: custom
+  entry: sources.tsx
+mount:
+  kind: group
+  group: Knowledge
+  order: 32
+params:
+  - { name: recordFolder, kind: string }
+  - { name: gap, kind: string }

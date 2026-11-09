@@ -1,0 +1,4 @@
+title: Knowledge
+group: Knowledge
+types: [Assertion, Concept, Source, Artifact, MapOfContent, Submission, CurationDocument, ConflictRegistry]
+tailwind: false

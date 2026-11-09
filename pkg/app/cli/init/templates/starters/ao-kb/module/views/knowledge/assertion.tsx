@@ -1,24 +1,38 @@
-import { embedded, Section, sectionStatus, useViewContext } from "@rhizome/kit";
+import { useEffect, useMemo } from "react";
+import {
+  embedded,
+  Fact,
+  Facts,
+  RecordPage,
+  Section,
+  SectionBody,
+  sectionStatus,
+  useMarkReady,
+  useViewContext,
+} from "@rhizome/kit";
 import { POSITIONAL, claimText, dateNumber, isPositional, relationships } from "./lib/knowledge.ts";
 import { collapseContradictions } from "./lib/relations.ts";
 import { ClaimProse } from "./prose.tsx";
 import type { Assertion, Knowledge } from "./lib/knowledge.ts";
-import { useBindingFreshness, useModelBindings, useModelCiters } from "./data.tsx";
+import { useBindingFreshness, useKnowledge, useModelBindings, useModelCiters } from "./data.tsx";
 import { syncCompare } from "./lib/model.ts";
 import {
   DateValue,
   Field,
-  LinkList,
   ModelFreshness,
-  Page,
   Record,
   StatusBadges,
   TraceLink,
+  useMembership,
 } from "./parts.tsx";
+import { CitationTable, conceptChips } from "./citations.tsx";
+import { KIND_GROUPS, NO_KIND, groupOf } from "./lib/kinds.ts";
+import { useOwnRecord, useSite } from "./site/data.tsx";
+import type { Site } from "./lib/site.ts";
 import { Evidence } from "./evidence.tsx";
 import { AOHandoff, Conflicts, History, SavedAssessment } from "./record-parts.tsx";
 
-function AssertionRecord({ a, data }: { a: Assertion; data: Knowledge }) {
+function AssertionRecord({ a, data, site }: { a: Assertion; data: Knowledge; site?: Site }) {
   const graph = relationships(data);
   const claims = new Set(data.assertion.map((v) => v.path));
   const related = collapseContradictions(
@@ -32,27 +46,9 @@ function AssertionRecord({ a, data }: { a: Assertion; data: Knowledge }) {
   );
   return (
     <>
-      <header>
-        <div className="ak-record-head">
-          <h1>
-            {a.headline || a.title}
-            <StatusBadges a={a} edges={graph.edges} />
-          </h1>
-          <TraceLink record={a} />
-        </div>
-        <p className="ak-meta font-mono">
-          {a.path} · {a.aoId || "ID not recorded"}
-        </p>
-        {/* The reader shows the server's reason above the pane; a standalone page shows it here. */}
-        {!embedded && a.workspace.capabilities.readOnlyReason && (
-          <p className="ak-footnote">{a.workspace.capabilities.readOnlyReason}</p>
-        )}
-      </header>
+      <CitationTable a={a} data={data} graph={graph} site={site} />
       <div className="ak-record-layout">
         <div className="ak-record-column">
-          <Section title="Claim">
-            <ClaimProse text={claimText(a)} graph={graph} />
-          </Section>
           <Conflicts a={a} data={data} />
           <Section title="Recorded facts">
             <dl className="ak-fields">
@@ -144,7 +140,6 @@ function AssertionRecord({ a, data }: { a: Assertion; data: Knowledge }) {
             </p>
           )}
           <CitedBy a={a} data={data} graph={graph} />
-          <LinkList title="Concepts" records={a.concepts} />
           {a.contradictsRows?.length || a.supportsRows?.length ? (
             <Section title="Recorded demo-feedback references">
               <dl>
@@ -188,7 +183,9 @@ function CitedBy({
       caption="Artifacts and product-model records that name this claim. Extraction is separate, on the source."
       status={ready ? sectionStatus(bindings, model, freshness) : sectionStatus(bindings)}
       what="citing records"
-      empty={count || (bindings.data && !ready) || (ready && !current) ? undefined : "None recorded"}
+      empty={
+        count || (bindings.data && !ready) || (ready && !current) ? undefined : "None recorded"
+      }
     >
       {() => (
         <>
@@ -275,19 +272,111 @@ function CitedBy({
     </Section>
   );
 }
+type Own = Assertion & { legacyKind?: string | null };
+const OWN_FIELDS =
+  "... on Assertion { content aoId headline kind legacyKind confidence workspace { capabilities { readOnlyReason } } }";
+
+/** US3's inline facts: raw kind with its kind group, stored confidence, and concept chips. */
+function InlineFacts({ own, a, data }: { own: Own; a?: Assertion; data?: Knowledge }) {
+  const membership = useMembership(data);
+  const group = KIND_GROUPS.find((g) => g.id === groupOf(own.kind))!;
+  const chips = a && data && membership ? conceptChips(a, data, membership.conceptsOf) : undefined;
+  return (
+    <Facts
+      note={
+        <span className="font-mono">
+          {own.path} · {own.aoId || "ID not recorded"}
+        </span>
+      }
+    >
+      <Fact>
+        <i
+          className="ak-swatch"
+          style={{ background: `var(--kind-${group.id})` }}
+          aria-hidden="true"
+        />
+        {own.kind ?? NO_KIND} · {group.label}
+        {own.legacyKind &&
+          own.legacyKind !== own.kind &&
+          ` (assertionKind records ${own.legacyKind})`}
+      </Fact>
+      <Fact>Stored confidence: {own.confidence ?? "not recorded"}</Fact>
+      {chips && (
+        <Fact>
+          {chips.length ? (
+            <span className="ak-chips">
+              {chips.map((c) => (
+                <Record key={c!.path} record={c!} />
+              ))}
+            </span>
+          ) : (
+            "In no concept"
+          )}
+        </Fact>
+      )}
+    </Facts>
+  );
+}
+
 export default function AssertionPage() {
   const context = useViewContext();
+  const path = context.kind === "node" ? context.ref.notePath : "";
+  const own = useOwnRecord<Own>(path, OWN_FIELDS);
+  const state = useKnowledge();
+  const { site } = useSite();
+  const markReady = useMarkReady();
+  const o = own.data?.node;
+  const a = state.data?.assertion.find((v) => v.path === path);
+  const graph = useMemo(() => (state.data ? relationships(state.data) : undefined), [state.data]);
+  useEffect(() => {
+    if (o && state.data) markReady();
+  }, [o, state.data, markReady]);
   return (
-    <Page>
-      {({ data }) => {
-        const path = context.kind === "node" ? context.ref.notePath : "";
-        const a = data.assertion.find((v) => v.path === path);
-        return a ? (
-          <AssertionRecord a={a} data={data} />
-        ) : (
-          <p>No record named {path || "this assertion"} here</p>
-        );
-      }}
-    </Page>
+    <main className="ak-page">
+      <RecordPage
+        className="ak-record"
+        kind={<span className="ak-chip">Assertion</span>}
+        title={
+          <>
+            {o ? o.headline || o.title : path.split("/").pop()?.replace(/\.md$/, "")}
+            {a && graph && <StatusBadges a={a} edges={graph.edges} />}
+          </>
+        }
+        actions={o && <TraceLink record={o} />}
+        facts={o && <InlineFacts own={o} a={a} data={state.data} />}
+        status={sectionStatus(own)}
+        what="this assertion"
+        partial={
+          state.capped
+            ? `Incomplete: not every ${state.incomplete.join(", ")} record was read, so relationships may be missing.`
+            : undefined
+        }
+      >
+        {() =>
+          o ? (
+            <>
+              {/* The reader shows the server's reason above the pane; a standalone page shows it here. */}
+              {!embedded && o.workspace?.capabilities.readOnlyReason && (
+                <p className="ak-footnote">{o.workspace.capabilities.readOnlyReason}</p>
+              )}
+              <Section title="Claim">
+                <ClaimProse text={claimText(o)} graph={graph} />
+              </Section>
+              <SectionBody status={sectionStatus(state.query)} what="evidence and relationships">
+                {() =>
+                  a && state.data ? (
+                    <AssertionRecord a={a} data={state.data} site={site} />
+                  ) : (
+                    <p>No record named {path} in the knowledge read</p>
+                  )
+                }
+              </SectionBody>
+            </>
+          ) : (
+            <p>No record named {path || "this assertion"} here</p>
+          )
+        }
+      </RecordPage>
+    </main>
   );
 }

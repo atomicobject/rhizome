@@ -193,10 +193,11 @@ test("sync observations use authored timestamps and missing or incomparable mean
   assert.equal(groups["Sync date unknown"].length, 1);
 });
 
-test("membership filters include every authored concept link", () => {
-  const a = assertion("a", { concepts: [record("concepts/one.md"), record("concepts/two.md")] });
-  assert.deepEqual(filterAssertions([a], "", "concepts/two.md"), [a]);
-  assert.deepEqual(filterAssertions([a], "does not match", ""), []);
+test("the concept filter uses shared membership, so a link from the concept side counts", () => {
+  const a = assertion("a"), b = assertion("b");
+  const conceptsOf = new Map([["a", ["concepts/one.md", "concepts/two.md"]], ["b", []]]);
+  assert.deepEqual(filterAssertions([a, b], "", "concepts/two.md", conceptsOf), [a]);
+  assert.deepEqual(filterAssertions([a, b], "does not match", "", conceptsOf), []);
 });
 
 test("source paths retain blank slots; selected raw file passage is marked only in its own file", async () => {

@@ -12,3 +12,6 @@ params:
   - { name: find, kind: string }
   - { name: concept, kind: string }
   - { name: sort, kind: string, default: title-asc }
+  - { name: assertionKind, kind: string }
+  - { name: confidence, kind: string }
+  - { name: gap, kind: string }

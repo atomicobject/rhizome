@@ -1,0 +1,10 @@
+apiVersion: rhizome.view.v1
+id: ao-kb.review
+name: Review
+source:
+  kind: custom
+  entry: review.tsx
+mount:
+  kind: group
+  group: Knowledge
+  order: 8

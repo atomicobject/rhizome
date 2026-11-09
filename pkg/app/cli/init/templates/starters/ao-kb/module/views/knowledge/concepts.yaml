@@ -12,3 +12,4 @@ params:
   - { name: find, kind: string }
   - { name: concept, kind: string }
   - { name: sort, kind: string, default: title-asc }
+  - { name: gap, kind: string }

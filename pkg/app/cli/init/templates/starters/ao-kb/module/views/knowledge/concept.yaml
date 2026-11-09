@@ -1,0 +1,10 @@
+apiVersion: rhizome.view.v1
+id: ao-kb.concept
+name: Concept
+source:
+  kind: custom
+  entry: concept.tsx
+mount:
+  kind: node
+  type: Concept
+  default: true

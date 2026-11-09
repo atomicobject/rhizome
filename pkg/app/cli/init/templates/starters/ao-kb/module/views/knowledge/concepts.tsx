@@ -5,24 +5,30 @@ import {
   NodeLink,
   Section,
   sectionStatus,
-  openView,
+  usePageNavigation,
   workspaceViewHref,
 } from "@rhizome/kit";
 import { COVERAGE, filterAssertions, name } from "./lib/knowledge.ts";
 import type { Knowledge } from "./lib/knowledge.ts";
 import { useCoverage, useSavedAnalysis } from "./data.tsx";
-import { Empty, Filters, Fold, Page, Record, useFilters } from "./parts.tsx";
+import { Empty, Filters, Fold, Page, Record, useFilters, useMembership } from "./parts.tsx";
+
+/** The one gap this list holds (its rule lives with the others in `lib/site.ts`). */
+const NO_MEMBERS = "concept-no-members";
 
 const COVERAGE_SERIES = ["link", 2, 3, 5, 6] as const;
 
 function ConceptsBody({ data }: { data: Knowledge }) {
   const filters = useFilters(),
     coverage = useCoverage(data),
-    saved = useSavedAnalysis();
-  const assertions = filterAssertions(data.assertion, "", filters.concept);
+    saved = useSavedAnalysis(),
+    { members, conceptsOf } = useMembership(data),
+    { openView } = usePageNavigation();
+  const assertions = filterAssertions(data.assertion, "", filters.concept, conceptsOf);
   const visible = data.concept.filter(
     (c) =>
       (!filters.concept || c.path === filters.concept) &&
+      (!filters.gap || (filters.gap === NO_MEMBERS && !members.get(c.path)?.length)) &&
       (!filters.find ||
         `${name(c)} ${c.aoId ?? ""}`
           .toLocaleLowerCase()
@@ -35,6 +41,13 @@ function ConceptsBody({ data }: { data: Knowledge }) {
   return (
     <>
       <Filters data={data} />
+      {filters.gap && (
+        <p className="ak-filter-note">
+          {filters.gap === NO_MEMBERS
+            ? "Showing concepts with no member assertions: no assertion links the concept, and the concept links no assertion."
+            : `No concept gap is named ${filters.gap}.`}
+        </p>
+      )}
       <Facts note="Locator coverage of one origin citation per assertion. A claim can belong to several concepts; overall totals count it once.">
         <Fact value={assertions.length}>
           {assertions.length === 1 ? "assertion" : "assertions"} in scope
@@ -79,17 +92,16 @@ function ConceptsBody({ data }: { data: Knowledge }) {
                 </thead>
                 <tbody role="rowgroup">
                   {visible.map((c) => {
-                    const members = assertions.filter((a) =>
-                      a.concepts.some((v) => v.path === c.path),
-                    );
+                    const inConcept = new Set(members.get(c.path)),
+                      rows = assertions.filter((a) => inConcept.has(a.path));
                     const counts = COVERAGE.map(
-                      (label) => members.filter((a) => coverage.data?.get(a.path) === label).length,
+                      (label) => rows.filter((a) => coverage.data?.get(a.path) === label).length,
                     );
                     return (
                       <tr key={c.path} role="row">
                         <td role="cell">
                           <Record record={c} />
-                          {members.length > 0 && (
+                          {rows.length > 0 && (
                             <div
                               className="ak-coverage"
                               role="img"
@@ -134,10 +146,10 @@ function ConceptsBody({ data }: { data: Knowledge }) {
                                 { concept: c.path },
                               );
                             }}
-                            aria-label={`Browse ${members.length} ${members.length === 1 ? "assertion" : "assertions"} for ${name(c)}`}
+                            aria-label={`Browse ${rows.length} ${rows.length === 1 ? "assertion" : "assertions"} for ${name(c)}`}
                           >
-                            <Count>{members.length}</Count>{" "}
-                            {members.length === 1 ? "assertion" : "assertions"}
+                            <Count>{rows.length}</Count>{" "}
+                            {rows.length === 1 ? "assertion" : "assertions"}
                           </a>
                         </td>
                         {counts.map((n, i) => (

@@ -97,7 +97,12 @@ export type Source = RecordLink & {
   extractedAssertionIds: string[];
   workspace: { capabilities: { readOnlyReason?: string } };
 };
-export type Concept = RecordLink & { relatedConceptsSection?: { relatedConcepts: RecordLink[] } };
+export type Concept = RecordLink & {
+  relatedConceptsSection?: { relatedConcepts: RecordLink[] };
+  /** Concept-side membership (SPEC-0135 R2): assertions the concept links, and that link it. */
+  linkedAssertions: { path: string }[];
+  linkingAssertions: { path: string }[];
+};
 export type Artifact = RecordLink & {
   graphSyncedAt?: string | null;
   status?: string | null;
@@ -118,7 +123,6 @@ export type Knowledge = {
   artifact: Artifact[];
   conflictRegistry: { groups: { entries: Conflict[] }[] }[];
 };
-export const CEILING = 500;
 export const name = (r: RecordLink) => r.headline || r.name || r.title;
 export const claimText = (a: Assertion) =>
   noteBody(a.content)
@@ -155,8 +159,7 @@ export function citations(a: Assertion, sources: Source[]): Citation[] {
   );
   const rows = (a.sourcesSection?.citations ?? []).map((c, i) => {
     const raw = c.recordedLink ?? "";
-    const key =
-      c.sources.length === 1 ? c.sources[0].path : undefined;
+    const key = c.sources.length === 1 ? c.sources[0].path : undefined;
     return { raw, source: sources.find((s) => s.path === key), slot: i + 1, origin: false };
   });
   if (!a.provenanceSource)
@@ -410,11 +413,17 @@ export function observations(data: Knowledge, today: string): Record<string, Obs
   }
   return groups;
 }
-export function filterAssertions(rows: Assertion[], find: string, concept: string) {
+/** `conceptsOf` is the shared membership (`membership()` in `site.ts`): a link in either direction (D1). */
+export function filterAssertions(
+  rows: Assertion[],
+  find: string,
+  concept: string,
+  conceptsOf: Map<string, string[]>,
+) {
   const text = find.toLocaleLowerCase().trim();
   return rows.filter(
     (a) =>
-      (!concept || a.concepts.some((c) => c.path === concept)) &&
+      (!concept || !!conceptsOf.get(a.path)?.includes(concept)) &&
       (!text || `${name(a)} ${a.aoId ?? ""} ${claimText(a)}`.toLocaleLowerCase().includes(text)),
   );
 }

@@ -1,0 +1,301 @@
+/* The Knowledge site's pages and charts (SPEC-0135 R3, R4, R8): 14px base and captions, 13px
+   legends, axis labels, and column heads, 12px only for mono paths. Kind colours come from the
+   --kind-* tokens; relationship lines use --link. */
+.ak-site {
+  font-variant-numeric: normal;
+}
+.ak-site-head {
+  display: grid;
+  gap: 2px;
+}
+.ak-site-head h1 {
+  margin: 0;
+  font: 700 var(--fs-xl, 18px) / 1.2 var(--font-sans);
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.ak-site-head p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.ak-head-count,
+.ak-num,
+.ak-gap-count,
+.ak-total,
+.ak-matrix td {
+  font-variant-numeric: tabular-nums;
+}
+.ak-head-count {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.ak-record h1 {
+  white-space: normal;
+  overflow: visible;
+  font: 900 var(--fs-2xl, 24px) / 1.18 var(--font-display);
+  letter-spacing: -0.015em;
+}
+.ak-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  font: 500 13px / 1.4 var(--font-sans);
+}
+.ak-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+.ak-path {
+  display: block;
+  font: 12px / 1.4 var(--font-mono);
+  color: var(--text-faint);
+  overflow-wrap: anywhere;
+}
+.ak-prose-link,
+.ak-quiet-link {
+  color: var(--link);
+  text-decoration: none;
+}
+.ak-prose-link {
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+.ak-quiet-link:hover,
+.ak-quiet-link:focus-visible,
+.ak-prose-link:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--link);
+}
+.ak-incomplete {
+  margin: 0;
+  color: var(--accent-ink);
+  font-size: 14px;
+}
+.ak-not-enough {
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  font-size: 14px;
+  max-width: 820px;
+}
+.ak-not-enough b {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text);
+  font-weight: 600;
+}
+.ak-filter-note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* Start here, folder filters, list rows */
+.ak-start-links {
+  margin: 0;
+}
+.ak-folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ak-folder {
+  padding: 2px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.ak-folder:hover {
+  background: var(--surface-sunk);
+  color: var(--text);
+}
+.ak-folder.ak-on {
+  border-color: var(--border-strong);
+  background: var(--surface-strong);
+  color: var(--text);
+  font-weight: 600;
+}
+.ak-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border-faint);
+}
+.ak-rows > li {
+  display: grid;
+  gap: 1px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+.ak-assertion-item .ak-meta,
+.ak-rows .ak-meta {
+  display: block;
+}
+.ak-swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: 0;
+}
+
+/* Legends and captions */
+.ak-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 6px 0 10px;
+  font: 500 13px / 1.4 var(--font-sans);
+  color: var(--text-muted);
+}
+.ak-legend b {
+  color: var(--text);
+  font-weight: 600;
+  margin-right: 4px;
+}
+.ak-sym {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+.ak-coverage-line {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+/* Review */
+.ak-gaps {
+  border-top: 1px solid var(--border-faint);
+}
+.ak-gap {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  gap: 4px 14px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+.ak-gap-sub {
+  padding-left: 24px;
+}
+.ak-gap-count {
+  font-size: 16px;
+  font-weight: 600;
+  text-align: right;
+}
+.ak-gap-count.ak-zero {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+.ak-gap-label {
+  font-weight: 500;
+}
+.ak-rule {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.ak-copy {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.ak-copy code {
+  font: 12px var(--font-mono);
+  color: var(--text-muted);
+}
+.ak-status-group h3,
+.ak-kind-group h3 {
+  margin: 12px 0 4px;
+  font: 500 13px / 1.35 var(--font-sans);
+  color: var(--text-muted);
+}
+.ak-stored-counts {
+  margin: 0;
+}
+
+/* Record pages */
+.ak-body {
+  max-width: 680px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.ak-body p,
+.ak-body ul {
+  margin: 0 0 12px;
+}
+.ak-body ul {
+  padding-left: 20px;
+}
+.ak-body h3 {
+  margin: 20px 0 6px;
+  font: 600 15px / 1.4 var(--font-sans);
+}
+.ak-body-mark {
+  margin: 0 -10px 12px;
+  padding: 6px 10px 1px;
+  border-radius: 4px;
+  background: var(--warning-soft, var(--surface-sunk));
+  outline: 1px solid var(--warning, var(--border-strong));
+}
+.ak-body-mark-label {
+  display: block;
+  margin-bottom: 4px;
+  font: 600 13px var(--font-sans);
+  color: var(--warning-ink, var(--text));
+}
+.ak-target {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-sunk);
+  font-size: 14px;
+  max-width: 820px;
+}
+.ak-target p {
+  margin: 0 0 6px;
+}
+.ak-breakdown {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+.ak-breakdown b {
+  color: var(--text);
+  font-weight: 600;
+}
+.ak-breakdown-group + .ak-breakdown-group::before {
+  content: " · ";
+}
+.ak-breakdown-link {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 2px;
+}
+.ak-breakdown-link:hover,
+.ak-breakdown-link:focus-visible {
+  color: var(--link);
+  text-decoration-color: var(--link);
+}
+.ak-record > div > div:first-child > * + *,
+.ak-scoped > * + * {
+  margin-top: 18px;
+}

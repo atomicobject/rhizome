@@ -1,0 +1,10 @@
+apiVersion: rhizome.view.v1
+id: ao-kb.artifact
+name: Artifact
+source:
+  kind: custom
+  entry: artifact.tsx
+mount:
+  kind: node
+  type: Artifact
+  default: true
