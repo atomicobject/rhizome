@@ -153,23 +153,34 @@ func TestNestedExperienceIsAnErrorAndItsViewsStayOutside(t *testing.T) {
 	require.Equal(t, "Outer", page.Experience.Title, "the inner folder's views stay in the outer experience")
 }
 
+// Only a missing title or a decode error invalidates an experience; a bad
+// reference drops that name and a panel problem drops the panel, so a starter
+// that lists a type this vault lacks keeps its frame (SPEC-0136 R1).
 func TestExperienceValidationReportsFileAndField(t *testing.T) {
+	noPanel := func(t *testing.T, exp *Experience) { require.Empty(t, exp.Panel) }
 	cases := []struct {
 		name, yml, code, field string
 		fatal                  bool
 		extra                  func(t *testing.T, dir string)
+		kept                   func(t *testing.T, exp *Experience)
 	}{
 		{name: "unknown field", yml: "title: T\ncolour: teal\n", code: "unknown_experience_field", field: "colour"},
 		{name: "missing title", yml: "group: Knowledge\n", code: "missing_required_field", field: "title", fatal: true},
 		{name: "decode error", yml: "title: [unclosed\n", code: "experience_yaml_decode_error", fatal: true},
-		{name: "unknown group", yml: "title: T\ngroup: Missing\n", code: "invalid_experience_reference", field: "group", fatal: true},
-		{name: "unknown type", yml: "title: T\ntypes: [Claim, Missing]\n", code: "invalid_experience_reference", field: "types", fatal: true},
-		{name: "panel names nothing", yml: "title: T\npanel: nope\n", code: "invalid_experience_panel", field: "panel", fatal: true},
-		{name: "panel is not a panel mount", yml: "title: T\npanel: site.page\n", code: "invalid_experience_panel", field: "panel", fatal: true},
-		{name: "panel is HTML", yml: "title: T\npanel: site.panel\n", code: "invalid_experience_panel", field: "panel", fatal: true, extra: func(t *testing.T, dir string) {
+		{name: "unknown group", yml: "title: T\ngroup: Missing\ntypes: [Claim]\n", code: "invalid_experience_reference", field: "group", kept: func(t *testing.T, exp *Experience) {
+			require.Empty(t, exp.Group)
+			require.Equal(t, []string{"Claim"}, exp.Types)
+		}},
+		{name: "unknown type", yml: "title: T\ngroup: Knowledge\ntypes: [Claim, Missing, Evidence]\n", code: "invalid_experience_reference", field: "types", kept: func(t *testing.T, exp *Experience) {
+			require.Equal(t, []string{"Claim", "Evidence"}, exp.Types)
+			require.Equal(t, "Knowledge", exp.Group)
+		}},
+		{name: "panel names nothing", yml: "title: T\npanel: nope\n", code: "invalid_experience_panel", field: "panel", kept: noPanel},
+		{name: "panel is not a panel mount", yml: "title: T\npanel: site.page\n", code: "invalid_experience_panel", field: "panel", kept: noPanel},
+		{name: "panel is HTML", yml: "title: T\npanel: site.panel\n", code: "invalid_experience_panel", field: "panel", kept: noPanel, extra: func(t *testing.T, dir string) {
 			writeExperienceView(t, dir, "site.panel", "{kind: panel}", "panel.html", "<html></html>")
 		}},
-		{name: "panel without default export", yml: "title: T\npanel: site.panel\n", code: "invalid_experience_panel", field: "panel", fatal: true, extra: func(t *testing.T, dir string) {
+		{name: "panel without default export", yml: "title: T\npanel: site.panel\n", code: "invalid_experience_panel", field: "panel", kept: noPanel, extra: func(t *testing.T, dir string) {
 			writeExperienceView(t, dir, "site.panel", "{kind: panel}", "panel.tsx", "export function Panel() {}")
 		}},
 	}
@@ -195,10 +206,16 @@ func TestExperienceValidationReportsFileAndField(t *testing.T) {
 				require.False(t, page.ExperiencePage)
 			} else {
 				require.NotNil(t, page.Experience)
+				require.True(t, page.ExperiencePage, "the page keeps its experience frame")
+			}
+			if tc.kept != nil {
+				tc.kept(t, page.Experience)
+				original := viewByID(t, views, "site.page").Experience
+				require.NotSame(t, original, page.Experience, "the loaded experience is left unchanged")
 			}
 			for _, issue := range result.Issues {
-				if issue.View == "site.page" {
-					t.Fatalf("the page itself stays valid: %#v", issue)
+				if issue.View == "site.page" || (issue.View == "site.panel" && issue.Severity != IssueWarning) {
+					t.Fatalf("the views themselves stay valid: %#v", issue)
 				}
 			}
 		})

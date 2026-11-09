@@ -176,8 +176,11 @@ func experienceIssue(exp *Experience, code, field, message string, severity Issu
 
 // validateExperiences checks each experience its views point to, reports
 // views that keep their own frame, and drops invalid experiences so their
-// views work as ordinary views. issues are those found so far; a view with a
-// fatal one does not count as one of its experience's views.
+// views work as ordinary views. Problems are proportionate (SPEC-0136 R1): a
+// missing title or a decode error invalidates the experience; an unknown type
+// or group drops that name, and a panel problem drops the panel, each with a
+// warning. issues are those found so far; a view with a fatal one does not
+// count as one of its experience's views.
 func validateExperiences(views []ViewDefinition, issues []Issue, opts ValidateOptions) []Issue {
 	invalidView := map[string]bool{}
 	for _, issue := range issues {
@@ -211,8 +214,12 @@ func validateExperiences(views []ViewDefinition, issues []Issue, opts ValidateOp
 		}
 	}
 	invalid := map[*Experience]bool{}
+	// checked is each experience as validation leaves it, without the names
+	// and panel it dropped; its views point to it.
+	checked := map[*Experience]*Experience{}
 	for _, exp := range order {
-		found := experienceFileIssues(exp, members[exp], invalidView, opts)
+		found, kept := experienceFileIssues(exp, members[exp], invalidView, opts)
+		checked[exp] = kept
 		for _, nested := range exp.nested {
 			found = append(found, Issue{Code: "nested_experience", Message: fmt.Sprintf("an experience.yml inside the experience at %s declares nothing; its views stay in the outer experience", exp.Path), Path: nested, Line: 1})
 		}
@@ -229,10 +236,13 @@ func validateExperiences(views []ViewDefinition, issues []Issue, opts ValidateOp
 		if exp == nil {
 			continue
 		}
+		kept := checked[exp]
 		if view.Mount.Kind == MountKindPanel {
 			switch {
 			case invalid[exp]:
 				out = append(out, issue(*view, "invalid_panel_mount", "mount.kind", fmt.Sprintf("the experience at %s is invalid, so its panel view cannot be used", exp.Path)))
+			case exp.Panel == view.ID && kept.Panel == "":
+				// The experience's warning says why its panel was dropped.
 			case exp.Panel != view.ID:
 				out = append(out, issue(*view, "invalid_panel_mount", "mount.kind", fmt.Sprintf("a panel mount must be named by its experience's panel field (%s)", exp.Path)))
 			}
@@ -240,7 +250,9 @@ func validateExperiences(views []ViewDefinition, issues []Issue, opts ValidateOp
 		if invalid[exp] {
 			view.Experience = nil
 			view.ExperiencePage = false
+			continue
 		}
+		view.Experience = kept
 	}
 	if opts.Schema != nil {
 		var valid []ViewDefinition
@@ -264,11 +276,15 @@ func validatePanelMount(def ViewDefinition) []Issue {
 	return issues
 }
 
-func experienceFileIssues(exp *Experience, views []*ViewDefinition, invalidView map[string]bool, opts ValidateOptions) []Issue {
+// experienceFileIssues reports the experience file's problems and returns
+// the experience to use: exp itself, or, when a name or the panel was
+// dropped, a copy without it, so the loaded definitions stay unchanged.
+func experienceFileIssues(exp *Experience, views []*ViewDefinition, invalidView map[string]bool, opts ValidateOptions) ([]Issue, *Experience) {
 	if exp.decodeErr != "" {
-		return []Issue{experienceIssue(exp, "experience_yaml_decode_error", "", exp.decodeErr, IssueFatal)}
+		return []Issue{experienceIssue(exp, "experience_yaml_decode_error", "", exp.decodeErr, IssueFatal)}, exp
 	}
 	var out []Issue
+	kept := *exp
 	for _, field := range exp.unknown {
 		out = append(out, experienceIssue(exp, "unknown_experience_field", field, fmt.Sprintf("experience.yml field %q is not supported; it is ignored", field), IssueWarning))
 	}
@@ -277,12 +293,16 @@ func experienceFileIssues(exp *Experience, views []*ViewDefinition, invalidView 
 	}
 	if opts.CheckReferences {
 		if exp.Group != "" && opts.GroupNames != nil && !contains(opts.GroupNames, exp.Group) {
-			out = append(out, experienceIssue(exp, "invalid_experience_reference", "group", fmt.Sprintf("display group %q does not exist in navigation", exp.Group), IssueFatal))
+			out = append(out, experienceIssue(exp, "invalid_experience_reference", "group", fmt.Sprintf("display group %q does not exist in navigation; the experience presents no group", exp.Group), IssueWarning))
+			kept.Group = ""
 		}
+		kept.Types = nil
 		for _, name := range exp.Types {
 			if !contains(opts.TypeNames, name) && !contains(opts.InterfaceNames, name) {
-				out = append(out, experienceIssue(exp, "invalid_experience_reference", "types", fmt.Sprintf("ontology type or interface %q does not exist", name), IssueFatal))
+				out = append(out, experienceIssue(exp, "invalid_experience_reference", "types", fmt.Sprintf("ontology type or interface %q does not exist; it is ignored", name), IssueWarning))
+				continue
 			}
+			kept.Types = append(kept.Types, name)
 		}
 	}
 	if exp.Panel != "" {
@@ -292,16 +312,24 @@ func experienceFileIssues(exp *Experience, views []*ViewDefinition, invalidView 
 				panel = view
 			}
 		}
+		problem := ""
 		switch {
 		case panel == nil || panel.Mount.Kind != MountKindPanel:
-			out = append(out, experienceIssue(exp, "invalid_experience_panel", "panel", fmt.Sprintf("panel %q names no view with mount kind panel in the experience's folder", exp.Panel), IssueFatal))
+			problem = fmt.Sprintf("panel %q names no view with mount kind panel in the experience's folder", exp.Panel)
 		case panel.SourceSpec.Kind != SourceKindCustom || !IsScriptEntry(panel.SourceSpec.Entry) || !panel.ExperiencePage:
-			out = append(out, experienceIssue(exp, "invalid_experience_panel", "panel", fmt.Sprintf("panel %q must be a TSX view that exports its component as the module default", exp.Panel), IssueFatal))
+			problem = fmt.Sprintf("panel %q must be a TSX view that exports its component as the module default", exp.Panel)
 		case invalidView[panel.ID]:
-			out = append(out, experienceIssue(exp, "invalid_experience_panel", "panel", fmt.Sprintf("panel view %q is invalid", exp.Panel), IssueFatal))
+			problem = fmt.Sprintf("panel view %q is invalid", exp.Panel)
+		}
+		if problem != "" {
+			out = append(out, experienceIssue(exp, "invalid_experience_panel", "panel", problem+"; the experience has no panel", IssueWarning))
+			kept.Panel = ""
 		}
 	}
-	return out
+	if kept.Group == exp.Group && kept.Panel == exp.Panel && len(kept.Types) == len(exp.Types) {
+		return out, exp
+	}
+	return out, &kept
 }
 
 // experiencePage reports whether a custom view in an experience renders as a

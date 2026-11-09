@@ -29,9 +29,10 @@ type ViewParam struct {
 var paramNamePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
 
 // reservedParamNames are the query keys the Notes workspace and the /views
-// page already read, so a parameter cannot share their URL.
+// page already read, so a parameter cannot share their URL. `frame` is the
+// view shell's flag (`frame=experience`) that starts an experience frame.
 var reservedParamNames = map[string]struct{}{
-	"context": {}, "hosted": {}, "preferenceSlot": {}, "viewId": {},
+	"context": {}, "hosted": {}, "frame": {}, "preferenceSlot": {}, "viewId": {},
 	"note": {}, "noteQuery": {}, "view": {}, "presentation": {}, "nodeId": {}, "kind": {}, "structural": {},
 	"search": {}, "scope": {}, "noteType": {}, "folder": {}, "searchTab": {},
 	"issueScopeKind": {}, "issueScopeKey": {}, "issue": {},
