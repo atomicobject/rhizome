@@ -153,13 +153,13 @@
 .ak-meta {
   display: block;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 13px; /* SPEC-0135 R8: only identifiers use 12px. */
   margin-top: 3px;
 }
 .ak-status {
   display: inline-block;
   margin-left: 7px;
-  font-size: 12px;
+  font-size: 13px; /* SPEC-0135 R8: only identifiers use 12px. */
   color: var(--text-muted);
   border: 1px solid var(--border);
   border-radius: 3px;
@@ -343,7 +343,7 @@
   padding: 2px 0;
 }
 .ak-source-line aside {
-  font-size: 12px;
+  font-size: 13px; /* SPEC-0135 R8: only identifiers use 12px. */
 }
 .ak-source-text {
   max-height: 650px;
