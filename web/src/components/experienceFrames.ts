@@ -45,12 +45,14 @@ import {
   newFrame,
   now,
   pageKey,
+  refusal,
   sessionKey,
   type ExperienceShowing,
   type Frame,
   type FrameView,
   type Invocation,
   type PhaseClock,
+  type Refusal,
   type Session,
 } from "./experienceFrameRecords";
 
@@ -234,7 +236,7 @@ export class ExperienceFrames {
     else this.publish();
   }
 
-  /** Destroy every frame, as on a trust or vault change. */
+  /** Destroy every frame, as on a vault change. */
   clear() {
     for (const frame of Array.from(this.frames.values())) this.destroy(frame);
     this.publish();
@@ -246,9 +248,18 @@ export class ExperienceFrames {
     const key = JSON.stringify([showing.viewId, showing.context, showing.preferenceSlot ?? ""]);
     const cached = this.invocations.get(key);
 
-    if (cached && (this.generation === undefined || cached.generation === this.generation))
-      return cached;
+    if (cached && (this.generation === undefined || cached.generation === this.generation)) {
+      // The server checks trust on every invocation, so a cached one answers at once while a
+      // fresh one still asks: returning to a retained page notices revoked trust (R3).
+      this.fetchInvocation(key, showing).catch((error) => this.revoked(refusal(error)));
 
+      return cached;
+    }
+
+    return this.fetchInvocation(key, showing);
+  }
+
+  private fetchInvocation(key: string, showing: ExperienceShowing) {
     const request: Promise<Invocation> & { generation?: string } = this.options
       .fetchInvocation(showing)
       .then((result) => {
@@ -259,10 +270,28 @@ export class ExperienceFrames {
         return result;
       });
 
-    request.catch(() => this.invocations.delete(key));
+    request.catch(() => {
+      if (this.invocations.get(key) === request) this.invocations.delete(key);
+    });
     this.invocations.set(key, request);
 
     return request;
+  }
+
+  /** Revoked trust destroys every frame running repository code and drops cached invocations. */
+  private revoked({ untrusted, message }: Refusal) {
+    if (!untrusted) return;
+    this.invocations.clear();
+
+    // Bundled views name no folder and need no trust.
+    for (const frame of Array.from(this.frames.values())) {
+      if (frame.folders.size === 0) continue;
+
+      if (frame.activeTab !== null) this.errors.set(frame.activeTab, message);
+      this.destroy(frame);
+    }
+
+    this.publish();
   }
 
   private async locate(frame: Frame, showing: ExperienceShowing) {
@@ -279,8 +308,11 @@ export class ExperienceFrames {
     try {
       result = await this.invocation(showing);
     } catch (error) {
+      const refused = refusal(error);
+      this.revoked(refused);
+
       if (!current()) return;
-      this.errors.set(tabId, error instanceof Error ? error.message : String(error));
+      this.errors.set(tabId, refused.message);
 
       // The tab's earlier page is superseded: it neither shows nor acts, so the error shows.
       if (frame.pages.delete(tabId)) this.post(frame, { type: CLOSE_PAGE_MESSAGE, tabId });

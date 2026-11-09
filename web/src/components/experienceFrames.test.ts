@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "../api/client";
 import type { JsonObject } from "../api/parse";
 import {
   CLOSE_PAGE_MESSAGE,
@@ -222,6 +223,40 @@ describe("ExperienceFrames", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     from("exp_kb", { type: OPEN_NOTE_MESSAGE, path: "a.md", tabId: "home", navigationId });
     expect(services.onOpenNote).not.toHaveBeenCalled();
+  });
+
+  it("destroys retained repository frames when returning to a page finds trust revoked", async () => {
+    const { frames, fetchInvocation, frame, from } = harness();
+    frames.show(showing(), null);
+    await vi.advanceTimersByTimeAsync(0);
+    from("exp_kb", { type: FRAME_READY_MESSAGE });
+    frames.hide("home");
+    frames.show(showing({ tabId: "other", experienceKey: "exp_other" }), null);
+    await vi.advanceTimersByTimeAsync(SUSPEND_GRACE_MS);
+    expect(frames.views()).toHaveLength(2);
+
+    // `rzm untrust` ran; the server now refuses every repository invocation.
+    const refusal = new ApiError("Repository views are not trusted.", {
+      status: 403,
+      url: "/api/v1/views/kb.home/invocation",
+      code: "VIEWS_UNTRUSTED",
+    });
+
+    fetchInvocation.mockRejectedValue(refusal);
+    frames.hide("other");
+    frames.show(showing(), null);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(frames.views()).toEqual([]);
+    expect(frame("exp_kb")).toBeNull();
+    expect(frames.error("home")).toBe("Repository views are not trusted.");
+
+    // Nothing cached answers for the revoked repository.
+    const calls = fetchInvocation.mock.calls.length;
+    frames.show(showing(), null);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchInvocation.mock.calls.length).toBe(calls + 1);
+    expect(frames.views()).toEqual([]);
   });
 
   it("replaces a frame that does not accept its location in time", async () => {

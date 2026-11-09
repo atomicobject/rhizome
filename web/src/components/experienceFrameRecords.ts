@@ -2,6 +2,7 @@
 // per frame and one per page it holds, how a frame starts and how the layer
 // sees it, and the parsing of what an invocation or a vault event says about
 // them. The store in experienceFrames.ts owns their changes.
+import { ApiError } from "../api/client";
 import type { JsonObject } from "../api/parse";
 import type { OntologyEditSessionResponse } from "../api/types";
 import { isJsonObject, isString } from "../api/parse";
@@ -142,6 +143,15 @@ export function eventGeneration(data: string | undefined) {
     return undefined;
   }
 }
+
+/** Why a view could not open, and whether the server refused it because the repository is no longer trusted. */
+export type Refusal = { message: string; untrusted: boolean };
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A rejected request's reason is parsed here, once.
+export const refusal = (error: unknown): Refusal => ({
+  message: error instanceof Error ? error.message : String(error),
+  untrusted: error instanceof ApiError && error.code === "VIEWS_UNTRUSTED",
+});
 
 /** A view invocation and the generation it was read at. */
 export type Invocation = { invocation: JsonObject; generation?: string };
