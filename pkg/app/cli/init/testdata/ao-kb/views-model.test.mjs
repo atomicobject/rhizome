@@ -178,4 +178,10 @@ test("binding freshness is the compiler's published status, and only ready reads
     assert.match(unknown.notice, /could not be read/);
   }
   assert.equal((await readBindingFreshness(async () => { throw new Error("refused"); })).state, "unknown");
+  // Below schemaVersion 8 the model stage is not applicable, never unreadable or not ready.
+  const legacy = await readBindingFreshness(read({ status: "not applicable" }));
+  assert.equal(legacy.state, "not applicable");
+  assert.match(legacy.notice, /not applicable below schemaVersion 8/);
+  assert.equal((await readBindingFreshness(read({ status: "not applicable" }, failed))).state, "stale", "stale knowledge admission still reads as stale");
+  assert.equal((await readBindingFreshness(read({ status: "ready" }, { status: "not applicable" }))).state, "unknown", "knowledge admission is never not applicable");
 });

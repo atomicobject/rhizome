@@ -1,6 +1,6 @@
 # Selected-product AO fixture
 
-All content is synthetic. `account/` selects alpha from a multi-nested alpha/beta account at toolkit `e9dce951ab4cd6aa9ccc734df96590bde25ccde9`, schemaVersion 8. Knowledge notes stay at the account root. Model rows come from the selected product and eligible account rows.
+All content is synthetic. `account/` selects alpha from a multi-nested alpha/beta account at toolkit `e9dce951ab4cd6aa9ccc734df96590bde25ccde9`, schemaVersion 8. Knowledge notes stay at the account root. Model rows come from the selected product and eligible account rows. The read-only documents of SPEC-0135 R2 sit at both roots: `_moc.md` and `_improvements/shared-idea/` at the account root, and `MOCs/alpha-map.md` and `_improvements/alpha-idea/` under `products/alpha/`, with one curation document, `.kb/curation/review-log.md`; the generated admission keeps the account root and alpha's root.
 
 `intermediate.json` was captured through the starter's read-only adapter against that pinned AO library. Its `oracle.rows`, `edges`, and `unresolvedEdges` come from AO's own reader. `oracle.knowledge` records AO `product_notes` with the graph's `placed()` behavior for assertions/concepts (nonrecursive), and recursive sources/artifacts. It includes shared wildcard, selected, absent-products and alpha-folder assertions; beta, explicit empty-products and unselected colliding IDs are excluded.
 

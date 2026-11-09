@@ -18,7 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { DIRECTORY_QUERY, createReader, directory, type DirectoryData } from "./trace/data.ts";
 import { Graph, Legend } from "./trace/graph.tsx";
-import { readTypeSpecs, useModelBindings } from "./data.tsx";
+import { readTypeSpecs, useBindingFreshness, useModelBindings } from "./data.tsx";
 import { ModelFreshness } from "./parts.tsx";
 import { columns } from "./trace/layout.ts";
 import { depth, label, queryBudget, type Record as KnowledgeRecord } from "./trace/model.ts";
@@ -54,6 +54,7 @@ function TraceBody({
   model: boolean;
 }) {
   const params = useViewParams();
+  const notApplicable = useBindingFreshness().data?.state === "not applicable";
   const focusPath =
     typeof params.focus === "string"
       ? params.focus
@@ -234,7 +235,9 @@ function TraceBody({
                 </p>
                 {!model && (
                   <p className="ao-trace-model">
-                    Product model bindings are not ready, so model records are not traced.
+                    {notApplicable
+                      ? "Product model bindings are not applicable below schemaVersion 8, so model records are not traced."
+                      : "Product model bindings are not ready, so model records are not traced."}
                   </p>
                 )}
                 {model && <ModelFreshness className="ao-trace-model" />}
