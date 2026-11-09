@@ -33,6 +33,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
+	"github.com/atomicobject/rhizome/pkg/paths"
 
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
@@ -57,8 +58,9 @@ type Config struct {
 	// edit and repair journals and before it starts cache or index workers.
 	EditsRecovered bool
 	// NotePathOwned optionally supplies the live ownership selector. Serve
-	// provides it so config reloads govern durable exact-note reads.
-	NotePathOwned func(string) bool
+	// provides it so config reloads govern durable exact-note reads. A read
+	// request passes one links cache for all its paths; nil resolves fresh.
+	NotePathOwned func(path string, links *paths.SymlinkCache) bool
 	// HTMLContentOriginTemplate is the separately-originated viewer base URL.
 	// It must be an absolute HTTP(S) URL whose hostname contains {token}.
 	// Empty uses http://{token}.localhost:<application-port> for loopback requests.

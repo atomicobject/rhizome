@@ -23,6 +23,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
@@ -3671,7 +3672,7 @@ func TestPublicGraphQLNodeRemainsAvailableWhileTheCompleteIndexGateIsClosed(t *t
 	require.Equal(t, "Demo plan summary", node["frontmatter"].(map[string]any)["summary"])
 	require.Equal(t, []any{"startup"}, node["tags"])
 
-	srv.cfg.NotePathOwned = func(string) bool { return true }
+	srv.cfg.NotePathOwned = func(string, *paths.SymlinkCache) bool { return true }
 	missingBody := bytes.NewBufferString(`{"query":"query { node(ref: \"specs/100-demo/not-yet-published.md\") { path title } }"}`)
 	missingReq := newApplicationRequest(http.MethodPost, "/api/v1/graphql", missingBody)
 	missingReq.Header.Set("Content-Type", "application/json")

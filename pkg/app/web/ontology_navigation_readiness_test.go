@@ -14,6 +14,7 @@ import (
 
 	"github.com/atomicobject/rhizome/internal/testkit"
 	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +27,7 @@ func TestWorkspaceNavigationWaitsForChangedNoteCatalog(t *testing.T) {
 			runtime.EnableIndexGate()
 			runtime.MarkIndexReady()
 			srv := newFixtureServer(t, fixture, runtime)
-			srv.cfg.NotePathOwned = func(string) bool { return true }
+			srv.cfg.NotePathOwned = func(string, *paths.SymlinkCache) bool { return true }
 			path := "specs/100-demo/spec.md"
 			content, err := os.ReadFile(filepath.Join(fixture.root, path))
 			require.NoError(t, err)
@@ -73,7 +74,7 @@ func TestWorkspaceNavigationReloadsPublishedSchema(t *testing.T) {
 	runtime.EnableIndexGate()
 	runtime.MarkIndexReady()
 	srv := newFixtureServer(t, fixture, runtime)
-	srv.cfg.NotePathOwned = func(string) bool { return true }
+	srv.cfg.NotePathOwned = func(string, *paths.SymlinkCache) bool { return true }
 
 	query := func() *httptest.ResponseRecorder {
 		t.Helper()
@@ -127,7 +128,7 @@ type After @node(matches: ["tag:after"]) { summary: String }
 	runtime.EnableIndexGate()
 	runtime.MarkIndexReady()
 	srv := newFixtureServer(t, fixture, runtime)
-	srv.cfg.NotePathOwned = func(string) bool { return true }
+	srv.cfg.NotePathOwned = func(string, *paths.SymlinkCache) bool { return true }
 	write("after")
 	require.NoError(t, indexer.SyncPaths(context.Background(), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore, []string{path}, nil))
 	timeout := 100 * time.Millisecond
@@ -156,7 +157,7 @@ func TestWorkspaceNavigationWaitsForNewNotePublication(t *testing.T) {
 	runtime.EnableIndexGate()
 	runtime.MarkIndexReady()
 	srv := newFixtureServer(t, fixture, runtime)
-	srv.cfg.NotePathOwned = func(string) bool { return true }
+	srv.cfg.NotePathOwned = func(string, *paths.SymlinkCache) bool { return true }
 	checks := make(chan struct{}, 1)
 	srv.noteReader = navigationReadObserver{NoteReader: &obsidian.Note{}, checks: checks}
 	require.NoError(t, os.WriteFile(filepath.Join(fixture.root, "specs/100-demo/late.md"), []byte("# Late\n"), 0o644))
@@ -223,7 +224,7 @@ func TestNodeReadReportsDeletedSourceBeforeIndexCatchesUp(t *testing.T) {
 	runtime.EnableIndexGate()
 	runtime.MarkIndexReady()
 	srv := newFixtureServer(t, fixture, runtime)
-	srv.cfg.NotePathOwned = func(string) bool { return true }
+	srv.cfg.NotePathOwned = func(string, *paths.SymlinkCache) bool { return true }
 	query := func(root string) map[string]any {
 		t.Helper()
 		body, err := json.Marshal(map[string]string{"query": `query { ` + root + ` { path title } }`})

@@ -121,7 +121,7 @@ func (s *Server) handleHTMLViewers(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("path must be an admitted HTML note"))
 		return
 	}
-	if !s.exactNotePathOwned(readPath.rel) {
+	if !s.exactNotePathOwned(readPath.rel, nil) {
 		writeError(w, http.StatusNotFound, errors.New("HTML note is not currently admitted"))
 		return
 	}
@@ -436,7 +436,7 @@ func (s *Server) serveHTMLViewerHost(w http.ResponseWriter, r *http.Request) boo
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return true
 	}
-	if !s.exactNotePathOwned(grant.notePath) {
+	if !s.exactNotePathOwned(grant.notePath, nil) {
 		s.htmlViewers.revoke(grant.id)
 		http.NotFound(w, r)
 		return true

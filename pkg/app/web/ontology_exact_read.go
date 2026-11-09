@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/paths"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
@@ -13,16 +14,16 @@ type exactNoteReadSnapshot struct {
 	facts         semdb.DurableNoteFacts
 }
 
-func (s *Server) exactNoteFactsFromStore(ctx context.Context, store *semdb.Store, paths []string) (semdb.DurableNoteFacts, error) {
+func (s *Server) exactNoteFactsFromStore(ctx context.Context, store *semdb.Store, notePaths []string, links *paths.SymlinkCache) (semdb.DurableNoteFacts, error) {
 	if store == nil {
 		return semdb.DurableNoteFacts{MetadataRows: map[string]semdb.NoteMetadataRow{}}, nil
 	}
-	facts, err := s.noteMetadata.UsableNoteFactsByPaths(ctx, store, paths)
+	facts, err := s.noteMetadata.UsableNoteFactsByPaths(ctx, store, notePaths)
 	if err != nil {
 		return semdb.DurableNoteFacts{}, err
 	}
 	for path := range facts.MetadataRows {
-		if !s.exactNotePathOwned(path) {
+		if !s.exactNotePathOwned(path, links) {
 			delete(facts.MetadataRows, path)
 		}
 	}

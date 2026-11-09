@@ -10,6 +10,10 @@ import (
 // ToAbs converts a RelPath to AbsPath given a root directory.
 // Resolves symlinks on non-Windows; uses Clean on Windows for POSIX-style test paths.
 func ToAbs(rel RelPath, root string) (AbsPath, error) {
+	return toAbs(rel, root, nil)
+}
+
+func toAbs(rel RelPath, root string, links *SymlinkCache) (AbsPath, error) {
 	if rel == "" {
 		return AbsPath(""), nil
 	}
@@ -32,7 +36,7 @@ func ToAbs(rel RelPath, root string) (AbsPath, error) {
 	}
 
 	// Resolve symlinks
-	resolved, err := filepath.EvalSymlinks(abs)
+	resolved, err := links.evalSymlinks(abs)
 	if err != nil {
 		// Return cleaned absolute path if symlink resolution fails
 		return AbsPath(abs), nil

@@ -85,8 +85,10 @@ func (rt *LiveRuntime) publishPhase3OwnershipConfiguration() (codeanchor.Config,
 
 // NotePathOwned reports whether the current vault and code configuration
 // assign a canonical path to an executable note provider. Startup readiness
-// uses this same selector as live cache and ownership discovery.
-func (rt *LiveRuntime) NotePathOwned(rawPath string) bool {
+// uses this same selector as live cache and ownership discovery. A read
+// request passes its own links cache so each directory resolves once; nil
+// resolves fresh.
+func (rt *LiveRuntime) NotePathOwned(rawPath string, links *paths.SymlinkCache) bool {
 	if rt == nil {
 		return false
 	}
@@ -95,7 +97,13 @@ func (rt *LiveRuntime) NotePathOwned(rawPath string) bool {
 		return false
 	}
 	policy, err := rt.noteSelectionPolicy()
-	return err == nil && policy.Admit(notePath)
+	if err != nil {
+		return false
+	}
+	if policy.AdmitForRead != nil {
+		return policy.AdmitForRead(notePath, links)
+	}
+	return policy.Admit(notePath)
 }
 
 // UsableNoteMetadataCount evaluates the active provider and ownership policy
@@ -151,12 +159,14 @@ func liveCacheSelectionPolicy(vaultDef obsidian.VaultDefinition, runtime notefor
 	if err != nil {
 		return cache.SelectionPolicy{}, err
 	}
+	admit := func(path paths.NotePath, links *paths.SymlinkCache) bool {
+		selection, err := selector.SelectCached(paths.RelPath(path), links)
+		return err == nil && selection.Owner == notediscovery.Note && runtime.CanProject(selection.Provider)
+	}
 	policy := cache.SelectionPolicy{
 		UserExcludes: vaultDef.Excludes,
-		Admit: func(path paths.NotePath) bool {
-			selection, err := selector.Select(paths.RelPath(path))
-			return err == nil && selection.Owner == notediscovery.Note && runtime.CanProject(selection.Provider)
-		},
+		Admit:        func(path paths.NotePath) bool { return admit(path, nil) },
+		AdmitForRead: admit,
 	}
 	if vaultDef.IsCollection() {
 		policy.DiscoverFiles = func() ([]string, error) { return obsidian.DiscoverFiles(vaultDef) }

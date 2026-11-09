@@ -7,6 +7,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -191,7 +192,7 @@ func TestExactGraphQLUsesTheOwnershipDecisionThatPassedTheAvailabilityGate(t *te
 	runtime.EnableIndexGate()
 	runtime.MarkNoteReadReady()
 	srv := newFixtureServer(t, fixture, runtime)
-	srv.cfg.NotePathOwned = func(string) bool { return owned.Load() }
+	srv.cfg.NotePathOwned = func(string, *paths.SymlinkCache) bool { return owned.Load() }
 	view.calls.Store(0)
 	view.onSecond = func() { owned.Store(false) }
 

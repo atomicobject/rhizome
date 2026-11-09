@@ -128,6 +128,12 @@ func (v VaultPaths) Abs(rel RelPath) (AbsPath, error) {
 	return ToAbs(rel, v.root.String())
 }
 
+// AbsCached is Abs sharing one read request's symlink resolutions. Write
+// admission passes nil, or calls Abs, to resolve fresh.
+func (v VaultPaths) AbsCached(rel RelPath, links *SymlinkCache) (AbsPath, error) {
+	return toAbs(rel, v.root.String(), links)
+}
+
 // AbsNotePath converts an authored NotePath into an absolute filesystem path rooted at the vault.
 func (v VaultPaths) AbsNotePath(note NotePath) (AbsPath, error) {
 	canonical, err := CleanNotePath(note.String())

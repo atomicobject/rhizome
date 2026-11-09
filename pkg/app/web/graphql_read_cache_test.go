@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +23,7 @@ func newGraphQLReadCacheServer(t *testing.T) (*Server, fixtureVault) {
 	runtime.EnableIndexGate()
 	runtime.MarkIndexReady()
 	srv := newFixtureServer(t, fixture, runtime)
-	srv.cfg.NotePathOwned = func(string) bool { return true }
+	srv.cfg.NotePathOwned = func(string, *paths.SymlinkCache) bool { return true }
 	return srv, fixture
 }
 

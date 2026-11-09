@@ -17,7 +17,10 @@ type NoteAdmissionFunc func(paths.NotePath) bool
 type SelectionPolicy struct {
 	DiscoverFiles FileDiscoveryFunc
 	Admit         NoteAdmissionFunc
-	UserExcludes  []string
+	// AdmitForRead, when set, is Admit sharing one read request's symlink
+	// resolutions. The cache itself always uses Admit, which resolves fresh.
+	AdmitForRead func(paths.NotePath, *paths.SymlinkCache) bool
+	UserExcludes []string
 }
 
 func normalizeSelectionPolicy(policy SelectionPolicy) SelectionPolicy {

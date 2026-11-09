@@ -111,8 +111,10 @@ func (s *Server) ontologyQueryDepsForExactPaths(service *ontology.Service, noteR
 	}
 	if store != nil {
 		if exactSnapshot == nil {
-			deps.ExactNoteMetadataRows = func(ctx context.Context, paths []string) (map[string]semdb.NoteMetadataRow, error) {
-				return s.exactNoteMetadataRowsFromStore(ctx, store, paths)
+			// Deps serve one request, so its ownership checks share one links cache.
+			links := paths.NewSymlinkCache()
+			deps.ExactNoteMetadataRows = func(ctx context.Context, notePaths []string) (map[string]semdb.NoteMetadataRow, error) {
+				return s.exactNoteMetadataRowsFromStore(ctx, store, notePaths, links)
 			}
 			deps.ExactNotePropertyValues = store.DurableNotePropertyValuesByPaths
 			deps.ExactNoteTags = store.DurableNoteTagsByPaths
@@ -143,25 +145,25 @@ func (s *Server) ontologyQueryDepsForExactPaths(service *ontology.Service, noteR
 	return deps, nil
 }
 
-func (s *Server) exactNoteMetadataRowsFromStore(ctx context.Context, store *semdb.Store, paths []string) (map[string]semdb.NoteMetadataRow, error) {
+func (s *Server) exactNoteMetadataRowsFromStore(ctx context.Context, store *semdb.Store, notePaths []string, links *paths.SymlinkCache) (map[string]semdb.NoteMetadataRow, error) {
 	if store == nil {
 		return map[string]semdb.NoteMetadataRow{}, nil
 	}
-	rows, err := s.noteMetadata.UsableNoteMetadataRowsByPaths(ctx, store, paths)
+	rows, err := s.noteMetadata.UsableNoteMetadataRowsByPaths(ctx, store, notePaths)
 	if err != nil {
 		return nil, err
 	}
 	for path := range rows {
-		if !s.exactNotePathOwned(path) {
+		if !s.exactNotePathOwned(path, links) {
 			delete(rows, path)
 		}
 	}
 	return rows, nil
 }
 
-func (s *Server) exactNotePathOwned(path string) bool {
+func (s *Server) exactNotePathOwned(path string, links *paths.SymlinkCache) bool {
 	if s != nil && s.cfg.NotePathOwned != nil {
-		return s.cfg.NotePathOwned(path)
+		return s.cfg.NotePathOwned(path, links)
 	}
 	return s.ontologyQueryPathOwner(path) == ontologyquery.PathOwnerNote
 }
@@ -823,6 +825,7 @@ func (s *Server) waitForPreparedQuery(ctx context.Context, prepared *ontologyque
 	}
 	gateCtx, cancel := context.WithTimeout(ctx, indexGateTimeout)
 	defer cancel()
+	links := paths.NewSymlinkCache()
 	notePaths, exactNotes := prepared.ExactNotePaths()
 	rawOnly := exactNotes
 	if !rawOnly {
@@ -833,7 +836,7 @@ func (s *Server) waitForPreparedQuery(ctx context.Context, prepared *ontologyque
 	}
 	if exactNotes {
 		for _, notePath := range notePaths {
-			if !s.exactNotePathOwned(notePath) {
+			if !s.exactNotePathOwned(notePath, links) {
 				exactNotes = false
 				break
 			}
@@ -847,7 +850,7 @@ func (s *Server) waitForPreparedQuery(ctx context.Context, prepared *ontologyque
 		defer ticker.Stop()
 		for exactNotes {
 			for _, notePath := range notePaths {
-				if !s.exactNotePathOwned(notePath) {
+				if !s.exactNotePathOwned(notePath, links) {
 					exactNotes = false
 					break
 				}
@@ -864,7 +867,7 @@ func (s *Server) waitForPreparedQuery(ctx context.Context, prepared *ontologyque
 					continue
 				}
 			}
-			facts, loadErr := s.exactNoteFactsFromStore(gateCtx, store, notePaths)
+			facts, loadErr := s.exactNoteFactsFromStore(gateCtx, store, notePaths, links)
 			if loadErr != nil {
 				return nil, nil, fmt.Errorf("%w: load exact note facts: %v", errIndexInitializing, loadErr)
 			}
