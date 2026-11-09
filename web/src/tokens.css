@@ -257,6 +257,9 @@
   --chrome-raised: color-mix(in srgb, var(--chrome-text) 9%, var(--chrome-bg));
   --chrome-active: color-mix(in srgb, var(--chrome-text) 16%, var(--chrome-bg));
   --chrome-risk: #fccfd2;
+  /* Lines and highlighted marks on the chrome, never text: 4.25:1 or better
+     on every chrome background (SPEC-0136 R6). */
+  --chrome-link: light-dark(#75b9b5, #75b9b5);
   --selection: light-dark(
     color-mix(in srgb, var(--chrome-bg) 9%, #ffffff),
     color-mix(in srgb, var(--chrome-pill) 45%, #1c1b1a)
