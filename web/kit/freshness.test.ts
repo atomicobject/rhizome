@@ -240,6 +240,19 @@ describe("events that name their index generation", () => {
     generation.stop();
   });
 
+  it("refresh by class when they name the current generation, as a page's own edit does", () => {
+    const generation = createFrameGeneration();
+    generation.set("G1");
+    stop = connectFreshness(client, { hosted: false, generation });
+    events
+      .latest()
+      .emit(JSON.stringify({ id: "e-1", kind: "node.changed", generation: "G1" }), "node.changed");
+    settle();
+
+    expect(invalidated()).toEqual(["graphql", "viewOwn", "groups"]);
+    generation.stop();
+  });
+
   it("take the generation a host parsed, or the one it posts after a reconnect", () => {
     const generation = createFrameGeneration();
     stop = connectFreshness(client, { hosted: true, generation });

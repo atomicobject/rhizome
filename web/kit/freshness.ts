@@ -6,9 +6,9 @@
 // edits made anywhere else. A framed view gets those events from the workspace
 // that hosts it and opens no stream of its own; a standalone page opens one.
 //
-// An event that names its index generation moves the frame's generation, and
+// An event that names a new index generation moves the frame's generation, and
 // the generation rule refreshes what is behind it (`generation.ts`). Events
-// without one, and a reconnect, still refresh by event class.
+// without one, events at the current one, and a reconnect refresh by class.
 import type { Query, QueryClient } from "@tanstack/react-query";
 
 import { getPublicEventsUrl } from "../src/api/client";
@@ -199,7 +199,10 @@ export function connectFreshness(queryClient: QueryClient, options: FreshnessOpt
 
     const named = event === STREAM_RECONNECTED_EVENT ? undefined : eventGeneration(message);
 
-    if (named !== undefined) {
+    // An event at the current generation, such as a page's own edit announced
+    // before the watcher's write, still refreshes its class; the reads it
+    // repeats are cache hits.
+    if (named !== undefined && named !== generation.current()) {
       generation.set(named);
 
       return;
