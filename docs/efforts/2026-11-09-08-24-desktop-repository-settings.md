@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-11-09-08-24
 name: Desktop repository settings
 created-at: 2026-11-09T13:24:44Z
-status: active
+status: complete
 summary: Let Rhizome Desktop change a set-up repository's workflow, add-ons, agents, and search provider from a repository tab in Settings, backed by a rerun mode of rzm init's JSON contract.
 aliases: [EFF-2026-11-09-08-24]
 governing-specs:
@@ -29,10 +29,10 @@ Out of scope: deciding about edited files, ejecting or restoring workflows, reru
 
 ## Spec Coverage Checklist
 
-- [ ] US3: Settings tabs, repository menu entry, current choices, staged rows with Undo, refreshing write list, Apply, summary, errors, unsupported executables.
-- [ ] Executable contracts: configured-folder `rzm init --check --json` and `rzm init --json`, first-run options still rejected.
-- [ ] Desktop requirement: settings through the selected executable after trust, with a probe and no key.
-- [ ] Verification: Go and desktop tests named by the spec; a real-app check of the tab.
+- [x] US3: Settings tabs, repository menu entry, current choices, staged rows with Undo, refreshing write list, Apply, summary, errors, unsupported executables.
+- [x] Executable contracts: configured-folder `rzm init --check --json` and `rzm init --json`, first-run options still rejected.
+- [x] Desktop requirement: settings through the selected executable after trust, with a probe and no key.
+- [x] Verification: Go and desktop tests named by the spec. The real-app check ran the real shell, bridge, and executable in a browser; a packaged-app click-through is a follow-up (see Deviations).
 
 ## Plan
 
@@ -48,7 +48,12 @@ A Settings tab in Rhizome Desktop that changes a set-up repository's workflow, a
 
 ## Actual Delivered
 
-In progress.
+Delivered as planned on branch `t3/desktop-repo-settings`:
+
+- `rzm init --check --json` and `rzm init --json` on a configured folder report and apply the workflow, add-ons (optional ones included), agents, and search provider through `applyRerunOptions`, which the terminal rerun now shares. The report lists the rerun's change lines, every file an apply writes (support files included), and edited files it would keep; the apply reports created, updated, and kept files, the past-tense lines, and paths to commit (removals included). First-run options there still fail `not_first_run`.
+- The desktop bridge's `settings-report` and `settings-apply`, with a help-text probe and changed-only flags, and matching native actions.
+- Settings tabs ("Rhizome on this Mac" and the repository), the repository menu's Repository Settings…, and `RepositorySettings`: staged rows with Undo and Discard, a pinned bar listing what a change writes, Apply with the terminal's summary, trust and unsupported-executable states, readiness refreshed after a key is saved, and staged changes kept through Edit rules.
+- SPEC-0118 US3 and requirements, SPEC-0126's action list, changelog, README, `desktop/README.md`, both CONTEXT notes, and the CLI subsystem note.
 
 ## Execution Notes
 
@@ -61,6 +66,10 @@ In progress.
 - 2026-11-09T14:40:00Z [validation] `GOCACHE=$PWD/.gocache go test -tags fts5 ./pkg/app/cli/init/ ./pkg/app/desktop/ ./cmd/` passed, including the new settings tests. `make desktop-check` passed: typecheck, oxlint (one existing `no-unused-vars` warning in `App.test.tsx`), oxfmt, 146 frontend tests, 145 Rust tests, clippy, and the app-instance checks. `make check` passed (Go unit tests and 2,026 web tests). `./scripts/rzm validate` and `validate frozen-scope-drift` reported 0 issues.
 - 2026-11-09T14:40:00Z [validation] Real-executable proof on a fixture Git repository: `rzm init --json` set it up; `rzm init --check --json` reported `configured: true` with no writes; with `--agents claude,cursor --add-addon compounding --remove-addon action-items` it listed the change lines and every file and wrote nothing. The real `rzm desktop-bridge` answered `settings-report` with the same document. The real desktop shell, served by Vite with a Tauri stand-in that forwards settings and scope requests to that bridge, staged Cursor and Compounding, listed 60 files, and Apply wrote `.cursor/rules/rhizome.mdc` and the Compounding skill, which did not exist before. Playwright captures in light, dark, and 760px widths led to two style fixes (labels align to the top of their rows; the pinned bar's file list is capped).
 
+- 2026-11-09T15:00:00Z [review] sol-loop with GPT-6.1 Sol (high), 3 rounds. Round 1 found two shell bugs, both fixed with tests: add-on toggles after a workflow change, and stale reports after Undo or Discard. Round 2 approved.
+- 2026-11-09T15:00:00Z [review] `greptile review --json`: 3/5, then 4/5 twice, then 5/5 with no comments. Fixed: the file preview missed support files; Edit rules discarded staged changes; readiness went stale after a key was saved; Discard kept a failed report; edited-file notices were hidden on their own; the apply result missed kept files, removals to commit, and settings files; the README lacked the commands; a remote Ollama endpoint looked uninstalled. The remote Ollama readiness change has no test, since it needs a live Ollama probe.
+- 2026-11-09T15:00:00Z [validation] After the review fixes: `go test -tags fts5 ./pkg/app/cli/init/ ./pkg/app/desktop/ ./cmd/` passed, and the desktop shell's 151 tests, lint, and format passed. CI's `make check-full` runs on the pull request.
+
 ## Deviations
 
 - SPEC-0126 (workbench redesign, effort closed) listed "What Gets Indexed…" among the repository actions; it now names "Repository Settings…", and its `last-updated` moved to 2026-11-09.
@@ -68,15 +77,16 @@ In progress.
 
 ## Compounding Follow-ups
 
-- [ ] Drew: open Repository Settings… in the packaged app on a real repository and apply one change (owner: Drew Colthorp).
+- [ ] In the packaged Rhizome Desktop app, open Repository Settings… on a real repository, stage and apply one change, and use Edit rules and back (EFF-2026-11-09-08-24 checked the shell in a browser against the real bridge) #action-item
+  assignee:: [[Drew Colthorp]]
 - Proposed, not built: show the Mac tab's settings in the same label-column rows as the repository tab, as the mockup did.
 
 ## Closure Checklist
 
-- [ ] Plan steps delivered or recorded as deviations.
-- [ ] Gates recorded with commands and results.
-- [ ] Pull request linked.
+- [x] Plan steps delivered or recorded as deviations.
+- [x] Gates recorded with commands and results.
+- [x] Pull request linked (see Status).
 
 ## Status
 
-Active. Implementation starts with the CLI contract.
+Complete on the branch. The pull request carrying this work is linked here once opened; its CI runs `make check-full`. The packaged-app click-through is an action item for Drew and does not keep the effort open. Merging is Drew's.
