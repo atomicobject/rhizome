@@ -1,0 +1,5 @@
+type ExpClaim
+  @display(singular: "Claim", plural: "Claims", group: "E2E Experience")
+  @node(paths: ["notes/experience/claims/*.md"]) {
+  title: String!
+}

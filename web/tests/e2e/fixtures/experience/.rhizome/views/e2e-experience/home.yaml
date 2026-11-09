@@ -1,0 +1,12 @@
+apiVersion: rhizome.view.v1
+id: e2e.experience.home
+name: Experience home
+source:
+  kind: custom
+  entry: home.tsx
+mount:
+  kind: group
+  group: E2E Experience
+  default: true
+params:
+  - { name: sort, kind: string, default: title }
