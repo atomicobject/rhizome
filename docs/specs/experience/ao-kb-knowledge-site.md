@@ -80,7 +80,7 @@ The site is built from the starter's ordinary custom views on existing mounts, p
 #### Acceptance Criteria
 
 - Concept, source, and artifact pages open with their title, headline, and authored body, followed by a scoped pair: a neighbourhood cropped from the KB overview's map at the same positions, and a one-row strip on the overview's time axis.
-- Highlighting follows R4's highlight rule. A concept's strip highlights the sources cited by its member assertions. A source's map highlights the concepts of the assertions that cite it, and its strip rings the source. An artifact's map highlights the concepts it references and the concepts of the assertions it references or records as support. Each page gets these sets from one scope read (R5).
+- Highlighting follows R4's highlight rule. A concept's strip highlights the sources cited by its member assertions. A source's map highlights the concepts of the assertions that cite it, and its strip rings the source. An artifact's map highlights the concepts it references and the concepts of the assertions it references or records as support, and its strip highlights the sources those assertions cite. Each page gets these sets from its scope read (R5).
 - Each strip says how many dated sources it is drawn against and how many sources in its scope have no date, and lists the undated ones as links.
 - A concept page lists its member assertions under "What the KB says about it", grouped by kind group, showing each assertion's kind and stored confidence.
 - An artifact page lists the assertions recorded in `supported_by` (or the legacy `supportingAssertions`) as "Supported by (recorded)", separately from other assertions it links, listed as "Assertions it links". Recorded support values that resolve to no assertion, or to more than one, are listed with their raw value under "Recorded but not resolved". A list ordered by stored confidence says so above the list.
@@ -280,7 +280,7 @@ Every visual is deterministic for the same index, has a text or table equivalent
 
 ### R5. Computation
 
-- One pure library in the starter MUST compute membership, kind groups, counts, the topic layout, date placement, scope sets, and gaps, and every site page and the panel MUST use it. Its whole-KB input is the orientation query; a record page, and the panel on a record page, add one scope read for the opened record.
+- One pure library in the starter MUST compute membership, kind groups, counts, the topic layout, date placement, scope sets, and gaps, and every site page and the panel MUST use it. Its whole-KB input is the orientation query; a record page, and the panel on a record page, add one scope read for the opened record (for an artifact, its record read plus one batched citation read).
 - The orientation query MUST carry exactly these fields, with roots at `first: 5000` and nested lists without `first`, and nothing else:
   - every root: `ref`, `path`, `aoId`, `title`;
   - `assertion`: `headline`, `kind`, `legacyKind`, `confidence`, `provenanceSource`;
@@ -292,7 +292,7 @@ Every visual is deterministic for the same index, has a text or table equivalent
 - Scope reads, by page:
   - Concept: the Sources-section citations (`sourcesSection { citations { recordedLink sources { path } } }`) of its member assertions, as batched node reads.
   - Source: the candidate set is the source's `linkingAssertions { path }`, read without `first`, united with every assertion whose `provenanceSource` from the orientation query resolves to the source through `makeResolver`. The scope read confirms each candidate as a citation by reading its Sources-section citations, and `citations()` decides, so a provenance-only citation is included and a link outside the Sources section is not.
-  - Artifact: its `supportValues`, `additionalAssertionReferences { path }`, and `conceptReferences { path }`.
+  - Artifact: its `supportValues`, `additionalAssertionReferences { path sourcesSection { citations { recordedLink sources { path } } } }`, and `conceptReferences { path }`, then, as one batched node read, the Sources-section citations of support values that resolve through `makeResolver` to assertions not already read. `citations()` decides, as for a concept. The artifact's source set is the sources those assertions cite.
 - The orientation query string and the scope-read builders MUST be exported from one starter module, so the views and the Go integration tests run the same text.
 - Bodies, content, workspace data, and passages load only for the opened record. Review's submission and curation lists use their own body-free query.
 - The Concepts, Assertions, and Attention pages keep their SPEC-0133 evidence reads, because SPEC-0133 R7's locator-coverage categories need source text. This effort removes their caps (R2c) and adds the concept-side membership fields (`linkedAssertions { path }`, `linkingAssertions { path }`) so they use the shared membership (D1); nothing else in that read changes. New pages and the panel MUST NOT use that query. Without caps that read measured 2,039 ms and 6.2 MiB on the largest KB; this effort accepts that cost on those three existing pages in exchange for complete counts, and Batch D reports it per KB.
