@@ -261,13 +261,10 @@ describe("ExperienceFrames", () => {
       await vi.advanceTimersByTimeAsync(0);
     }
 
-    expect(frames.views().map((each) => each.experienceKey)).toEqual([
-      "exp_1",
-      "exp_2",
-      "exp_3",
-      "exp_4",
-      "exp_5",
-    ]);
+    // The shown frame and the K most recently shown suspended ones; exp_0 was evicted.
+    expect(frames.views().map((each) => each.experienceKey)).toEqual(
+      Array.from({ length: RETAINED_FRAMES + 1 }, (_, index) => `exp_${index + 1}`),
+    );
   });
 
   it("runs an experience's panel in its own frame beside its page, updating one page per subject", async () => {
