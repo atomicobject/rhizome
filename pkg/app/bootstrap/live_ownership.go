@@ -14,6 +14,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	"github.com/atomicobject/rhizome/pkg/app/indexcore"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
+	"github.com/atomicobject/rhizome/pkg/logging"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
@@ -304,6 +305,18 @@ func (w *unifiedSemanticWatcher) reconcileOwnershipBatch(ctx context.Context, le
 		if w.onProcessedPath != nil {
 			w.onProcessedPath(path)
 		}
+	}
+	// Reads take note bytes from the cache, which otherwise refreshes only on
+	// watch events. This batch may have published disk content whose event has
+	// not arrived (a resync, or FSEvents lagging under load), so bring those
+	// entries up to date before node.changed announces them. Unchanged entries
+	// cost one stat; watcher inputs live apart from the cache's dirty set. A
+	// failed refresh leaves the committed publication standing, as saves do.
+	for _, path := range append(result.Notes.ChangedPaths, result.Notes.DeletedPaths...) {
+		w.cacheService.MarkDirty(path, cache.DirtyModified)
+	}
+	if err := w.cacheService.Refresh(ctx); err != nil {
+		watcherEvent(ctx, slog.LevelWarn, "cache.refresh_failed", slog.String("error_class", logging.ClassifyError(err)))
 	}
 	w.publishProcessedEvents(resynced, result.Notes.ChangedPaths, result.Notes.DeletedPaths, result.Code.IndexedPaths, result.CodeRetirements, internal, forceMetadata, forceOntology)
 	w.health.complete(epoch)
