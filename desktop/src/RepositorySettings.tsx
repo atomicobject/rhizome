@@ -340,7 +340,7 @@ export function RepositorySettings({
               {result.pin.error}.
             </p>
           )}
-          {result.created.length + result.updated.length > 0 && (
+          {result.commit.length > 0 && (
             <p>Commit {joinWords(result.commit)} so your team shares this setup.</p>
           )}
         </div>

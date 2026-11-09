@@ -99,6 +99,17 @@ func TestSettingsPlanListsSupportFilesApplyWrites(t *testing.T) {
 	require.FileExists(t, filepath.Join(root, ".rhizome", ".gitignore"))
 }
 
+func TestSettingsApplyNamesRemovedFilesToCommit(t *testing.T) {
+	root, env := setUpRepo(t)
+
+	result, err := Apply(RunOptions{Env: env, Dir: root, Agents: "shared"})
+	require.NoError(t, err)
+
+	// Turning Claude Code off only removes files, which still need a commit.
+	require.Empty(t, result.Created)
+	require.Contains(t, result.Commit, ".claude/")
+}
+
 func TestSettingsApplyChangesTheRepositoryAndReportsIt(t *testing.T) {
 	root, env := setUpRepo(t)
 

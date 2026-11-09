@@ -57,6 +57,10 @@ func (r *initRun) applySettings(s setup) (SetupResult, error) {
 	result.Pin.Version = pinVersion(plan.res.cfg)
 	if !plan.pending() {
 		result.Summary = []string{"Everything is up to date."}
+		// Edited files with newer versions are kept, as on any apply.
+		for _, line := range plan.decisions {
+			result.Kept = append(result.Kept, line.paths...)
+		}
 		return result, nil
 	}
 	report, err := r.apply(plan.setup, plan.res)
