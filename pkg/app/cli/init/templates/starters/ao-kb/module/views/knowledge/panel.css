@@ -115,6 +115,10 @@ body:has(.akp-panel) {
 .akp-panel .akp-input:hover {
   background: var(--chrome-active);
 }
+/* The engine's clear button is an off-palette blue; Escape still clears the field. */
+.akp-panel .akp-input::-webkit-search-cancel-button {
+  appearance: none;
+}
 .akp-group > summary {
   display: flex;
   align-items: center;
