@@ -80,7 +80,7 @@ This spec governs the Notes workspace shell, configured views, bundled group vie
 
 #### Acceptance Criteria
 
-- The header shows the collection dot and title, its count, a short description that truncates, Find in view (⌘F), Filter, Display, saved Views, and the pane toggle on one row. Presentations (Table, Board, Cards, Briefing, and saved views) appear as text tabs on the row below.
+- The header shows the collection dot and title, its count, a short description that truncates, Find in view (⌘F), Filter, Display, saved Views, and the pane toggle on one row. Presentations appear as text tabs on the row below: saved and custom views first, then the standard Table, Board, Cards, and Briefing, with any that do not fit in More ([[ao-kb-knowledge-site|SPEC-0135]] R7).
 - Display opens a popover holding Group by, Sort, Rows (a visible "1 line | 2 lines" segmented control), Columns, Reset to shared, and Save view.
 - The separate stats band and preset pill band no longer appear. Type and interface identities (such as "Interface: Effort") appear in the header info tooltip, which links to Ontology detail. Counts appear on group headers and in the title row, and active filters appear as removable chips under the header only while a filter is active.
 - On a 900px-tall window the first data row of an ungrouped table starts no more than about 166px below the top of the content panel (the 56px title row, 40px presentation tabs, and 34px column heads, plus the 36px note-tab strip only while a note is open); a grouped table adds its 44px group header.
