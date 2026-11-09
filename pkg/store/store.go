@@ -117,19 +117,36 @@ func (s *Store) withWrite(ctx context.Context, fn func(ctx context.Context, db *
 }
 
 func (s *Store) withWriteTx(ctx context.Context, fn func(tx *sql.Tx) error) error {
+	return s.writeTx(ctx, true, fn)
+}
+
+// withEmbeddingWriteTx is withWriteTx for writes that change only embedding
+// vectors, their cache, and their bookkeeping. No cacheable read depends on
+// them (semantic and search reads are never cached, SPEC-0136 R4), so they
+// leave the index generation alone and an embedding pass does not make every
+// open page refetch.
+func (s *Store) withEmbeddingWriteTx(ctx context.Context, fn func(tx *sql.Tx) error) error {
+	return s.writeTx(ctx, false, fn)
+}
+
+func (s *Store) writeTx(ctx context.Context, witnessed bool, fn func(tx *sql.Tx) error) error {
 	mu := s.writeLock()
 	waitStart := time.Now()
 	mu.Lock()
 	wait := time.Since(waitStart)
 	holdStart := time.Now()
-	beginWrite()
+	if witnessed {
+		beginWrite()
+	}
 	err := sqliteutil.ExecTxWithRetry(ctx, s.db, func(tx *sql.Tx) error {
-		if err := fn(tx); err != nil {
+		if err := fn(tx); err != nil || !witnessed {
 			return err
 		}
 		return bumpWriteGeneration(ctx, tx)
 	})
-	endWrite()
+	if witnessed {
+		endWrite()
+	}
 	hold := time.Since(holdStart)
 	mu.Unlock()
 	s.writeInfo.record(wait, hold)

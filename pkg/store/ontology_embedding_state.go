@@ -17,7 +17,7 @@ func (s *Store) UpsertOntologyNodeEmbeddingStates(ctx context.Context, states []
 		return nil
 	}
 	ctx = indexingperf.WithOp(ctx, "intel.upsert_ontology_node_embedding_state")
-	return s.withWriteTx(ctx, func(tx *sql.Tx) error {
+	return s.withEmbeddingWriteTx(ctx, func(tx *sql.Tx) error {
 		stmt, err := tx.PrepareContext(ctx, `
 			INSERT INTO ontology_node_embedding_state (
 				chunk_id, node_id, note_path, type_name, node_kind,

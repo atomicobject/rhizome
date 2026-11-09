@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"testing"
 
 	anchors "github.com/atomicobject/rhizome/pkg/anchors"
@@ -111,6 +112,24 @@ func TestWriteGenerationWitnessesStoreWritesOnly(t *testing.T) {
 	_, err = bypass.ExecContext(ctx, `CREATE TABLE bypass (id INTEGER); INSERT INTO bypass VALUES (1)`)
 	require.NoError(t, err)
 	require.Equal(t, afterFailed, read(), "a commit outside the store")
+}
+
+func TestEmbeddingWritesLeaveTheGenerationAlone(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(currentSchemaTestDBPath(t, "embedding-generation.db"))
+	require.NoError(t, err)
+	defer func() { _ = store.Close() }()
+
+	before, err := store.WriteGeneration(ctx)
+	require.NoError(t, err)
+	sequence := WriteSequence()
+	require.NoError(t, store.UpsertEmbeddingCache(ctx, []EmbeddingCacheEntry{
+		{Provider: "p", Model: "m", TextHash: "h", Vector: embeddings.Embedding{0.1, 0.2}, Format: "f"},
+	}))
+	after, err := store.WriteGeneration(ctx)
+	require.NoError(t, err)
+	require.Equal(t, before, after, "an embedding cache write moved the write counter")
+	require.Equal(t, sequence, WriteSequence(), "an embedding cache write moved the write sequence")
 }
 
 func TestValidationGenerationReadsTheRunCounter(t *testing.T) {
