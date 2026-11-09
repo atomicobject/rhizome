@@ -89,4 +89,4 @@ Delivered as planned on branch `t3/desktop-repo-settings`:
 
 ## Status
 
-Complete on the branch. The pull request carrying this work is linked here once opened; its CI runs `make check-full`. The packaged-app click-through is an action item for Drew and does not keep the effort open. Merging is Drew's.
+Complete on the branch. [PR #122](https://github.com/atomicobject/rhizome/pull/122) carries this work; its CI runs `make check-full`. The packaged-app click-through is an action item for Drew and does not keep the effort open. Merging is Drew's.
