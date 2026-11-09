@@ -274,6 +274,27 @@ describe("AgentWorkspace", () => {
     expect(screen.queryByRole("button", { name: "Interrupt" })).not.toBeInTheDocument();
   });
 
+  it("offers interrupt only once the server has accepted the message", async () => {
+    const current = session();
+    setup(http, { current });
+    const send = deferredReply<{ session: typeof current }>();
+    http.on("POST", `/api/agent/sessions/${current.id}/messages`, () => send.promise);
+    render(<AgentWorkspace />);
+
+    const composer = screen.getByLabelText("Message");
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: "ping" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() =>
+      expect(http.count("POST", `/api/agent/sessions/${current.id}/messages`)).toBe(1),
+    );
+    // Until the reply, the server may not know the turn, and would refuse an interrupt.
+    expect(screen.queryByRole("button", { name: "Interrupt" })).not.toBeInTheDocument();
+
+    await act(async () => send.resolve({ session: { ...current, turnRunning: true } }));
+    expect(await screen.findByRole("button", { name: "Interrupt" })).toBeVisible();
+  });
+
   it("offers interrupt during a turn and renders the interruption event", async () => {
     const current = session({ turnRunning: true });
     setup(http, {

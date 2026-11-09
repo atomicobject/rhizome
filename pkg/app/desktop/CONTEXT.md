@@ -87,7 +87,9 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   initialization after four, and scope after one.
 - A managed pin whose release the server reports missing fails Open with
   `pinned_version_unavailable`, distinct from a retryable `install_error`, so
-  the shell leads with the existing pin advance instead of a retry.
+  the shell leads with the existing pin advance instead of a retry. An
+  installed pin too old for `serve --headless` fails with
+  `pinned_version_unsupported`, which the shell treats the same way.
 - Open probes the selected version and headless capability from the checkout,
   then calls `runtime.Ensure` with its exact executable and build identity.
   Existing manifest and health folder identity must agree; returned origins use

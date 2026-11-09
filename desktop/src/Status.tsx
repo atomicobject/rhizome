@@ -139,9 +139,10 @@ export function OpenStatus({
     );
   }
   if (state.step === "seed-error" || state.step === "error") {
-    // A pin that can never install leads with the upgrade; any other install
-    // failure may be transient, so retrying stays first.
-    const unpublished = state.code === "pinned_version_unavailable";
+    // A pin that can never install or run leads with the upgrade; any other
+    // install failure may be transient, so retrying stays first.
+    const tooOld = state.code === "pinned_version_unsupported";
+    const unpublished = state.code === "pinned_version_unavailable" || tooOld;
     const offered = unpublished || state.code === "install_error" ? upgrade : undefined;
     const upgradeButton = offered && (
       <button
@@ -169,8 +170,9 @@ export function OpenStatus({
         {offered && upgradeCaution && <p className="hint">{upgradeCaution}</p>}
         {unpublished && !offered && (
           <p className="hint">
-            The app can’t move this pin. A newer app may include it, or choose a Rhizome executable
-            for this worktree.
+            {tooOld
+              ? "The app can’t move this pin. Update the version in .rhizome/config.yml, or a newer app may offer it."
+              : "The app can’t move this pin. A newer app may include it, or choose a Rhizome executable for this worktree."}
           </p>
         )}
         <div className="actions">
@@ -190,7 +192,9 @@ export function OpenStatus({
               Start without copying
             </button>
           )}
-          {(state.code === "external_executable_required" || (unpublished && !offered)) && (
+          {/* A chosen executable stands in only for a pin that cannot install. */}
+          {(state.code === "external_executable_required" ||
+            (unpublished && !offered && !tooOld)) && (
             <button disabled={busy} onClick={onChooseExecutable}>
               Choose executable…
             </button>
