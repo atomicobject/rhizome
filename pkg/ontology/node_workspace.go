@@ -147,10 +147,21 @@ func BuildNodeWorkspaceFromProjection(projection *NodeProjection) *NodeWorkspace
 // Docs: [[ontology-browser-workspace#^spec-0014-us2-ac3]] keeps derived views
 // downstream of this snapshot instead of letting UI payloads invent identities.
 func BuildNodeWorkspaceFromProjectionWithSchema(schema *ontoschema.Schema, projection *NodeProjection) *NodeWorkspace {
+	workspace := BuildUnversionedNodeWorkspace(schema, projection)
+	if workspace != nil {
+		workspace.Version = buildNodeVersion(workspace)
+	}
+	return workspace
+}
+
+// BuildUnversionedNodeWorkspace builds the workspace without hashing its
+// version, for readers that set Version through NodeWorkspaceVersion only
+// when a caller asks for it.
+func BuildUnversionedNodeWorkspace(schema *ontoschema.Schema, projection *NodeProjection) *NodeWorkspace {
 	if projection == nil {
 		return nil
 	}
-	workspace := &NodeWorkspace{
+	return &NodeWorkspace{
 		Node:           buildNodeDescriptor(schema, projection),
 		Content:        nodeWorkspaceContent(projection),
 		Fields:         buildNodeFieldStates(schema, projection),
@@ -159,8 +170,31 @@ func BuildNodeWorkspaceFromProjectionWithSchema(schema *ontoschema.Schema, proje
 		Status:         NodeStatus{},
 		SourceRevision: buildNodeSourceRevision(projection),
 	}
-	workspace.Version = buildNodeVersion(workspace)
-	return workspace
+}
+
+// NodeWorkspaceVersion is the content-addressable version a versioned build
+// of this workspace reports.
+func NodeWorkspaceVersion(workspace *NodeWorkspace) string {
+	return buildNodeVersion(workspace)
+}
+
+// NodeCapabilitiesFromProjection returns the capabilities that building the
+// workspace and applying source ownership reports, without building it.
+func NodeCapabilitiesFromProjection(policy *sourceownership.Policy, projection *NodeProjection) NodeCapabilities {
+	if projection == nil {
+		return NodeCapabilities{}
+	}
+	capabilities := buildNodeCapabilities(projection)
+	if reason := sourceOwnershipReason(policy, projection.Ref.NotePath, projection.Record != nil); reason != "" {
+		capabilities.CanEdit, capabilities.CanEditFields, capabilities.CanEditCollections = false, false, false
+		capabilities.ReadOnlyReason = reason
+	}
+	return capabilities
+}
+
+// NodeTitle is the title a workspace built from projection reports.
+func NodeTitle(projection *NodeProjection) string {
+	return nodeProjectionTitle(projection)
 }
 
 func buildNodeDescriptor(schema *ontoschema.Schema, projection *NodeProjection) NodeDescriptor {

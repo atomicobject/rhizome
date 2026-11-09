@@ -2,12 +2,17 @@ package query
 
 import (
 	"context"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/sourceownership"
+	"slices"
 
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	"github.com/vektah/gqlparser/v2/ast"
 )
+
+// buildQueryWorkspace is the full workspace build; tests count its calls.
+var buildQueryWorkspace = ontology.BuildUnversionedNodeWorkspace
 
 func (e *executor) resolveWorkspaceSelectionSet(ctx context.Context, ref ontology.NodeRef, set ast.SelectionSet, path []string) any {
 	if e == nil || e.loaders == nil || e.loaders.scope == nil || ref.IsZero() {
@@ -21,10 +26,23 @@ func (e *executor) resolveWorkspaceSelectionSet(ctx context.Context, ref ontolog
 	if projection == nil {
 		return nil
 	}
-	workspace := ontology.BuildNodeWorkspaceFromProjectionWithSchema(e.schema, projection)
+	if e.selectionOnlyHasFields(set, "capabilities") {
+		capabilities := ontology.NodeCapabilitiesFromProjection(e.sourceOwnership(), projection)
+		out := make(map[string]any)
+		e.eachSelectionField(set, func(field *ast.Field) {
+			if field.Name == "capabilities" {
+				out[responseKey(field)] = e.resolveWorkspaceCapabilities(capabilities, field.SelectionSet, append(path, responseKey(field)))
+			}
+		})
+		return out
+	}
+	workspace := buildQueryWorkspace(e.schema, projection)
 	ontology.ApplySourceOwnership(e.sourceOwnership(), workspace)
 	if workspace == nil {
 		return nil
+	}
+	if e.selectionHasField(set, "version") {
+		workspace.Version = ontology.NodeWorkspaceVersion(workspace)
 	}
 	assessment := projection.Assessment
 	if assessment == nil {
@@ -188,6 +206,17 @@ func (e *executor) eachSelectionField(set ast.SelectionSet, visit func(*ast.Fiel
 	}
 }
 
+// selectionOnlyHasFields reports whether set selects at least one field and
+// every selected field is one of names.
+func (e *executor) selectionOnlyHasFields(set ast.SelectionSet, names ...string) bool {
+	selected, only := false, true
+	e.eachSelectionField(set, func(field *ast.Field) {
+		selected = true
+		only = only && slices.Contains(names, field.Name)
+	})
+	return selected && only
+}
+
 func (e *executor) selectionHasField(set ast.SelectionSet, name string) bool {
 	found := false
 	e.eachSelectionField(set, func(field *ast.Field) {
@@ -332,7 +361,7 @@ func (e *executor) resolveWorkspaceStructure(item workspaceStructureNode, set as
 
 func (e *executor) sourceOwnership() *sourceownership.Policy {
 	if e.ownership == nil {
-		e.ownership = sourceownership.Load(e.deps.VaultDef.BasePath())
+		e.ownership = sourceownership.Load(e.deps.VaultDef.BasePath()).ForReads(paths.NewSymlinkCache())
 	}
 	return e.ownership
 }

@@ -225,9 +225,11 @@ func (r contentFailingQueryNoteReader) Title(noteName string) (string, bool) {
 type countingNoteReader struct {
 	inner          obsidian.NoteReader
 	notesListCalls atomic.Int64
+	bodies         atomic.Int64
 }
 
 func (r *countingNoteReader) GetContents(vault obsidian.VaultDefinition, noteName string) (string, error) {
+	r.bodies.Add(1)
 	return r.inner.GetContents(vault, noteName)
 }
 
