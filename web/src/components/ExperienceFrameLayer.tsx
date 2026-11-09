@@ -17,6 +17,8 @@ import {
 
 import { getStatus, getViewInvocation } from "../api/client";
 import type { OntologyEditSessionResponse, ViewCatalogEntry } from "../api/types";
+import { FRAME_LAYER_REGION } from "../diagnostics/clientMetrics";
+import { DiagnosticRegion } from "../diagnostics/DiagnosticRegion";
 import { subscribeVaultEvents } from "../query/vaultEvents";
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import type { ViewContext } from "../views/context";
@@ -94,7 +96,9 @@ export function ExperienceFrameLayer({
   return (
     <LayerContext value={frames}>
       {children}
-      <FrameLayer frames={frames} />
+      <DiagnosticRegion name={FRAME_LAYER_REGION}>
+        <FrameLayer frames={frames} />
+      </DiagnosticRegion>
     </LayerContext>
   );
 }

@@ -12,6 +12,13 @@ type WebSummary = {
   frames: { over_200ms: number; longest_ms: number };
   refresh: { cycles: number; refetched: number; unchanged: number };
   regions?: { name: string; mount: number }[];
+  experiences?: {
+    hash: string;
+    frames_created: number;
+    locations_reused: number;
+    pages_retained: number;
+    phases?: { phase: string; samples: number }[];
+  }[];
 };
 
 type PerfResult = { perf: { flags: { kind: string }[]; web?: WebSummary[] } };
@@ -119,4 +126,53 @@ test("the desktop render-profiling flag mounts render regions in the production 
       { timeout: 60000, intervals: [5000] },
     )
     .toBeGreaterThan(0);
+});
+
+test("experience frames reach rzm diagnostics perf by hash, under the profiling flag", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120000);
+  const since = new Date().toISOString();
+  const status = await (await request.get("/api/v1/status")).json();
+
+  await page.addInitScript(() => {
+    window.__RHIZOME_RENDER_PROFILING__ = true;
+  });
+  // The synthetic experience in fixtures/experience: its home, then a record in a new tab.
+  await page.goto("/notes/group/E2E%20Experience");
+  const shown = page.frameLocator("iframe.experience-frame[data-shown]");
+  await expect(shown.getByRole("heading", { name: "Experience home" })).toBeVisible();
+  await shown.getByRole("button", { name: "Open alpha" }).click();
+  await expect(shown.getByRole("heading", { name: "Claim page alpha.md" })).toBeVisible();
+
+  let web: WebSummary | undefined;
+
+  await expect
+    .poll(
+      async () => {
+        web = (await readPerf(status.vaultPath, since)).perf.web?.find(
+          (s) => s.surface === "browser",
+        );
+        const experience = web?.experiences?.[0];
+
+        return {
+          frames: experience?.frames_created ?? 0,
+          phases: experience?.phases?.map((each) => each.phase).sort() ?? [],
+          region: web?.regions?.some((region) => region.name === "experience-frames") ?? false,
+        };
+      },
+      { timeout: 60000, intervals: [5000] },
+    )
+    .toEqual({
+      frames: 1,
+      // The fixture's views never call markReady, so there is no data-ready
+      // mark, and the kit marks module-loaded only for single-view shells.
+      phases: expect.arrayContaining(["first-render", "location-painted", "shell-start"]),
+      region: true,
+    });
+
+  // The experience is named by a hash, never its folder path or title.
+  expect(web?.experiences?.[0]?.hash).toMatch(/^[0-9a-f]{14}$/);
+  expect(JSON.stringify(web)).not.toMatch(/E2E Experience|alpha|experience\//i);
 });

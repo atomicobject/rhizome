@@ -8,6 +8,12 @@ import type { JsonObject } from "../api/parse";
 import { isJsonObject, isString } from "../api/parse";
 import type { OntologyEditSessionResponse } from "../api/types";
 import {
+  recordExperienceCount,
+  recordExperiencePhase,
+  recordPagesRetained,
+  type ExperienceMark,
+} from "../diagnostics/experienceMetrics";
+import {
   CLOSE_PAGE_MESSAGE,
   EDIT_SESSION_MESSAGE,
   EXPERIENCE_FRAME_PARAM,
@@ -59,7 +65,10 @@ export type ExperienceShowing = {
   panel?: boolean;
 };
 
-type Page = {
+/** Where phase times start, and the phases already recorded from there. */
+type PhaseClock = { startedAt: number; marked: Set<ExperienceMark> };
+
+type Page = PhaseClock & {
   navigationId: string;
   /** View, context, and identity params: a change replaces the page. */
   key: string;
@@ -69,7 +78,8 @@ type Page = {
   posted: string;
 };
 
-type Frame = {
+/** A frame's clock starts at its creation, for its frame-wide phases. */
+type Frame = PhaseClock & {
   id: number;
   /** The experience key, prefixed for a panel frame. */
   key: string;
@@ -124,6 +134,9 @@ type Session = {
 
 const frameKey = ({ experienceKey, panel }: Pick<ExperienceShowing, "experienceKey" | "panel">) =>
   panel ? `panel:${experienceKey}` : experienceKey;
+
+// Epoch milliseconds, as the kit stamps its phase marks.
+const now = () => performance.timeOrigin + performance.now();
 
 const sessionKey = ({ session, readLifecycle }: Session) =>
   `${editSessionFingerprint(session)}\n${readLifecycle?.revision ?? ""}`;
@@ -255,6 +268,8 @@ export class ExperienceFrames {
     frame.shownAt = this.clock;
     frame.suspended = false;
 
+    if (resuming) recordExperienceCount(frame.experienceKey, "resumes");
+
     if (resuming && frame.ready) {
       this.post(frame, { type: RESUME_MESSAGE, generation: this.generation });
       this.postSession(frame);
@@ -305,7 +320,11 @@ export class ExperienceFrames {
       .filter((each) => each.suspended)
       .sort((a, b) => b.shownAt - a.shownAt);
 
-    for (const evicted of suspended.slice(RETAINED_FRAMES)) this.destroy(evicted);
+    for (const evicted of suspended.slice(RETAINED_FRAMES)) {
+      recordExperienceCount(evicted.experienceKey, "evictions");
+      this.destroy(evicted);
+    }
+
     this.publish();
   }
 
@@ -319,6 +338,8 @@ export class ExperienceFrames {
     if (showing.preferenceSlot) url.searchParams.set("preferenceSlot", showing.preferenceSlot);
 
     const frame: Frame = {
+      startedAt: now(),
+      marked: new Set(),
       id: this.nextId++,
       key: frameKey(showing),
       panel: showing.panel === true,
@@ -342,6 +363,7 @@ export class ExperienceFrames {
     };
 
     this.frames.set(frame.key, frame);
+    recordExperienceCount(showing.experienceKey, "frames_created");
 
     return frame;
   }
@@ -395,6 +417,7 @@ export class ExperienceFrames {
 
   private async locate(frame: Frame, showing: ExperienceShowing) {
     const { tabId } = showing;
+    const startedAt = now();
     const token = {};
     this.requests.set(tabId, token);
 
@@ -427,9 +450,11 @@ export class ExperienceFrames {
     ]);
 
     const existing = frame.pages.get(tabId);
-    let navigationId = existing?.navigationId;
+    const reused = existing?.key === key ? existing : undefined;
+    let navigationId = reused?.navigationId;
 
-    if (!navigationId || existing?.key !== key) {
+    if (navigationId) recordExperienceCount(frame.experienceKey, "locations_reused");
+    else {
       this.navigations += 1;
       navigationId = `n${this.navigations}`;
     }
@@ -454,12 +479,16 @@ export class ExperienceFrames {
     }
 
     frame.pages.set(tabId, {
+      // A page updated in place keeps its navigation's clock.
+      startedAt: reused?.startedAt ?? startedAt,
+      marked: reused?.marked ?? new Set(),
       navigationId,
       key,
       declarations: showing.declarations,
       services: showing.services,
       posted,
     });
+    recordPagesRetained(frame.experienceKey, frame.pages.size);
 
     if (!frame.generationSent && result.generation !== undefined)
       location.generation = result.generation;
@@ -544,8 +573,18 @@ export class ExperienceFrames {
       if (!frame.suspended) this.post(frame, { type: GENERATION_MESSAGE, generation });
   }
 
-  private painted(frame: Frame, tabId: string, navigationId: string) {
-    const current = frame.pages.get(tabId)?.navigationId === navigationId;
+  /** Records a phase once per frame or navigation, as time since its clock started. */
+  private mark(frame: Frame, clock: PhaseClock, mark: ExperienceMark, at: number) {
+    if (clock.marked.has(mark)) return;
+    clock.marked.add(mark);
+    recordExperiencePhase(frame.experienceKey, mark, at - clock.startedAt);
+  }
+
+  private painted(frame: Frame, tabId: string, navigationId: string, at: number) {
+    const page = frame.pages.get(tabId);
+    const current = page?.navigationId === navigationId;
+
+    if (page && current) this.mark(frame, page, "location-painted", at);
 
     if (
       !current ||
@@ -588,11 +627,17 @@ export class ExperienceFrames {
 
         return;
       case "location-rendered":
-        this.painted(frame, request.tabId, request.navigationId);
+        this.painted(frame, request.tabId, request.navigationId, request.at);
+
+        return;
+      case "phase":
+        // A page's mark counts only while its navigation is current.
+        if (stamp.tabId === undefined) this.mark(frame, frame, request.phase, request.at);
+        else if (page && page.navigationId === stamp.navigationId)
+          this.mark(frame, page, request.phase, request.at);
 
         return;
       case "rendered":
-      case "phase":
         return;
       default:
         break;

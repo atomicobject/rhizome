@@ -8,6 +8,7 @@ import {
   type ClientBatch,
   type RouteKind,
 } from "./clientMetrics";
+import { takeExperiences } from "./experienceMetrics";
 import { observeRefetches } from "./refreshChurn";
 
 export const CLIENT_DIAGNOSTICS_URL = "/api/v1/diagnostics/client";
@@ -62,7 +63,10 @@ export function startClientDiagnostics(queryClient: QueryClient): () => void {
   const visible = () => document.visibilityState === "visible";
 
   const flush = () => {
-    const batch = takeBatch({ ...identity, route: routeKind(window.location.pathname) });
+    const batch = takeBatch(
+      { ...identity, route: routeKind(window.location.pathname) },
+      takeExperiences(),
+    );
 
     if (batch) send(batch);
   };
