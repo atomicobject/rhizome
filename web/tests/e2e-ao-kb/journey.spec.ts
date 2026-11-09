@@ -322,6 +322,8 @@ test("claim prose, registry links, review defaults, and incoming impact stay rea
     /note=assertions%2Freminders-twenty-four-hours.md/,
   );
   await expect(winner).not.toContainText("[[");
+  // A read still in flight when the test ends would throw into the next test from route.fetch.
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
 test("saved band counts exclude claims absent from the snapshot", async ({ page }) => {
