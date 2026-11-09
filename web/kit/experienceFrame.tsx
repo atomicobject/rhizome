@@ -282,6 +282,13 @@ export function createExperienceFrame(options: FrameOptions) {
     const others = leaving(state.pages).filter((each) => each.tabId !== tabId);
     publish({ pages: retain([...others, page], tabId), activeTabId: tabId, suspended: false });
 
+    // Each navigation gets its module-loaded mark; a module already loaded marks it at once.
+    const { binding } = page;
+    page.load().then(
+      () => postPhase("module-loaded", binding),
+      () => undefined,
+    );
+
     // A page shown again refetches only what is behind the generation.
     if (showing) generation.schedule();
   };

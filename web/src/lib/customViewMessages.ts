@@ -143,8 +143,9 @@ export const LOCATION_ACCEPT_TIMEOUT_MS = 1000;
 
 /**
  * Startup phases, as epoch milliseconds (`performance.timeOrigin +
- * performance.now()`) so host and frame clocks compare. `shell-start` and
- * `module-loaded` for the shell's own view are frame-wide; the rest name a page.
+ * performance.now()`) so host and frame clocks compare. `shell-start` is
+ * frame-wide, as is a single-view frame's `module-loaded`; in an experience or
+ * panel frame every other mark names a page.
  */
 export type ExperiencePhase = "shell-start" | "module-loaded" | "first-render" | "data-ready";
 

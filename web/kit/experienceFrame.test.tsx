@@ -1,165 +1,27 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen } from "@testing-library/react";
-import { useState, useSyncExternalStore, type ComponentType } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, screen } from "@testing-library/react";
+import { useState, useSyncExternalStore } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   CLOSE_PAGE_MESSAGE,
   LOCATION_ACCEPTED_MESSAGE,
-  LOCATION_MESSAGE,
   LOCATION_RENDERED_MESSAGE,
-  PANEL_TAB_ID,
   PHASE_MESSAGE,
   RESUME_MESSAGE,
   SUSPEND_MESSAGE,
-  type HostMessage,
-  type ViewMessage,
+  VAULT_EVENT_MESSAGE,
 } from "../src/lib/customViewMessages";
-import { VAULT_EVENT_MESSAGE } from "../src/lib/customViewMessages";
-import { graphQLRequestBody, jsonReply, withFakeFetch } from "../src/test/fakeFetch";
-import { useGraphQL } from "./index";
-import type { ViewContext } from "../src/views/context";
-import type { ViewParamDeclaration, ViewParams } from "../src/views/params";
+import { graphQLRequestBody, jsonReply } from "../src/test/fakeFetch";
+import type { ViewParamDeclaration } from "../src/views/params";
 import { useActionQuery } from "./actions";
-import { shareResponse } from "./coverage";
-import {
-  ExperiencePages,
-  RETAINED_PAGES,
-  createExperienceFrame,
-  markReady,
-  type ExperienceFrame,
-} from "./experienceFrame";
-import { connectFreshness } from "./freshness";
-import { createFrameGeneration, type FrameGeneration } from "./generation";
-import { useViewPreference } from "./preferences";
+import { RETAINED_PAGES, markReady } from "./experienceFrame";
+import { Subject, record, withExperienceFrame } from "./experienceFrameHarness";
+import { useGraphQL } from "./index";
 import type { ViewModule } from "./startView";
-import {
-  getViewInvocation,
-  useViewActive,
-  useViewConfiguration,
-  useViewContext,
-} from "./viewContext";
-import { getViewParams, useViewLocation, useViewParams } from "./viewParams";
+import { getViewInvocation, useViewActive, useViewContext } from "./viewContext";
+import { getViewParams, useViewParams } from "./viewParams";
 
-const http = withFakeFetch();
-
-let posted: ViewMessage[];
-
-let frame: ExperienceFrame;
-
-let generation: FrameGeneration;
-
-let stops: Array<() => void>;
-
-let modules: Record<string, () => Promise<ViewModule>>;
-
-beforeEach(() => {
-  posted = [];
-  stops = [];
-  modules = {};
-  vi.spyOn(window, "postMessage").mockImplementation((message: ViewMessage) => {
-    posted.push(message);
-  });
-});
-
-afterEach(() => {
-  for (const stop of stops) stop();
-  vi.useRealTimers();
-});
-
-const viewModule = (View: ComponentType): (() => Promise<ViewModule>) => {
-  const module: Promise<ViewModule> = Promise.resolve({ default: () => <View /> });
-
-  return () => module;
-};
-
-function start(
-  views: Record<string, ComponentType>,
-  loaders: Record<string, () => Promise<ViewModule>> = {},
-) {
-  for (const [id, view] of Object.entries(views)) modules[id] = viewModule(view);
-
-  Object.assign(modules, loaders);
-
-  generation = createFrameGeneration();
-  frame = createExperienceFrame({
-    shellView: { id: "shell", name: "Shell" },
-    shellLoad: viewModule(() => null),
-    loadFailureDetail: async (error) => error.message,
-    generation,
-    importModule: (entry) => modules[entry](),
-  });
-
-  const client = new QueryClient({
-    defaultOptions: {
-      queries: { staleTime: Infinity, retry: false, structuralSharing: shareResponse },
-    },
-  });
-
-  stops.push(connectFreshness(client, { hosted: true, generation }), frame.stop, generation.stop);
-  render(
-    <QueryClientProvider client={client}>
-      <ExperiencePages frame={frame} />
-    </QueryClientProvider>,
-  );
-
-  return client;
-}
-
-const host = (data: HostMessage) =>
-  act(async () => {
-    window.dispatchEvent(
-      new MessageEvent("message", { source: window, origin: window.location.origin, data }),
-    );
-    await Promise.resolve();
-  });
-
-type Location = {
-  view: string;
-  context?: ViewContext;
-  params?: ViewParams;
-  declarations?: ViewParamDeclaration[];
-  generation?: string;
-  configuration?: { [key: string]: string };
-};
-
-const locate = (tabId: string, navigationId: string, location: Location) =>
-  host({
-    type: LOCATION_MESSAGE,
-    tabId,
-    navigationId,
-    params: location.params ?? {},
-    generation: location.generation,
-    invocation: {
-      view: { id: location.view, name: location.view, origin: "repository", experienceKey: "x" },
-      context: location.context ?? { kind: "standalone" },
-      configuration: location.configuration ?? {},
-      params: location.declarations ?? [],
-      vaultKey: "test-vault",
-      entry: location.view,
-    },
-  });
-
-const record = (path: string): ViewContext => ({
-  kind: "node",
-  type: "Spec",
-  ref: { notePath: path, kind: "NOTE" },
-});
-
-const sent = (type: string) => posted.filter((message) => message.type === type);
-
-function Subject() {
-  const context = useViewContext();
-  const location = useViewLocation();
-  const configuration = useViewConfiguration();
-  const label = context.kind === "node" ? context.ref.notePath : context.kind;
-
-  return (
-    <p data-testid={`page-${location.tabId}`}>
-      {label} {String(configuration?.title ?? "")}
-    </p>
-  );
-}
+const { http, start, host, locate, sent } = withExperienceFrame();
 
 describe("per-page bindings", () => {
   it("keeps each hidden page on its own location when it re-renders", async () => {
@@ -210,9 +72,15 @@ describe("per-page bindings", () => {
     expect(sent(LOCATION_RENDERED_MESSAGE)).toMatchObject([
       { tabId: "tab-1", navigationId: "n-1" },
     ]);
-    expect(
-      sent(PHASE_MESSAGE).map((message) => message.type === PHASE_MESSAGE && message.phase),
-    ).toEqual(expect.arrayContaining(["first-render", "data-ready"]));
+    const phases = ["module-loaded", "first-render", "data-ready"];
+    expect(sent(PHASE_MESSAGE)).toHaveLength(phases.length);
+    expect(sent(PHASE_MESSAGE)).toEqual(
+      expect.arrayContaining(
+        phases.map((phase) =>
+          expect.objectContaining({ phase, tabId: "tab-1", navigationId: "n-1" }),
+        ),
+      ),
+    );
   });
 
   it("drops a slow page's module when its tab moves on before it loads", async () => {
@@ -309,7 +177,7 @@ describe("activation and replacement", () => {
   });
 
   it(`keeps at most ${RETAINED_PAGES} hidden pages and drops the least recently shown`, async () => {
-    start({ record: Subject });
+    const { frame } = start({ record: Subject });
 
     for (let tab = 0; tab <= RETAINED_PAGES + 1; tab += 1)
       await locate(`tab-${tab}`, `n-${tab}`, { view: "record", context: record(`${tab}.md`) });
@@ -342,7 +210,12 @@ describe("hidden pages and suspended frames", () => {
     http.on("POST", "/api/v1/actions/module/status", () =>
       jsonReply({ status: "ok", result: "up" }),
     );
-    start({ a: () => <Polling label="a" />, b: () => <Polling label="b" /> });
+
+    const { generation } = start({
+      a: () => <Polling label="a" />,
+      b: () => <Polling label="b" />,
+    });
+
     await locate("tab-a", "n-a", { view: "a" });
     await act(() => vi.advanceTimersByTimeAsync(10));
     await locate("tab-b", "n-b", { view: "b" });
@@ -414,89 +287,5 @@ describe("reads in retained pages", () => {
     await act(() => vi.advanceTimersByTimeAsync(200));
     expect([reads("a"), reads("b")]).toEqual([2, 2]);
     expect(screen.getByTestId("b").textContent).toBe("G1");
-  });
-});
-
-describe("the panel page", () => {
-  it("keeps one component across subjects with a new navigation each time", async () => {
-    function Panel() {
-      const [notes, setNotes] = useState("");
-      const context = useViewContext();
-
-      return (
-        <label>
-          {context.kind === "node" ? context.ref.notePath : context.kind}
-          <input value={notes} onChange={(event) => setNotes(event.target.value)} />
-        </label>
-      );
-    }
-
-    start({ panel: Panel });
-    await locate(PANEL_TAB_ID, "p-1", { view: "panel", context: record("a.md") });
-    await act(async () => {
-      const input = screen.getByRole("textbox");
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-      setter?.call(input, "kept");
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-
-    await locate(PANEL_TAB_ID, "p-2", { view: "panel", context: record("b.md") });
-    expect(screen.getByRole("textbox")).toHaveProperty("value", "kept");
-    expect(screen.getByText("b.md")).toBeTruthy();
-    expect(frame.state().pages[0]?.binding.navigationId).toBe("p-2");
-  });
-
-  it("renders a subject-independent read that was in flight across a subject change", async () => {
-    let answer: (response: Response) => void = () => undefined;
-    http.on(
-      "POST",
-      "/api/v1/actions/module/tree",
-      () => new Promise((resolve) => (answer = resolve)),
-    );
-
-    function Panel() {
-      const { data } = useActionQuery<string>("module/tree");
-      const context = useViewContext();
-
-      return (
-        <p>
-          {context.kind === "node" ? context.ref.notePath : ""} {data ?? "loading"}
-        </p>
-      );
-    }
-
-    start({ panel: Panel });
-    await locate(PANEL_TAB_ID, "p-1", { view: "panel", context: record("a.md") });
-    await locate(PANEL_TAB_ID, "p-2", { view: "panel", context: record("b.md") });
-    await act(async () => answer(jsonReply({ status: "ok", result: "tree" })));
-
-    expect((await screen.findByText(/tree/)).textContent).toContain("b.md");
-  });
-
-  it("scopes preferences to the panel's experience, not to the subject or the panel's view ID", async () => {
-    function Panel() {
-      const height = useViewPreference("height", {
-        defaultValue: 200,
-        validate: (value): value is number => Number.isFinite(value),
-      });
-
-      return <p>{String(height.value)}</p>;
-    }
-
-    start({ panel: Panel, renamed: Panel });
-    await locate(PANEL_TAB_ID, "p-1", { view: "panel", context: record("a.md") });
-    await locate(PANEL_TAB_ID, "p-2", { view: "panel", context: record("b.md") });
-    await screen.findByText("200");
-    await locate(PANEL_TAB_ID, "p-3", { view: "renamed", context: record("b.md") });
-    await screen.findByText("200");
-
-    const scopes = http
-      .requests("GET", "/api/v1/view-preferences")
-      .map((request) => JSON.parse(request.query.get("scope") ?? "{}"));
-
-    expect(scopes.length).toBeGreaterThan(0);
-    expect(new Set(scopes.map((scope) => JSON.stringify(scope)))).toEqual(
-      new Set([JSON.stringify({ viewId: "experience:x", context: { kind: "standalone" } })]),
-    );
   });
 });
