@@ -32,7 +32,7 @@ export * from "./preferences";
 
 export * from "./actions";
 
-export { markReady, RETAINED_PAGES } from "./experienceFrame";
+export { markReady, RETAINED_PAGES, useMarkReady } from "./experienceFrame";
 
 export { RecordPage, type RecordPageProps } from "./record-page";
 
@@ -48,6 +48,8 @@ export {
   openNote,
   openSearch,
   openView,
+  usePageNavigation,
+  type PageNavigation,
 } from "./navigation";
 
 export {
@@ -77,6 +79,7 @@ import {
   embedded,
   setFieldOp,
   useEditWriter,
+  type EditWriter,
   type FieldValue,
   type NodeTarget,
 } from "./editSession";
@@ -295,21 +298,27 @@ export function useSetField(readSession?: StagedSession) {
   const queryClient = useQueryClient();
   const writer = useEditWriter();
 
-  const mutation = useMutation<void, Error, { input: SetFieldInput; ops: OntologyEditOp[] }>({
-    mutationFn: ({ ops }) => writer.write(ops),
-    onSettled: () => {
+  const mutation = useMutation<
+    void,
+    Error,
+    { input: SetFieldInput; ops: OntologyEditOp[]; writer: EditWriter }
+  >({
+    mutationFn: ({ ops, writer }) => writer.write(ops),
+    onSettled: (_data, _error, { writer }) => {
       if (writer.target === "immediate") void queryClient.invalidateQueries();
     },
   });
 
-  // Capture the reader's lineage when invoked, before an async mutation or a
-  // workspace queue can outlive that reader's retained display result.
+  // Capture the reader's lineage and the page's writer when invoked, before an
+  // async mutation or a workspace queue can outlive that reader's retained
+  // display result, or the page's panel moves to another subject.
   const capture = (input: SetFieldInput) => ({
     input,
     ops: remapCommittedEditOps(
       [setFieldOp(input.target, input.field, input.value)],
       readSession?.refLineage ?? [],
     ),
+    writer,
   });
 
   const callbacks = (options?: SetFieldOptions): Parameters<typeof mutation.mutate>[1] =>

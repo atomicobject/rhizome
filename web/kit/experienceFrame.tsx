@@ -6,6 +6,7 @@ import {
   Activity,
   Suspense,
   use,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useSyncExternalStore,
@@ -34,6 +35,7 @@ import {
   activePageBinding,
   pageStamp,
   setActivePageBinding,
+  usePageBinding,
   type PageBinding,
 } from "./pageBinding";
 import type { ViewConfig, ViewModule } from "./startView";
@@ -89,17 +91,29 @@ export function postPhase(phase: ExperiencePhase, binding: PageBinding | null = 
 
 const readied = new Set<string>();
 
-/**
- * Call when the page's required reads have resolved. Telemetry uses it as the
- * page's data-ready mark; only the first call per navigation counts.
- */
-export function markReady() {
-  const binding = activePageBinding();
+function markPageReady(binding: PageBinding | null) {
   const key = binding ? `${binding.tabId}\n${binding.navigationId}` : "";
 
   if (readied.has(key)) return;
   readied.add(key);
   postPhase("data-ready", binding);
+}
+
+/**
+ * Call when the page's required reads have resolved. Telemetry uses it as the
+ * page's data-ready mark; only the first call per navigation counts. In an
+ * experience frame it marks the page on screen; components use `useMarkReady`
+ * to mark their own page.
+ */
+export function markReady() {
+  markPageReady(activePageBinding());
+}
+
+/** `markReady` bound to the page this component renders in, for async work that can finish while it is hidden. */
+export function useMarkReady() {
+  const binding = usePageBinding();
+
+  return useCallback(() => markPageReady(binding), [binding]);
 }
 
 // `use` needs the same promise on every render, so a failure is made once.

@@ -18,8 +18,8 @@ import {
 import type { JsonObject } from "../src/api/parse";
 import type { ViewContext } from "../src/views/context";
 import { embedded } from "./editSession";
-import { activePageBinding, pageStamp, usePageBinding } from "./pageBinding";
-import { getShellInvocation, getViewInvocation } from "./viewContext";
+import { activePageBinding, pageStamp, usePageBinding, type PageBinding } from "./pageBinding";
+import { getShellInvocation } from "./viewContext";
 
 export type {
   ViewParamDeclaration,
@@ -29,7 +29,9 @@ export type {
   ViewParamValue,
 } from "../src/views/params";
 
-const declarations = () => getViewInvocation().params ?? [];
+// The declarations of `page`, or of the document outside experience frames.
+const declarationsOf = (page: PageBinding | null) =>
+  (page?.invocation ?? getShellInvocation()).params ?? [];
 
 // The document's own params, from its URL; experience pages use their binding.
 const shellDeclarations = () => getShellInvocation().params ?? [];
@@ -154,16 +156,24 @@ export function useViewLocation(): ViewLocation {
 /**
  * Change declared params; `null` returns one to its default. A UI param adds a
  * history entry without remounting; an identity param remounts the view.
- * Throws when a name is not declared or a value does not match its kind.
+ * Throws when a name is not declared or a value does not match its kind. In an
+ * experience frame it changes the page on screen; components use
+ * `usePageNavigation().setViewParams` to change their own page's.
  */
 export function setViewParams(patch: ViewParamsPatch) {
-  const error = viewParamsPatchError(declarations(), patch);
+  setPageViewParams(activePageBinding(), patch);
+}
+
+/** `setViewParams` for `page`: checked against its declarations and stamped with it. */
+export function setPageViewParams(page: PageBinding | null, patch: ViewParamsPatch) {
+  const declarations = declarationsOf(page);
+  const error = viewParamsPatchError(declarations, patch);
 
   if (error) throw new Error(`setViewParams: ${error}`);
 
   if (embedded) {
     window.parent.postMessage(
-      { type: PARAMS_CHANGED_MESSAGE, params: patch, ...pageStamp() },
+      { type: PARAMS_CHANGED_MESSAGE, params: patch, ...pageStamp(page) },
       window.location.origin,
     );
 
@@ -171,7 +181,7 @@ export function setViewParams(patch: ViewParamsPatch) {
   }
 
   const url = new URL(window.location.href);
-  applyViewParamsPatch(declarations(), url.searchParams, patch);
+  applyViewParamsPatch(declarations, url.searchParams, patch);
   const next = read(url.searchParams);
 
   if (next.identity !== current().identity) {

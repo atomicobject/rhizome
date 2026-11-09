@@ -12,7 +12,7 @@ import { useValidationScopeSummaries } from "../src/components/useValidationScop
 import { kitQueryKeys } from "./freshness";
 import { parseDisplayGroups, parseTypeDocResponse } from "./schemaParse";
 import type { DisplayGroup, TypeDoc } from "./types";
-import { getViewContext } from "./viewContext";
+import { useViewContext } from "./viewContext";
 
 export { validationScopeKey } from "../src/components/useValidationScopeSummaries";
 
@@ -32,7 +32,7 @@ export function useDisplayGroups() {
  * for. `group` is null once loaded when no such group exists.
  */
 export function useDisplayGroup(name?: string) {
-  const context = getViewContext();
+  const context = useViewContext();
   const wanted = name ?? (context.kind === "group" ? context.group : undefined);
   const query = useDisplayGroups();
 

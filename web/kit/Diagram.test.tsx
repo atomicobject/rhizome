@@ -2,10 +2,11 @@ import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderDiagram } from "../src/components/markdown/mermaid";
 import { Diagram } from "./Diagram";
-import { openNode } from "./index";
+
+const openNode = vi.hoisted(() => vi.fn());
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- Observe note navigation without posting messages to the host.
-vi.mock("./index", () => ({ openNode: vi.fn() }));
+vi.mock("./navigation", () => ({ usePageNavigation: () => ({ openNode }) }));
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- Defer real Pele rendering to verify pending and stale updates.
 vi.mock("../src/components/markdown/mermaid", async (importOriginal) => {
