@@ -10,6 +10,7 @@ import type {
 import type { OpenMode } from "../components/useNoteTabs";
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import { CustomViewFrame } from "../components/CustomViewFrame";
+import { ExperiencePlaceholder, useExperienceLayer } from "../components/ExperienceFrameLayer";
 import { ViewPreferencesStatus } from "../components/ViewPreferencesStatus";
 import type { ViewPreferenceScope } from "../viewPreferences/types";
 import { NativeCollectionView } from "./NativeCollectionView";
@@ -101,12 +102,32 @@ export function ViewHost(
   },
 ) {
   const { choice, definition, context, active, services, renderers } = props;
+  const layer = useExperienceLayer();
 
   if (choice.renderer === "custom") {
     if (!definition)
       return <p role="alert">This view is unavailable. Choose another view to continue.</p>;
+    const experienceKey = choice.experienceKey ?? definition.experienceKey;
 
-    return active ? (
+    if (!active) return null;
+
+    // An experience's page renders in its experience's long-lived frame.
+    if (experienceKey && layer)
+      return (
+        <>
+          <PreferencesBar {...props} />
+          <ExperiencePlaceholder
+            layer={layer}
+            experienceKey={experienceKey}
+            view={definition}
+            context={context}
+            preferenceSlot={props.preferenceSlot}
+            services={services}
+          />
+        </>
+      );
+
+    return (
       <>
         <PreferencesBar {...props} />
         <CustomViewFrame
@@ -124,7 +145,7 @@ export function ViewHost(
           onOpenSearch={services.onOpenSearch}
         />
       </>
-    ) : null;
+    );
   }
 
   if (choice.renderer === "table" || choice.renderer === "card" || choice.renderer === "kanban") {

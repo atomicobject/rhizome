@@ -708,6 +708,37 @@
   visibility: hidden;
 }
 
+/* Experience frames (SPEC-0136 R2) live in one layer over the content area and
+   are laid over the active tab's placeholder; moving an iframe would reload it.
+   Hidden frames keep the active box's size so their pages keep their layout. */
+.experience-frame-layer {
+  position: absolute;
+  inset: 0;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.experience-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 0;
+  background: var(--bg);
+  visibility: hidden;
+}
+
+.experience-frame[data-shown] {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.experience-placeholder__status {
+  margin: var(--sp-6);
+  color: var(--muted);
+}
+
 .custom-view-frame {
   flex: 1;
   width: 100%;

@@ -665,6 +665,33 @@ export async function executePublicViewWithGeneration(
   return generation ? { data, generation } : { data };
 }
 
+/**
+ * The invocation an experience or panel frame renders a view with (SPEC-0136
+ * R2), and the index generation it was built at.
+ */
+export async function getViewInvocation(
+  id: string,
+  context: { kind: string },
+  options: RequestOptions & { preferenceSlot?: string } = {},
+): Promise<{ invocation: JsonObject; generation?: string }> {
+  const query = new URLSearchParams({ hosted: "1" });
+
+  if (context.kind !== "standalone" || "view" in context)
+    query.set("context", JSON.stringify(context));
+
+  if (options.preferenceSlot) query.set("preferenceSlot", options.preferenceSlot);
+  const url = `/api/v1/views/${encodeURIComponent(id)}/invocation?${query}`;
+  const init = requestInit(options);
+  const res = await fetchWithRetryAfter(url, init);
+
+  if (!res.ok) throw await apiErrorFromResponse(res, url, init?.signal);
+
+  const generation = res.headers?.get?.("Rhizome-Generation") ?? undefined;
+  const invocation = await parseJSONResponse<JsonObject>(res, url, init?.signal);
+
+  return generation ? { invocation, generation } : { invocation };
+}
+
 /** Writes view state to view YAML (SPEC-0112); 400 for an invalid result, 409 for a stale fingerprint. */
 export function savePublicView(id: string, body: ViewSaveRequest) {
   return postJSON<ViewSaveRequest, ViewSaveResponse>(
