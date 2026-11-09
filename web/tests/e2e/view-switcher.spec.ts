@@ -79,3 +79,53 @@ test("the switcher shows custom views first and moves what does not fit into Mor
     workspaceView(page).getByRole("button", { name: "Table", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
 });
+
+// The Other view demo note (fixtures/unified-views) has three custom node views.
+const noteChoices = [
+  "Evidence map",
+  "Review checklist",
+  "Delivery timeline",
+  "Structure",
+  "Markdown",
+];
+
+test("the note bar keeps one line and moves the views that do not fit into More", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto(`/notes?note=${encodeURIComponent("notes/view-demo/other.md")}`);
+
+  const bar = page.locator(".ontology-pane__controls:visible");
+
+  await expect.poll(() => labels(page)).toEqual(noteChoices);
+  await screenshot(page, "note-wide");
+
+  await page.setViewportSize({ width: 860, height: 900 });
+
+  const more = workspaceView(page).locator("[aria-haspopup=menu]");
+
+  await expect(more).toBeVisible();
+
+  const shown = await labels(page);
+
+  expect(shown.slice(0, -1)).toEqual(noteChoices.slice(0, shown.length - 1));
+
+  // One line: the switcher and Copy link share a row inside the bar.
+  const row = (await bar.boundingBox())!;
+  const switcher = (await workspaceView(page).boundingBox())!;
+  const copy = (await bar.getByRole("button", { name: "Copy link" }).boundingBox())!;
+
+  expect(row.height).toBeLessThan(48);
+  expect(Math.abs(switcher.y + switcher.height / 2 - (copy.y + copy.height / 2))).toBeLessThan(2);
+  expect(copy.x + copy.width).toBeLessThanOrEqual(row.x + row.width);
+  await screenshot(page, "note-narrow");
+
+  await more.click();
+  // Structure is the note's default, so its menu item also says "Default".
+  await expect(page.getByRole("menuitemradio")).toHaveText(
+    noteChoices.slice(shown.length - 1).map((name) => new RegExp(`^${name}`)),
+  );
+  await page.getByRole("menuitemradio", { name: "Markdown", exact: true }).click();
+  await expectView(page, "Markdown");
+  await screenshot(page, "note-narrow-selected");
+});

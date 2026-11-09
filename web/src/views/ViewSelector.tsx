@@ -105,6 +105,54 @@ function outerWidth(element: HTMLElement | null) {
   return width(element) + px(style.marginLeft) + px(style.marginRight);
 }
 
+/**
+ * The width the switcher may take. In a flex row it is the row's content
+ * width less what the row's other items cannot give up: a flexible item with a
+ * declared minimum (the note bar's path) gives up everything above it, a
+ * growing one gives up all of it, and any other item keeps its width. None of
+ * this depends on what the switcher shows, so it never measures itself into
+ * the menu.
+ */
+function roomFor(root: HTMLElement) {
+  const row = root.parentElement;
+  const style = row && getComputedStyle(row);
+
+  if (!row || !style?.display.endsWith("flex") || style.flexDirection.startsWith("column"))
+    return width(root);
+
+  const items = [...row.children].filter((item) => {
+    const itemStyle = getComputedStyle(item);
+
+    return itemStyle.display !== "none" && !["absolute", "fixed"].includes(itemStyle.position);
+  });
+
+  const kept = items.reduce((sum, item) => {
+    if (item === root) return sum;
+    const itemStyle = getComputedStyle(item);
+    const grows = px(itemStyle.flexGrow) > 0;
+    const flexible = grows || px(itemStyle.flexShrink) > 0;
+
+    const least =
+      flexible && itemStyle.minWidth.endsWith("px")
+        ? px(itemStyle.minWidth)
+        : grows
+          ? 0
+          : width(item);
+
+    return sum + least + px(itemStyle.marginLeft) + px(itemStyle.marginRight);
+  }, 0);
+
+  return (
+    width(row) -
+    px(style.paddingLeft) -
+    px(style.paddingRight) -
+    px(style.borderLeftWidth) -
+    px(style.borderRightWidth) -
+    px(style.columnGap) * (items.length - 1) -
+    kept
+  );
+}
+
 /** Persistence state of the remembered selection, from `useViewSelection`. */
 export type ViewSelectionStatus = {
   pending: boolean;
@@ -136,10 +184,7 @@ export function ViewSelector({
   // Fixed placement escapes toolbars that clip their overflow.
   const [menuPlace, setMenuPlace] = useState<{ top: number; right: number } | null>(null);
   const [focusKey, setFocusKey] = useState<string | null>(null);
-  // How many choices fit inline, for the choice list it was measured with: a
-  // switcher sized by its content (the note bar's) never measures itself
-  // smaller than what it shows, so a new list starts with every choice inline.
-  const [fit, setFit] = useState<{ ids: string; count: number } | null>(null);
+  const [fit, setFit] = useState(Number.POSITIVE_INFINITY);
   const rootRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
@@ -162,8 +207,7 @@ export function ViewSelector({
     ...choices.filter((choice) => !choice.custom),
   ];
 
-  const ids = ordered.map((choice) => choice.id).join("\n");
-  const count = fit?.ids === ids ? fit.count : ordered.length;
+  const count = Math.min(fit, ordered.length);
   const inline = ordered.slice(0, count);
   const overflow = ordered.slice(count);
   const open = menuPlace !== null && overflow.length > 0;
@@ -179,7 +223,7 @@ export function ViewSelector({
     const next = inlineCount(widths, {
       gap: px(style.columnGap),
       available:
-        width(rootRef.current) -
+        roomFor(rootRef.current) -
         outerWidth(trailingRef.current) -
         outerWidth(statusRef.current) -
         px(style.paddingLeft) -
@@ -194,7 +238,7 @@ export function ViewSelector({
     if (next === count) return;
     // Removing the focused choice drops focus; the next render restores it.
     refocus.current = rootRef.current.contains(document.activeElement);
-    setFit({ ids, count: next });
+    setFit(next);
   };
 
   useLayoutEffect(() => {
@@ -208,13 +252,32 @@ export function ViewSelector({
     measureRef.current();
   });
 
+  // Re-measure when the row, an item in it, the choices' widths, or the
+  // trailing controls change size, and when the row gains or loses an item.
   useEffect(() => {
-    const observer = new ResizeObserver(() => measureRef.current());
+    const row = rootRef.current?.parentElement;
+    const resizes = new ResizeObserver(() => measureRef.current());
 
-    for (const element of [rootRef.current, rulerRef.current, trailingRef.current])
-      if (element) observer.observe(element);
+    const observe = () => {
+      resizes.disconnect();
 
-    return () => observer.disconnect();
+      for (const element of [row, ...(row?.children ?? []), rulerRef.current, trailingRef.current])
+        if (element) resizes.observe(element);
+    };
+
+    const mutations = new MutationObserver(() => {
+      observe();
+      measureRef.current();
+    });
+
+    observe();
+
+    if (row) mutations.observe(row, { childList: true });
+
+    return () => {
+      resizes.disconnect();
+      mutations.disconnect();
+    };
   }, [switcher, Boolean(trailing), Boolean(status?.error)]);
 
   useEffect(() => {

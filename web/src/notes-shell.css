@@ -1122,14 +1122,12 @@
   }
 }
 
-/* View switcher: custom views, then standard ones, as many inline as fit and
-   the rest behind "More". It takes its row's free width, which is what it
-   measures; a bar that sizes it to its content (the note bar) keeps every
-   choice inline and wraps instead. */
+/* View switcher: custom views, then standard ones, as many inline as fit the
+   room its row leaves it and the rest behind "More" (ViewSelector measures). */
 .view-selector {
   position: relative;
   display: flex;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
 }
 

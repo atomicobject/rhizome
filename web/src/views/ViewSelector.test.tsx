@@ -40,6 +40,8 @@ function widthOf(element: Element) {
 
   if (element.classList.contains("view-selector__trailing")) return trailingWidth;
 
+  if (element.getAttribute("data-width")) return Number(element.getAttribute("data-width"));
+
   if (element.tagName === "BUTTON" && element.closest(".view-selector__ruler"))
     return 10 * (element.textContent?.length ?? 0) + 20;
 
@@ -252,6 +254,47 @@ describe("ViewSelector", () => {
     expect(screen.getByRole("menuitemradio", { name: "Cards" })).toHaveAttribute(
       "aria-checked",
       "true",
+    );
+  });
+
+  it("measures the room its row leaves it, past a path that gives way to its minimum", () => {
+    rootWidth = 2000;
+    const timeline: ViewChoice = { ...dashboard, id: "timeline", name: "Timeline" };
+
+    const choices: ViewChoice[] = [
+      { id: "read", name: "Structure", renderer: "read" },
+      { id: "source", name: "Markdown", renderer: "source" },
+      dashboard,
+      active,
+      timeline,
+    ];
+
+    // A note bar: 700 wide, a path at 300 that may shrink to 80, and Copy link at 100.
+    render(
+      <div data-width="700" style={{ display: "flex" }}>
+        <span data-width="300" style={{ flex: "1 1 0", minWidth: "80px" }} />
+        <ViewSelector
+          target={{ choices, defaultChoiceId: "read" }}
+          selectedId="read"
+          onSelect={vi.fn()}
+        />
+        <button type="button" data-width="100" style={{ flex: "none" }}>
+          Copy link
+        </button>
+      </div>,
+    );
+
+    // 700 - 80 - 100 = 520. Structure, the selected view, falls in the menu and names
+    // the trigger (110); Dashboard 110 + Active 220 + Timeline 100 + 110 is 540, so
+    // Timeline joins it there.
+    expect(labels(screen.getByRole("toolbar"))).toEqual([
+      "Dashboard",
+      "Active ideas · Table",
+      "Structure",
+    ]);
+    expect(screen.getByRole("button", { name: "Structure" })).toHaveAttribute(
+      "aria-haspopup",
+      "menu",
     );
   });
 
