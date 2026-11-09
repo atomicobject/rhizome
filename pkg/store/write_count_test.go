@@ -2,9 +2,12 @@ package store
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"testing"
 
 	anchors "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,10 +32,71 @@ func TestWriteCountAdvancesForEveryWritePath(t *testing.T) {
 		{"validation run", func() error { _, err := store.SetValidationRunning(ctx); return err }},
 	}
 	for _, tc := range cases {
-		before := WriteCount()
+		before := WriteSequence()
 		require.NoError(t, tc.write(), tc.name)
-		require.Greater(t, WriteCount(), before, tc.name)
+		after := WriteSequence()
+		require.NotEqual(t, before, after, tc.name)
+		require.False(t, WritesOpen(after), tc.name)
 	}
+}
+
+// The sequence shows a write as open from before its transaction runs until
+// after it commits, so no reader can pair a committed write with the
+// sequence value from before it (SPEC-0136 R4).
+func TestWriteSequenceIsOpenUntilTheWriteHasCommitted(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(currentSchemaTestDBPath(t, "write-sequence.db"))
+	require.NoError(t, err)
+	defer func() { _ = store.Close() }()
+
+	before := WriteSequence()
+	require.False(t, WritesOpen(before))
+	var inside uint64
+	require.NoError(t, store.withWriteTx(ctx, func(tx *sql.Tx) error {
+		inside = WriteSequence()
+		_, err := tx.ExecContext(ctx, `UPDATE validation_state SET generation = generation`)
+		return err
+	}))
+	after := WriteSequence()
+	require.True(t, WritesOpen(inside), "a write is open while its transaction runs")
+	require.NotEqual(t, before, inside)
+	require.False(t, WritesOpen(after))
+	require.NotEqual(t, inside, after)
+	require.NotEqual(t, before, after)
+
+	// A failed write still closes.
+	require.Error(t, store.withWrite(ctx, func(context.Context, *sql.DB) error { return errors.New("boom") }))
+	require.False(t, WritesOpen(WriteSequence()))
+}
+
+// A commit through a connection the sequence cannot see (another process)
+// still moves the data version.
+func TestDataVersionMovesForACommitOnAnotherConnection(t *testing.T) {
+	ctx := context.Background()
+	path := currentSchemaTestDBPath(t, "data-version.db")
+	store, err := Open(path)
+	require.NoError(t, err)
+	defer func() { _ = store.Close() }()
+	version, err := store.OpenDataVersion(ctx)
+	require.NoError(t, err)
+	defer func() { _ = version.Close() }()
+
+	first, err := version.Read(ctx)
+	require.NoError(t, err)
+	again, err := version.Read(ctx)
+	require.NoError(t, err)
+	require.Equal(t, first, again, "nothing committed")
+
+	other, err := sqliteutil.OpenDSN(sqliteutil.DSN(path), sqliteutil.Options{MaxOpenConns: 1})
+	require.NoError(t, err)
+	defer func() { _ = other.Close() }()
+	sequence := WriteSequence()
+	_, err = other.ExecContext(ctx, `CREATE TABLE other_process (id INTEGER); INSERT INTO other_process VALUES (1)`)
+	require.NoError(t, err)
+	require.Equal(t, sequence, WriteSequence(), "the write bypassed the store")
+	moved, err := version.Read(ctx)
+	require.NoError(t, err)
+	require.NotEqual(t, first, moved)
 }
 
 func TestValidationGenerationReadsTheRunCounter(t *testing.T) {
