@@ -25,6 +25,8 @@ export function runCompilerCheck(root) {
 
 /** Read the policy's block sources and scalar path lists; uncertain YAML certifies no ownership. */
 export function ownedPatterns(text) {
+  // A Windows checkout (core.autocrlf) or editor can write CRLF; `$` would not match before `\r`.
+  text = text?.replace(/\r\n/g, '\n');
   if ((text?.match(/^sources:[ \t]*$/gm) || []).length !== 1) return [];
   let ownerIndent;
   for (const line of text.split('\n')) {

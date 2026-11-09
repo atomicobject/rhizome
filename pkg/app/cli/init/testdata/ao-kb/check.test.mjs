@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { check } from '../../templates/starters/ao-kb/module/scripts/check.mjs';
-import { globMatch, runCompilerCheck } from '../../templates/starters/ao-kb/module/scripts/lib/bindings-check.mjs';
+import { globMatch, ownedPatterns, runCompilerCheck } from '../../templates/starters/ao-kb/module/scripts/lib/bindings-check.mjs';
 
 // The compiler's report on a fresh install: dependencies present, no product selected yet.
 const unselected = () => ({ starterInstalled: true, bindingsReady: false, indexReady: false, status: 'missing',
@@ -224,6 +224,12 @@ test('ownership patterns match like the declaration', () => {
   assert.ok(globMatch('decisions.md', 'DECISIONS.md'), 'case-insensitive like the server');
   assert.ok(!globMatch('artifacts/**', 'notes/artifacts.md'));
   assert.ok(!globMatch('**.md', 'assertions/note.md'), 'globstar is recursive only as a whole path segment');
+});
+
+test('ownership reads a CRLF declaration like an LF one', () => {
+  const lf = 'sources:\n  - owner: AO KB\n    reason: Managed by AO KB.\n    paths:\n      - assertions/**\n      - .kb/**\n';
+  assert.deepEqual(ownedPatterns(lf), ['assertions/**', '.kb/**']);
+  assert.deepEqual(ownedPatterns(lf.replace(/\n/g, '\r\n')), ownedPatterns(lf));
 });
 
 test('a missing compiler is an error, not a ready result', t => {
