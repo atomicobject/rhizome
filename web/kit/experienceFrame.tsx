@@ -42,7 +42,13 @@ import type { ViewConfig, ViewModule } from "./startView";
 import { parseViewInvocation } from "./viewContext";
 import { ViewErrorBoundary } from "./viewRoot";
 
-/** P: how many hidden pages a frame keeps mounted; the least recently shown beyond it are dropped. */
+/**
+ * P: how many hidden pages a frame keeps mounted; the least recently shown beyond it are dropped.
+ * Measured on 2026-11-09 under SPEC-0136 R3's 150 MB budget (Chromium through Playwright, the
+ * largest real AO KB): each retained assertion page adds under 1 MB of JS heap once pages share
+ * their frame's data, and a frame with all eight retained holds 34 MB over the shell, most of
+ * it the whole-KB reads every page shares. The window total is bounded by K (RETAINED_FRAMES).
+ */
 export const RETAINED_PAGES = 8;
 
 type Page = {

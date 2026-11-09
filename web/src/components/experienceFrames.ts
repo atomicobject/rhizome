@@ -54,8 +54,17 @@ import {
   type Session,
 } from "./experienceFrameRecords";
 
-/** K: how many suspended frames the window keeps; the least recently shown beyond it are destroyed. */
-export const RETAINED_FRAMES = 4;
+/**
+ * K: how many suspended frames the window keeps; the least recently shown beyond it are destroyed.
+ * Set from measurement under SPEC-0136 R3's 150 MB retained-heap budget on 2026-11-09, in Chromium
+ * through Playwright (the desktop webview could not be driven from the harness, and experience
+ * frames do not yet show in Playwright's WebKit): the largest real AO KB (1,195 records), five
+ * Knowledge-sized experiences each holding the KB overview, a concept, the Assertions list, and
+ * eight assertion pages. Retained JS heap after GC: 8 MB with no experience, 38 MB with one frame,
+ * about 28 MB per further frame, and 100 to 103 MB steady at K = 3 as frames are evicted; K = 4
+ * measured 128 MB before eviction. Three leaves room for WebKit's unmeasured overhead.
+ */
+export const RETAINED_FRAMES = 3;
 
 type Options = {
   fetchInvocation: (showing: ExperienceShowing) => Promise<Invocation>;
