@@ -1,7 +1,7 @@
 // The source page's site parts (SPEC-0135 US2, US3): the "Open in source" target named by the
 // `assertion` param, the source note with the paragraph that links the assertion, where the
 // source sits, and the assertions extracted from it kept apart from those that cite it.
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Section, SectionBody, sectionStatus, useGraphQL, useMarkReady } from "@rhizome/kit";
@@ -133,12 +133,20 @@ export function SourceNote({
 }) {
   const row = target && "row" in target ? target.row : undefined;
   const mark = row?.state === "linked" ? row.paragraph : -1;
+  // This page's own mark: another tab's retained source page holds one too.
+  const marked = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (mark >= 0) document.getElementById("ak-body-mark")?.scrollIntoView({ block: "center" });
+    if (mark >= 0) marked.current?.scrollIntoView({ block: "center" });
   }, [mark]);
   return (
     <Section title="Source note">
-      <Body text={noteBody(content)} site={site} mark={mark} markLabel={LINKED_HERE} />
+      <Body
+        text={noteBody(content)}
+        site={site}
+        mark={mark}
+        markLabel={LINKED_HERE}
+        markRef={marked}
+      />
     </Section>
   );
 }

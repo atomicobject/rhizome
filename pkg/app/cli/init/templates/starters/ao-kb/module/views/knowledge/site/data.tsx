@@ -2,7 +2,7 @@
 // kit's cached reads, the site library built once per result, and the small pieces every
 // page uses to name what it read and where a link goes.
 import { useMemo } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   NodeLink,
@@ -265,11 +265,14 @@ export function Body({
   site,
   mark = -1,
   markLabel,
+  markRef,
 }: {
   text: string;
   site?: Site;
   mark?: number;
   markLabel?: string;
+  /** The marked paragraph, so its page can scroll to it without a document-wide lookup. */
+  markRef?: Ref<HTMLDivElement>;
 }) {
   const resolve = useResolve(site);
   const blocks = paragraphs(text);
@@ -306,7 +309,7 @@ export function Body({
         );
         if (i !== mark) return <div key={i}>{content}</div>;
         return (
-          <div key={i} className="ak-body-mark" id="ak-body-mark">
+          <div key={i} className="ak-body-mark" ref={markRef}>
             <span className="ak-body-mark-label">{markLabel}</span>
             {content}
           </div>
