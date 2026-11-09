@@ -27,7 +27,7 @@ written:
   .agents/skills/compounding/references/models.md: ba80e96ccd08f5db
   .agents/skills/custom-views/SKILL.md: 2b586c100b84f1ee
   .agents/skills/custom-views/references/example.md: 6c1e54b739c646b9
-  .agents/skills/custom-views/references/kit-api.md: 1e0d3ef9032a6842
+  .agents/skills/custom-views/references/kit-api.md: dbac010ebb4bc43c
   .agents/skills/custom-views/references/module-example.md: 0bcc51feb1c7416c
   .agents/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
   .agents/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
@@ -82,7 +82,7 @@ written:
   .claude/skills/compounding/references/models.md: ba80e96ccd08f5db
   .claude/skills/custom-views/SKILL.md: 2b586c100b84f1ee
   .claude/skills/custom-views/references/example.md: 6c1e54b739c646b9
-  .claude/skills/custom-views/references/kit-api.md: 1e0d3ef9032a6842
+  .claude/skills/custom-views/references/kit-api.md: dbac010ebb4bc43c
   .claude/skills/custom-views/references/module-example.md: 0bcc51feb1c7416c
   .claude/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
   .claude/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0

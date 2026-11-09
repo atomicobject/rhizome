@@ -17,9 +17,21 @@ export type PublicNodeRef = {
   typeName?: string | null;
 };
 
+/** How completely one generated typed root was read, as `extensions.typedRoots[alias]`. */
+export type PublicTypedRootCoverage = {
+  requestedFirst: number;
+  returnedCount: number;
+  offset: number;
+  hasMore: boolean | null;
+  nextOffset: number | null;
+  /** `complete`, `capped`, `unknown_page_bound`, or `unknown_candidate_bound`. */
+  status: string;
+};
+
 export type PublicGraphQLResult<TData> = {
   data?: TData;
   errors?: PublicGraphQLError[];
+  extensions?: { typedRoots?: Record<string, PublicTypedRootCoverage> } & JsonObject;
 };
 
 type PublicNodeLocator = {

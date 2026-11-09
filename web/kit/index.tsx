@@ -14,6 +14,7 @@ import { createRoot } from "react-dom/client";
 import { executePublicView, queryPublicGraphQLOperation } from "../src/api/client";
 import type { JsonObject } from "../src/api/parse";
 import type { PublicGraphQLError } from "../src/api/publicGraphQLTypes";
+import { recordCoverage, typedRootCoverage } from "./coverage";
 import type { OntologyEditOp, ViewExecuteRequest, ViewExecuteResponse } from "../src/api/types";
 import { remapCommittedEditOps } from "../src/components/editing/editSessionState";
 import {
@@ -128,6 +129,8 @@ export type { ViewConfig, ViewModule } from "./startView";
 
 export { OPEN_NOTE_MESSAGE };
 
+export { typedRootCoverage, type TypedRootCoverage } from "./coverage";
+
 /** Run a read-only GraphQL query against the vault. Throws on GraphQL errors. */
 export function graphql<TData>(query: string, variables?: JsonObject): Promise<TData> {
   return readGraphQL<TData>(query, variables, null);
@@ -189,6 +192,8 @@ async function readGraphQL<TData>(
   if (result.errors?.length && isWeakKey(result.data))
     toleratedErrors.set(result.data, result.errors);
 
+  recordCoverage(result.data, result.extensions?.typedRoots);
+
   return result.data;
 }
 
@@ -220,22 +225,21 @@ export function useGraphQL<TData>(
     subject: ["graphql", query, variables ?? {}, ...(partial ? ["partial"] : [])],
     session,
     lifecycle: readLifecycle,
-    options: partial
-      ? {
-          // An equal response keeps the previous data object; carry the newer
-          // response's errors over to it.
-          structuralSharing: (previous, next) => {
-            const shared = replaceEqualDeep(previous, next);
+    options: {
+      // An equal response keeps the previous data object; carry the newer
+      // response's errors and coverage over to it.
+      structuralSharing: (previous, next) => {
+        const shared = replaceEqualDeep(previous, next);
 
-            if (shared !== next && isWeakKey(shared)) {
-              toleratedErrors.set(shared, partialErrorsOf(next));
-            }
-
-            return shared;
-          },
-          ...queryOptions,
+        if (shared !== next && isWeakKey(shared)) {
+          if (partial) toleratedErrors.set(shared, partialErrorsOf(next));
+          recordCoverage(shared, typedRootCoverage(next));
         }
-      : queryOptions,
+
+        return shared;
+      },
+      ...queryOptions,
+    },
     queryFn: ({ signal, editSession }) =>
       readGraphQL<TData>(query, variables, editSession, signal, partial),
   });
