@@ -87,6 +87,26 @@ describe("activePanel", () => {
     ).toEqual({ kind: "none" });
   });
 
+  it("gives a standalone page of an experience the panel the catalog resolves for it", () => {
+    const own: ViewPanel = { kind: "view", viewId: "site.panel", experienceKey: "exp_site" };
+
+    const withSite: ViewCatalog = {
+      ...catalog,
+      targets: [...(catalog.targets ?? []), target("standalone", "site.about", own)],
+    };
+
+    expect(
+      activePanel({
+        tab: { id: "view:site.about", kind: "view", viewId: "site.about", title: "About" },
+        catalog: withSite,
+        homeSelection: { kind: "all" },
+        homeType: null,
+        summary: null,
+        workspace: null,
+      }),
+    ).toEqual({ context: { kind: "standalone", view: "site.about" }, panel: own });
+  });
+
   it("waits for the note's node and the catalog", () => {
     expect(resolve(note)).toBeNull();
     expect(
