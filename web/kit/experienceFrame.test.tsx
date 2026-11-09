@@ -473,7 +473,7 @@ describe("the panel page", () => {
     expect((await screen.findByText(/tree/)).textContent).toContain("b.md");
   });
 
-  it("scopes preferences to the experience's panel, not to the subject", async () => {
+  it("scopes preferences to the panel's experience, not to the subject or the panel's view ID", async () => {
     function Panel() {
       const height = useViewPreference("height", {
         defaultValue: 200,
@@ -483,9 +483,11 @@ describe("the panel page", () => {
       return <p>{String(height.value)}</p>;
     }
 
-    start({ panel: Panel });
+    start({ panel: Panel, renamed: Panel });
     await locate(PANEL_TAB_ID, "p-1", { view: "panel", context: record("a.md") });
     await locate(PANEL_TAB_ID, "p-2", { view: "panel", context: record("b.md") });
+    await screen.findByText("200");
+    await locate(PANEL_TAB_ID, "p-3", { view: "renamed", context: record("b.md") });
     await screen.findByText("200");
 
     const scopes = http
@@ -494,7 +496,7 @@ describe("the panel page", () => {
 
     expect(scopes.length).toBeGreaterThan(0);
     expect(new Set(scopes.map((scope) => JSON.stringify(scope)))).toEqual(
-      new Set([JSON.stringify({ viewId: "panel", context: { kind: "standalone" } })]),
+      new Set([JSON.stringify({ viewId: "experience:x", context: { kind: "standalone" } })]),
     );
   });
 });

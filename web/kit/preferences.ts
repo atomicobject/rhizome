@@ -17,7 +17,7 @@ export type {
 export type ViewPreferenceOptions<T> = PreferenceDefinition<T> & { slot?: string };
 
 // A panel's page keeps one store per vault and experience, whatever its
-// subject (SPEC-0136 R6): its view ID is the experience's panel.
+// subject or view ID (SPEC-0136 R6), so a renamed panel keeps its state.
 function binding(page: PageBinding | null, slot?: string) {
   const invocation = page?.invocation ?? getShellInvocation();
 
@@ -25,9 +25,13 @@ function binding(page: PageBinding | null, slot?: string) {
 
   if (!invocation.vaultKey) throw new Error("View preferences require the server vault identity");
 
+  const panel = page?.tabId === PANEL_TAB_ID;
+  const { experienceKey } = invocation.view;
+
   const scope: ViewPreferenceScope = {
-    viewId: invocation.view.id,
-    context: page?.tabId === PANEL_TAB_ID ? { kind: "standalone" } : invocation.context,
+    viewId:
+      panel && experienceKey !== undefined ? `experience:${experienceKey}` : invocation.view.id,
+    context: panel ? { kind: "standalone" } : invocation.context,
   };
 
   if (invocation.preferenceSlot) scope.slot = invocation.preferenceSlot;
