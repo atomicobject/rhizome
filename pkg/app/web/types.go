@@ -22,13 +22,16 @@ import (
 // newer Rhizome); the state then stays "initializing" until a later index
 // succeeds.
 type StatusResponse struct {
-	VaultName   string                `json:"vaultName"`
-	VaultPath   string                `json:"vaultPath"`
-	IndexPath   string                `json:"indexPath,omitempty"`
-	Embeddings  bool                  `json:"embeddings"`
-	CodeIndex   bool                  `json:"codeIndex"`
-	Validation  ValidationStatusInfo  `json:"validation"`
-	UpdatedAt   time.Time             `json:"updatedAt"`
+	VaultName  string               `json:"vaultName"`
+	VaultPath  string               `json:"vaultPath"`
+	IndexPath  string               `json:"indexPath,omitempty"`
+	Embeddings bool                 `json:"embeddings"`
+	CodeIndex  bool                 `json:"codeIndex"`
+	Validation ValidationStatusInfo `json:"validation"`
+	UpdatedAt  time.Time            `json:"updatedAt"`
+	// Generation is the opaque index generation (SPEC-0136 R4); compare
+	// values for equality only.
+	Generation  string                `json:"generation"`
 	Ready       bool                  `json:"ready"`
 	ReadyReason string                `json:"readyReason,omitempty"`
 	IndexState  string                `json:"indexState"`

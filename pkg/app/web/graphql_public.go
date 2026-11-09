@@ -65,13 +65,9 @@ func (s *Server) handlePublicGraphQL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	overlay, err := s.readOverlayForEditSession(r.Context(), req.EditSession)
-	if err != nil {
-		writePublicError(w, http.StatusBadRequest, PublicErrorBadRequest, err)
-		return
-	}
-	traceStep("overlay")
-	resp, err := s.executeOntologyQueryOperation(r.Context(), req.Query, req.Variables, req.OperationName, overlay)
+	generation := s.IndexGeneration(r.Context())
+	traceStep("generation")
+	responseBody, err := s.publicGraphQLBody(r.Context(), generation, req)
 	traceStep("execute")
 	if err != nil {
 		if errors.Is(err, errIndexInitializing) {
@@ -82,12 +78,8 @@ func (s *Server) handlePublicGraphQL(w http.ResponseWriter, r *http.Request) {
 		writePublicError(w, http.StatusBadRequest, PublicErrorBadRequest, err)
 		return
 	}
-	for i := range resp.Errors {
-		if resp.Errors[i].Extensions == nil {
-			resp.Errors[i].Extensions = map[string]any{"code": PublicErrorGraphQLValidation}
-		}
-	}
-	traceStep("errors")
-	writeJSON(w, http.StatusOK, resp)
+	w.Header().Set("Content-Type", "application/json")
+	setGenerationHeader(w, generation)
+	_, _ = w.Write(responseBody)
 	traceStep("write")
 }

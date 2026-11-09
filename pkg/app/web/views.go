@@ -26,6 +26,7 @@ func (s *Server) handlePublicViews(w http.ResponseWriter, r *http.Request) {
 		writePublicError(w, http.StatusMethodNotAllowed, PublicErrorMethodNotAllowed, errors.New("method not allowed"))
 		return
 	}
+	setGenerationHeader(w, s.IndexGeneration(r.Context()))
 	clean := path.Clean(r.URL.Path)
 	if clean == "/api/v1/views" {
 		catalog, err := s.publicViewsCatalog(r.Context())
@@ -140,11 +141,24 @@ func (s *Server) handlePublicViewExecute(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	}
+	generation := s.IndexGeneration(r.Context())
+	setGenerationHeader(w, generation)
 	overlayReq, err := publicViewEditSessionRequest(req.EditSession)
 	if err != nil {
 		writePublicError(w, http.StatusBadRequest, PublicErrorBadRequest, err)
 		return
 	}
+	if overlayReq == nil {
+		body, err := s.cachedViewExecution(r.Context(), generation, viewID, req)
+		if err != nil {
+			writePublicViewExecutionError(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(body)
+		return
+	}
+	s.reads.bypass(readQueryHash("view", viewID))
 	service, err := s.configuredViewsServiceForEditSession(r.Context(), overlayReq)
 	if err != nil {
 		writePublicViewReadSetupError(w, err)

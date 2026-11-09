@@ -111,6 +111,7 @@ type Server struct {
 	editSessions        map[string]*ontologyEditSession
 	graphCache          *graphResponseCache
 	generation          indexGenerationState
+	reads               *readCache
 	nodeProjectionCache *nodeProjectionCache
 	noteMetadata        notemeta.Indexer
 	noteFormats         noteformat.Runtime
@@ -229,6 +230,7 @@ func NewServer(ctx context.Context, cfg Config, assets fs.FS) (*Server, error) {
 		return nil, err
 	}
 	s.agentService = agentService
+	s.reads = s.newReadCache()
 	s.finder = finder.NewLive(s.loadFinderCatalog, finderRebuildDelay)
 	s.lastReady = status
 	if runtime != nil {
@@ -250,6 +252,9 @@ func (s *Server) Close() error {
 	}
 	if s.finder != nil {
 		s.finder.Close()
+	}
+	if s.reads != nil {
+		s.reads.Close()
 	}
 	var errs []string
 	for _, closeFn := range s.cleanup {

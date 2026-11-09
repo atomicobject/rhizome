@@ -63,3 +63,27 @@ func TestIndexGenerationChangesWithEachComponent(t *testing.T) {
 	restarted := newFixtureServer(t, fixture, nil)
 	require.NotEqual(t, component(srv.IndexGeneration(ctx), 0), component(restarted.IndexGeneration(ctx), 0), "a server restart changes the epoch")
 }
+
+// Events and the status API carry the generation, and an event published after
+// a write carries a generation that includes it (SPEC-0136 R4).
+func TestEventsAndStatusCarryTheIndexGeneration(t *testing.T) {
+	fixture := prepareOntologyFixtureVault(t)
+	srv := newFixtureServer(t, fixture, nil)
+	ctx := context.Background()
+	events, unsubscribe := srv.globalEvents.Subscribe()
+	defer unsubscribe()
+
+	before := srv.IndexGeneration(ctx)
+	require.Equal(t, before, srv.status(ctx).Generation)
+	_, err := fixture.intelStore.SetValidationRunning(ctx)
+	require.NoError(t, err)
+	srv.NotifyGlobalEvent("index.changed", nil)
+	event := <-events
+	require.NotEqual(t, before, event.Generation)
+	require.Equal(t, srv.IndexGeneration(ctx), event.Generation)
+	require.Equal(t, event.Generation, srv.status(ctx).Generation)
+
+	capabilities, err := srv.publicCapabilities(ctx)
+	require.NoError(t, err)
+	require.Equal(t, event.Generation, capabilities.Index.Generation)
+}

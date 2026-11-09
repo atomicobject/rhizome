@@ -33,7 +33,7 @@ func TestGlobalEventBrokerDeliveryAndUnsubscribe(t *testing.T) {
 	b := newGlobalEventBroker()
 	defer b.Close()
 	events, unsubscribe := b.Subscribe()
-	b.Publish(appruntime.GlobalEventIndexChanged, "updated")
+	b.Publish(appruntime.GlobalEventIndexChanged, "updated", "")
 	select {
 	case event := <-events:
 		if event.Kind != appruntime.GlobalEventIndexChanged || event.Data != "updated" {
@@ -44,7 +44,7 @@ func TestGlobalEventBrokerDeliveryAndUnsubscribe(t *testing.T) {
 	}
 	unsubscribe()
 	unsubscribe()
-	b.Publish(appruntime.GlobalEventIndexChanged, nil)
+	b.Publish(appruntime.GlobalEventIndexChanged, nil, "")
 	if _, ok := <-events; ok {
 		t.Fatal("unsubscribed channel remains open")
 	}

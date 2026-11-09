@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -13,6 +14,9 @@ type GlobalEvent struct {
 	Kind string `json:"kind"`
 	// Data carries event-specific payload (optional).
 	Data any `json:"data,omitempty"`
+	// Generation is the index generation read when the event was published,
+	// so it includes every write that preceded it (SPEC-0136 R4).
+	Generation string `json:"generation,omitempty"`
 }
 
 // NodeChangedEventData identifies the committed paths and read domains that
@@ -79,14 +83,15 @@ func (b *globalEventBroker) Subscribe() (<-chan GlobalEvent, func()) {
 }
 
 // Publish sends an event to all subscribers.
-func (b *globalEventBroker) Publish(kind string, data any) {
+func (b *globalEventBroker) Publish(kind string, data any, generation string) {
 	if b == nil {
 		return
 	}
 	event := GlobalEvent{
-		ID:   fmt.Sprintf("g-%d", b.nextID.Add(1)),
-		Kind: kind,
-		Data: data,
+		ID:         fmt.Sprintf("g-%d", b.nextID.Add(1)),
+		Kind:       kind,
+		Data:       data,
+		Generation: generation,
 	}
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -108,7 +113,7 @@ func (s *Server) NotifyGlobalEvent(kind string, data any) {
 		s.invalidateFinderOnEvent(kind)
 	}
 	if s != nil && s.globalEvents != nil {
-		s.globalEvents.Publish(kind, data)
+		s.globalEvents.Publish(kind, data, s.IndexGeneration(context.Background()))
 	}
 }
 
