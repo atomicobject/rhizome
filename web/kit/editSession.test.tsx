@@ -72,4 +72,23 @@ describe("connectWorkspaceHost", () => {
     await outcome;
     expect(types()).toEqual([EDIT_SESSION_HELLO_MESSAGE, EDIT_SESSION_HELLO_MESSAGE]);
   });
+
+  it("stamps a page's stage with its navigation and surfaces the host's refusal of a stale one", async () => {
+    const { parent, sent, answer } = fakeParent();
+    const host = connectWorkspaceHost(parent);
+    answer({ type: EDIT_SESSION_MESSAGE, session: null });
+    const staged = host.stage([op], { tabId: "tab-1", navigationId: "n-1" });
+
+    await vi.waitFor(() =>
+      expect(sent.mock.calls.map(([message]) => message)).toContainEqual({
+        type: STAGE_OPS_MESSAGE,
+        requestId: "stage-1",
+        ops: [op],
+        tabId: "tab-1",
+        navigationId: "n-1",
+      }),
+    );
+    answer({ type: STAGE_RESULT_MESSAGE, requestId: "stage-1", error: "page navigated away" });
+    await expect(staged).rejects.toThrow("page navigated away");
+  });
 });

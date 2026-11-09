@@ -1,13 +1,20 @@
 // How a mounted view starts. Its reload path comes first, before its module
 // loads, so a module that fails to load, mounts itself, or loads while its
 // folder changes still reloads once its source changes.
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode, type ComponentType, type ReactElement } from "react";
 
 import type { ViewModuleProps } from "../src/views/context";
+import { shareResponse } from "./coverage";
+import {
+  ExperiencePages,
+  createExperienceFrame,
+  postPhase,
+  reportPhasesToHost,
+} from "./experienceFrame";
 import { connectFreshness } from "./freshness";
 import type { ViewOrigin } from "./types";
-import { getViewInvocation, type KitViewInvocation } from "./viewContext";
+import { getShellInvocation, type KitViewInvocation } from "./viewContext";
 import { ViewError, ViewRoot } from "./viewRoot";
 
 export type ViewConfig = {
@@ -148,7 +155,7 @@ const asError = (cause: unknown) => (cause instanceof Error ? cause : new Error(
 // a missing export in its importer. The folder check has the transform errors;
 // the browser's error still matters when the cause is elsewhere (a runtime
 // throw, a mistyped import path), so both are shown.
-async function loadFailureDetail(error: Error, checkURL: string | undefined) {
+export async function loadFailureDetail(error: Error, checkURL: string | undefined) {
   if (!checkURL) return error.message;
 
   const response = await fetch(checkURL).catch(() => null);
@@ -168,10 +175,78 @@ export async function startView(
   view: ViewConfig,
   startup: ViewStartup,
 ) {
+  let invocation: KitViewInvocation | Error;
+
+  try {
+    invocation = getShellInvocation();
+  } catch (error) {
+    invocation = asError(error);
+  }
+
+  // The workspace renders an experience's views as pages of one frame.
+  if (
+    startup.hosted &&
+    !(invocation instanceof Error) &&
+    invocation.view.experienceKey !== undefined
+  )
+    return startExperienceFrame(load, view, startup);
+
+  return startPage(load, view, startup, invocation);
+}
+
+// Freshness comes from the index generation: a retained page shown again at
+// the same generation reads nothing, however long it was hidden.
+const experienceQueryDefaults = {
+  staleTime: Infinity,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+  structuralSharing: shareResponse,
+};
+
+function startExperienceFrame(
+  load: () => Promise<ViewModule>,
+  view: ViewConfig,
+  startup: ViewStartup,
+) {
+  const queryClient =
+    startup.queryClient ??
+    new QueryClient({ defaultOptions: { queries: experienceQueryDefaults } });
+
+  // The host rebuilds the frame when the experience's definition changes, so
+  // the frame neither watches its folder nor reloads itself.
+  const stopFreshness = connectFreshness(queryClient, { origin: view.origin, hosted: true });
+
+  const frame = createExperienceFrame({ shellView: view, shellLoad: load, loadFailureDetail });
+
+  startup.render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <ExperiencePages frame={frame} />
+      </QueryClientProvider>
+    </StrictMode>,
+  );
+
+  return () => {
+    frame.stop();
+    stopFreshness();
+  };
+}
+
+async function startPage(
+  load: () => Promise<ViewModule>,
+  view: ViewConfig,
+  startup: ViewStartup,
+  invocation: KitViewInvocation | Error,
+) {
   const { hosted, render, reload } = startup;
 
+  if (hosted) reportPhasesToHost();
+
   const queryClient =
-    startup.queryClient ?? new QueryClient({ defaultOptions: { queries: { staleTime: 5_000 } } });
+    startup.queryClient ??
+    new QueryClient({
+      defaultOptions: { queries: { staleTime: 5_000, structuralSharing: shareResponse } },
+    });
 
   const { stamp, stampValue } = view;
 
@@ -203,12 +278,9 @@ export async function startView(
     if (hosted && stampValue !== undefined) void stamps.check();
   }
 
-  let invocation: KitViewInvocation;
-
-  try {
-    invocation = getViewInvocation();
-  } catch (error) {
-    render(<ViewError title={`${view.name} could not start`} detail={asError(error).message} />);
+  // The reload path above still runs, so fixing the invocation reloads the page.
+  if (invocation instanceof Error) {
+    render(<ViewError title={`${view.name} could not start`} detail={invocation.message} />);
 
     return stop;
   }
@@ -217,6 +289,7 @@ export async function startView(
 
   try {
     module = await load();
+    postPhase("module-loaded");
   } catch (error) {
     const detail = await loadFailureDetail(asError(error), view.check);
     render(<ViewError title={`${view.name} failed to load`} detail={detail} />);

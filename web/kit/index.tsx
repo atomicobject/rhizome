@@ -7,7 +7,7 @@ import {
   type UseQueryOptions,
   type MutateOptions,
 } from "@tanstack/react-query";
-import { useEffect, type ComponentProps, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { executePublicView, queryPublicGraphQLOperation } from "../src/api/client";
@@ -17,17 +17,10 @@ import { recordResponse, shareResponse } from "./coverage";
 import { frameGeneration } from "./generation";
 import type { OntologyEditOp, ViewExecuteRequest, ViewExecuteResponse } from "../src/api/types";
 import { remapCommittedEditOps } from "../src/components/editing/editSessionState";
-import {
-  workspaceViewHref,
-  nodeHref,
-  parseViewContext,
-  type OpenNodeOptions,
-  type ViewContextInput,
-  type ViewNodeRef,
-} from "../src/views/context";
-import { isViewParamValues, type ViewParamValue } from "../src/views/params";
+import { postPhase, reportPhasesToHost } from "./experienceFrame";
 import { startView, type ViewConfig, type ViewModule } from "./startView";
-import { getViewInvocation } from "./viewContext";
+import { postToHost } from "./navigation";
+import { useViewActive, useViewContext } from "./viewContext";
 
 export { Diagram } from "./Diagram";
 
@@ -39,11 +32,27 @@ export * from "./preferences";
 
 export * from "./actions";
 
+export { markReady, RETAINED_PAGES } from "./experienceFrame";
+
+export {
+  NodeLink,
+  NoteLink,
+  noteHref,
+  openCollection,
+  openIssues,
+  openNode,
+  openNote,
+  openSearch,
+  openView,
+} from "./navigation";
+
 export {
   getViewParams,
   setViewParams,
   subscribeViewParams,
+  useViewLocation,
   useViewParams,
+  type ViewLocation,
   type ViewParamDeclaration,
   type ViewParamKind,
   type ViewParams,
@@ -52,17 +61,10 @@ export {
 } from "./viewParams";
 
 import {
-  OPEN_COLLECTION_MESSAGE,
-  OPEN_ISSUES_MESSAGE,
-  OPEN_NODE_MESSAGE,
-  OPEN_VIEW_MESSAGE,
   OPEN_NOTE_MESSAGE,
-  OPEN_SEARCH_MESSAGE,
   VIEW_RENDERED_MESSAGE,
   type IssueScope,
-  type ViewMessage,
 } from "../src/lib/customViewMessages";
-import { buildNotesLocation, buildNotesPath } from "../src/components/notesRoute";
 import { useStagedQuery, type StagedSession } from "../src/staging/stagedQuery";
 import {
   commitOps,
@@ -225,6 +227,7 @@ export function useGraphQL<TData>(
   },
 ) {
   const { session, readLifecycle } = useEditWriter();
+  const active = useViewActive();
   const { optimistic, partial = false, ...queryOptions } = options ?? {};
 
   const result = useStagedQuery<TData>({
@@ -243,6 +246,8 @@ export function useGraphQL<TData>(
         return shared;
       },
       ...queryOptions,
+      // A hidden page's reads stop listening, so nothing refetches them.
+      subscribed: active && queryOptions.subscribed !== false,
     },
     queryFn: ({ signal, editSession }) =>
       readGraphQL<TData>(query, variables, editSession, signal, partial),
@@ -335,15 +340,20 @@ export function useViewRows(
   },
 ) {
   const { session, readLifecycle } = useEditWriter();
+  const active = useViewActive();
   const { optimistic, ...queryOptions } = options ?? {};
-  const context = getViewInvocation().context;
+  const context = useViewContext();
   const subject = ["view-rows", id, context, request];
 
   const result = useStagedQuery<ViewExecuteResponse>({
     subject,
     session,
     lifecycle: readLifecycle,
-    options: queryOptions,
+    options: {
+      structuralSharing: shareResponse,
+      ...queryOptions,
+      subscribed: active && queryOptions.subscribed !== false,
+    },
     queryFn: ({ signal, editSession }) => executePublicView(id, request, { signal, editSession }),
   });
 
@@ -355,176 +365,6 @@ export function useViewRows(
         : result.displayData,
     editOutcome: readLifecycle.outcome,
   };
-}
-
-/** Open a canonical note or embedded node, optionally in a named presentation. */
-export function openNode(ref: ViewNodeRef, options: OpenNodeOptions = {}) {
-  if (embedded) {
-    const navigation = { ...options };
-
-    if (navigation.view === undefined) delete navigation.view;
-
-    window.parent.postMessage(
-      { type: OPEN_NODE_MESSAGE, ref, ...navigation },
-      window.location.origin,
-    );
-
-    return;
-  }
-
-  if (options.beside) window.open(nodeHref(ref, options), "_blank", "noopener");
-  else window.location.assign(nodeHref(ref, options));
-}
-
-/**
- * Open another registered view with an explicit subject, optionally setting
- * its declared params.
- */
-export function openView(
-  id: string,
-  context: ViewContextInput = { kind: "standalone" },
-  params?: Record<string, ViewParamValue>,
-) {
-  const parsedContext = parseViewContext(context);
-
-  if (!parsedContext) throw new Error("Invalid view context");
-
-  if (params !== undefined && !isViewParamValues(params)) throw new Error("Invalid view params");
-
-  if (embedded) {
-    window.parent.postMessage(
-      params
-        ? { type: OPEN_VIEW_MESSAGE, id, context: parsedContext, params }
-        : { type: OPEN_VIEW_MESSAGE, id, context: parsedContext },
-      window.location.origin,
-    );
-
-    return;
-  }
-
-  window.location.assign(workspaceViewHref(id, parsedContext, params));
-}
-
-const postToHost = (message: ViewMessage) =>
-  window.parent.postMessage(message, window.location.origin);
-
-/**
- * Open the issues panel, optionally scoped to a type, interface, or note path.
- * Without a scope, a view presenting a note opens that note's issues; a view
- * anywhere else, or a standalone page, opens every issue.
- */
-export function openIssues(scope?: IssueScope) {
-  if (embedded) {
-    postToHost(scope ? { type: OPEN_ISSUES_MESSAGE, scope } : { type: OPEN_ISSUES_MESSAGE });
-
-    return;
-  }
-
-  window.location.assign(buildNotesLocation({ selection: { kind: "issues" }, issueScope: scope }));
-}
-
-/** Open a type or interface collection in the workspace. */
-export function openCollection(name: string) {
-  if (embedded) {
-    postToHost({ type: OPEN_COLLECTION_MESSAGE, name });
-
-    return;
-  }
-
-  window.location.assign(buildNotesPath({ kind: "type", typeName: name }));
-}
-
-/**
- * Open a project search tab filtered to a vault folder, optionally with a
- * query. `folder: "/"` lists the notes at the vault root, which sit in no folder.
- */
-export function openSearch({ folder, query }: { folder: string; query?: string }) {
-  if (embedded) {
-    postToHost(
-      query ? { type: OPEN_SEARCH_MESSAGE, folder, query } : { type: OPEN_SEARCH_MESSAGE, folder },
-    );
-
-    return;
-  }
-
-  window.location.assign(
-    buildNotesLocation({ selection: { kind: "all" }, search: query ?? "", folder }),
-  );
-}
-
-export function noteHref(path: string) {
-  return `/notes?note=${encodeURIComponent(path)}`;
-}
-
-/** Open a note in the surrounding workspace, or navigate there when standalone. */
-export function openNote(path: string, options: { beside?: boolean } = {}) {
-  if (embedded) {
-    window.parent.postMessage(
-      { type: OPEN_NOTE_MESSAGE, path, beside: options.beside ?? false },
-      window.location.origin,
-    );
-
-    return;
-  }
-
-  if (options.beside) window.open(noteHref(path), "_blank", "noopener");
-  else window.location.assign(noteHref(path));
-}
-
-/** A link to a note that opens in the workspace when the view is embedded. */
-export function NoteLink({
-  path,
-  children,
-  className,
-  onClick,
-  ...props
-}: { path: string } & Omit<ComponentProps<"a">, "href">) {
-  return (
-    <a
-      {...props}
-      className={className ? `rz-note-link ${className}` : "rz-note-link"}
-      href={noteHref(path)}
-      onClick={(event) => {
-        onClick?.(event);
-
-        if (event.defaultPrevented || event.button !== 0 || event.shiftKey || event.altKey) return;
-        event.preventDefault();
-        openNote(path, { beside: event.metaKey || event.ctrlKey });
-      }}
-    >
-      {children ?? path}
-    </a>
-  );
-}
-
-/**
- * A link to a canonical note or embedded node, optionally in a named
- * presentation, styled like `NoteLink`. Cmd or Ctrl click opens it beside.
- */
-export function NodeLink({
-  node,
-  view,
-  children,
-  className,
-  onClick,
-  ...props
-}: { node: ViewNodeRef; view?: string } & Omit<ComponentProps<"a">, "href">) {
-  return (
-    <a
-      {...props}
-      className={className ? `rz-note-link ${className}` : "rz-note-link"}
-      href={nodeHref(node, { view })}
-      onClick={(event) => {
-        onClick?.(event);
-
-        if (event.defaultPrevented || event.button !== 0 || event.shiftKey || event.altKey) return;
-        event.preventDefault();
-        openNode(node, { view, beside: event.metaKey || event.ctrlKey });
-      }}
-    >
-      {children}
-    </a>
-  );
 }
 
 /**
@@ -540,6 +380,11 @@ export async function mountView(load: () => Promise<ViewModule>, view: ViewConfi
   // A framing workspace keeps the view it shows until this one has drawn:
   // "starting" tells it to wait for the rendered message, not the page load.
   document.documentElement.dataset.rhizomeView = "starting";
+
+  if (embedded) {
+    reportPhasesToHost();
+    postPhase("shell-start");
+  }
 
   await startView(load, view, {
     hosted: embedded,

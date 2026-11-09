@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from "@ta
 
 import { fetchJSON } from "../src/api/client";
 import { isJsonObject, isString, type JsonObject } from "../src/api/parse";
+import { useViewActive } from "./viewContext";
 
 /** How an action ended: `refused` is a deliberate no, `error` is a failure. */
 export type ActionStatus = "ok" | "refused" | "error";
@@ -81,19 +82,23 @@ export async function runAction<TResult = unknown>(
 
 /**
  * Read an action's result. It polls every 15 s while the page is visible, and
- * a refused action is not retried.
+ * a refused action is not retried. A hidden experience page, or a suspended
+ * frame, does not poll (SPEC-0136 R3).
  */
 export function useActionQuery<TResult = unknown>(
   id: string,
   input: JsonObject = {},
   options?: Omit<UseQueryOptions<TResult, ActionError>, "queryKey" | "queryFn">,
 ) {
+  const active = useViewActive();
+
   return useQuery<TResult, ActionError>({
-    refetchInterval: POLL_MS,
     // TanStack pauses the interval while the document is hidden.
     refetchIntervalInBackground: false,
     retry: (failures, error) => error.status !== "refused" && failures < 1,
     ...options,
+    refetchInterval: active ? (options?.refetchInterval ?? POLL_MS) : false,
+    subscribed: active && options?.subscribed !== false,
     queryKey: ["action", id, input],
     queryFn: ({ signal }) => runAction<TResult>(id, input, signal),
   });

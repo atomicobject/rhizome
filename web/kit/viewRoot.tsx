@@ -15,7 +15,7 @@ export function ViewError({ title, detail }: { title: string; detail: string }) 
 
 type BoundaryState = { error: Error | null };
 
-class ViewErrorBoundary extends Component<{ children: ReactNode }, BoundaryState> {
+export class ViewErrorBoundary extends Component<{ children: ReactNode }, BoundaryState> {
   state: BoundaryState = { error: null };
 
   static getDerivedStateFromError(error: Error) {

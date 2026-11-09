@@ -1,7 +1,8 @@
 // A view's declared params (SPEC-0110). They start from the page's own URL
 // query. Framed, the host owns the workspace URL: `setViewParams` asks it to
 // change, and it answers with the new values unless the change remounts the
-// frame. Standalone, the page writes its own URL and history.
+// frame. Standalone, the page writes its own URL and history. In an experience
+// frame each page's params arrive with its location (SPEC-0136 R2).
 import { useSyncExternalStore } from "react";
 
 import { isPlainObject } from "../src/api/parse";
@@ -14,8 +15,11 @@ import {
   type ViewParams,
   type ViewParamsPatch,
 } from "../src/views/params";
+import type { JsonObject } from "../src/api/parse";
+import type { ViewContext } from "../src/views/context";
 import { embedded } from "./editSession";
-import { getViewInvocation } from "./viewContext";
+import { activePageBinding, pageStamp, usePageBinding } from "./pageBinding";
+import { getShellInvocation, getViewInvocation } from "./viewContext";
 
 export type {
   ViewParamDeclaration,
@@ -27,14 +31,17 @@ export type {
 
 const declarations = () => getViewInvocation().params ?? [];
 
+// The document's own params, from its URL; experience pages use their binding.
+const shellDeclarations = () => getShellInvocation().params ?? [];
+
 let state: { params: ViewParams; identity: string } | undefined;
 
 const listeners = new Set<() => void>();
 
 function read(search: string | URLSearchParams) {
-  const params = readViewParams(declarations(), search);
+  const params = readViewParams(shellDeclarations(), search);
 
-  return { params, identity: viewParamsIdentity(declarations(), params) };
+  return { params, identity: viewParamsIdentity(shellDeclarations(), params) };
 }
 
 function current() {
@@ -81,9 +88,11 @@ if (embedded) {
   });
 }
 
-/** The declared params with defaults applied, for HTML and self-mounted code. */
+const documentParams = () => current().params;
+
+/** The declared params with defaults applied, for HTML and self-mounted code; the page on screen's in an experience frame. */
 export function getViewParams(): ViewParams {
-  return current().params;
+  return activePageBinding()?.params ?? documentParams();
 }
 
 /** Call `listener` whenever the params change in place; returns an unsubscribe. */
@@ -101,8 +110,45 @@ export function subscribeViewParams(listener: () => void) {
  * remounts the view instead.
  */
 export function useViewParams<TParams extends ViewParams = ViewParams>(): TParams {
+  const binding = usePageBinding();
+
+  const params = useSyncExternalStore(
+    binding ? noSubscription : subscribeViewParams,
+    binding ? () => binding.params : documentParams,
+  );
+
   // SAFETY: TParams is the view's description of its own declared params.
-  return useSyncExternalStore(subscribeViewParams, getViewParams) as TParams;
+  return params as TParams;
+}
+
+const noSubscription = () => () => undefined;
+
+export type ViewLocation = {
+  viewId: string;
+  /** The workbench tab showing this page, or `panel`; undefined outside experience frames. */
+  tabId?: string;
+  context: ViewContext;
+  params: ViewParams;
+  configuration?: JsonObject;
+};
+
+/** Where the page this component renders in is: its view, tab, subject, params, and configuration. */
+export function useViewLocation(): ViewLocation {
+  const binding = usePageBinding();
+  const params = useViewParams();
+  const invocation = binding?.invocation ?? getShellInvocation();
+
+  const location: ViewLocation = {
+    viewId: invocation.view.id,
+    context: invocation.context,
+    params,
+  };
+
+  if (binding) location.tabId = binding.tabId;
+
+  if (invocation.configuration) location.configuration = invocation.configuration;
+
+  return location;
 }
 
 /**
@@ -117,7 +163,7 @@ export function setViewParams(patch: ViewParamsPatch) {
 
   if (embedded) {
     window.parent.postMessage(
-      { type: PARAMS_CHANGED_MESSAGE, params: patch },
+      { type: PARAMS_CHANGED_MESSAGE, params: patch, ...pageStamp() },
       window.location.origin,
     );
 

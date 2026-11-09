@@ -25,6 +25,7 @@ import {
   EDIT_SESSION_MESSAGE,
   STAGE_OPS_MESSAGE,
   STAGE_RESULT_MESSAGE,
+  type PageStamp,
   type ViewMessage,
 } from "../src/lib/customViewMessages";
 import {
@@ -34,6 +35,7 @@ import {
   forgetCommittedStagedReads,
   type StagedSession,
 } from "../src/staging/stagedQuery";
+import { pageStamp, usePageBinding } from "./pageBinding";
 
 export type EditMode = "workspace" | "immediate";
 
@@ -116,7 +118,8 @@ const NO_HOST: HostState = {
 export type WorkspaceHost = {
   state: () => HostState;
   subscribe: (listener: () => void) => () => void;
-  stage: (ops: OntologyEditOp[]) => Promise<void>;
+  /** Stage ops; `stamp` names the page, so the host rejects a stale one with an error. */
+  stage: (ops: OntologyEditOp[], stamp?: PageStamp) => Promise<void>;
 };
 
 /**
@@ -189,14 +192,14 @@ export function connectWorkspaceHost(parent: Window, answerTimeoutMs = 5_000): W
 
       return () => listeners.delete(listener);
     },
-    stage: async (ops) => {
+    stage: async (ops, stamp = {}) => {
       await answered();
 
       return new Promise((resolve, reject) => {
         requests += 1;
         const requestId = `stage-${requests}`;
         pending.set(requestId, { resolve, reject });
-        post({ type: STAGE_OPS_MESSAGE, requestId, ops });
+        post({ type: STAGE_OPS_MESSAGE, requestId, ops, ...stamp });
       });
     },
   };
@@ -246,6 +249,7 @@ export function EditSession({ mode, children }: { mode: EditMode; children: Reac
 
 export function useEditWriter(): EditWriter {
   const mode = useContext(EditModeContext);
+  const page = usePageBinding();
   const queryClient = useQueryClient();
   const connection = mode === "workspace" && embedded ? workspaceHost() : null;
 
@@ -272,6 +276,8 @@ export function useEditWriter(): EditWriter {
 
   const state = useSyncExternalStore(subscribe, connection?.state ?? noHostState);
 
+  // A write captures the navigation it was made in; the host refuses it,
+  // with an error, if that page has since moved on.
   return useMemo<EditWriter>(
     () =>
       connection
@@ -279,9 +285,9 @@ export function useEditWriter(): EditWriter {
             target: "workspace",
             session: state.session,
             readLifecycle: state.readLifecycle,
-            write: connection.stage,
+            write: (ops) => connection.stage(ops, pageStamp(page)),
           }
         : IMMEDIATE,
-    [connection, state],
+    [connection, state, page],
   );
 }
