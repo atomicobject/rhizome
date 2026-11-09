@@ -1184,6 +1184,7 @@ fragment TypeRef on __Type {
 	require.True(t, capabilities.Views.Available)
 	require.GreaterOrEqual(t, capabilities.Views.Count, 1)
 	require.Contains(t, capabilities.Views.Endpoints, "/api/v1/views/{id}/execute")
+	require.Contains(t, capabilities.Views.Endpoints, "/api/v1/views/{id}/invocation")
 	require.Equal(t, "/api/v1/events", capabilities.Events.Endpoint)
 	require.Equal(t, "/api/v1/nodes/events", capabilities.Events.NodeEndpoint)
 	require.Contains(t, capabilities.Events.Heartbeat, "heartbeat")

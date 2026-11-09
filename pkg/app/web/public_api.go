@@ -469,6 +469,7 @@ func (s *Server) publicCapabilities(ctx context.Context) (PublicCapabilitiesResp
 				"/api/v1/views",
 				"/api/v1/views/{id}",
 				"/api/v1/views/{id}/execute",
+				"/api/v1/views/{id}/invocation",
 			},
 		},
 		Validation: PublicValidationInfo{
