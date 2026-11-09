@@ -26,13 +26,17 @@ import "./site.css";
 export const GROUP = { kind: "group", group: "Knowledge" } as const;
 
 /** The orientation query and the site library over it. `site` is rebuilt only when the data object changes. */
+// One site per orientation result, shared by every page and the panel's page in a frame.
+const sites = new WeakMap<Orientation, Site>();
+function siteFor(data: Orientation) {
+  let site = sites.get(data);
+  if (!site) sites.set(data, (site = buildSite(data, typedRootCoverage(data))));
+  return site;
+}
+
 export function useSite() {
   const query = useGraphQL<Orientation>(ORIENTATION_QUERY);
-  const site = useMemo(
-    () => (query.data ? buildSite(query.data, typedRootCoverage(query.data)) : undefined),
-    [query.data],
-  );
-  return { query, site };
+  return { query, site: query.data ? siteFor(query.data) : undefined };
 }
 
 /** The Sources-section citations of `refs`, batched by the kit's `readNodes`. */

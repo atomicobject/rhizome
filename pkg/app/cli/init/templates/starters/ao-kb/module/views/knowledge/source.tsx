@@ -14,7 +14,7 @@ import {
 } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import { loadSourceDocument } from "./lib/source-document.ts";
-import { sourceText } from "./lib/knowledge.ts";
+import { objectKey, sourceText } from "./lib/knowledge.ts";
 import type { Knowledge, Source } from "./lib/knowledge.ts";
 import { splitLines } from "./lib/locators.ts";
 import { DateValue, Field, Record, TraceLink } from "./parts.tsx";
@@ -52,7 +52,7 @@ function SourceMargin({ rows }: { rows: Citer[] }) {
 function SourceRecord({ source: s, data }: { source: Source; data: Knowledge }) {
   const [read, setRead] = useState(false);
   const doc = useQuery({
-    queryKey: ["ao-kb", "source-document", s, data],
+    queryKey: ["ao-kb", "source-document", s.path, objectKey(data)],
     enabled: read,
     queryFn: () => loadSourceDocument(s, data),
   });

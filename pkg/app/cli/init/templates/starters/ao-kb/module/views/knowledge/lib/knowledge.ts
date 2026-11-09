@@ -207,7 +207,27 @@ export function coverage(c: Citation | undefined, passage: PassageResult | undef
       return "Unresolved source/locator";
   }
 }
+/** A small, stable query-key part for a data object. TanStack hashes keys as JSON, so a key
+ * holding the evidence read itself stores a multi-megabyte hash string per query (12 MB per
+ * retained assertion page on the largest real KB). Equal objects keep equal keys; new data
+ * gets a new key. */
+const objectKeys = new WeakMap<object, number>();
+let nextObjectKey = 0;
+export function objectKey(value: object) {
+  let key = objectKeys.get(value);
+  if (key === undefined) objectKeys.set(value, (key = ++nextObjectKey));
+  return key;
+}
+// One graph per data object: every page in an experience frame shares the query's data object,
+// so they share its graph instead of each retaining a copy (measured on the largest real KB:
+// about 17 MB per retained assertion page before this).
+const graphs = new WeakMap<Knowledge, ReturnType<typeof buildRelationships>>();
 export function relationships(data: Knowledge) {
+  let graph = graphs.get(data);
+  if (!graph) graphs.set(data, (graph = buildRelationships(data)));
+  return graph;
+}
+function buildRelationships(data: Knowledge) {
   const all = [...data.assertion, ...data.source, ...data.concept, ...data.artifact];
   const resolve = makeResolver(all.map((r) => ({ key: r.path, aoId: r.aoId, notePath: r.path })));
   const declarations: Declaration[] = [];

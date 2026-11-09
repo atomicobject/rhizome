@@ -5,6 +5,7 @@ import {
   citations,
   coverage,
   origin,
+  objectKey,
   ownerKey,
   relationships,
   sourceText,
@@ -77,7 +78,7 @@ export function useSavedAnalysis() {
 /** Origin-citation coverage for `rows` (every loaded claim by default). */
 export function useCoverage(data: Knowledge | undefined, rows = data?.assertion) {
   return useQuery({
-    queryKey: ["ao-kb", "origin-coverage", data, rows?.map((a) => a.path)],
+    queryKey: ["ao-kb", "origin-coverage", data && objectKey(data), rows?.map((a) => a.path)],
     enabled: !!data,
     queryFn: async () => {
       const results = await Promise.all(
@@ -96,7 +97,7 @@ export function useCoverage(data: Knowledge | undefined, rows = data?.assertion)
 export function useCitationPassages(a: Assertion, data: Knowledge) {
   const rows = citations(a, data.source);
   return useQuery({
-    queryKey: ["ao-kb", "citations", a.path, rows],
+    queryKey: ["ao-kb", "citations", a.path, objectKey(data)],
     queryFn: async () =>
       Promise.all(
         rows.map(async (c) => ({

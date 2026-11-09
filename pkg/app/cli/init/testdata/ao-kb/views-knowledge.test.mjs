@@ -7,6 +7,7 @@ import {
   coverage,
   conflictPair,
   filterAssertions,
+  objectKey,
   observations,
   physicalSourceLine,
   relationships,
@@ -141,6 +142,19 @@ test("typed raw dangling declarations are visible without parsing unknown Connec
   assert.equal(groups["Dangling declared references"].length, 1);
   assert.match(groups["Dangling declared references"][0].basis, /depends-on: missing/);
   assert.equal(relationships(data([a])).edges.length, 0);
+});
+
+test("pages reading the same data object share one relationship graph", () => {
+  const shared = data([assertion("a")]);
+  assert.equal(relationships(shared), relationships(shared));
+  assert.notEqual(relationships(shared), relationships(data([assertion("a")])));
+});
+
+test("query keys name a data object by a small stable key, never by its contents", () => {
+  const shared = data([assertion("a")]);
+  assert.equal(objectKey(shared), objectKey(shared));
+  assert.notEqual(objectKey(shared), objectKey(data([assertion("a")])));
+  assert.equal(typeof objectKey(shared), "number");
 });
 
 test("exact registry Assertions field determines the pair, retaining other recorded fields", () => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import {
   embedded,
   Fact,
@@ -327,7 +327,7 @@ export default function AssertionPage() {
   const markReady = useMarkReady();
   const o = own.data?.node;
   const a = state.data?.assertion.find((v) => v.path === path);
-  const graph = useMemo(() => (state.data ? relationships(state.data) : undefined), [state.data]);
+  const graph = state.graph;
   useEffect(() => {
     if (o && state.data) markReady();
   }, [o, state.data, markReady]);
