@@ -10,7 +10,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	appviews "github.com/atomicobject/rhizome/pkg/app/views"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/identity"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
 
@@ -108,4 +113,39 @@ func TestViewExecutionThatReadsTheClockIsNotStored(t *testing.T) {
 	require.EqualValues(t, 2, stats.Queries[readQueryHash("view", "plans")].Executions)
 	require.Zero(t, stats.Queries[readQueryHash("view", "plans")].Hits)
 	require.Zero(t, stats.Entries)
+}
+
+// A preset that binds the current user answers for whoever is configured, which
+// no generation component covers, so it is executed every time (SPEC-0136 R4).
+func TestViewExecutionBoundToTheCurrentUserIsNotStored(t *testing.T) {
+	fixture := prepareOntologyFixtureVault(t)
+	schemaPath := filepath.Join(fixture.root, ".rhizome", "ontology", "schema.graphql")
+	schema, err := os.ReadFile(schemaPath)
+	require.NoError(t, err)
+	withOwner := strings.Replace(string(schema), "  spec: Spec! @link(inverse: \"plans\")\n", "  spec: Spec! @link(inverse: \"plans\")\n  owner: Person @link\n", 1)
+	require.NotEqual(t, string(schema), withOwner)
+	withOwner += "\ntype Person @node(paths: [\"people/*.md\"], label: \"Person\") {\n  name: String\n}\n"
+	require.NoError(t, os.WriteFile(schemaPath, []byte(withOwner), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(fixture.root, "people"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(fixture.root, "people", "ada.md"), []byte("---\nname: Ada\n---\n# Ada\n"), 0o644))
+	planPath := filepath.Join(fixture.root, "specs", "100-demo", "plan.md")
+	plan, err := os.ReadFile(planPath)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(planPath, []byte(strings.Replace(string(plan), "spec: specs/100-demo/spec.md\n", "spec: specs/100-demo/spec.md\nowner: \"[[people/ada]]\"\n", 1)), 0o644))
+	_, err = ontologytest.Publish(vaultconfig.WithEnv(t.Context(), fixture.vault.Env), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	require.NoError(t, err)
+	srv := newFixtureServer(t, fixture, nil)
+	dir := filepath.Join(fixture.root, ".rhizome", "views")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "plans.yaml"), []byte("apiVersion: rhizome.view.v1\nid: plans\nname: Plans\nsource:\n  kind: ontology_type\n  type: Plan\nmount:\n  kind: standalone\nfilterPresets:\n  - id: mine\n    label: Mine\n    filters:\n      - field: owner\n        op: eq\n        valueFrom: ontology.currentUser.resolvedRef\nvariants:\n  table:\n    columns:\n      - field: title\n"), 0o644))
+	mine := appviews.ExecuteRequest{FilterPreset: "mine"}
+
+	before, unset := executeView(t, srv, "plans", mine)
+	require.Empty(t, unset.Rows, "no current user matches no plan")
+	_, err = identity.WriteCurrentUser(fixture.root, "people/ada.md")
+	require.NoError(t, err)
+	after, set := executeView(t, srv, "plans", mine)
+	require.Equal(t, before, after, "configuring the user moves no generation component")
+	require.Len(t, set.Rows, 1, "the configured user's plan shows at the same generation")
+	require.Zero(t, srv.reads.Metrics().Entries)
 }

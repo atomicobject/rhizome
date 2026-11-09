@@ -13,7 +13,8 @@ import (
 // through the read cache, keyed on the generation and the whole execution
 // request (SPEC-0136 R4). Query-recipe views are executed once per concurrent
 // burst but never stored: a recipe file edit moves no generation component.
-// Executions whose answer depends on the clock are never stored either.
+// Executions whose answer depends on the clock or on the caller (a filter
+// bound to the current user) are never stored either.
 func (s *Server) cachedViewExecution(ctx context.Context, generation string, cacheable bool, viewID string, req appviews.ExecuteRequest) ([]byte, error) {
 	req.EditSession = nil
 	encoded, err := json.Marshal(req)
@@ -34,7 +35,7 @@ func (s *Server) cachedViewExecution(ctx context.Context, generation string, cac
 		if err != nil {
 			return nil, false, err
 		}
-		storable := resp.View.Source.Kind != viewconfig.SourceKindQueryRecipe && !resp.ClockDependent && s.readStillCurrent(ctx, generation)
+		storable := resp.View.Source.Kind != viewconfig.SourceKindQueryRecipe && !resp.ClockDependent && !resp.CallerDependent && s.readStillCurrent(ctx, generation)
 		return body, storable, nil
 	}
 	if !cacheable {

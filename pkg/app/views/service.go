@@ -9,6 +9,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/atomicobject/rhizome/pkg/viewscript"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -199,6 +200,7 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 		stats.Truncated = plan.SourceCompleteness == SourceBounded
 	}
 	clock := clockDependent(profile, constraints.Filters, capabilities)
+	caller := slices.ContainsFunc(state.Filters, func(filter viewconfig.FilterSpec) bool { return strings.TrimSpace(filter.ValueFrom) != "" })
 	sortRows(filtered, constraints.Sort, capabilities)
 	groupedRows, allGroups := groupRows(filtered, group, capabilities, entry.Generated)
 	pageRows, pageInfo := paginateRows(groupedRows, state.Page)
@@ -268,7 +270,7 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 	if capabilities == nil {
 		capabilities = []FieldCapability{}
 	}
-	return ExecuteResponse{View: entry, Variant: variant, State: state, Capabilities: capabilities, Columns: columns, Rows: pageRows, Groups: groups, Card: card, Board: board, PageInfo: pageInfo, Profile: profile, Stats: stats, Warnings: warnings, ConstraintPlan: source.ConstraintPlan, PushedConstraints: source.PushedConstraints, ResidualConstraints: source.ResidualConstraints, Plan: plan, DefinitionFingerprint: defFP, SourceFingerprint: sourceFP, ExecutionFingerprint: execFP, ClockDependent: clock}, nil
+	return ExecuteResponse{View: entry, Variant: variant, State: state, Capabilities: capabilities, Columns: columns, Rows: pageRows, Groups: groups, Card: card, Board: board, PageInfo: pageInfo, Profile: profile, Stats: stats, Warnings: warnings, ConstraintPlan: source.ConstraintPlan, PushedConstraints: source.PushedConstraints, ResidualConstraints: source.ResidualConstraints, Plan: plan, DefinitionFingerprint: defFP, SourceFingerprint: sourceFP, ExecutionFingerprint: execFP, ClockDependent: clock, CallerDependent: caller}, nil
 }
 func (s *Service) FieldCandidates(ctx context.Context, id string, req FieldCandidatesRequest) (FieldCandidatesResponse, error) {
 	entry, err := s.entry(ctx, id)

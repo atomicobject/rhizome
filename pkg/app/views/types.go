@@ -192,6 +192,10 @@ type ExecuteResponse struct {
 	// ClockDependent says the answer depends on the server clock (a stale
 	// count or stale filter), so the read cache never stores it.
 	ClockDependent bool `json:"-"`
+	// CallerDependent says an effective filter binds a runtime value such as
+	// the current user, which no generation component covers, so the read
+	// cache never stores it.
+	CallerDependent bool `json:"-"`
 }
 type ExecutionState struct {
 	Variant      string                  `json:"variant,omitempty"`
