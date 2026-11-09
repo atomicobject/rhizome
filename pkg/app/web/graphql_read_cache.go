@@ -318,8 +318,17 @@ func authoredGraphQLField(schema *ontoschema.Schema, field *ast.Field) *ontosche
 	return nil
 }
 
+// isNoteDefinition reports whether a field's parent may be a note node, so a
+// note's built-in fields can take precedence over authored ones. The executor
+// resolves by the concrete node, and an interface or union's possible types
+// can include notes even when it declares neither note interface, so any
+// abstract parent counts: classifying it as a note only ever bypasses the
+// cache, never caches a disk read.
 func isNoteDefinition(def *ast.Definition) bool {
-	return def.Name == "NoteNode" || def.Name == "Note" || slices.Contains(def.Interfaces, "NoteNode") || slices.Contains(def.Interfaces, "Note")
+	if def.Kind == ast.Interface || def.Kind == ast.Union {
+		return true
+	}
+	return slices.Contains(def.Interfaces, "NoteNode") || slices.Contains(def.Interfaces, "Note")
 }
 
 func authoredFieldIndexed(schema *ontoschema.Schema, field *ontoschema.Field) bool {

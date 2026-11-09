@@ -127,6 +127,31 @@ func TestGraphQLReadCacheFollowsBuiltinPrecedenceOverAuthoredFields(t *testing.T
 	require.Zero(t, srv.reads.Metrics().Queries[readQueryHash("graphql", query["query"].(string), "")].Hits)
 }
 
+// A note reached through an authored interface that is not a note interface
+// still resolves its built-in fields first, so the read is never cached.
+func TestGraphQLReadCacheTreatsAbstractParentsAsPossibleNotes(t *testing.T) {
+	srv, fixture := newGraphQLReadCacheServer(t)
+	schemaFile := filepath.Join(fixture.root, ".rhizome", "ontology", "schema.graphql")
+	schema, err := os.ReadFile(schemaFile)
+	require.NoError(t, err)
+	declared := strings.Replace(string(schema), "type Plan\n  @node(", "interface Trackable { content: String @field }\n\ntype Plan implements Trackable\n  @node(", 1)
+	declared = strings.Replace(declared, "keyField: \"summary\") {\n", "keyField: \"summary\") {\n  content: String @field\n", 1)
+	require.NotEqual(t, string(schema), declared)
+	require.NoError(t, os.WriteFile(schemaFile, []byte(declared), 0o644))
+
+	query := map[string]any{"query": `query { plan(first: 10) { path ... on Trackable { content } } }`}
+	plans, _ := replyData(t, postGraphQL(t, srv, query))["plan"].([]any)
+	require.Len(t, plans, 1)
+	planFile := filepath.Join(fixture.root, "specs", "100-demo", "plan.md")
+	data, err := os.ReadFile(planFile)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(planFile, append(data, []byte("\nEdited through an interface.\n")...), 0o644))
+	plans, _ = replyData(t, postGraphQL(t, srv, query))["plan"].([]any)
+	require.Len(t, plans, 1)
+	require.Contains(t, plans[0].(map[string]any)["content"], "Edited through an interface.")
+	require.Zero(t, srv.reads.Metrics().Queries[readQueryHash("graphql", query["query"].(string), "")].Hits)
+}
+
 // Every built-in field the node and note roots can reach, short of a field
 // read from note files, is classified by type as an index field or a
 // note-file field, and every classified field is reachable. A new field fails

@@ -124,7 +124,8 @@ func (s *Store) withWriteTx(ctx context.Context, fn func(tx *sql.Tx) error) erro
 // vectors, their cache, and their bookkeeping. No cacheable read depends on
 // them (semantic and search reads are never cached, SPEC-0136 R4), so they
 // leave the index generation alone and an embedding pass does not make every
-// open page refetch.
+// open page refetch. A cached read that starts depending on embedding tables
+// or embedding state must stop these writers from using it.
 func (s *Store) withEmbeddingWriteTx(ctx context.Context, fn func(tx *sql.Tx) error) error {
 	return s.writeTx(ctx, false, fn)
 }
