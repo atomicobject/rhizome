@@ -339,6 +339,7 @@ it("asks the hosting workspace to open issues, collections, and folder searches"
   kit.openIssues();
   kit.openCollection("Spec");
   kit.openSearch({ folder: "Notes" });
+  kit.openSearch({ query: "plan" });
 
   expect(sent.mock.calls).toEqual([
     [
@@ -348,6 +349,8 @@ it("asks the hosting workspace to open issues, collections, and folder searches"
     [{ type: OPEN_ISSUES_MESSAGE }, window.location.origin],
     [{ type: OPEN_COLLECTION_MESSAGE, name: "Spec" }, window.location.origin],
     [{ type: OPEN_SEARCH_MESSAGE, folder: "Notes" }, window.location.origin],
+    // Without a folder the search covers the whole vault.
+    [{ type: OPEN_SEARCH_MESSAGE, query: "plan" }, window.location.origin],
   ]);
 });
 

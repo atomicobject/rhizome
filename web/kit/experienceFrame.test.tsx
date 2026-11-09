@@ -15,7 +15,9 @@ import {
   type HostMessage,
   type ViewMessage,
 } from "../src/lib/customViewMessages";
-import { jsonReply, withFakeFetch } from "../src/test/fakeFetch";
+import { VAULT_EVENT_MESSAGE } from "../src/lib/customViewMessages";
+import { graphQLRequestBody, jsonReply, withFakeFetch } from "../src/test/fakeFetch";
+import { useGraphQL } from "./index";
 import type { ViewContext } from "../src/views/context";
 import type { ViewParamDeclaration, ViewParams } from "../src/views/params";
 import { useActionQuery } from "./actions";
@@ -357,6 +359,52 @@ describe("hidden pages and suspended frames", () => {
     await host({ type: RESUME_MESSAGE, generation: "G1" });
     expect(screen.getByTestId("b").textContent).toContain("active");
     expect(generation.current()).toBe("G1");
+  });
+});
+
+describe("reads in retained pages", () => {
+  function Reading({ label }: { label: string }) {
+    const { data } = useGraphQL<{ label: string }>(`{ label(name: "${label}") }`);
+
+    return <p data-testid={label}>{data?.label ?? "…"}</p>;
+  }
+
+  const reads = (label: string) =>
+    http
+      .requests("POST", "/api/v1/graphql")
+      .filter((request) => (graphQLRequestBody(request).query ?? "").includes(`"${label}"`)).length;
+
+  it("refetch a hidden page only when it is shown behind the generation, and never at the same one", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    let generationNow = "G0";
+
+    http.on("POST", "/api/v1/graphql", () =>
+      jsonReply({ data: { label: generationNow }, extensions: { generation: generationNow } }),
+    );
+    start({ a: () => <Reading label="a" />, b: () => <Reading label="b" /> });
+    await locate("tab-a", "n-a", { view: "a", generation: "G0" });
+    await act(() => vi.advanceTimersByTimeAsync(200));
+    await locate("tab-b", "n-b", { view: "b" });
+    await act(() => vi.advanceTimersByTimeAsync(200));
+    expect([reads("a"), reads("b")]).toEqual([1, 1]);
+
+    // Back to a retained tab at the same generation: no read.
+    await locate("tab-a", "n-a", { view: "a", generation: "G0" });
+    await act(() => vi.advanceTimersByTimeAsync(200));
+    expect([reads("a"), reads("b")]).toEqual([1, 1]);
+
+    // A write while A shows refreshes A once; hidden B waits.
+    generationNow = "G1";
+    await host({ type: VAULT_EVENT_MESSAGE, event: "node.changed", generation: "G1" });
+    await act(() => vi.advanceTimersByTimeAsync(200));
+    expect([reads("a"), reads("b")]).toEqual([2, 1]);
+    expect(screen.getByTestId("a").textContent).toBe("G1");
+
+    // Shown again, B is behind and refetches once.
+    await locate("tab-b", "n-b", { view: "b", generation: "G1" });
+    await act(() => vi.advanceTimersByTimeAsync(200));
+    expect([reads("a"), reads("b")]).toEqual([2, 2]);
+    expect(screen.getByTestId("b").textContent).toBe("G1");
   });
 });
 
