@@ -320,6 +320,8 @@ describe("checkFolder", () => {
     expect(checkFolder({ check: "/views/_module/ao-kb/_check/site%20views" })).toBe(
       "/module/ao-kb/site views",
     );
+    expect(checkFolder({ check: "/views/_module/ao-kb/_check/" })).toBe("/module/ao-kb");
+    expect(checkFolder({ check: "/views/_check/" })).toBe(".");
     expect(checkFolder({ check: "/views/_bundled/_check/kb" })).toBeNull();
     expect(checkFolder({})).toBeNull();
   });

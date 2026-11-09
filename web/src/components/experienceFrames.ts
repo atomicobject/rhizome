@@ -134,9 +134,12 @@ export function checkFolder({ check }: JsonObject): string | null {
   const match = /^\/views\/(?:_module\/([^/]+)\/)?_check\/(.*)$/.exec(check);
 
   if (!match || check.startsWith("/views/_bundled/")) return null;
-  const folder = decodeURIComponent(match[2] ?? "") || ".";
+  const folder = decodeURIComponent(match[2] ?? "");
 
-  return match[1] ? `/module/${decodeURIComponent(match[1])}/${folder}` : folder;
+  if (!match[1]) return folder || ".";
+  const module = `/module/${decodeURIComponent(match[1])}`;
+
+  return folder ? `${module}/${folder}` : module;
 }
 
 const nested = (a: string, b: string) => a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
