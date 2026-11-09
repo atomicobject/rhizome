@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -98,7 +99,7 @@ func TestViewInvocationRouteChecksPagesAndPanels(t *testing.T) {
 func TestViewInvocationCarriesExperienceKeyAndGeneration(t *testing.T) {
 	srv := newExperienceTestServer(t)
 	previous := indexGeneration
-	indexGeneration = func(*Server) string { return "e.1.s.v.g.c" }
+	indexGeneration = func(*Server, context.Context) string { return "e.1.s.v.g.c" }
 	t.Cleanup(func() { indexGeneration = previous })
 
 	rec := getInvocation(srv, "site.home", `{"kind":"group","group":"Knowledge"}`)

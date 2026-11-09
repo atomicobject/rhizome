@@ -7,6 +7,7 @@ import { IndexReadyBanner } from "./IndexReadyBanner";
 
 function makeStatus(state: StatusResponse["indexState"]): StatusResponse {
   return {
+    generation: "e.1.s.v.g.c",
     vaultName: "test",
     vaultPath: "/tmp/test",
     embeddings: false,

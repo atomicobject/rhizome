@@ -1003,6 +1003,8 @@ export interface components {
       values: components["schemas"]["ViewPreferenceValues"];
     };
     StatusResponse: {
+      /** @description The opaque index generation `epoch.writes.schema.views.validation.config`, compared for equality only (SPEC-0136 R4). */
+      generation: string;
       vaultName: string;
       vaultPath: string;
       indexPath?: string;
@@ -4290,7 +4292,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Server-sent event stream of public invalidation envelopes */
+      /** @description Server-sent event stream of public invalidation envelopes. An envelope for a change that can alter reads carries the opaque index generation as a top-level `generation` string (SPEC-0136 R4). */
       200: {
         headers: {
           [name: string]: unknown;
@@ -4465,9 +4467,11 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Public GraphQL result */
+      /** @description Public GraphQL result. `extensions.generation` holds the opaque index generation read before execution (SPEC-0136 R4). */
       200: {
         headers: {
+          /** @description The opaque index generation the result was read at. */
+          "Rhizome-Generation"?: string;
           [name: string]: unknown;
         };
         content: {

@@ -847,7 +847,10 @@ paths:
       operationId: streamPublicEvents
       responses:
         "200":
-          description: Server-sent event stream of public invalidation envelopes
+          description: >-
+            Server-sent event stream of public invalidation envelopes. An
+            envelope for a change that can alter reads carries the opaque
+            index generation as a top-level `generation` string (SPEC-0136 R4).
           content:
             text/event-stream:
               schema:
@@ -1002,7 +1005,14 @@ paths:
               $ref: "#/components/schemas/OntologyQueryRequest"
       responses:
         "200":
-          description: Public GraphQL result
+          description: >-
+            Public GraphQL result. `extensions.generation` holds the opaque index
+            generation read before execution (SPEC-0136 R4).
+          headers:
+            Rhizome-Generation:
+              description: The opaque index generation the result was read at.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -1791,8 +1801,13 @@ components:
           $ref: "#/components/schemas/ViewPreferenceValues"
     StatusResponse:
       type: object
-      required: [vaultName, vaultPath, embeddings, codeIndex, validation, updatedAt, ready, indexState]
+      required: [vaultName, vaultPath, embeddings, codeIndex, validation, updatedAt, ready, indexState, generation]
       properties:
+        generation:
+          type: string
+          description: >-
+            The opaque index generation `epoch.writes.schema.views.validation.config`,
+            compared for equality only (SPEC-0136 R4).
         vaultName: { type: string }
         vaultPath: { type: string }
         indexPath: { type: string }

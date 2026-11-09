@@ -17,10 +17,8 @@ import (
 const PublicErrorViewsUntrusted = "VIEWS_UNTRUSTED"
 
 // indexGeneration returns the server's index generation (SPEC-0136 R4) for
-// the Rhizome-Generation header; empty sends no header.
-// ponytail: a stub until the generation accessor lands; integration points it
-// at that accessor.
-var indexGeneration = func(*Server) string { return "" }
+// the Rhizome-Generation header; empty sends no header. Tests replace it.
+var indexGeneration = func(s *Server, ctx context.Context) string { return s.IndexGeneration(ctx) }
 
 // handlePublicViewInvocation serves GET /api/v1/views/{id}/invocation: the
 // invocation a host posts to an experience frame or panel frame (SPEC-0136 R2,
@@ -37,7 +35,7 @@ func (s *Server) handlePublicViewInvocation(w http.ResponseWriter, r *http.Reque
 	}
 	// Read before building, so a change while building makes the
 	// invocation look stale rather than current.
-	generation := indexGeneration(s)
+	generation := indexGeneration(s, r.Context())
 	def, err := s.findCustomView(r.Context(), viewID)
 	if err != nil {
 		if errors.Is(err, errCustomViewUnavailable) {
@@ -66,7 +64,7 @@ func (s *Server) handlePublicViewInvocation(w http.ResponseWriter, r *http.Reque
 		}
 	}
 	if generation != "" {
-		w.Header().Set("Rhizome-Generation", generation)
+		w.Header().Set(GenerationHeader, generation)
 	}
 	writeJSON(w, http.StatusOK, invocation)
 }
