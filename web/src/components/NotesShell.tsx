@@ -56,6 +56,7 @@ import {
 import { useOntologyEditSession } from "./useOntologyEditSession";
 import type { OpenNodeOptions, ViewContext } from "../views/context";
 import { withViewParams, type ViewParamValue } from "../views/params";
+import type { OpenSearchRequest } from "../views/viewBridge";
 import { useValidationScopeSummaries, validationScopeKey } from "./useValidationScopeSummaries";
 import { validationHealth } from "./validation/validationPresentation";
 
@@ -445,8 +446,8 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   );
 
   const openSearch = useCallback(
-    ({ folder, query }: { folder: string; query?: string }) =>
-      tabs.openSearch(query ?? "", { folder }),
+    ({ folder, query }: OpenSearchRequest) =>
+      tabs.openSearch(query ?? "", folder === undefined ? {} : { folder }),
     [tabs.openSearch],
   );
 
