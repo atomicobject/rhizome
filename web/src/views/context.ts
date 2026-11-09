@@ -10,7 +10,8 @@ export type ViewContext =
   | { kind: "group"; group: string }
   | { kind: "node"; type: string; ref: NodeRef }
   | { kind: "workspace" }
-  | { kind: "standalone" };
+  /** `view` names the standalone view a sidebar panel's invocation is for (SPEC-0136 R6). */
+  | { kind: "standalone"; view?: string };
 
 /** View queries may return null for optional GraphQL ref fields. */
 export type ViewNodeRef = {
@@ -80,9 +81,16 @@ export function isViewContext(value: unknown): value is ViewContext {
   if (typeof value !== "object" || value === null || !("kind" in value)) return false;
 
   switch (value.kind) {
-    case "standalone":
     case "workspace":
       return Object.keys(value).length === 1;
+    case "standalone":
+      return (
+        Object.keys(value).length === 1 ||
+        (Object.keys(value).length === 2 &&
+          "view" in value &&
+          isString(value.view) &&
+          !!value.view.trim())
+      );
     case "type":
       return (
         Object.keys(value).length === 2 &&
@@ -132,7 +140,8 @@ export function customViewHref(
 
   if (!parsedContext) throw new Error("Invalid view context");
 
-  if (parsedContext.kind !== "standalone") params.set("context", JSON.stringify(parsedContext));
+  if (parsedContext.kind !== "standalone" || parsedContext.view)
+    params.set("context", JSON.stringify(parsedContext));
 
   if (options.hosted) params.set("hosted", "1");
 

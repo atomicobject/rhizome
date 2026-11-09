@@ -106,8 +106,18 @@ describe("view context URLs", () => {
     expect(JSON.parse(url.searchParams.get("context") ?? "")).toEqual({ kind: "workspace" });
   });
 
+  it("accepts the standalone context a panel invocation names its view in", () => {
+    const context = { kind: "standalone", view: "kb.home" } as const;
+    expect(isViewContext(context)).toBe(true);
+    const url = new URL(customViewHref("kb.panel", context), "https://x");
+    expect(JSON.parse(url.searchParams.get("context") ?? "")).toEqual(context);
+    expect(customViewHref("kb.home", { kind: "standalone" })).toBe("/views/kb.home");
+  });
+
   it("rejects incomplete subjects and session state", () => {
     for (const value of [
+      { kind: "standalone", view: " " },
+      { kind: "standalone", view: "kb.home", type: "Story" },
       { kind: "group", group: "*" },
       { kind: "node", type: "Story" },
       { kind: "type", type: "Story", sessionId: "private" },
