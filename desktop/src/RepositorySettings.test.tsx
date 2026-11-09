@@ -199,6 +199,65 @@ describe("repository settings", () => {
     expect(screen.queryByRole("region", { name: "Unapplied changes" })).toBeNull();
   });
 
+  it("keeps an add-on turned off after a workflow change turns it on", async () => {
+    const none = {
+      ...current,
+      workflow: "none",
+      addons: current.addons.map((a) => ({ ...a, enabled: false })),
+    };
+    serve({
+      "settings-report": (args) => {
+        const choices = (args as { choices?: SettingsChoices }).choices;
+        // The new workflow turns its default add-on on unless removed.
+        const on =
+          choices?.workflow === "agentic-engineering" &&
+          !choices.removeAddons?.includes("action-items");
+        return {
+          ...none,
+          addons: none.addons.map((a) => (a.id === "action-items" ? { ...a, enabled: on } : a)),
+          writes: choices
+            ? { summary: ["Workflow: none → Agentic Engineering"], files: ["AGENTS.md"] }
+            : none.writes,
+        };
+      },
+    });
+    tab();
+    fireEvent.click(await screen.findByRole("radio", { name: /Agentic Engineering/ }));
+    await waitFor(() =>
+      expect(screen.getByRole("checkbox", { name: /Action items/ })).toBeChecked(),
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: /Action items/ }));
+    expect(screen.getByRole("checkbox", { name: /Action items/ })).not.toBeChecked();
+    await waitFor(() =>
+      expect(calls("settings-report").at(-1)).toEqual({
+        id,
+        worktree,
+        choices: { workflow: "agentic-engineering", removeAddons: ["action-items"] },
+      }),
+    );
+    // Back on the current workflow, the override changes nothing.
+    fireEvent.click(screen.getByRole("radio", { name: /Search and agent guidance only/ }));
+    expect(screen.queryByRole("region", { name: "Unapplied changes" })).toBeNull();
+  });
+
+  it("drops a report still on its way when the changes are discarded", async () => {
+    let answer: (plan: SetupPlan) => void = () => {};
+    serve({
+      "settings-report": (args) =>
+        (args as { choices?: SettingsChoices }).choices
+          ? new Promise<SetupPlan>((resolve) => (answer = resolve))
+          : { ...current, writes: { summary: ["Update 1 Rhizome file"], files: ["AGENTS.md"] } },
+    });
+    tab();
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Cursor/ }));
+    await waitFor(() => expect(calls("settings-report")).toHaveLength(2));
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    answer(report({ agents: ["claude", "cursor"] }));
+    const bar = screen.getByRole("region", { name: "Unapplied changes" });
+    expect(within(bar).getByRole("button", { name: "Update files" })).toBeEnabled();
+    await waitFor(() => expect(within(bar).getByText("Writes 1 file")).toBeInTheDocument());
+  });
+
   it("sends a provider without a key to the app's provider settings", async () => {
     serve();
     const { onProviderSettings } = tab();

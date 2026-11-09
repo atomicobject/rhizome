@@ -144,8 +144,12 @@ export function RepositorySettings({
 
   // A changed draft asks for a fresh report of what it would write.
   useEffect(() => {
-    if (!saved || !draft || rows.length === 0) {
-      if (current) setPlan(current);
+    if (!saved || !draft || !current) return;
+    if (rows.length === 0) {
+      // A report still on its way would describe changes that are gone.
+      reports.current++;
+      setRefreshing(false);
+      setPlan(current);
       return;
     }
     const ticket = ++reports.current;
@@ -170,6 +174,16 @@ export function RepositorySettings({
   function change(next: Draft) {
     setResult(null);
     setApplyError(null);
+    // On the current workflow, an add-on override that matches the
+    // repository changes nothing, so it is dropped.
+    if (current && next.workflow === current.workflow) {
+      const enabled = (id: string) => !!current.addons.find((a) => a.id === id)?.enabled;
+      next = {
+        ...next,
+        add: next.add.filter((id) => !enabled(id)),
+        remove: next.remove.filter((id) => enabled(id)),
+      };
+    }
     setDraft(next);
   }
 
@@ -258,15 +272,14 @@ export function RepositorySettings({
   const addonOn = (addonId: string) =>
     draft.add.includes(addonId) ||
     (!draft.remove.includes(addonId) && !!plan.addons.find((a) => a.id === addonId)?.enabled);
-  const toggleAddon = (addonId: string, on: boolean) => {
-    const was = !!current.addons.find((a) => a.id === addonId)?.enabled;
+  // Each toggle is an explicit override, since a workflow change can turn
+  // default add-ons on or off; change() drops the ones that change nothing.
+  const toggleAddon = (addonId: string, on: boolean) =>
     change({
       ...draft,
-      add: on && !was ? [...without(draft.add, addonId), addonId] : without(draft.add, addonId),
-      remove:
-        !on && was ? [...without(draft.remove, addonId), addonId] : without(draft.remove, addonId),
+      add: on ? [...without(draft.add, addonId), addonId] : without(draft.add, addonId),
+      remove: on ? without(draft.remove, addonId) : [...without(draft.remove, addonId), addonId],
     });
-  };
   const provider = current.search.providers.find((p) => p.id === draft.search);
   const pending = plan.writes.summary.length > 0;
   const rowClass = (row: Row) => (rows.includes(row) ? "setup-row changed" : "setup-row");
