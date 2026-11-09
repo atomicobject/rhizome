@@ -59,6 +59,16 @@ describe("folder rows", () => {
     expect(folderRows(tree, "readme.md")?.map((row) => row.name)).toEqual(["docs", "Readme"]);
   });
 
+  it("labels notes by their titles where the folder graph has them, and sorts by label", () => {
+    const titles = { "docs/specs/beta.md": "A titled beta" };
+
+    expect(
+      folderRows(tree, "docs/specs/beta.md", titles)
+        ?.filter((row) => row.kind === "note")
+        .map((row) => row.name),
+    ).toEqual(["A titled beta", "Alpha spec"]);
+  });
+
   it("gives nothing for a folder the graph does not hold", () => {
     expect(folderRows(tree, "elsewhere/note.md")).toBeNull();
   });
@@ -81,6 +91,17 @@ describe("the Folder panel", () => {
     fireEvent.click(within(list).getByRole("button", { name: "specs" }));
     expect(window.location.pathname).toBe("/explorer");
     expect(new URLSearchParams(window.location.search).get("folder")).toBe("docs/specs");
+  });
+
+  it("shows the titles the folder graph sends", async () => {
+    http.json("GET", "/api/v1/graphs/folders", {
+      ...overview,
+      titles: { "docs/specs/alpha.md": "Alpha, by title" },
+    });
+    render(<FolderPanel notePath="docs/specs/beta.md" />);
+    const list = await screen.findByRole("navigation", { name: "Folder contents" });
+
+    expect(within(list).getByRole("button", { name: "Alpha, by title" })).toBeVisible();
   });
 
   it("says when the note's folder is not in the graph", async () => {

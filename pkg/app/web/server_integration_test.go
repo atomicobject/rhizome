@@ -83,6 +83,9 @@ func TestServerFixtureEndpoints(t *testing.T) {
 	require.NotEmpty(t, graph.Edges)
 	var folders graphpresentation.FolderOverview
 	getJSON(t, httpSrv.URL+"/api/v1/graphs/folders", &folders)
+	// Folder labels notes by their indexed titles; the rest is the graph's projection.
+	require.Equal(t, "Task Flow", folders.Titles["notes/task-flow.md"])
+	folders.Titles = nil
 	require.Equal(t, graphpresentation.ProjectFolderOverview(graph), folders)
 }
 

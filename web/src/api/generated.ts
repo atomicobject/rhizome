@@ -1640,6 +1640,10 @@ export interface components {
       nestedTypes: components["schemas"]["NestedTypeCount"][];
       truncated: boolean;
       needsIndex?: boolean;
+      /** @description Indexed note titles by note path, for notes whose title is known. Folder labels notes with them. */
+      titles?: {
+        [key: string]: string;
+      };
     };
     FolderLink: {
       source: string;

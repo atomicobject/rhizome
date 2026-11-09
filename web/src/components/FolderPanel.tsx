@@ -26,10 +26,15 @@ const basename = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
 /**
  * The rows Folder shows for `notePath`: each ancestor folder from the top,
- * ending at the note's folder, then that folder's subfolders and notes. Null
- * when the folder graph does not hold the note's folder.
+ * ending at the note's folder, then that folder's subfolders and notes,
+ * labelled by `titles` (note path to title) where known. Null when the folder
+ * graph does not hold the note's folder.
  */
-export function folderRows(tree: FolderTree, notePath: string): FolderRow[] | null {
+export function folderRows(
+  tree: FolderTree,
+  notePath: string,
+  titles: Readonly<Record<string, string>> = {},
+): FolderRow[] | null {
   const path = notePath.replace(/^\/+/, "");
   const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
   const folder = tree.folders.get(dir);
@@ -60,7 +65,7 @@ export function folderRows(tree: FolderTree, notePath: string): FolderRow[] | nu
     .map((node) => ({
       kind: "note" as const,
       path: filePath(node),
-      name: node.label || basename(filePath(node)),
+      name: titles[filePath(node)] || node.label || basename(filePath(node)),
       depth,
       current: filePath(node) === path,
     }))
@@ -113,7 +118,16 @@ function RowIcon({ kind }: { kind: FolderRow["kind"] }) {
 
 type DepthStyle = CSSProperties & { "--folder-depth": number };
 
-export function FolderPanel({ notePath, active = true }: { notePath: string; active?: boolean }) {
+export function FolderPanel({
+  notePath,
+  active = true,
+  onOpenNote = openNote,
+}: {
+  notePath: string;
+  active?: boolean;
+  /** Opens a note in the workspace; without it, the URL names the note. */
+  onOpenNote?: (path: string) => void;
+}) {
   const open = usePanelOpen();
 
   const graph = useQuery({
@@ -123,7 +137,12 @@ export function FolderPanel({ notePath, active = true }: { notePath: string; act
   });
 
   const tree = useMemo(() => (graph.data ? buildFolderTree(graph.data) : null), [graph.data]);
-  const rows = useMemo(() => (tree ? folderRows(tree, notePath) : null), [tree, notePath]);
+
+  const rows = useMemo(
+    () => (tree ? folderRows(tree, notePath, graph.data?.titles) : null),
+    [tree, notePath, graph.data?.titles],
+  );
+
   const { railProps } = useRail("rhizome:notes:folder-panel:v1", [], null);
 
   // The note stays in view as it changes.
@@ -160,7 +179,7 @@ export function FolderPanel({ notePath, active = true }: { notePath: string; act
             style={style}
             aria-current={!folder && row.current ? "page" : undefined}
             title={folder ? `Open ${row.path} in Explorer` : row.path}
-            onClick={() => (folder ? openExplorerFolder(row.path) : openNote(row.path))}
+            onClick={() => (folder ? openExplorerFolder(row.path) : onOpenNote(row.path))}
           >
             <RowIcon kind={row.kind} />
             <span className="folder-panel__label">{row.name}</span>

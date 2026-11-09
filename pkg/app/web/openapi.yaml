@@ -2714,6 +2714,10 @@ components:
             $ref: "#/components/schemas/NestedTypeCount"
         truncated: { type: boolean }
         needsIndex: { type: boolean }
+        titles:
+          type: object
+          description: Indexed note titles by note path, for notes whose title is known. Folder labels notes with them.
+          additionalProperties: { type: string }
     FolderLink:
       type: object
       required: [source, target, noteCode, other]
