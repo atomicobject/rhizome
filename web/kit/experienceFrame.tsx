@@ -81,7 +81,10 @@ export type ExperienceFrame = ReturnType<typeof createExperienceFrame>;
 
 const now = () => performance.timeOrigin + performance.now();
 
-const post = (message: ViewMessage) => window.parent.postMessage(message, window.location.origin);
+// Never a tail call (see customViewMessages.ts): WebKit would name the host as the sender.
+const post = (message: ViewMessage) => {
+  window.parent.postMessage(message, window.location.origin);
+};
 
 // Phase marks go to a framing workspace only.
 let reportPhases = false;

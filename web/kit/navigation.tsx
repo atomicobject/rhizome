@@ -30,8 +30,10 @@ import { setPageViewParams } from "./viewParams";
 
 type Page = PageBinding | null;
 
-const send = (page: Page, message: ViewMessage) =>
+// Never a tail call (see customViewMessages.ts): WebKit would name the host as the sender.
+const send = (page: Page, message: ViewMessage) => {
   window.parent.postMessage({ ...message, ...pageStamp(page) }, window.location.origin);
+};
 
 /** Post a message stamped with the page on screen. */
 export const postToHost = (message: ViewMessage) => send(activePageBinding(), message);

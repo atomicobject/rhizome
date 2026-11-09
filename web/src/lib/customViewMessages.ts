@@ -2,6 +2,13 @@
 // that hosts it. Both sides accept them only from the same origin, and the
 // host only from the frame it created.
 //
+// Never call postMessage in tail position (`(m) => target.postMessage(m)` or
+// `return target.postMessage(m)`). WebKit runs ES modules with proper tail
+// calls, so a callback that tail-calls postMessage leaves no sender frame on
+// the stack, and the receiver's `event.source` becomes the target window
+// itself: the host would see its own window, not the frame, and drop the
+// message. Call it as a statement.
+//
 // An experience frame (SPEC-0136 R2) renders one page per tab. The host moves
 // it between pages with LOCATION_MESSAGE, and every message a page sends
 // carries its `tabId` and `navigationId` (PageStamp), so the host can reject a

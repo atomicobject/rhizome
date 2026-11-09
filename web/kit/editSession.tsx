@@ -133,7 +133,11 @@ export function connectWorkspaceHost(parent: Window, answerTimeoutMs = 5_000): W
   const listeners = new Set<() => void>();
   const waiting = new Set<() => void>();
   const pending = new Map<string, { resolve: () => void; reject: (error: Error) => void }>();
-  const post = (message: ViewMessage) => parent.postMessage(message, window.location.origin);
+
+  // Never a tail call (see customViewMessages.ts): WebKit would name the host as the sender.
+  const post = (message: ViewMessage) => {
+    parent.postMessage(message, window.location.origin);
+  };
 
   window.addEventListener("message", (event) => {
     if (event.origin !== window.location.origin || event.source !== parent) return;
