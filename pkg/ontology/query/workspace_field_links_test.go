@@ -178,7 +178,7 @@ opportunities:
 func TestExecute_NodeWorkspaceParentTitle(t *testing.T) {
 	env := newFieldLinksTestEnv(t)
 	prepared, errs := PrepareWithVariables(env.execSchema, `query Parent($ref: String!) {
-  node(ref: $ref) { workspace { parentRef { notePath } parentTitle } }
+  node(ref: $ref) { workspace { parentRef { notePath } parentTitle noteType } }
 }`, map[string]any{"ref": "notes/projects/apollo.md#^story-one"})
 	require.Empty(t, errs)
 
@@ -187,4 +187,5 @@ func TestExecute_NodeWorkspaceParentTitle(t *testing.T) {
 	workspace := result.Data["node"].(map[string]any)["workspace"].(map[string]any)
 	require.Equal(t, "notes/projects/apollo.md", workspace["parentRef"].(map[string]any)["notePath"])
 	require.Equal(t, "Apollo", workspace["parentTitle"])
+	require.Equal(t, "Project", workspace["noteType"], "an embedded node names its owning note's type")
 }

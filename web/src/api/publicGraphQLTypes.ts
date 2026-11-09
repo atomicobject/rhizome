@@ -243,6 +243,7 @@ export type PublicNodeWorkspaceProjection = {
   source?: unknown;
   parentRef?: PublicNodeRef | null;
   parentTitle?: string | null;
+  noteType?: string | null;
   sourceLinks?: Array<{
     target: string;
     authoredTarget?: string | null;

@@ -99,6 +99,8 @@ func (e *executor) resolveWorkspaceSelectionSet(ctx context.Context, ref ontolog
 			}
 		case "parentTitle":
 			out[key] = e.workspaceParentTitle(ctx, workspace.Node.ParentRef, append(path, key))
+		case "noteType":
+			out[key] = nullableString(workspace.Node.NoteType)
 		case "fields":
 			items := make([]any, 0, len(workspace.Fields))
 			for _, item := range workspace.Fields {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { nodeWorkspaceFromPublicGraphQL } from "../api/nodeWorkspaceAdapter";
 import type { NodeWorkspace, ViewCatalog, ViewPanel, ViewTarget } from "../api/types";
 import { activePanel } from "./activePanel";
 import type { Tab } from "./useNoteTabs";
@@ -69,6 +70,54 @@ describe("activePanel", () => {
       kind: "folder",
     });
     expect(resolve(note, workspace("NOTE", "Untargeted", ""))?.panel).toEqual({ kind: "folder" });
+  });
+
+  it("finds an embedded node's owning note panel from the workspace the read path adapts", () => {
+    const read = nodeWorkspaceFromPublicGraphQL(
+      {
+        node: {
+          ref: { ref: "a.md#^c1", kind: "EMBEDDED", notePath: "a.md", nodeId: "c1" },
+          nodeId: "c1",
+          nodeKind: "EMBEDDED",
+          resolvedType: "Criterion",
+          path: "a.md",
+          title: "Criterion one",
+          locator: {
+            sourceLocator: "a.md#^c1",
+            status: "linkable",
+            exists: true,
+            requiresFix: false,
+          },
+          workspace: {
+            noteType: "Assertion",
+            fields: [],
+            collections: [],
+            bodies: [],
+            relationGroups: [],
+            structure: [],
+            capabilities: {
+              canEdit: true,
+              canEditFields: true,
+              canEditCollections: true,
+              canNavigateChildren: true,
+              canSubscribe: true,
+            },
+            status: {
+              dirty: false,
+              validation: { issueCount: 0 },
+              freshness: {},
+              session: {},
+              hasWarnings: false,
+            },
+            version: "",
+            loaded: { rendered: true, assessment: false, structure: false, relations: false },
+          },
+        },
+      },
+      "a.md#^c1",
+    );
+
+    expect(resolve(note, read)?.panel).toEqual(kb);
   });
 
   it("names a standalone view in its context and shows no panel for search", () => {
