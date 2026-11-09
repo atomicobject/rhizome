@@ -86,7 +86,7 @@ export type NotesLeftRailProps = {
   onOpenConfiguredView: (view: ViewCatalogEntry) => void;
   /** Scopes the panel's remembered size and state; from the shell. */
   vaultKey?: string | null;
-  /** The panel the active target resolves to; omitted, the URL's note gets Folder. */
+  /** The active tab's sidebar panel and the context it is invoked with (SPEC-0136 R6); omitted, the URL's note gets Folder. */
   activePanel?: ActivePanel | null;
 };
 

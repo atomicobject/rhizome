@@ -20,6 +20,7 @@ import { flushEditors } from "./editing/editorFlush";
 import { useFocusRegions } from "./focusManagement";
 import { clearPersistedEditorDrafts, editCommitSucceeded } from "./editing/editSessionState";
 import { NotesLeftRail } from "./NotesLeftRail";
+import { activePanel } from "./activePanel";
 import { sameNoteTabContext, type NoteTabContext } from "./noteTabContext";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { NoteTab } from "./NoteTab";
@@ -735,6 +736,28 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     [homeSelection, summaryQuery.data],
   );
 
+  const activeWorkspace = activeContext?.workspace;
+
+  const sidebarPanel = useMemo(
+    () =>
+      activePanel({
+        tab: tabs.activeTab,
+        catalog: viewCatalogQuery.data,
+        homeSelection,
+        homeType: homeSelectedType,
+        summary,
+        workspace: activeWorkspace,
+      }),
+    [
+      activeWorkspace,
+      homeSelectedType,
+      homeSelection,
+      summary,
+      tabs.activeTab,
+      viewCatalogQuery.data,
+    ],
+  );
+
   const viewEditSession = useMemo(
     () => ({
       session: editSession.session,
@@ -843,6 +866,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
             recentActive={recentActive}
             onOpenRecent={openRecent}
             onOpenConfiguredView={openConfiguredView}
+            activePanel={sidebarPanel}
           />
         </DiagnosticRegion>
       </WorkbenchSidebar>

@@ -12,12 +12,15 @@ import (
 )
 
 type NodeDescriptor struct {
-	Ref          NodeRef  `json:"ref"`
-	ResolvedType string   `json:"resolvedType,omitempty"`
-	NotePath     string   `json:"notePath"`
-	Title        string   `json:"title,omitempty"`
-	Locator      string   `json:"locator"`
-	ParentRef    *NodeRef `json:"parentRef,omitempty"`
+	Ref          NodeRef `json:"ref"`
+	ResolvedType string  `json:"resolvedType,omitempty"`
+	NotePath     string  `json:"notePath"`
+	// NoteType is the resolved type of the note at NotePath, so a host can
+	// find the owning note's sidebar panel for a node (SPEC-0136 R6).
+	NoteType  string   `json:"noteType,omitempty"`
+	Title     string   `json:"title,omitempty"`
+	Locator   string   `json:"locator"`
+	ParentRef *NodeRef `json:"parentRef,omitempty"`
 }
 
 type NodeInlineFieldSpan struct {
@@ -206,6 +209,7 @@ func buildNodeDescriptor(schema *ontoschema.Schema, projection *NodeProjection) 
 		Title:        nodeProjectionTitle(projection),
 		Locator:      string(ref.Kind),
 	}
+	desc.NoteType = owningNoteType(projection, desc.ResolvedType)
 	if projection.Prepared != nil && ref.Kind != NodeKindNote {
 		if parent, ok, err := projection.Prepared.SemanticParent(ref); err == nil && ok {
 			desc.ParentRef = &parent
@@ -227,6 +231,18 @@ func buildNodeDescriptor(schema *ontoschema.Schema, projection *NodeProjection) 
 		desc.ParentRef = &parent
 	}
 	return desc
+}
+
+func owningNoteType(projection *NodeProjection, resolvedType string) string {
+	switch {
+	case projection.Ref.Kind == NodeKindNote:
+		return resolvedType
+	case projection.Prepared != nil && projection.Prepared.rootProjection != nil:
+		return projection.Prepared.rootProjection.ResolvedType
+	case projection.Assessment != nil:
+		return projection.Assessment.ResolvedType
+	}
+	return ""
 }
 
 func buildNodeFieldStates(schema *ontoschema.Schema, projection *NodeProjection) []NodeFieldState {

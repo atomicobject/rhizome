@@ -56,6 +56,8 @@ export type StatusResponse = components["schemas"]["StatusResponse"];
 
 export type ViewTarget = components["schemas"]["ViewTarget"];
 
+export type ViewPanel = components["schemas"]["ViewPanel"];
+
 export type ViewCatalog = components["schemas"]["ViewCatalog"];
 
 export type ViewChoice = components["schemas"]["ViewChoice"];
@@ -316,6 +318,8 @@ export type NodeDescriptor = {
   ref: NodeRef;
   resolvedType?: string;
   notePath: string;
+  /** The resolved type of the note at notePath (SPEC-0136 R6). */
+  noteType?: string;
   title?: string;
   locator: string;
   nodeLocator?: NodeLocator;
