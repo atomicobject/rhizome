@@ -120,8 +120,13 @@ export function checkFolder({ check }: JsonObject): string | null {
   return folder ? `${module}/${folder}` : module;
 }
 
+/** Whether one folder holds the other; "." is the flat views folder, which holds every flat one. */
 export const nested = (a: string, b: string) =>
-  a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
+  a === b ||
+  (a === "." && !b.startsWith("/")) ||
+  (b === "." && !a.startsWith("/")) ||
+  a.startsWith(`${b}/`) ||
+  b.startsWith(`${a}/`);
 
 export function changedFolder(data: string | undefined) {
   try {

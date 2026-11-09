@@ -144,3 +144,24 @@ func TestClosingTheEventBrokerEndsStreams(t *testing.T) {
 		t.Fatalf("stream did not end cleanly: %v", err)
 	}
 }
+
+// An experience whose views all sit in child folders still announces a change
+// to its experience.yml, under the experience's folder.
+func TestExperienceDeclarationChangesAreAnnounced(t *testing.T) {
+	srv := newCustomViewTestServer(t, "board.tsx", map[string]string{
+		"kb/experience.yml": "title: KB\n",
+		"kb/home/team.yaml": watchTestTeamYAML,
+		"kb/home/team.tsx":  "export default null",
+		"solo/solo.yaml":    strings.ReplaceAll(watchTestTeamYAML, "team", "solo"),
+		"solo/solo.tsx":     "export default null",
+	})
+	srv.globalEvents = newGlobalEventBroker()
+	events, unsubscribe := srv.globalEvents.Subscribe()
+	defer unsubscribe()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	srv.pollViewFolders(ctx, 10*time.Millisecond)
+
+	editViewFile(t, srv, "kb/experience.yml", "title: Knowledge\n")
+	awaitViewsChanged(t, events, "kb", "solo")
+}

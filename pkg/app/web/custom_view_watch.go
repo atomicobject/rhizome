@@ -116,8 +116,8 @@ func (s *Server) announceViewFolderChanges(ctx context.Context, interval time.Du
 
 // viewFolderStamps returns a stamp of every views folder, flat and module,
 // and, only when it differs from previous, the stamp of every custom view's
-// definition folder keyed as views.changed names it. Definitions are read only
-// after something changed.
+// definition folder and experience folder keyed as views.changed names it.
+// Definitions are read only after something changed.
 func (s *Server) viewFolderStamps(previous string) (string, map[string]string) {
 	opened := map[string]*os.Root{}
 	defer func() {
@@ -141,9 +141,16 @@ func (s *Server) viewFolderStamps(previous string) (string, map[string]string) {
 		if err != nil {
 			continue
 		}
-		folder := filepath.ToSlash(rel)
-		if key := v.folderKey(folder); folders[key] == "" {
-			folders[key] = customViewFolderStamp(root.FS(), folder)
+		stamped := []string{filepath.ToSlash(rel)}
+		// An experience's folder holds its experience.yml, which may sit above
+		// every definition folder.
+		if def.Experience != nil {
+			stamped = append(stamped, def.Experience.Folder)
+		}
+		for _, folder := range stamped {
+			if key := v.folderKey(folder); folders[key] == "" {
+				folders[key] = customViewFolderStamp(root.FS(), folder)
+			}
 		}
 	}
 	return whole, folders

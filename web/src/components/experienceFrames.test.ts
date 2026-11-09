@@ -20,7 +20,7 @@ import {
 } from "../lib/customViewMessages";
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import { STREAM_RECONNECTED_EVENT, VIEWS_CHANGED_EVENT } from "../query/vaultEvents";
-import { checkFolder, type ExperienceShowing } from "./experienceFrameRecords";
+import { checkFolder, nested, type ExperienceShowing } from "./experienceFrameRecords";
 import { ExperienceFrames, RETAINED_FRAMES, SUSPEND_GRACE_MS } from "./experienceFrames";
 
 type Sent = { type: string } & JsonObject;
@@ -477,5 +477,8 @@ describe("checkFolder", () => {
     expect(checkFolder({ check: "/views/_check/" })).toBe(".");
     expect(checkFolder({ check: "/views/_bundled/_check/kb" })).toBeNull();
     expect(checkFolder({})).toBeNull();
+    // An experience.yml at the flat views root changes every flat view's experience.
+    expect(nested(".", "kb/home")).toBe(true);
+    expect(nested("/module/ao-kb/site", ".")).toBe(false);
   });
 });
