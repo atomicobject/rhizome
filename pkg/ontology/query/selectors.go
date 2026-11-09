@@ -346,6 +346,9 @@ func (e *executor) resolveSearchSelectionSet(ctx context.Context, field *ast.Fie
 		records = recordsWithSemanticScores(found, scoresByPath)
 	}
 	records, truncated := trimRecordsForPage(records, first)
+	if truncated {
+		e.addTruncation(path, len(records), first)
+	}
 	out := make(map[string]any)
 	for _, selection := range field.SelectionSet {
 		current, ok := selection.(*ast.Field)

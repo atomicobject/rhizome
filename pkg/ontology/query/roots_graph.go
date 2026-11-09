@@ -44,6 +44,9 @@ func (e *executor) resolveNeighborhoodSelectionSet(ctx context.Context, source o
 	if len(result.Sources) > 0 {
 		truncated = result.Sources[0].Truncated
 	}
+	if truncated {
+		e.addTruncation(path, len(result.Edges), first)
+	}
 	out := make(map[string]any)
 	for _, selection := range field.SelectionSet {
 		current, ok := selection.(*ast.Field)
