@@ -59,9 +59,16 @@
 
   if (host) {
     mirror();
-    new MutationObserver(mirror).observe(host, {
+    var observer = new MutationObserver(mirror);
+    observer.observe(host, {
       attributes: true,
       attributeFilter: ["data-appearance", "data-theme"],
+    });
+    // The host's node holds this observer, and through it this frame's whole realm, so a
+    // frame the host removes would never be collected (SPEC-0136 R3: about 28 MB per
+    // evicted Knowledge frame on the largest real AO KB). Unloading disconnects it.
+    window.addEventListener("pagehide", function () {
+      observer.disconnect();
     });
   } else {
     try {
