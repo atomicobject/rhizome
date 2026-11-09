@@ -125,10 +125,40 @@ export function useMarkReady() {
   return useCallback(() => markPageReady(binding), [binding]);
 }
 
+// React's `use` reads a promise that carries `status` synchronously. A page renders only once
+// its module settled: suspending on a loading module committed an empty fallback, and React
+// then held the page's first commit, and so its first reads, until 300 ms after that fallback
+// (its Suspense reveal throttle) on every new frame (SPEC-0136 R10).
+type TrackedModule = Promise<ViewModule> & {
+  status?: "fulfilled" | "rejected";
+  value?: ViewModule;
+  reason?: Error;
+};
+
+function track(module: Promise<ViewModule>, settled: () => void) {
+  const tracked: TrackedModule = module;
+
+  module.then(
+    (value) => {
+      Object.assign(tracked, { status: "fulfilled", value });
+      settled();
+    },
+    (reason: Error) => {
+      Object.assign(tracked, { status: "rejected", reason });
+      settled();
+    },
+  );
+
+  return module;
+}
+
+const isSettled = (module: TrackedModule) => module.status !== undefined;
+
 // `use` needs the same promise on every render, so a failure is made once.
 function failing(error: Error) {
-  const failure = Promise.reject(error);
+  const failure: TrackedModule = Promise.reject(error);
   failure.catch(() => undefined);
+  Object.assign(failure, { status: "rejected", reason: error });
 
   return () => failure;
 }
@@ -175,11 +205,14 @@ export function createExperienceFrame(options: FrameOptions) {
       if (!module) {
         const load = key === `shell:${view.id}` ? options.shellLoad : () => importModule(key);
 
-        module = load().catch(async (cause: unknown) => {
-          const error = cause instanceof Error ? cause : new Error(String(cause));
+        module = track(
+          load().catch(async (cause: unknown) => {
+            const error = cause instanceof Error ? cause : new Error(String(cause));
 
-          throw new Error(await options.loadFailureDetail(error, check));
-        });
+            throw new Error(await options.loadFailureDetail(error, check));
+          }),
+          () => publish({ ...state }),
+        );
         modules.set(key, module);
       }
 
@@ -411,6 +444,8 @@ export function ExperiencePages({ frame }: { frame: ExperienceFrame }): ReactNod
   }, [active?.tabId, active?.shownAt, state.suspended]);
 
   return state.pages.map((page) => {
+    // Rendered once its module settled (see track); the frame publishes then.
+    if (!isSettled(page.load())) return null;
     const visible = !state.suspended && page.tabId === state.activeTabId;
 
     return (
