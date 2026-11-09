@@ -40,6 +40,17 @@ func (s *Store) SetBrokenLinksJSON(ctx context.Context, jsonStr string) error {
 	})
 }
 
+// ValidationGeneration reads only the validation run counter, without the
+// result payload GetValidationState loads.
+func (s *Store) ValidationGeneration(ctx context.Context) (int64, error) {
+	var generation int64
+	err := s.db.QueryRowContext(ctx, `SELECT generation FROM validation_state WHERE id = 1`).Scan(&generation)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	return generation, err
+}
+
 func (s *Store) GetValidationState(ctx context.Context) (ValidationState, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT status, result_json, error, generation, published_generation,

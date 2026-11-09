@@ -59,6 +59,7 @@ func (rt *LiveRuntime) publishOwnershipConfiguration(definition obsidian.VaultDe
 	rt.codeCfg.Store(&codeCfg)
 	rt.ownershipVaultDef.Store(&definition)
 	rt.setNoteSelectionPolicy(policy)
+	rt.configGeneration.advance(rt.VaultPath)
 	return nil
 }
 

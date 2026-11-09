@@ -58,6 +58,9 @@ type LiveRuntime struct {
 	// ownershipConfigMu serializes ownership selection reloads with the
 	// snapshot used to start leader work.
 	ownershipConfigMu sync.Mutex
+	// configGeneration is the index generation's config component; guarded
+	// by ownershipConfigMu so a snapshot never pairs it with another config.
+	configGeneration configGeneration
 
 	// Context and options
 	ctx                 context.Context
@@ -303,6 +306,7 @@ func NewLiveRuntime(ctx context.Context, opts LiveOptions) (*LiveRuntime, error)
 	rt.VaultPath = vaultDef.BasePath()
 	rt.liveHealth = newLiveHealthTracker(rt.VaultPath)
 	rt.resolvedConfig.Store(&resolved)
+	rt.configGeneration.advance(rt.VaultPath)
 	rt.LocalCfg = resolved.Local
 
 	// Elect the vault's runtime owner before returning so `rzm serve` can

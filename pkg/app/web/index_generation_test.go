@@ -1,0 +1,65 @@
+package web
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
+	"github.com/stretchr/testify/require"
+)
+
+// SPEC-0136 R4: the generation is `epoch.writes.schema.views.validation.config`
+// and each component changes when its source does.
+func TestIndexGenerationChangesWithEachComponent(t *testing.T) {
+	fixture := prepareOntologyFixtureVault(t)
+	srv := newFixtureServer(t, fixture, nil)
+	ctx := context.Background()
+
+	initial := srv.IndexGeneration(ctx)
+	require.Len(t, strings.Split(initial, "."), 6, initial)
+	require.Equal(t, initial, srv.IndexGeneration(ctx), "nothing changed")
+
+	component := func(generation string, index int) string {
+		return strings.Split(generation, ".")[index]
+	}
+	changes := []struct {
+		name  string
+		index int
+		apply func()
+	}{
+		{"store write", 1, func() {
+			_, err := fixture.intelStore.SetValidationRunning(ctx)
+			require.NoError(t, err)
+		}},
+		{"schema reload", 2, func() {
+			path := filepath.Join(fixture.root, ".rhizome", "ontology", "schema.graphql")
+			data, err := os.ReadFile(path)
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(path, append(data, []byte("\ntype Extra @node(paths: [\"extra/*.md\"]) {\n  name: String\n}\n")...), 0o644))
+		}},
+		{"view definition change", 3, func() {
+			dir := filepath.Join(fixture.root, ".rhizome", "views")
+			require.NoError(t, os.MkdirAll(dir, 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "specs.yaml"), []byte("apiVersion: rhizome.view.v1\nid: specs\nname: Specs\nsource: {kind: ontology_type, type: Spec}\n"), 0o644))
+		}},
+		{"validation run", 4, func() {
+			_, err := fixture.intelStore.SetValidationRunning(ctx)
+			require.NoError(t, err)
+		}},
+		{"configuration publication", 5, func() {
+			srv.runtime.Live = &webRuntimeView{snapshot: runtimeview.Snapshot{IntelStore: srv.runtime.Intel(), ConfigGeneration: "published-2"}}
+		}},
+	}
+	for _, change := range changes {
+		before := srv.IndexGeneration(ctx)
+		change.apply()
+		after := srv.IndexGeneration(ctx)
+		require.NotEqual(t, component(before, change.index), component(after, change.index), change.name)
+	}
+
+	restarted := newFixtureServer(t, fixture, nil)
+	require.NotEqual(t, component(srv.IndexGeneration(ctx), 0), component(restarted.IndexGeneration(ctx), 0), "a server restart changes the epoch")
+}

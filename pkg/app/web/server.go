@@ -110,6 +110,7 @@ type Server struct {
 	editSessionsMu      sync.RWMutex
 	editSessions        map[string]*ontologyEditSession
 	graphCache          *graphResponseCache
+	generation          indexGenerationState
 	nodeProjectionCache *nodeProjectionCache
 	noteMetadata        notemeta.Indexer
 	noteFormats         noteformat.Runtime

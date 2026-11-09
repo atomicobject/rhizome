@@ -98,6 +98,7 @@ func (rt *LiveRuntime) Snapshot() runtimeview.Snapshot {
 	rt.ownershipConfigMu.Lock()
 	vaultDefinition := rt.currentOwnershipVaultDefinition()
 	configuration := rt.Configuration()
+	configGeneration := rt.configGeneration.value
 	rt.ownershipConfigMu.Unlock()
 	notePath := ""
 	if cfg := rt.embCfg.Load(); cfg != nil {
@@ -115,6 +116,7 @@ func (rt *LiveRuntime) Snapshot() runtimeview.Snapshot {
 		Semantic:          capabilityState(rt.semanticReady, rt.semanticErr.Load()),
 		Code:              capabilityState(rt.codeReady, rt.codeErr.Load()),
 		Leader:            rt.leaderFlag.Load(),
+		ConfigGeneration:  configGeneration,
 		WatchHub:          rt.hub.Load(),
 		NoteReader:        noteReader,
 		NoteIndex:         rt.noteIndex.Load(),
