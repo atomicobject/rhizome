@@ -34,6 +34,10 @@ export * from "./actions";
 
 export { markReady, RETAINED_PAGES } from "./experienceFrame";
 
+export { RecordPage, type RecordPageProps } from "./record-page";
+
+export { NODES_BATCH_MAX, readNodes, type ReadNodesResult, type UnresolvedRef } from "./read-nodes";
+
 export {
   NodeLink,
   NoteLink,
