@@ -7,6 +7,31 @@
 // carries its `tabId` and `navigationId` (PageStamp), so the host can reject a
 // message from a page whose navigation is no longer current. Frames outside
 // experiences send neither.
+//
+// Starting an experience or panel frame:
+//
+// 1. The host loads the view shell with EXPERIENCE_FRAME_PARAM set to
+//    EXPERIENCE_FRAME_VALUE (`frame=experience`) beside `hosted=1`. Without
+//    it the kit starts the shell's view as a single page, as for any view,
+//    even when the invocation names an `experienceKey`.
+// 2. The kit posts FRAME_READY_MESSAGE once its location listener is
+//    installed. The host posts nothing to the frame before it, because the
+//    kit's modules load asynchronously and a message sent on iframe `load`
+//    can arrive before anything listens.
+// 3. The host then posts the first LOCATION_MESSAGE and starts the
+//    LOCATION_ACCEPT_TIMEOUT_MS timer at that post, never at `load`.
+// 4. LOCATION_RENDERED_MESSAGE is the paint signal the host swaps frames on.
+//    An experience frame never posts VIEW_RENDERED_MESSAGE and never sets
+//    `data-rhizome-view`, so the single-view `load`/`rendered` handshake does
+//    not apply to it.
+//
+// Edit sessions: the host posts EDIT_SESSION_MESSAGE to every frame that is
+// not suspended whenever the session or its read lifecycle changes. A
+// suspended frame gets none. After RESUME_MESSAGE, and with the location that
+// shows a hidden page, the host posts EDIT_SESSION_MESSAGE only when the
+// session differs from the last one it posted to that frame (compare
+// `editSessionFingerprint` and `readLifecycle.revision`). The kit treats an
+// identical session as no change: it renders nothing and reads nothing.
 import type { JsonObject } from "../api/parse";
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import type { NodeRef, OntologyEditOp, OntologyEditSessionResponse } from "../api/types";
@@ -27,8 +52,21 @@ export const VIEW_PARAMS_MESSAGE = "rhizome:view-params";
 /** View → host: open a note in the workspace. `{ path, beside? }` */
 export const OPEN_NOTE_MESSAGE = "rhizome:open-note";
 
-/** A view's first render is on screen, so a host may show it. */
+/** A single view's first render is on screen, so a host may show it. Experience frames never send it. */
 export const VIEW_RENDERED_MESSAGE = "rhizome:view-rendered";
+
+/** The shell URL query key that asks the kit to start an experience or panel frame. */
+export const EXPERIENCE_FRAME_PARAM = "frame";
+
+/** The EXPERIENCE_FRAME_PARAM value for an experience or panel frame. */
+export const EXPERIENCE_FRAME_VALUE = "experience";
+
+/**
+ * Experience frame → host: the frame listens for locations. `{}`, sent once
+ * per document. The host posts the first LOCATION_MESSAGE only after it, and
+ * starts its accept timer then.
+ */
+export const FRAME_READY_MESSAGE = "rhizome:frame-ready";
 
 /** View → host: ask for the current edit session; the host answers with EDIT_SESSION_MESSAGE. */
 export const EDIT_SESSION_HELLO_MESSAGE = "rhizome:edit-session-hello";
@@ -59,22 +97,31 @@ export const OPEN_COLLECTION_MESSAGE = "rhizome:open-collection";
 export const OPEN_SEARCH_MESSAGE = "rhizome:open-search";
 
 /**
- * Host → experience frame: show a tab's page at a location (ExperienceLocation).
- * The kit answers LOCATION_ACCEPTED_MESSAGE on receipt; without that answer
- * within LOCATION_ACCEPT_TIMEOUT_MS the host replaces the frame.
+ * Host → experience frame: show a tab's page at a location (ExperienceLocation),
+ * never before FRAME_READY_MESSAGE. The kit answers LOCATION_ACCEPTED_MESSAGE
+ * on receipt; without that answer within LOCATION_ACCEPT_TIMEOUT_MS of the
+ * post the host replaces the frame.
  */
 export const LOCATION_MESSAGE = "rhizome:location";
 
 /** Experience frame → host: a location arrived. `{ tabId, navigationId }` */
 export const LOCATION_ACCEPTED_MESSAGE = "rhizome:location-accepted";
 
-/** Experience frame → host: a location's page painted, for telemetry only. `{ tabId, navigationId, at }` */
+/**
+ * Experience frame → host: a location's page painted. `{ tabId, navigationId, at }`.
+ * The host reveals a new or replacing frame on the first one, and records `at`
+ * for telemetry.
+ */
 export const LOCATION_RENDERED_MESSAGE = "rhizome:location-rendered";
 
 /** Host → experience or panel frame: hidden and inert; every page stops working. `{}` */
 export const SUSPEND_MESSAGE = "rhizome:suspend";
 
-/** Host → experience or panel frame: shown again. `{ generation? }`, the current index generation. */
+/**
+ * Host → experience or panel frame: shown again. `{ generation? }`, the current
+ * index generation. The host follows it with EDIT_SESSION_MESSAGE only when the
+ * session changed while the frame was suspended.
+ */
 export const RESUME_MESSAGE = "rhizome:resume";
 
 /** Host → experience frame: a tab closed, so its page is dropped. `{ tabId }` */
@@ -121,7 +168,15 @@ export type ExperienceLocation = {
   invocation: JsonObject;
   /** The tab's view param values. */
   params: ViewParams;
-  /** The current index generation; a new frame's first location takes it from the invocation's Rhizome-Generation header. */
+  /**
+   * The invocation response's Rhizome-Generation header. The kit adopts it
+   * only while the frame has no generation, which is its first location
+   * unless an event named one first. Later locations' generations are
+   * ignored: the host's cached invocation can trail the frame, which moves on
+   * with every applied response, and adopting it would move the frame
+   * backwards and refetch every visible query. The host sends it on a new
+   * frame's first location and may omit it after.
+   */
   generation?: string;
 };
 
@@ -141,6 +196,7 @@ export type ViewMessage = PageStamp &
     | { type: typeof OPEN_NOTE_MESSAGE; path: string; beside?: boolean }
     | { type: typeof EDIT_SESSION_HELLO_MESSAGE }
     | { type: typeof VIEW_RENDERED_MESSAGE }
+    | { type: typeof FRAME_READY_MESSAGE }
     | { type: typeof STAGE_OPS_MESSAGE; requestId: string; ops: OntologyEditOp[] }
     | { type: typeof OPEN_ISSUES_MESSAGE; scope?: IssueScope }
     | { type: typeof OPEN_COLLECTION_MESSAGE; name: string }
