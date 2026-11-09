@@ -35,18 +35,8 @@ export function useSite() {
   return { query, site };
 }
 
-/** The Sources-section citations of `refs`, batched by the kit's `readNodes`.
- * ponytail: `readNodes([])` throws in the kit today (it reads the first batch's response when
- * there are none), so an empty scope answers here; drop the guard once the kit returns empty. */
+/** The Sources-section citations of `refs`, batched by the kit's `readNodes`. */
 export function readCitations(refs: string[], signal?: AbortSignal) {
-  if (!refs.length)
-    return Promise.resolve({
-      nodes: [] as CitationRead[],
-      unresolved: [],
-      errors: [],
-      truncated: [],
-      complete: true,
-    });
   return readNodes<CitationRead>(refs, CITATION_SELECTION, { signal });
 }
 

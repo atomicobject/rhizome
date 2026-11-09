@@ -92,6 +92,20 @@ describe("readNodes", () => {
     },
   );
 
+  it("answers no refs with an empty, complete result and reads nothing", async () => {
+    serve();
+    const result = await readNodes<{ path: string }>([], "... on Note { path }");
+
+    expect(result).toEqual({
+      nodes: [],
+      unresolved: [],
+      errors: [],
+      truncated: [],
+      complete: true,
+    });
+    expect(batchSizes()).toEqual([]);
+  });
+
   it("returns a node named by two refs once and reports refs that did not resolve", async () => {
     serve();
 

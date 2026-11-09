@@ -69,7 +69,8 @@ export async function readNodes<TNode>(
     }, options.signal);
 
   let responses = await Promise.all(batches.map(read));
-  const generationOf = (index: number) => responses[index].extensions?.generation;
+  // No refs means no batches, and an empty, complete result with no generation.
+  const generationOf = (index: number) => responses[index]?.extensions?.generation;
 
   // Batches read independently can straddle a write: read the ones behind the
   // frame's generation once more, and name a generation only when all agree.
