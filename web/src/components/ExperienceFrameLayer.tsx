@@ -170,7 +170,11 @@ function FrameLayer({ frames }: { frames: ExperienceFrames }) {
         return (
           <iframe
             key={view.id}
-            ref={(element) => frames.attach(view.id, element?.contentWindow ?? null)}
+            // A frame's window outlives its ref's detach within a commit, in
+            // which a placeholder may already show the frame.
+            ref={(element) => {
+              if (element) frames.attach(view.id, element.contentWindow);
+            }}
             className="experience-frame"
             data-experience={view.experienceKey}
             data-shown={view.visible || undefined}

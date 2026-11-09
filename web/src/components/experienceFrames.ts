@@ -37,6 +37,12 @@ import {
   type BridgeServices,
 } from "../views/viewBridge";
 
+/**
+ * The longest an accepted page stays hidden waiting for its paint signal. A
+ * page that fails to load reports no paint, and its error should show.
+ */
+const REVEAL_LIMIT_MS = 1000;
+
 /** K: how many suspended frames the window keeps; the least recently shown beyond it are destroyed. */
 export const RETAINED_FRAMES = 4;
 
@@ -83,6 +89,7 @@ type Frame = {
   /** The tab of the last location posted: the page the frame shows. */
   locatedTab: string | null;
   awaiting: { navigationId: string; timer: ReturnType<typeof setTimeout> } | null;
+  revealing: ReturnType<typeof setTimeout> | null;
   generationSent: boolean;
   /** The edit session last posted, compared by fingerprint and read revision. */
   sessionSent: string | null;
@@ -314,6 +321,7 @@ export class ExperienceFrames {
       pending: null,
       locatedTab: null,
       awaiting: null,
+      revealing: null,
       generationSent: false,
       sessionSent: null,
       folders: new Set(),
@@ -326,6 +334,8 @@ export class ExperienceFrames {
 
   private destroy(frame: Frame) {
     if (frame.awaiting) clearTimeout(frame.awaiting.timer);
+
+    if (frame.revealing) clearTimeout(frame.revealing);
     frame.awaiting = null;
 
     if (this.frames.get(frame.experienceKey) === frame) this.frames.delete(frame.experienceKey);
@@ -470,7 +480,7 @@ export class ExperienceFrames {
   private postSession(frame: Frame) {
     const key = sessionKey(this.session);
 
-    if (frame.sessionSent === key) return;
+    if (!frame.ready || frame.sessionSent === key) return;
     frame.sessionSent = key;
     this.post(frame, { type: EDIT_SESSION_MESSAGE, ...this.session });
   }
@@ -522,6 +532,18 @@ export class ExperienceFrames {
       if (!frame.suspended) this.post(frame, { type: GENERATION_MESSAGE, generation });
   }
 
+  private painted(frame: Frame, tabId: string, navigationId: string) {
+    const current = frame.pages.get(tabId)?.navigationId === navigationId;
+
+    if (
+      !current ||
+      (frame.rendered?.tabId === tabId && frame.rendered.navigationId === navigationId)
+    )
+      return;
+    frame.rendered = { tabId, navigationId };
+    this.publish();
+  }
+
   /** A message on the host window; ignored unless one of these frames sent it. */
   receive(event: MessageEvent) {
     if (event.origin !== window.location.origin) return;
@@ -552,12 +574,15 @@ export class ExperienceFrames {
           frame.awaiting = null;
         }
 
+        if (frame.revealing) clearTimeout(frame.revealing);
+        frame.revealing = setTimeout(
+          () => this.painted(frame, request.tabId, request.navigationId),
+          REVEAL_LIMIT_MS,
+        );
+
         return;
       case "location-rendered":
-        if (page?.navigationId === request.navigationId) {
-          frame.rendered = { tabId: request.tabId, navigationId: request.navigationId };
-          this.publish();
-        }
+        this.painted(frame, request.tabId, request.navigationId);
 
         return;
       case "rendered":

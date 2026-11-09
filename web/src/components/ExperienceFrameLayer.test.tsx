@@ -3,7 +3,13 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ViewCatalogEntry, ViewChoice } from "../api/types";
-import { LOCATION_MESSAGE } from "../lib/customViewMessages";
+import {
+  EDIT_SESSION_MESSAGE,
+  FRAME_READY_MESSAGE,
+  LOCATION_MESSAGE,
+  RESUME_MESSAGE,
+  SUSPEND_MESSAGE,
+} from "../lib/customViewMessages";
 import { ViewHost } from "../views/ViewHost";
 import { ExperienceFrameLayer, ExperienceTabContext } from "./ExperienceFrameLayer";
 
@@ -63,6 +69,17 @@ const frames = () => document.querySelectorAll<HTMLIFrameElement>("iframe.experi
 
 afterEach(() => vi.restoreAllMocks());
 
+const frameReady = (frame: HTMLIFrameElement) =>
+  act(async () =>
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        origin: window.location.origin,
+        source: frame.contentWindow,
+        data: { type: FRAME_READY_MESSAGE },
+      }),
+    ),
+  );
+
 describe("ExperienceFrameLayer", () => {
   it("shows an experience's tabs of any kind in one frame laid over the active placeholder", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(
@@ -121,5 +138,60 @@ describe("ExperienceFrameLayer", () => {
     expect(frames()[0]).toBe(frame);
     // Nothing goes to a frame that has not said it listens.
     expect(posted.mock.calls.filter(([message]) => message.type === LOCATION_MESSAGE)).toEqual([]);
+  });
+
+  it("suspends the frame when its tab shows another view and resumes it on return", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({ view: { id: "v", name: "v" }, context: { kind: "standalone" } }),
+          {
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+    );
+
+    const App = ({ experience }: { experience: boolean }) => (
+      <Shell open={["home"]}>
+        <ExperienceTabContext value="home">
+          <ViewHost
+            view={{ id: "x", name: "x" }}
+            choice={
+              experience ? choice("kb.home") : { ...choice("other"), experienceKey: undefined }
+            }
+            definition={
+              experience
+                ? definition("kb.home")
+                : { ...definition("other"), experienceKey: undefined }
+            }
+            context={{ kind: "standalone" }}
+            active
+            services={services}
+            embedded
+          />
+        </ExperienceTabContext>
+      </Shell>
+    );
+
+    const { rerender } = render(<App experience />);
+    await waitFor(() => expect(frames()).toHaveLength(1));
+    const [frame] = frames();
+    const sent: string[] = [];
+    vi.spyOn(frame!.contentWindow!, "postMessage").mockImplementation((message: { type: string }) =>
+      sent.push(message.type),
+    );
+    await frameReady(frame!);
+    expect(sent).toEqual([LOCATION_MESSAGE, EDIT_SESSION_MESSAGE]);
+
+    rerender(<App experience={false} />);
+    await act(async () => undefined);
+    expect(sent.at(-1)).toBe(SUSPEND_MESSAGE);
+    expect(frame).toHaveAttribute("inert");
+
+    rerender(<App experience />);
+    await act(async () => undefined);
+    expect(frames()[0]).toBe(frame);
+    // The same page at the same session needs only the resume.
+    expect(sent.slice(3)).toEqual([RESUME_MESSAGE]);
   });
 });
