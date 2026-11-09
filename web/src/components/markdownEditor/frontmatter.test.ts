@@ -1,5 +1,5 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { syntaxTree } from "@codemirror/language";
+import { ensureSyntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
 import { frontmatterBlock } from "./frontmatter";
@@ -10,12 +10,15 @@ function topLevelNodes(doc: string) {
     extensions: [markdown({ base: markdownLanguage, extensions: [frontmatterBlock] })],
   });
 
+  // State creation parses for at most 20 ms and keeps a partial tree when that
+  // runs out, as it can on a loaded worker. Parse to the end with no deadline.
+  const tree = ensureSyntaxTree(state, state.doc.length, Infinity);
+
+  if (!tree) throw new Error("markdown language is not installed");
   const names: string[] = [];
-  syntaxTree(state)
-    .topNode.cursor()
-    .iterate((node) => {
-      if (node.node.parent?.name === "Document") names.push(node.name);
-    });
+  tree.topNode.cursor().iterate((node) => {
+    if (node.node.parent?.name === "Document") names.push(node.name);
+  });
 
   return names;
 }
