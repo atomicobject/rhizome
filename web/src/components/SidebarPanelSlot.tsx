@@ -91,6 +91,23 @@ function rescueFocus(region: RefObject<HTMLElement | null>, to: RefObject<HTMLEl
   if (region.current?.contains(document.activeElement)) to.current?.focus();
 }
 
+/**
+ * Keys pressed in a panel's frame never reach the slot, which lives in this
+ * window, so the frame's newly loaded document hands the slot that owns it an
+ * Escape its page left unconsumed: a menu in the page still consumes it first.
+ */
+export function bridgePanelEscape(frame: HTMLIFrameElement) {
+  frame.contentWindow?.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+
+    const slot = [...frame.ownerDocument.querySelectorAll("[aria-owns]")].find((each) =>
+      each.getAttribute("aria-owns")?.split(" ").includes(frame.id),
+    );
+
+    slot?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  });
+}
+
 const errorIgnored = () => {
   // A failed save keeps the state on screen; the preference store reports it.
 };

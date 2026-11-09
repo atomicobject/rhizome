@@ -10,15 +10,20 @@ import type { BridgeServices } from "../views/viewBridge";
 import type { PanelContext } from "./activePanel";
 import { ExperiencePlaceholder, FrameLayer } from "./ExperienceFrameLayer";
 import type { ExperienceFrames } from "./experienceFrames";
-import { usePanelOpen } from "./SidebarPanelSlot";
+import { bridgePanelEscape, usePanelOpen } from "./SidebarPanelSlot";
 import { bridgeSidebarShortcut } from "./WorkbenchSidebar";
 
 /** What a panel's page may ask the workspace to do, as an experience page may. */
 export type PanelServices = Omit<BridgeServices, "session" | "readLifecycle">;
 
+const bridgePanelKeys = (frame: HTMLIFrameElement) => {
+  bridgeSidebarShortcut(frame);
+  bridgePanelEscape(frame);
+};
+
 /** The sidebar's panel frames, kept while their panel is away so each resumes as it was. */
 export function SidebarPanelFrames({ frames }: { frames: ExperienceFrames }) {
-  return <FrameLayer frames={frames} panel onFrameLoad={bridgeSidebarShortcut} />;
+  return <FrameLayer frames={frames} panel onFrameLoad={bridgePanelKeys} />;
 }
 
 export function SidebarPanelView({

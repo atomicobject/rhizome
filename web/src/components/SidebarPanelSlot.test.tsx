@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 
 import { withFakeFetch } from "../test/fakeFetch";
 import {
+  bridgePanelEscape,
   FOLDER_PANEL_IDENTITY,
   panelIdentity,
   panelPreferenceScope,
@@ -129,6 +130,32 @@ describe("the sidebar panel slot", () => {
     fireEvent.keyDown(inner, { key: "Escape" });
     expect(coverButton()).toHaveAttribute("aria-pressed", "false");
     expect(navigation()).toBeVisible();
+  });
+
+  it("returns from cover on an Escape its panel frame left unconsumed", () => {
+    render(<Slot panel={{ ...PANEL, owns: "panel-frame-kb" }} />);
+    const frame = document.createElement("iframe");
+    frame.id = "panel-frame-kb";
+    document.body.append(frame);
+    bridgePanelEscape(frame);
+    fireEvent.click(coverButton());
+    const page = frame.contentDocument!.body;
+
+    const escape = () =>
+      act(() => {
+        page.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+        );
+      });
+
+    // A menu in the panel's page consumes the first.
+    page.addEventListener("keydown", (event) => event.preventDefault(), { once: true });
+    escape();
+    expect(coverButton()).toHaveAttribute("aria-pressed", "true");
+
+    escape();
+    expect(coverButton()).toHaveAttribute("aria-pressed", "false");
+    frame.remove();
   });
 
   it("resizes from the keyboard and remembers height and minimised state per vault and panel identity", async () => {
