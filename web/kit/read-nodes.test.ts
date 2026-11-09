@@ -1,15 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { graphQLRequestBody, jsonReply, withFakeFetch } from "../src/test/fakeFetch";
-import { truncation } from "./coverage";
+import { responseGeneration, truncation } from "./coverage";
+import { frameGeneration } from "./generation";
 import { NODES_BATCH_MAX, readNodes } from "./read-nodes";
 
 const http = withFakeFetch();
 
 // A server that resolves `n<i>.md` and its alias `alias-<i>` to the same note,
 // answers at most `first` refs (default 50), and knows nothing called `missing`.
-function serve() {
-  http.on("POST", "/api/v1/graphql", (request) => {
+// `at` names the generation of each answer, in request order.
+function serve(at: (request: number) => string | Promise<string> = () => "G1") {
+  let requests = 0;
+
+  http.on("POST", "/api/v1/graphql", async (request) => {
+    const generation = await at(requests++);
     const { variables } = graphQLRequestBody(request);
     const refs = refsOf(variables);
     const first = Number(variables?.first ?? 50);
@@ -35,7 +40,7 @@ function serve() {
 
     return jsonReply({
       data: { nodes: { items, pageInfo: { truncated: refs.length > first } } },
-      extensions: { generation: "G1" },
+      extensions: { generation },
     });
   });
 }
@@ -79,6 +84,7 @@ describe("readNodes", () => {
       expect(result.nodes).toHaveLength(count);
       expect(result.nodes.at(-1)).toEqual({ path: `n${count - 1}.md` });
       expect(result.complete).toBe(true);
+      expect(responseGeneration(result)).toBe("G1");
       expect(batchSizes()).toEqual(sizes);
       expect(Math.max(...batchSizes().map(([size]) => Number(size)))).toBeLessThanOrEqual(
         NODES_BATCH_MAX,
@@ -100,5 +106,35 @@ describe("readNodes", () => {
     ]);
     expect(result.complete).toBe(false);
     expect(truncation(result)).toEqual([]);
+  });
+
+  it("reads a batch behind the frame's generation once more, so the batches agree", async () => {
+    let releaseSecond = () => {};
+
+    const second = new Promise<void>((resolve) => (releaseSecond = resolve));
+
+    // The first batch answers at G5; a write moves the frame to G6 before the
+    // second batch answers there; the first batch, read again, answers at G6.
+    serve(async (request) => {
+      if (request !== 1) return request === 0 ? "G5" : "G6";
+
+      await second;
+
+      return "G6";
+    });
+    const reading = readNodes<{ path: string }>(refs(201), "... on Note { path }");
+    await vi.waitFor(() => expect(frameGeneration.current()).toBe("G5"));
+    frameGeneration.set("G6");
+    releaseSecond();
+    const result = await reading;
+
+    expect(batchSizes()).toEqual([
+      [200, 200],
+      [1, 1],
+      [200, 200],
+    ]);
+    expect(result.nodes).toHaveLength(201);
+    expect(responseGeneration(result)).toBe("G6");
+    frameGeneration.stop();
   });
 });

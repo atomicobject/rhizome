@@ -56,20 +56,36 @@ export async function readNodes<TNode>(
 
   const query = batchQuery(selection);
 
-  const responses = await Promise.all(
-    batches.map((batch) =>
-      frameGeneration.read(async () => {
-        const response = await queryPublicGraphQLOperation<BatchData<TNode>>(
-          query,
-          { refs: batch, first: batch.length },
-          "ReadNodes",
-          { signal: options.signal },
-        );
+  const read = (batch: string[]) =>
+    frameGeneration.read(async () => {
+      const response = await queryPublicGraphQLOperation<BatchData<TNode>>(
+        query,
+        { refs: batch, first: batch.length },
+        "ReadNodes",
+        { signal: options.signal },
+      );
 
-        return { data: response, generation: response.extensions?.generation };
-      }, options.signal),
-    ),
-  );
+      return { data: response, generation: response.extensions?.generation };
+    }, options.signal);
+
+  let responses = await Promise.all(batches.map(read));
+  const generationOf = (index: number) => responses[index].extensions?.generation;
+
+  // Batches read independently can straddle a write: read the ones behind the
+  // frame's generation once more, and name a generation only when all agree.
+  if (responses.some((_, index) => generationOf(index) !== generationOf(0))) {
+    const current = frameGeneration.current();
+
+    responses = await Promise.all(
+      responses.map((response, index) =>
+        generationOf(index) === current ? response : read(batches[index]),
+      ),
+    );
+  }
+
+  const generation = responses.every((_, index) => generationOf(index) === generationOf(0))
+    ? generationOf(0)
+    : undefined;
 
   const result: ReadNodesResult<TNode> = {
     nodes: [],
@@ -121,7 +137,12 @@ export async function readNodes<TNode>(
   }
 
   result.complete = !result.unresolved.length && !result.errors.length && !result.truncated.length;
-  recordResponse(result, { truncated: result.truncated });
+  recordResponse(
+    result,
+    generation === undefined
+      ? { truncated: result.truncated }
+      : { truncated: result.truncated, generation },
+  );
 
   return result;
 }
