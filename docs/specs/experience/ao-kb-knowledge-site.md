@@ -280,20 +280,21 @@ Every visual is deterministic for the same index, has a text or table equivalent
 
 ### R5. Computation
 
-- One pure library in the starter MUST compute membership, kind groups, counts, the topic layout, date placement, scope sets, and gaps, and every site page and the panel MUST use it. Its whole-KB input is the orientation query; a record page, and the panel on a record page, add one scope read for the opened record (for an artifact, its record read plus a batched citation read; batched reads chunk through `readNodes`).
+- One pure library in the starter MUST compute membership, kind groups, counts, the topic layout, date placement, scope sets, and gaps, and every site page and the panel MUST use it. Its whole-KB input is the orientation query and the Related Concepts read; a record page, and the panel on a record page, add one scope read for the opened record (for an artifact, its record read plus a batched citation read; batched reads chunk through `readNodes`).
 - The orientation query MUST carry exactly these fields, with roots at `first: 5000` and nested lists without `first`, and nothing else:
   - every root: `ref`, `path`, `aoId`, `title`;
   - `assertion`: `headline`, `kind`, `legacyKind`, `confidence`, `provenanceSource`;
   - `source`: `name`, `headline`, `recordedDate`, `extractedAssertionIds`;
-  - `concept`: `name`, `headline`, `aliases`, `linkedAssertions { path }`, `linkingAssertions { path }`, `relatedConceptsSection { relatedConcepts { path } }`;
+  - `concept`: `name`, `headline`, `aliases`, `linkedAssertions { path }`, `linkingAssertions { path }`;
   - `artifact`: `name`, `headline`;
   - `mapOfContent`: no further fields.
+- The Related Concepts pairs MUST come from their own read beside it, `concept` at `first: 5000` with `path` and `relatedConceptsSection { relatedConcepts { path } }` and nothing else, and its `concept` coverage counts toward R2c. Every orientation field reads only the index, so the read cache serves the orientation query (SPEC-0136 R4); the section is projected from each concept's note file, which the cache never serves, so it stays out of the orientation query. On the largest real KB the Related Concepts read took 22 ms.
 - `provenanceSource` is a raw scalar (`provenance.source`), not a link, so an assertion can record a source as its origin with no link to it. AO and the existing citation reader (`citations()` in `lib/knowledge.ts`) count such an assertion as citing the source, so the site does too.
 - Scope reads, by page:
   - Concept: the Sources-section citations (`sourcesSection { citations { recordedLink sources { path } } }`) of its member assertions, read with the kit's `readNodes` (SPEC-0136 R7), which chunks at the batch maximum and merges coverage, so a concept with any number of members is read completely.
   - Source: the candidate set is the source's `linkingAssertions { path }`, read without `first`, united with every assertion whose `provenanceSource` from the orientation query resolves to the source through `makeResolver`. The scope read confirms each candidate as a citation by reading its Sources-section citations, and `citations()` decides, so a provenance-only citation is included and a link outside the Sources section is not.
   - Artifact: its `supportValues`, `additionalAssertionReferences { path sourcesSection { citations { recordedLink sources { path } } } }`, and `conceptReferences { path }`, then, as one batched node read, the Sources-section citations of support values that resolve through `makeResolver` to assertions not already read. `citations()` decides, as for a concept. The artifact's source set is the sources those assertions cite.
-- The orientation query string and the scope-read builders MUST be exported from one starter module, so the views and the Go integration tests run the same text.
+- The orientation query and Related Concepts strings and the scope-read builders MUST be exported from one starter module, so the views and the Go integration tests run the same text.
 - Record pages MUST use SPEC-0136's `RecordPage` and MUST show the record's own title, headline, and body without waiting for the orientation query; the scoped pair and other whole-KB parts load beside them.
 - Bodies, content, workspace data, and passages load only for the opened record. Review's submission and curation lists use their own body-free query.
 - The Concepts, Assertions, and Attention pages keep their SPEC-0133 evidence reads, because SPEC-0133 R7's locator-coverage categories need source text. This effort removes their caps (R2c) and adds the concept-side membership fields (`linkedAssertions { path }`, `linkingAssertions { path }`) so they use the shared membership (D1); nothing else in that read changes. New pages and the panel MUST NOT use that query. Without caps that read measured 2,039 ms and 6.2 MiB on the largest KB; this effort accepts that cost on those three existing pages in exchange for complete counts, and Batch D reports it per KB.
@@ -310,7 +311,7 @@ Every visual is deterministic for the same index, has a text or table equivalent
 | Scope read, one artifact | 3 ms | under 1 KiB | |
 
 - Two inputs changed after these measurements. `provenanceSource` adds one short scalar per assertion; none of the three real KBs records `provenance.source`, so it reads null throughout. `Source.linkingAssertions` replaces the neighbourhood read with a declared field of the same shape as `Concept.linkingAssertions`. Batch D re-measures both exact strings.
-- Citations and artifact references cost about 360 ms and 340 ms across the whole KB, which is why they are scope reads. Whole-KB reads go through SPEC-0136's read cache, so the panel, every page of the experience, and reloads share one execution per index generation; the budgets below are for a cache miss. The prototype's layout took 0.5 ms for 21 concepts and 29 ms for 200; Batch B re-measures it.
+- Citations and artifact references cost about 360 ms and 340 ms across the whole KB, which is why they are scope reads. Whole-KB reads go through SPEC-0136's read cache, so the panel, every page of the experience, and reloads share one execution of the orientation query per index generation (the Related Concepts read executes per frame); the budgets below are for a cache miss. The prototype's layout took 0.5 ms for 21 concepts and 29 ms for 200; Batch B re-measures it.
 - If the orientation query exceeds one second median, or a scope read exceeds 250 ms median, on any supported real KB at release, that is a decision to bring back with measurements, not a cache to add quietly.
 
 ### R6. The Knowledge experience and its panel

@@ -9,18 +9,23 @@ export const ROOT_MAX = 5000;
 const REF = "ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }";
 const CITATIONS = "sourcesSection { citations { recordedLink sources { path } } }";
 
-/** The one body-free, whole-KB query every site page and the panel run. Exactly R5's fields. */
+/** The body-free, whole-KB query every site page and the panel run: R5's fields except the
+ * Related Concepts pairs. It reads only the index, so the server's read cache serves one
+ * execution per generation to every frame (SPEC-0136 R4). */
 export const ORIENTATION_QUERY = `{
   assertion(first: ${ROOT_MAX}) { ${REF} path aoId title headline kind legacyKind confidence provenanceSource }
   source(first: ${ROOT_MAX}) { ${REF} path aoId title name headline recordedDate extractedAssertionIds }
   concept(first: ${ROOT_MAX}) {
     ${REF} path aoId title name headline aliases
     linkedAssertions { path } linkingAssertions { path }
-    relatedConceptsSection { relatedConcepts { path } }
   }
   artifact(first: ${ROOT_MAX}) { ${REF} path aoId title name headline }
   mapOfContent(first: ${ROOT_MAX}) { ${REF} path aoId title }
 }`;
+
+/** R5's Related Concepts pairs, read beside the orientation query: the section is projected
+ * from each concept's note file, which the read cache never serves (SPEC-0136 R4). */
+export const RELATED_CONCEPTS_QUERY = `{ concept(first: ${ROOT_MAX}) { path relatedConceptsSection { relatedConcepts { path } } } }`;
 
 /** The selection each batched assertion read returns: its Sources-section citations. Record
  * pages pass it to the kit's `readNodes(refs, CITATION_SELECTION)` (SPEC-0136 R7), which chunks

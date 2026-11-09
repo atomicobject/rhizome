@@ -20,7 +20,7 @@ import (
 
 // siteQueries runs the starter's query module, so these tests read exactly the text the views run.
 type siteQueries struct {
-	Orientation, Review, Source, Artifact, Citation string
+	Orientation, Related, Review, Source, Artifact, Citation string
 }
 
 // nodes reads refs with selection the way the kit's readNodes does (one batch, `first` set).
@@ -45,9 +45,9 @@ func loadSiteQueries(t *testing.T, args map[string]any) siteQueries {
 	require.NoError(t, err)
 	input, err := json.Marshal(args)
 	require.NoError(t, err)
-	// import() takes a URL; a raw Windows path (D:\...) reads as scheme "d:".
+	// import() takes a URL; a raw Windows path (D:\\...) reads as scheme "d:".
 	script := `const q = await import((await import("node:url")).pathToFileURL(process.argv[1]).href); const a = JSON.parse(process.argv[2]) ?? {};
-console.log(JSON.stringify({Orientation: q.ORIENTATION_QUERY, Review: q.REVIEW_DOCUMENTS_QUERY,
+console.log(JSON.stringify({Orientation: q.ORIENTATION_QUERY, Related: q.RELATED_CONCEPTS_QUERY, Review: q.REVIEW_DOCUMENTS_QUERY,
   Citation: q.CITATION_SELECTION, Source: q.sourceScopeQuery(a.source ?? ""), Artifact: q.artifactScopeQuery(a.artifact ?? "")}));`
 	out, err := exec.Command(node, "--experimental-strip-types", "--input-type=module", "-e", script, module, string(input)).CombinedOutput()
 	require.NoError(t, err, "%s", out)
@@ -215,6 +215,14 @@ func TestAOKBLegacySiteData(t *testing.T) {
 		}
 		provenance := siteByPath(data["assertion"])["assertions/provenance-only.md"]
 		require.Equal(t, "s-0003", provenance["provenanceSource"], "a provenance-only citation is in the orientation query")
+		related, coverage := v.query(loadSiteQueries(t, nil).Related)
+		requireComplete(t, coverage, "concept")
+		pairs := map[string][]string{}
+		for _, c := range aoRows(related["concept"]) {
+			pairs[aoString(c["path"])] = sitePaths(aoMap(c["relatedConceptsSection"])["relatedConcepts"])
+		}
+		require.Equal(t, []string{"concepts/tickets.md"}, pairs["concepts/timetable.md"], "Related Concepts pairs come from their own read")
+		require.Empty(t, pairs["concepts/weather.md"])
 	})
 	t.Run("scope reads", func(t *testing.T) {
 		queries := loadSiteQueries(t, map[string]any{

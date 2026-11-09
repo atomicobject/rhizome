@@ -13,9 +13,9 @@ import {
   workspaceViewHref,
 } from "@rhizome/kit";
 import type { ViewNodeRef, ViewParamValue } from "@rhizome/kit";
-import { CITATION_SELECTION, ORIENTATION_QUERY } from "../lib/queries.ts";
+import { CITATION_SELECTION, ORIENTATION_QUERY, RELATED_CONCEPTS_QUERY } from "../lib/queries.ts";
 import { GAPS, buildSite, folderLabel } from "../lib/site.ts";
-import type { CitationRead, Orientation, Root, Site } from "../lib/site.ts";
+import type { CitationRead, OConcept, Orientation, Root, Site } from "../lib/site.ts";
 import { makeResolver } from "../lib/relations.ts";
 import { NO_KIND, groupOf } from "../lib/kinds.ts";
 import { inlineText, paragraphs } from "../lib/prose.ts";
@@ -25,18 +25,39 @@ import "./site.css";
 
 export const GROUP = { kind: "group", group: "Knowledge" } as const;
 
-/** The orientation query and the site library over it. `site` is rebuilt only when the data object changes. */
-// One site per orientation result, shared by every page and the panel's page in a frame.
-const sites = new WeakMap<Orientation, Site>();
-function siteFor(data: Orientation) {
-  let site = sites.get(data);
-  if (!site) sites.set(data, (site = buildSite(data, typedRootCoverage(data))));
+type RelatedConcepts = { concept: Pick<OConcept, "path" | "relatedConceptsSection">[] };
+
+// One site per pair of results, shared by every page and the panel's page in a frame.
+const sites = new WeakMap<Orientation, WeakMap<RelatedConcepts, Site>>();
+function siteFor(orientation: Orientation, related: RelatedConcepts) {
+  let byRelated = sites.get(orientation);
+  if (!byRelated) sites.set(orientation, (byRelated = new WeakMap()));
+  let site = byRelated.get(related);
+  if (site) return site;
+  const sections = new Map(related.concept.map((c) => [c.path, c.relatedConceptsSection]));
+  const coverage = { ...typedRootCoverage(orientation) };
+  const relatedCoverage = typedRootCoverage(related)?.concept;
+  // The pairs read the concept root again; a short read leaves pairs out (R2c).
+  if (relatedCoverage?.status !== "complete") coverage.concept = relatedCoverage;
+  const concept = orientation.concept.map((c) => ({ ...c, relatedConceptsSection: sections.get(c.path) }));
+  byRelated.set(related, (site = buildSite({ ...orientation, concept }, coverage)));
   return site;
 }
 
+/** The orientation query, the Related Concepts read, and the site library over both. `query`
+ * is one state for the two reads, as `sectionStatus` takes it. */
 export function useSite() {
-  const query = useGraphQL<Orientation>(ORIENTATION_QUERY);
-  return { query, site: query.data ? siteFor(query.data) : undefined };
+  const orientation = useGraphQL<Orientation>(ORIENTATION_QUERY);
+  const related = useGraphQL<RelatedConcepts>(RELATED_CONCEPTS_QUERY);
+  const query = {
+    isPending: orientation.isPending || related.isPending,
+    error: orientation.error ?? related.error,
+    refetch: () => {
+      for (const read of [orientation, related]) if (read.error) void read.refetch();
+    },
+  };
+  const site = orientation.data && related.data ? siteFor(orientation.data, related.data) : undefined;
+  return { query, site };
 }
 
 /** The Sources-section citations of `refs`, batched by the kit's `readNodes`. */
