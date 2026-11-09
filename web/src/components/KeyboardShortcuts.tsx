@@ -68,10 +68,11 @@ const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
 const EDITABLE =
   'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="searchbox"], [role="combobox"]';
 
-export function typingIn(target: EventTarget | null) {
+/** `realm` is the window `target` belongs to, such as a framed view's own. */
+export function typingIn(target: EventTarget | null, realm: Window & typeof globalThis = window) {
   return (
-    target instanceof Element &&
-    ((target instanceof HTMLElement && target.isContentEditable) ||
+    target instanceof realm.Element &&
+    ((target instanceof realm.HTMLElement && target.isContentEditable) ||
       target.closest(EDITABLE) !== null)
   );
 }
