@@ -2,9 +2,10 @@ import { QueryClient, type QueryKey } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { queryKeys } from "../src/api/queryKeys";
-import { VAULT_EVENT_MESSAGE } from "../src/lib/customViewMessages";
+import { GENERATION_MESSAGE, VAULT_EVENT_MESSAGE } from "../src/lib/customViewMessages";
 import { withFakeEventSource } from "../src/test/fakeEventSource";
 import { EVENT_COALESCE_MS, EVENT_MAX_WAIT_MS, connectFreshness, kitQueryKeys } from "./freshness";
+import { createFrameGeneration } from "./generation";
 
 const events = withFakeEventSource();
 
@@ -215,3 +216,40 @@ it.each(["node.changed", "index.changed"])(
     expect(client.getQueryState(key)?.isInvalidated).toBe(true);
   },
 );
+
+describe("events that name their index generation", () => {
+  const forward = (message: { type: string; event?: string; generation?: string }) =>
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: window.parent,
+        origin: window.location.origin,
+        data: message,
+      }),
+    );
+
+  it("move the frame's generation instead of refreshing by class", () => {
+    const generation = createFrameGeneration();
+    stop = connectFreshness(client, { hosted: false, generation });
+    events
+      .latest()
+      .emit(JSON.stringify({ id: "e-1", kind: "node.changed", generation: "G1" }), "node.changed");
+    settle();
+
+    expect(generation.current()).toBe("G1");
+    expect(invalidated()).toEqual([]);
+    generation.stop();
+  });
+
+  it("take the generation a host parsed, or the one it posts after a reconnect", () => {
+    const generation = createFrameGeneration();
+    stop = connectFreshness(client, { hosted: true, generation });
+    forward({ type: VAULT_EVENT_MESSAGE, event: "index.changed", generation: "G2" });
+    expect(generation.current()).toBe("G2");
+
+    forward({ type: GENERATION_MESSAGE, generation: "G3" });
+    expect(generation.current()).toBe("G3");
+    settle();
+    expect(invalidated()).toEqual([]);
+    generation.stop();
+  });
+});

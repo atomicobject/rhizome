@@ -2,7 +2,6 @@
 // the same whether the view is framed by the Notes workspace or opened at its
 // own URL as a standalone tool.
 import {
-  replaceEqualDeep,
   useMutation,
   useQueryClient,
   type UseQueryOptions,
@@ -14,7 +13,8 @@ import { createRoot } from "react-dom/client";
 import { executePublicView, queryPublicGraphQLOperation } from "../src/api/client";
 import type { JsonObject } from "../src/api/parse";
 import type { PublicGraphQLError } from "../src/api/publicGraphQLTypes";
-import { recordCoverage, typedRootCoverage } from "./coverage";
+import { recordResponse, shareResponse } from "./coverage";
+import { frameGeneration } from "./generation";
 import type { OntologyEditOp, ViewExecuteRequest, ViewExecuteResponse } from "../src/api/types";
 import { remapCommittedEditOps } from "../src/components/editing/editSessionState";
 import {
@@ -129,7 +129,7 @@ export type { ViewConfig, ViewModule } from "./startView";
 
 export { OPEN_NOTE_MESSAGE };
 
-export { typedRootCoverage, type TypedRootCoverage } from "./coverage";
+export { truncation, typedRootCoverage, type Truncation, type TypedRootCoverage } from "./coverage";
 
 /** Run a read-only GraphQL query against the vault. Throws on GraphQL errors. */
 export function graphql<TData>(query: string, variables?: JsonObject): Promise<TData> {
@@ -178,10 +178,16 @@ async function readGraphQL<TData>(
   signal?: AbortSignal,
   partial = false,
 ): Promise<TData> {
-  const result = await queryPublicGraphQLOperation<TData>(query, variables, undefined, {
-    editSession,
-    signal,
-  });
+  // An edit-session read is never cached by the server, but it still names
+  // its generation, so it follows the same rule.
+  const result = await frameGeneration.read(async () => {
+    const response = await queryPublicGraphQLOperation<TData>(query, variables, undefined, {
+      editSession,
+      signal,
+    });
+
+    return { data: response, generation: response.extensions?.generation };
+  }, signal);
 
   if (result.errors?.length && !(partial && insideRoots(result.data, result.errors))) {
     throw new Error(result.errors.map((error) => error.message).join("\n"));
@@ -192,7 +198,7 @@ async function readGraphQL<TData>(
   if (result.errors?.length && isWeakKey(result.data))
     toleratedErrors.set(result.data, result.errors);
 
-  recordCoverage(result.data, result.extensions?.typedRoots);
+  recordResponse(result.data, result.extensions);
 
   return result.data;
 }
@@ -227,14 +233,12 @@ export function useGraphQL<TData>(
     lifecycle: readLifecycle,
     options: {
       // An equal response keeps the previous data object; carry the newer
-      // response's errors and coverage over to it.
+      // response's errors, coverage, and generation over to it.
       structuralSharing: (previous, next) => {
-        const shared = replaceEqualDeep(previous, next);
+        const shared = shareResponse(previous, next);
 
-        if (shared !== next && isWeakKey(shared)) {
-          if (partial) toleratedErrors.set(shared, partialErrorsOf(next));
-          recordCoverage(shared, typedRootCoverage(next));
-        }
+        if (partial && shared !== next && isWeakKey(shared))
+          toleratedErrors.set(shared, partialErrorsOf(next));
 
         return shared;
       },

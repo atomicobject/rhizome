@@ -28,10 +28,21 @@ export type PublicTypedRootCoverage = {
   status: string;
 };
 
+/** A capped read (`nodes(refs:)`, `search`, `neighborhood`) that stopped at its limit, as `extensions.truncated[]`. */
+export type PublicTruncation = { path: string[]; returned: number; limit: number };
+
+/** What the server says about a GraphQL response beside its data (SPEC-0135 R2c, SPEC-0136 R4 and R8). */
+export type PublicGraphQLExtensions = {
+  typedRoots?: Record<string, PublicTypedRootCoverage>;
+  truncated?: PublicTruncation[];
+  /** The opaque index generation read before execution; compare for equality only. */
+  generation?: string;
+} & JsonObject;
+
 export type PublicGraphQLResult<TData> = {
   data?: TData;
   errors?: PublicGraphQLError[];
-  extensions?: { typedRoots?: Record<string, PublicTypedRootCoverage> } & JsonObject;
+  extensions?: PublicGraphQLExtensions;
 };
 
 type PublicNodeLocator = {

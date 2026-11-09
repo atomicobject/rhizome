@@ -5,13 +5,17 @@
 // event stream; refetching on those keeps every view current, including for
 // edits made anywhere else. A framed view gets those events from the workspace
 // that hosts it and opens no stream of its own; a standalone page opens one.
+//
+// An event that names its index generation moves the frame's generation, and
+// the generation rule refreshes what is behind it (`generation.ts`). Events
+// without one, and a reconnect, still refresh by event class.
 import type { Query, QueryClient } from "@tanstack/react-query";
 
 import { getPublicEventsUrl } from "../src/api/client";
 import { openReconnectingEventSource } from "../src/api/eventStream";
 import { isJsonObject, isString } from "../src/api/parse";
 import { isValidationSnapshotQuery, queryKeys } from "../src/api/queryKeys";
-import { VAULT_EVENT_MESSAGE } from "../src/lib/customViewMessages";
+import { GENERATION_MESSAGE, VAULT_EVENT_MESSAGE } from "../src/lib/customViewMessages";
 import {
   INDEX_EVENTS,
   STREAM_RECONNECTED_EVENT,
@@ -21,7 +25,15 @@ import {
   publishVaultEvent,
   type VaultEvent,
 } from "../src/query/vaultEvents";
+import {
+  EVENT_COALESCE_MS,
+  EVENT_MAX_WAIT_MS,
+  frameGeneration,
+  type FrameGeneration,
+} from "./generation";
 import type { ViewOrigin } from "./types";
+
+export { EVENT_COALESCE_MS, EVENT_MAX_WAIT_MS };
 
 /**
  * Kit query keys by freshness class. Type documentation is schema; validation
@@ -92,16 +104,6 @@ export function invalidateEventClasses(queryClient: QueryClient, classes: Readon
   });
 }
 
-/**
- * A burst refreshes once this long after its last event. A refresh cancels
- * in-flight fetches, so waiting for the gap keeps a steady burst from
- * restarting a slow query forever.
- */
-export const EVENT_COALESCE_MS = 150;
-
-/** A burst that never pauses still refreshes this often. */
-export const EVENT_MAX_WAIT_MS = 1000;
-
 type FreshnessOptions = {
   origin?: ViewOrigin;
   /** This view's folder under `.rhizome/views`, when it has one. */
@@ -111,24 +113,42 @@ type FreshnessOptions = {
   reload?: () => void;
   /** Called when the event stream reconnects, since events sent while it was down are lost. */
   onReconnect?: () => void;
+  /** The frame's generation; tests pass their own. */
+  generation?: FrameGeneration;
 };
+
+type FreshnessEvent = VaultEvent & { generation?: string };
 
 const normalizeFolder = (folder: string) => folder.replace(/^\.?\/+|\/+$/g, "").replace(/^\.$/, "");
 
-// The stream wraps every payload: {"id", "kind", "data": {"folder"}}.
-function changedFolder(data: string | undefined) {
-  if (!data) return null;
+// The stream wraps every payload: {"id", "kind", "generation", "data": {"folder"}}.
+function parsePayload(data: string | undefined) {
+  if (!data) return undefined;
 
   try {
     const value: unknown = JSON.parse(data);
-    const payload = isJsonObject(value) ? value.data : undefined;
 
-    return isJsonObject(payload) && isString(payload.folder)
-      ? normalizeFolder(payload.folder)
-      : null;
+    return isJsonObject(value) ? value : undefined;
   } catch {
-    return null;
+    return undefined;
   }
+}
+
+function changedFolder(data: string | undefined) {
+  const payload = parsePayload(data)?.data;
+
+  return isJsonObject(payload) && isString(payload.folder) ? normalizeFolder(payload.folder) : null;
+}
+
+function eventGeneration({ data, generation }: FreshnessEvent) {
+  if (generation !== undefined) return generation;
+  const payload = parsePayload(data);
+
+  if (isString(payload?.generation)) return payload.generation;
+
+  return isJsonObject(payload?.data) && isString(payload.data.generation)
+    ? payload.data.generation
+    : undefined;
 }
 
 /**
@@ -138,6 +158,8 @@ function changedFolder(data: string | undefined) {
  */
 export function connectFreshness(queryClient: QueryClient, options: FreshnessOptions) {
   const reload = options.reload ?? (() => window.location.reload());
+  const generation = options.generation ?? frameGeneration;
+  const detach = generation.attach(queryClient);
 
   const ownFolder =
     options.origin === "bundled" || options.folder == null ? null : normalizeFolder(options.folder);
@@ -161,7 +183,9 @@ export function connectFreshness(queryClient: QueryClient, options: FreshnessOpt
     timer = setTimeout(flush, Math.min(EVENT_COALESCE_MS, untilMaxWait));
   };
 
-  const handle = ({ event, data }: VaultEvent) => {
+  const handle = (message: FreshnessEvent) => {
+    const { event, data } = message;
+
     if (!options.hosted && (event === VIEW_PREFERENCES_EVENT || event === STREAM_RECONNECTED_EVENT))
       publishVaultEvent({ event, data });
 
@@ -173,6 +197,14 @@ export function connectFreshness(queryClient: QueryClient, options: FreshnessOpt
 
     if (event === STREAM_RECONNECTED_EVENT) options.onReconnect?.();
 
+    const named = event === STREAM_RECONNECTED_EVENT ? undefined : eventGeneration(message);
+
+    if (named !== undefined) {
+      generation.set(named);
+
+      return;
+    }
+
     const kind = eventClass(event);
 
     if (!kind) return;
@@ -180,21 +212,39 @@ export function connectFreshness(queryClient: QueryClient, options: FreshnessOpt
     schedule();
   };
 
-  const stop = options.hosted ? listenToHost(handle) : listenToStream(handle);
+  const stop = options.hosted
+    ? listenToHost(handle, (named) => generation.set(named))
+    : listenToStream(handle);
 
   return () => {
     clearTimeout(timer);
+    detach();
     stop();
   };
 }
 
-function listenToHost(handle: (event: VaultEvent) => void) {
+function listenToHost(
+  handle: (event: FreshnessEvent) => void,
+  adopt: (generation: string) => void,
+) {
   const onMessage = ({ origin, source, data }: MessageEvent) => {
-    if (origin !== window.location.origin || source !== window.parent) return;
+    if (origin !== window.location.origin || source !== window.parent || !isJsonObject(data))
+      return;
 
-    if (!isJsonObject(data) || data.type !== VAULT_EVENT_MESSAGE || !isString(data.event)) return;
+    // After the host's stream reconnects it posts the generation it read.
+    if (data.type === GENERATION_MESSAGE && isString(data.generation)) {
+      adopt(data.generation);
 
-    handle(isString(data.data) ? { event: data.event, data: data.data } : { event: data.event });
+      return;
+    }
+
+    if (data.type !== VAULT_EVENT_MESSAGE || !isString(data.event)) return;
+    const event: FreshnessEvent = { event: data.event };
+
+    if (isString(data.data)) event.data = data.data;
+
+    if (isString(data.generation)) event.generation = data.generation;
+    handle(event);
   };
 
   window.addEventListener("message", onMessage);
