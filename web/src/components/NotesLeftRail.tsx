@@ -7,6 +7,7 @@ import type {
   ViewCatalogEntry,
 } from "../api/types";
 import type { ActivePanel } from "./activePanel";
+import { panelFrameId } from "./ExperienceFrameLayer";
 import type { ExperienceFrames } from "./experienceFrames";
 import { FolderPanel } from "./FolderPanel";
 import { panelIdentity, type SidebarPanel, SidebarPanelSlot } from "./SidebarPanelSlot";
@@ -97,7 +98,11 @@ export const NotesLeftRail = memo(function NotesLeftRail({
     folderNote !== null && panel
       ? { identity: panelIdentity(panel) ?? "", title: "Folder", minimisedByDefault: true }
       : hostsView && panel
-        ? { identity: panelIdentity(panel) ?? "", title: panelView.name }
+        ? {
+            identity: panelIdentity(panel) ?? "",
+            title: panelView.name,
+            owns: panel.kind === "view" ? panelFrameId(panel.experienceKey) : undefined,
+          }
         : null;
 
   const standaloneGroups = useMemo(() => groupStandaloneViews(catalog), [catalog]);

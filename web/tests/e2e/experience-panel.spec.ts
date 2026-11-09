@@ -131,6 +131,8 @@ test("a custom panel keeps one frame and its state across subjects, covers, mini
   await expect(subject).toHaveText("E2E Experience");
   await expect(panelFrames).toHaveCount(1);
   expect(await panelFrames.getAttribute("src")).toMatch(/[?&]frame=experience(&|$)/);
+  // The frame sits outside the region so it never moves; the region owns it.
+  await expect(slot).toHaveAttribute("aria-owns", (await panelFrames.getAttribute("id")) ?? "");
   const start = await panel.getByLabel("Panel frame").textContent();
   await marks.click();
   await expect(marks).toHaveText("Marked 1");

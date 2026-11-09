@@ -159,6 +159,9 @@ function useCoverRect(layer: HTMLElement | null, placeholder: HTMLElement | null
   return rect;
 }
 
+/** A panel frame's element ID, which the slot's region owns for assistive technology. */
+export const panelFrameId = (experienceKey: string) => `panel-frame-${experienceKey}`;
+
 /**
  * The frames of the workbench, or (`panel`) of the sidebar's panel slot, laid
  * over the active placeholder. `onFrameLoad` sees each frame's new document.
@@ -195,6 +198,7 @@ export function FrameLayer({
             ref={(element) => {
               if (element) frames.attach(view.id, element.contentWindow);
             }}
+            id={panel ? panelFrameId(view.experienceKey) : undefined}
             className={panel ? "panel-frame" : "experience-frame"}
             data-experience={view.experienceKey}
             data-shown={view.visible || undefined}

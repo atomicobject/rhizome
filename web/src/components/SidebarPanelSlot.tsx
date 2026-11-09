@@ -73,6 +73,8 @@ export type SidebarPanel = {
   title: string;
   /** Folder starts minimised in each vault until someone opens it. */
   minimisedByDefault?: boolean;
+  /** The ID of the panel's frame, which lives outside the region so it never reloads. */
+  owns?: string;
 };
 
 type PanelStyle = CSSProperties & { "--panel-height": string };
@@ -177,6 +179,7 @@ export function SidebarPanelSlot({
           ref={panelRef}
           className="sidebar-panel"
           aria-label={`${panel.title} panel`}
+          aria-owns={state === "minimised" ? undefined : panel.owns}
           style={panelStyle}
           onKeyDown={onKeyDown}
         >
