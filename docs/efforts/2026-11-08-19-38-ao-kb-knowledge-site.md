@@ -5,7 +5,7 @@ aliases: [EFF-2026-11-08-19-38]
 name: "AO KB Knowledge site"
 created-at: "2026-11-09T00:38:28Z"
 status: planned
-summary: "Deliver SPEC-0135: the AO KB Knowledge site on existing view mounts first (complete legacy-aware data and setup, tab-retained view params, KB overview, record pages, Review), then the generic sidebar panel and custom-first view switcher."
+summary: "Deliver SPEC-0135 on the SPEC-0136 experiences platform: complete legacy-aware data and setup, the site library, the Knowledge experience (KB overview, Review, lists, record pages on RecordPage, the panel), and the custom-first view switcher, in one pull request with EFF-2026-11-09-09-16."
 governing-specs:
   - "[[docs/specs/experience/ao-kb-knowledge-site]]"
 ---
@@ -14,13 +14,13 @@ governing-specs:
 
 ## Scope
 
-Deliver [[ao-kb-knowledge-site|SPEC-0135]] in two pull requests. PR 1 proves the site on real KBs using the starter's existing custom-view mounts: complete and legacy-aware data reads, a knowledge-only setup route for legacy KBs, the site library, tabs that keep declared view params, the KB overview, Review, Sources, Artifacts, Concept and Artifact pages, and the reworked Assertion and Source pages. PR 2 adds the platform pieces: the `sidebar` mount and panel, the starter's panel view, and the custom-first view switcher. The effort closes in PR 2.
+Deliver [[ao-kb-knowledge-site|SPEC-0135]] as an experience on [[experiences|SPEC-0136]], in one pull request with [[2026-11-09-09-16-experiences|EFF-2026-11-09-09-16]], which delivers the platform. This effort owns complete and legacy-aware data reads, the knowledge-only setup route for legacy KBs, the site library, the Knowledge experience's pages and panel content, and the custom-first view switcher. Tab-retained view params (R6a) are delivered by the platform effort's host lane, which owns those files. The effort closes in that pull request.
 
-Excluded, as the spec's Non-Goals state: KB writes, AO judgments, inferred links or dates, prose concept-to-concept edges, `CLAUDE.md` identity, scheduled or saved analysis, 3D, people views, product-model pages and model bindings below schemaVersion 8, legacy product-mode accounts, archived submissions, editing, export, a site manifest, and migrating legacy KBs.
+Excluded, as the spec's Non-Goals state: KB writes, AO judgments, inferred links or dates, prose concept-to-concept edges, `CLAUDE.md` identity, scheduled or saved analysis, 3D, people views, product-model pages and model bindings below schemaVersion 8, legacy product-mode accounts, archived submissions, editing, export, a site router or module manifest, and migrating legacy KBs.
 
 ## Spec Set (Frozen)
 
-- [[docs/specs/experience/ao-kb-knowledge-site|SPEC-0135]] at the revision Drew approves with this plan. Drew decided D1 to D8 on 2026-11-08 (recommended options; his own wording for D6 and D7). The spec moves from `proposed` to `active` at that approval. Base revision: `439890f79`.
+- [[docs/specs/experience/ao-kb-knowledge-site|SPEC-0135]] at the revision rebased on SPEC-0136 and reviewed by the council on 2026-11-09, approved with this plan. Drew decided D1 to D8 on 2026-11-08 (recommended options; his own wording for D6 and D7) and moved `principle` into Intent and rules on 2026-11-09. The spec moves from `proposed` to `active` at that approval.
 
 ## Stories In Scope (Frozen)
 
@@ -40,13 +40,13 @@ Excluded, as the spec's Non-Goals state: KB writes, AO judgments, inferred links
 - [ ] R3 kind groups and colour: Batch B (table), Batch C (tokens and palette check).
 - [ ] R4 visuals and their "not enough to draw yet" states: Batches B and C.
 - [ ] R5 orientation query, scope reads, and query budget: Batch A query module, Batch B library, Batch D measurement.
-- [ ] R6 sidebar panel contract, including the catalog's `sidebarViewId`: Batch E, after its foundation review.
-- [ ] R6a view params survive tabs: Batch H.
+- [ ] R6 the Knowledge experience and its panel: Batch C (`experience.yml`), Batch F (panel view); the platform is EFF-2026-11-09-09-16.
+- [ ] R6a view params survive tabs: EFF-2026-11-09-09-16 Batch P6.
 - [ ] R7 switcher order: Batch G.
-- [ ] R8 accessibility and design: Batches C, E, F, G.
+- [ ] R8 accessibility and design: Batches C, F, G.
 - [ ] R9 verification: every batch; real-KB pass in Batch D.
-- [ ] US1 to US5: Batches B and C (US4's tab return with H). US6: Batch A. US7: Batches E and F. US8: Batch G.
-- [ ] Amendments: SPEC-0133 (Batches A and C), SPEC-0105 (Batches A and E), SPEC-0110 (Batches E, G, and H), SPEC-0128 (Batch E).
+- [ ] US1 to US5: Batches B and C (US4's tab return with P6). US6: Batch A. US7: Batch F on the platform's P7. US8: Batch G.
+- [ ] Amendments: SPEC-0133 (Batches A and C), SPEC-0105 (Batch A), SPEC-0110 (Batch G and P6). The SPEC-0128 amendment is the platform effort's.
 
 ## Plan
 
@@ -94,10 +94,10 @@ The same copy reproduced the planning counts exactly: 181 concept-side outbound 
 
 ### Decisions settled in this plan
 
-- **No site declaration.** A site is a display group plus its module's views; the panel attaches by a `sidebar` mount on that group. Activation follows the active tab's subject through the group's effective display tree, with embedded and section nodes judged by their owning note (SPEC-0135 R6). This covers the Agentic Engineering journey from spec to story to criterion and both effort forms. Reference and policy documents are a separate section from the Engineering site (D6, decided by Drew). No group name or starter combination is assumed, and a panel spanning groups is allowed where a journey needs it; none in scope does, so the mount names one group.
+- **The site is an experience.** `module/views/knowledge/experience.yml` declares it (SPEC-0136 R1); the panel is the view `ao-kb.panel` with `mount: { kind: panel }`. Which subjects show the panel, and every platform behaviour, is SPEC-0136's. Reference and policy documents are a separate section (D6); an untyped policy note shows Folder.
 - **Panel draws its own locator.** The Agentic Engineering prototype's locator is an effort timeline and the AO KB's is a topic map, so the contents must be site-supplied. The panel is an ordinary framed custom view using the same site library as the pages, so positions match by construction.
 - **File-name dates are plotted, marked, and counted.** A leading `YYYY-MM-DD` in the file name draws a hollow mark labelled "Date in file name"; recorded dates draw filled marks; title dates are not used; nothing is trimmed. Without them the largest KB's axis is empty (0 of 115 recorded dates; 68 file-name dates).
-- **One orientation query plus per-record scope reads.** Putting citations and artifact references in the whole-KB query nearly triples its cost (291 ms to 807 ms on the largest KB); only record pages need them, and per-record reads cost 3 to 64 ms.
+- **One orientation query plus per-record scope reads, both through SPEC-0136's read cache.** Putting citations and artifact references in the whole-KB query nearly triples its cost (291 ms to 807 ms on the largest KB); only record pages need them, and per-record reads cost 3 to 64 ms.
 - **Membership is read from the concept side** for speed; per D1 the shared function takes both directions as one deduplicated set.
 - **The site's home page is named "KB overview"**, because the bundled "Overview" already appears in the group's switcher.
 - **Legacy KBs set up knowledge-only.** Below schemaVersion 8 the model stage is `not applicable`, the receipt carries the site source signature computed in Node, and no Python dependency is needed.
@@ -107,7 +107,7 @@ The same copy reproduced the planning counts exactly: 181 concept-side outbound 
 
 ### Batches
 
-#### Batch A. Complete, legacy-aware knowledge reads and setup (PR 1)
+#### Batch A. Complete, legacy-aware knowledge reads and setup
 
 - **Outcome:** every whole-KB read is complete or says what it missed, and a single-product schemaVersion 4 or 5 KB completes setup and browses read-only. Advances R2, R2b, R2c, R5's query module, US6, and the SPEC-0133 R6 amendment.
 - **Ownership:** starter ontology; the binding compiler and setup route (`module/bindings/knowledge.mjs`, `publish.mjs`, `cli.mjs`, `runtime.mjs`, `README.md`); `module/scripts/check.mjs` and `module/scripts/lib/bindings-check.mjs`; the setup skill `agents/skills/ao-kb-setup/SKILL.md` and the guide `repo/docs/reference/guides/ao-kb.md`; `docs/reference/subsystems/cli.md`; the existing views' data module `views/knowledge/data.tsx` only; the legacy model copy in `views/knowledge/lib/model.ts` and `trace.tsx`; the query module `views/knowledge/lib/queries.ts` (new); two additive kit fields; the new and product fixtures. Batch A does not edit `lib/knowledge.ts`, `concepts.tsx`, or `assertions.tsx`.
@@ -124,7 +124,7 @@ The same copy reproduced the planning counts exactly: 181 concept-side outbound 
 - **Exit evidence:** `pkg/app/cli/init` ontology and starter tests for every R9 ontology case, including the knowledge-only refresh, check, index, and check sequence on the legacy fixture with uv absent from PATH, the site source signature cases on both schema routes, and the exported orientation query run on the legacy, booking, and product fixtures; `testdata/ao-kb/expected-knowledge.graphql` and the product fixture's expectations updated and reviewed as changed contracts, with `TestAOKBRecipesAndIndexParity` passing unchanged because booking's files do not change; a kit unit test for coverage; integration tests (`-tags=integration`) because fixtures index; `make build`, `rzm init`, and `rzm init --check` exiting 0.
 - **Escalation:** a needed core change to `@field`, `@neighbors`, or matchers, or AO tooling that contradicts the retired-name table.
 
-#### Batch B. Site library (PR 1, parallel with A)
+#### Batch B. Site library (parallel with A)
 
 - **Outcome:** one pure module computes everything the site draws. Advances R3, R4, R5, and US1 to US5's data.
 - **Ownership:** `module/views/knowledge/lib/site.ts` (under 500 lines; split kind groups into `lib/kinds.ts` if needed). No UI, no queries.
@@ -132,18 +132,12 @@ The same copy reproduced the planning counts exactly: 181 concept-side outbound 
 - **Exit evidence:** `pkg/app/cli/init/testdata/ao-kb/site.test.mjs`, run by `TestAoKbScripts`, covering every R9 library case and printing layout timings at 21, 48, and 200 concepts.
 - **Escalation:** none expected; a layout that is not stable under shuffled input is a defect, not a design question.
 
-#### Batch H. View params survive tabs (PR 1, independent; can start any time)
-
-- **Outcome:** R6a. A filtered list or a source's `assertion` target survives tab switches, tab close, persisted tabs, and reload.
-- **Ownership:** `web/src/components/useNoteTabs.ts`, `noteTabStorage.ts`, the param hand-off in `NotesShell.tsx`, and their tests.
-- **Work:** note tabs and the home location keep the active presentation's declared param values as read from the URL; `tabLocation`, `activate`, `close`, and tab restore apply them with `withViewParams`; persisted tabs store them, validated with `isViewParamValues` and bounded. Keep `NodeRef` and its fragment unchanged. Amend SPEC-0110.
-- **Exit evidence:** unit tests for activation, close, restore, and persistence with and without params; Batch C's e2e covers filtered list to record tab and back, source with `assertion` to another tab and back, reload, copied URL, and Back and Forward.
-
-#### Batch C. Site pages (PR 1, after B; its exit e2e after A and H)
+#### Batch C. Site pages (after B and the platform's P4 and P5; its exit e2e after A and P6)
 
 - **Outcome:** US1 to US5 work in the browser on the legacy fixture. Advances R1, R2a, R3, R4, R8.
 - **Ownership:** the `--kind-*` tokens in `web/src/tokens.css` (R3) with their palette and contrast results; starter views other than `data.tsx`, `lib/model.ts`, and `trace.tsx` (Batch A's), including `lib/knowledge.ts`, `concepts.tsx`, and `assertions.tsx`; the AO KB e2e harness (`web/scripts/run-ao-kb-e2e-server.mjs`, `web/playwright.ao-kb.config.ts`) and `web/tests/e2e-ao-kb/site.spec.ts`.
 - **Work:**
+  - `module/views/knowledge/experience.yml` as SPEC-0135 R6 states, with `tailwind: false`; every Knowledge view exports its component as the module default; record pages use `RecordPage` and show the record before the orientation query finishes; batched scope reads use `readNodes`.
   - New group views: `ao-kb.overview`, named "KB overview" (default; `attention.yaml` loses `default` per D2), `ao-kb.review`, `ao-kb.sources`, and `ao-kb.artifacts`. New node views: `ao-kb.concept`, `ao-kb.artifact`. Params exactly as R2a.
   - Existing views: `concepts.tsx`, `filterAssertions` in `lib/knowledge.ts`, and the Assertions list's concept chips switch to the library's membership, and the unused `CEILING` export goes once Batch A lands; `assertions` and `concepts` gain their R2a params; the Assertions list gains the US4 breakdown line; `assertion.tsx` gets inline facts and the US3 citation table; `source.tsx` gets the scoped pair, the `assertion` param, the US3 mention states, and separate extracted and citing lists.
   - Charts in `views/knowledge/site/` (`map.tsx`, `timeline.tsx`, `matrix.tsx`, `scoped.tsx`), sharing one tooltip-on-focus pattern and roving focus. The matrix uses the ARIA grid pattern R4 names.
@@ -151,34 +145,23 @@ The same copy reproduced the planning counts exactly: 181 concept-side outbound 
   - Every label in SPEC-0135 R1's table; type sizes from R8.
   - Review hand-offs: `/ao-kb:curate` for membership, confidence, and kind-conflict gaps, `/ao-kb:process` for extraction gaps, `/ao-kb:suggest-review` for submissions and findings; source dates go to a follow-up request to AO. Verify the commands against the pinned AO before shipping the copy.
   - E2E harness: the server takes a fixture argument (default `testdata/ao-kb/booking`); for the legacy fixture it skips the model intermediate and includes `**/*.md` and `.kb/curation/*.md`. The Playwright config runs `site.spec.ts` against a second server on the next port after the suite's (4175 in CI, where the suite uses 4174), and the existing specs against booking as today.
-- **Exit evidence:** `site.spec.ts` in `make web-e2e` covering R9's PR 1 journey, keyboard through each chart, and no console errors; the existing AO KB specs unchanged and passing; view validation passes.
+- **Exit evidence:** `site.spec.ts` in `make web-e2e` covering R9's journey, keyboard through each chart, and no console errors; the existing AO KB specs unchanged and passing; view validation passes.
 - **Escalation:** a page that cannot meet R5 without bodies in the orientation query.
 
-#### Batch D. Real-KB proof and PR 1 (after A, C, and H)
+#### Batch D. Real-KB proof (after A, C, F, G, and the platform's P6 and P7)
 
 - **Outcome:** the site is shown to be true on three real KBs before review. Advances R1, R5, R9.
-- **Work:** follow the AGENTS.md dogfood route with this checkout's built binary on disposable copies of a large legacy KB, a medium legacy KB, and a current-schema KB (the one with 48 concepts, no Related Concepts, mostly `principle` assertions, and nested source folders that share a long parent), each in a scratch directory with embeddings off and provider keys absent. Run the legacy copies through the setup skill's knowledge-only route. Check every caption's numbers against the library's output, every R1 label, and the matrix-to-list agreement; edit and delete one record in a copy and confirm the KB overview's counts follow after reindex; review screenshots locally in both appearances, never committed. Delete the copies afterward. Then the PR 1 gates and the SPEC-0133, SPEC-0105, and SPEC-0110 amendments.
-- **Exit evidence:** in Execution Notes, per KB: the exact orientation query and scope-read strings (from `lib/queries.ts`), the record inventory, root coverage statuses, the five samples and medians, the uncapped evidence read's median for Concepts, Assertions, and Attention, and the setup commands' results; orientation query under one second and scope reads under 250 ms median on each KB; PR 1 merge-ready under review-and-approval policy.
+- **Work:** follow the AGENTS.md dogfood route with this checkout's built binary on disposable copies of a large legacy KB, a medium legacy KB, and a current-schema KB (the one with 48 concepts, no Related Concepts, mostly `principle` assertions, and nested source folders that share a long parent), each in a scratch directory with embeddings off and provider keys absent. Run the legacy copies through the setup skill's knowledge-only route. Check every caption's numbers against the library's output, every R1 label, and the matrix-to-list agreement; edit and delete one record in a copy and confirm the KB overview's counts follow after reindex; review screenshots locally in both appearances, never committed. Delete the copies afterward. Then the pull request gates and the SPEC-0133, SPEC-0105, and SPEC-0110 amendments.
+- **Exit evidence:** in Execution Notes, per KB: the exact orientation query and scope-read strings (from `lib/queries.ts`), the record inventory, root coverage statuses, the five samples and medians, the uncapped evidence read's median for Concepts, Assertions, and Attention, and the setup commands' results; orientation query under one second and scope reads under 250 ms median on each KB; the pull request merge-ready under review-and-approval policy.
 - **Escalation:** a read over its threshold, or a label that cannot be made true from the data. Both return to Drew with measurements.
 
-#### Batch E. Sidebar panel platform (PR 2)
-
-- **Gate first:** a `foundation-review` of SPEC-0135 R6 covering mount spelling, the catalog's `sidebarViewId`, frame context, the activation rule (effective tree and owning-note fallback), frame lifetime, the location message, and states. It uses the Agentic Engineering site's journeys (spec, story, criterion, both effort forms, effort material, reference doc, policy note, unrelated record, Back) as test cases. Dependent work waits for it. It must show that:
-  - nothing in R6 depends on a group name or a starter combination: activation, conflict resolution, persistence, and frame context use only the mount's group and the vault's effective display tree, over AO KB alone, AO KB with Agentic Engineering and compounding, a vault-local type in the panel's group, two sidebar views for one group, and none;
-  - one group per mount serves both sites' journeys under D6's answer, with reference docs showing their own group's panel and untyped policy notes none;
-  - a later `groups` list could be added without changing single-group frame identity, persistence keys, or activation.
-- **Outcome:** any module can contribute one sidebar panel per display group. Advances R6, R8, US7's host half.
-- **Ownership:** the `--chrome-link` token in `web/src/tokens.css` and `web/src/lib/themes.test.ts`, which checks it against every chrome background (R6); `pkg/ontology/viewconfig` (mount kind, `MatchesMount`, validation); `pkg/app/views` (catalog and targets exclude sidebar views from choices and set the group target's `sidebarViewId`); `pkg/app/web/openapi.yaml` (`ViewTarget.sidebarViewId`) and `web/src/api/generated.ts` through `make web-generate`; `pkg/app/web/custom_view_context.go` and a new file beside `custom_views.go` for group-context invocation of a sidebar view (`custom_views.go` is at 491 lines against the 500-line gate); `pkg/app/userstate/scope.go` (confirm the group-context preference scope needs no change); `web/src/views/context.ts`; `web/src/components/SidebarPanel.tsx` (new) inside `NotesLeftRail.tsx` under `WorkbenchSidebar.tsx`; `PanelResizeHandle.tsx` (axis); `CustomViewFrame.tsx` (location message, panel-frame acceptance, replaced-frame rejection, optional search folder); the kit location hook and `openSearch`; the shortcut bridge from the panel frame.
-- **Exit evidence:** Go viewconfig, catalog (`sidebarViewId` and the two-view warning), and invocation tests; web unit tests for activation over the display trees of the AO KB starter alone and of the AO KB, Agentic Engineering, and compounding starters installed together (AO's four knowledge types and an embedded conflict entry; Engineering's spec, story, criterion, both effort forms, effort material, and reference doc; a context shard; a vault-local type in Knowledge; an untyped note; an unrelated type), persistence per vault and group, minimise, cover, Escape, focus moves before hiding, inert regions, divider keys on both axes, hidden-not-destroyed lifetime, and message origin and source checks; e2e for presence inside a group and absence outside, cover and restore, reload, history return, and an outer sidebar hidden by the person staying hidden. Amend SPEC-0128 and SPEC-0110, including the exception to SPEC-0110's "Inactive custom frames MUST unmount", and update `views.md`, `web/CONTEXT.md`, `pkg/ontology/viewconfig/CONTEXT.md`, and `DESIGN.md`.
-- **Escalation:** a journey in scope that needs a panel across groups. Drew allowed one where needed (2026-11-08), so the foundation review may add the `groups` list with the precedence SPEC-0135 R6 states; record the journey that needs it.
-
-#### Batch F. Starter panel view (PR 2, after E)
+#### Batch F. Knowledge panel view (after the platform's P4, P5, and P7)
 
 - **Outcome:** US7 complete for AO KBs.
-- **Work:** `views/knowledge/sidebar.{yaml,tsx}` with the KB title, Find by title (Enter opens the first match; "Search all text" sends open-search with no folder), the site links and counted lists, the locator from the site library with the record's scope read, and the Recent list built from location messages and kept in the frame's `sessionStorage`.
+- **Work:** `views/knowledge/panel.{yaml,tsx}` (`ao-kb.panel`, `mount: { kind: panel }`) with the KB title, Find by title (Enter opens the first match; "Search all text" sends open-search with no folder), the site links and counted lists, the locator from the site library with the record's scope read, and the Recent list built from `useViewLocation` and kept with `useViewPreference` so it survives eviction.
 - **Exit evidence:** e2e extending `site.spec.ts` through the panel; the Batch D copies rechecked for the panel.
 
-#### Batch G. Custom-first view switcher (PR 2, independent; can start any time)
+#### Batch G. Custom-first view switcher (independent; can start any time)
 
 - **Outcome:** US8 and R7.
 - **Ownership:** `web/src/views/ViewSelector.tsx`, its test, and CSS.
@@ -199,24 +182,22 @@ All synthetic and never containing real client text.
 | --- | --- | --- | --- |
 | A | after approval | D | starter ontology, setup route, query module, kit coverage |
 | B | after approval | C | starter library |
-| H | after approval | D | web tabs |
-| C | after B; its exit e2e after A and H | D | starter views except A's three files, AO KB e2e harness |
-| D | after A, C, and H | PR 1 | coordinator |
-| E | after the foundation review | F | viewconfig, catalog and OpenAPI, web invocation, web shell, kit |
-| F | after E | PR 2 | starter panel view |
-| G | any time | PR 2 | web selector |
+| C | after B and the platform's P4 and P5; its exit e2e after A and P6 | D | starter views except A's files, AO KB e2e harness |
+| F | after the platform's P4, P5, and P7 | D | starter panel view |
+| G | any time | D | web selector |
+| D | after A, C, F, G, P6, and P7 | the pull request | coordinator |
 
 Lanes own disjoint files: in the starter's views, Batch A owns `data.tsx`, `lib/model.ts`, `trace.tsx`, and `lib/queries.ts`, Batch B owns `lib/site.ts` (and `lib/kinds.ts`), and Batch C owns the rest. Each lane runs web E2E on its own port and cleans up its worktree and scratch copies when done. The coordinator inspects integrated changes before each pull request.
 
 ### Review gates
 
 - Plan approval by Drew in chat, recorded in `plan-approved-by`. D1 to D8 and the panel-spanning question were decided on 2026-11-08; D8 shapes the Agentic Engineering effort and does not block this plan.
-- Foundation review before Batch E.
-- Each pull request: `make check` in the loop; `make check-full` and `make web-e2e` (the AO KB suite included); `make build`, `rzm init`, and `rzm init --check` exiting 0; `make test-content` for changed starter guidance; `./scripts/rzm validate` and `./scripts/rzm validate frozen-scope-drift`; `greptile review --json` at 5/5 after every push; a full-diff self-review; CI green. One `CHANGELOG.md` line per user-visible change.
+- The platform effort's foundation review before Batch C builds on the experience catalog and kit protocol.
+- The pull request: `make check` in the loop; `make check-full` and `make web-e2e` (the AO KB suite included); `make build`, `rzm init`, and `rzm init --check` exiting 0; `make test-content` for changed starter guidance; `./scripts/rzm validate` and `./scripts/rzm validate frozen-scope-drift`; `greptile review --json` at 5/5 after every push; a full-diff self-review; CI green. One `CHANGELOG.md` line per user-visible change.
 
 ## Plan Approval
 
-Not yet approved.
+- plan-approved-by:: Drew Colthorp, 2026-11-09, in chat: "OK. Do it all /full-stop", after "Once the council is satisfied and you feel good about it, use subagents to build the whole thing". Approved scope: SPEC-0135 as rebased on SPEC-0136 and this plan, delivered with EFF-2026-11-09-09-16 in one pull request left for Drew to merge.
 
 ## Original Intended Delivery
 
@@ -250,4 +231,4 @@ None yet.
 
 ## Status
 
-Planned. Next: Drew approves the plan; then Batches A, B, H, and G can start in parallel.
+Planned and approved. Next: the council's review of the revised specs, then Batches A, B, and G alongside the platform's P1 to P5.
