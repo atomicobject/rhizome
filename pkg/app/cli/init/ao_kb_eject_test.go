@@ -51,12 +51,17 @@ func TestEjectedAOKBExperienceKeepsLocalPagesAndPanel(t *testing.T) {
 	require.Contains(t, loadConfigForTest(t, root).WorkflowTemplateManagement.Ejected, "ao-kb")
 
 	site := ".rhizome/modules/ao-kb/views/knowledge/"
+	// Exercise Windows checkout line endings on every platform.
+	for _, name := range []string{"experience.yml", "panel.yaml"} {
+		content := strings.ReplaceAll(readTestFile(t, root, site+name), "\r\n", "\n")
+		writeTestFile(t, root, site+name, strings.ReplaceAll(content, "\n", "\r\n"))
+	}
 	experience := readTestFile(t, root, site+"experience.yml")
-	require.Contains(t, experience, "tailwind: false\n")
-	writeTestFile(t, root, site+"experience.yml", strings.Replace(experience, "tailwind: false\n", "tailwind: true\n", 1))
+	require.Contains(t, strings.ReplaceAll(experience, "\r\n", "\n"), "tailwind: false\n")
+	writeTestFile(t, root, site+"experience.yml", strings.Replace(experience, "tailwind: false", "tailwind: true", 1))
 	panel := readTestFile(t, root, site+"panel.yaml")
-	require.Contains(t, panel, "name: Knowledge\n")
-	writeTestFile(t, root, site+"panel.yaml", strings.Replace(panel, "name: Knowledge\n", "name: Team knowledge\n", 1))
+	require.Contains(t, strings.ReplaceAll(panel, "\r\n", "\n"), "name: Knowledge\n")
+	writeTestFile(t, root, site+"panel.yaml", strings.Replace(panel, "name: Knowledge", "name: Team knowledge", 1))
 	writeTestFile(t, root, site+"glossary.yaml", "apiVersion: rhizome.view.v1\nid: team.glossary\nname: Glossary\nsource:\n  kind: custom\n  entry: glossary.tsx\nmount:\n  kind: group\n  group: Knowledge\n  order: 90\n")
 	writeTestFile(t, root, site+"glossary.tsx", "export default function Glossary() {\n  return <div className=\""+ejectedUtility+"\">Glossary</div>;\n}\n")
 
