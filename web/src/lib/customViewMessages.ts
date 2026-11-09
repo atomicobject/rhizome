@@ -21,7 +21,9 @@
 // 3. The host then posts the first LOCATION_MESSAGE and starts the
 //    LOCATION_ACCEPT_TIMEOUT_MS timer at that post, never at `load`.
 // 4. LOCATION_RENDERED_MESSAGE is the paint signal the host swaps frames on.
-//    An experience frame never posts VIEW_RENDERED_MESSAGE and never sets
+//    location-rendered is posted for every committed page, including an error
+//    page, so a failed import or render still reveals its frame; a navigation
+//    that is no longer current never posts it. An experience frame never posts VIEW_RENDERED_MESSAGE and never sets
 //    `data-rhizome-view`, so the single-view `load`/`rendered` handshake does
 //    not apply to it.
 //

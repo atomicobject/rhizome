@@ -336,21 +336,11 @@ export function createExperienceFrame(options: FrameOptions) {
   };
 }
 
-function PageView({
-  frame,
-  page,
-  visible,
-}: {
-  frame: ExperienceFrame;
-  page: Page;
-  visible: boolean;
-}) {
-  const module = use(page.load());
+// Posts the paint signal once the page commits, whether it shows the view or
+// its error: it sits beside the error boundary, inside the page's Suspense, so
+// it commits with either and never with a page still loading.
+function Painted({ page, visible }: { page: Page; visible: boolean }) {
   const { binding } = page;
-
-  useEffect(() => {
-    if (frame.firstRender(binding)) postPhase("first-render", binding);
-  }, [frame, binding]);
 
   useEffect(() => {
     if (!visible) return;
@@ -368,6 +358,17 @@ function PageView({
     // One rendered message per location.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, page.serial]);
+
+  return null;
+}
+
+function PageView({ frame, page }: { frame: ExperienceFrame; page: Page }) {
+  const module = use(page.load());
+  const { binding } = page;
+
+  useEffect(() => {
+    if (frame.firstRender(binding)) postPhase("first-render", binding);
+  }, [frame, binding]);
 
   const View = module.default;
 
@@ -400,11 +401,12 @@ export function ExperiencePages({ frame }: { frame: ExperienceFrame }): ReactNod
       <Activity key={page.tabId} mode={visible ? "visible" : "hidden"}>
         <PageBindingContext value={page.binding}>
           <PageActiveContext value={visible}>
-            <ViewErrorBoundary key={page.key}>
-              <Suspense fallback={null}>
-                <PageView frame={frame} page={page} visible={visible} />
-              </Suspense>
-            </ViewErrorBoundary>
+            <Suspense key={page.key} fallback={null}>
+              <ViewErrorBoundary>
+                <PageView frame={frame} page={page} />
+              </ViewErrorBoundary>
+              <Painted page={page} visible={visible} />
+            </Suspense>
           </PageActiveContext>
         </PageBindingContext>
       </Activity>
