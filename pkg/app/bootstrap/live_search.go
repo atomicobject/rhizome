@@ -86,9 +86,10 @@ func (rt *LiveRuntime) initPhase1Search() {
 			LatencyClass: embedindex.LatencyAuto,
 		})
 		hubOpts := watchhub.Options{
-			UserExcludes: rt.VaultDef.Excludes,
-			Debug:        rt.debug,
-			Debounce:     watchPolicy.Debounce,
+			UserExcludes:  rt.VaultDef.Excludes,
+			Debug:         rt.debug,
+			Debounce:      watchPolicy.Debounce,
+			ForceFSNotify: rt.forceFSNotify,
 		}
 		hub, err := watchhub.NewHub(rt.VaultPath, hubOpts)
 		if err != nil {

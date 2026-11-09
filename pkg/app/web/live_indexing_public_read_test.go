@@ -108,7 +108,10 @@ type Detail implements Section @node(locator: EMBEDDED) { summary: String @field
 	provider := newPublicReadEmbeddingEndpoint(t, fail)
 	config := fmt.Sprintf("notes: {}\ncode:\n  enabled: true\nnoteEmbeddings:\n  enabled: true\n  provider: openai\n  model: synthetic-public-read\n  dimensions: 3\n  endpoint: %s\ncodeEmbeddings:\n  enabled: false\n", provider.server.URL)
 	require.NoError(t, os.WriteFile(filepath.Join(fixture.root, ".rhizome/config.yml"), []byte(config), 0o644))
-	live, err := bootstrap.NewLiveRuntime(t.Context(), bootstrap.LiveOptions{VaultName: fixture.root, DisableSessionStore: true})
+	// kqueue rather than FSEvents: fseventsd is one daemon shared by every
+	// process, and under parallel test load it delivers events tens of seconds
+	// late or not at all, which would measure the machine instead of Rhizome.
+	live, err := bootstrap.NewLiveRuntime(t.Context(), bootstrap.LiveOptions{VaultName: fixture.root, DisableSessionStore: true, ForceFSNotify: true})
 	require.NoError(t, err)
 	t.Cleanup(func() { provider.release(); require.NoError(t, live.Close()) })
 	ready, cancel := context.WithTimeout(t.Context(), 15*time.Second)
@@ -150,8 +153,9 @@ type Detail implements Section @node(locator: EMBEDDED) { summary: String @field
 	return live, httpServer, provider, write
 }
 
-// Measure from the actual filesystem write, including FSNotify, debounce, the
-// production watcher clock and repeated-path cooldown. No hint bypasses intake.
+// Measure from the actual filesystem write, including kernel notification,
+// debounce, the production watcher clock and repeated-path cooldown. No hint
+// bypasses intake.
 func TestLiveIndexingPublicHealthyProviderEventLatency(t *testing.T) {
 	_, httpServer, _, write := newPublicReadLiveFixture(t, false)
 	events, closeEvents := subscribePublicReadEvents(t, httpServer.URL)
