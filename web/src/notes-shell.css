@@ -1122,12 +1122,34 @@
   }
 }
 
-/* View switcher: standard views as segments, custom views behind one icon
-   segment. Many or long names shrink and truncate instead of wrapping. */
+/* View switcher: custom views, then standard ones, as many inline as fit and
+   the rest behind "More". It takes its row's free width, which is what it
+   measures; a bar that sizes it to its content (the note bar) keeps every
+   choice inline and wraps instead. */
 .view-selector {
+  position: relative;
   display: flex;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+/* Every choice at its natural width, measured and never seen. */
+.view-selector__ruler {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.view-selector__ruler > .view-tabs {
+  width: max-content;
+  max-width: none;
+}
+
+.view-selector__ruler > .view-tabs > button {
+  flex: none;
 }
 
 .view-selector > .segmented {
