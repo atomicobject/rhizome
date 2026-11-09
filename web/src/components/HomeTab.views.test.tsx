@@ -113,6 +113,7 @@ describe("mounted collection defaults", () => {
             kind: "group",
             name: "Delivery",
             defaultChoiceId: "dashboard",
+            panel: { kind: "none" },
             choices: [
               { id: "builtin:overview", name: "Overview", renderer: "overview" },
               { id: "dashboard", name: "Dashboard", renderer: "custom", viewId: custom.id },

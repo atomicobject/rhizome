@@ -37,6 +37,7 @@ const catalog: ViewCatalog = {
       kind: "node",
       name: "EffortNote",
       defaultChoiceId: customChoiceId,
+      panel: { kind: "none" },
       choices: [
         { id: "builtin:read", name: "Structure", renderer: "read" },
         { id: "builtin:source", name: "Markdown", renderer: "source" },

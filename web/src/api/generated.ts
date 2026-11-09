@@ -2538,9 +2538,9 @@ export interface components {
       name: string;
       defaultChoiceId: string;
       choices: components["schemas"]["ViewChoice"][];
-      panel?: components["schemas"]["ViewPanel"];
+      panel: components["schemas"]["ViewPanel"];
     };
-    /** @description The sidebar panel for this target, resolved by the server (SPEC-0136 R6); the browser never derives it, and the server always sends it on catalog targets. `view` names an experience's panel view; `folder` is the built-in Folder panel; `owner` means use the descriptor of the Note target for the node's notePath (an embedded or section node), or Folder for a note; `none` shows no panel. */
+    /** @description The sidebar panel for this target, resolved by the server (SPEC-0136 R6); the browser never derives it, and the server always sends it on every target. `view` names an experience's panel view; `folder` is the built-in Folder panel; `owner` means use the descriptor of the Note target for the node's notePath (an embedded or section node), or Folder for a note; `none` shows no panel. */
     ViewPanel:
       | components["schemas"]["ViewPanelView"]
       | components["schemas"]["ViewPanelFolder"]

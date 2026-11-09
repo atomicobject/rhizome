@@ -127,6 +127,7 @@ export const HomeTab = memo(function HomeTab({
         name: targetName,
         choices: [builtin],
         defaultChoiceId: builtin.id,
+        panel: { kind: "none" },
       },
     [builtin, targetKind, targetName],
   );

@@ -19,6 +19,7 @@ const target: ViewTarget = {
   kind: "group",
   name: "Delivery",
   defaultChoiceId: "dashboard",
+  panel: { kind: "none" },
   choices: [
     { id: "builtin:overview", name: "Overview", renderer: "overview" },
     { id: "dashboard", name: "Dashboard", renderer: "custom", viewId: "delivery.dashboard" },
@@ -38,6 +39,7 @@ describe("view selection", () => {
     kind: "node",
     name: "_FallbackNote",
     defaultChoiceId: "builtin:read",
+    panel: { kind: "none" },
     choices: [
       { id: "builtin:read", name: "Read", renderer: "read" },
       { id: "builtin:source", name: "Source", renderer: "source" },
@@ -229,6 +231,7 @@ describe("view selection", () => {
       kind: "type",
       name: "Idea",
       defaultChoiceId: "ideas-table",
+      panel: { kind: "none" },
       choices: [
         { id: "builtin:overview", name: "Overview", renderer: "overview" },
         { id: "ideas-table", name: "Table", renderer: "table", viewId: "ideas", variant: "table" },
@@ -307,6 +310,7 @@ describe("view selection", () => {
     kind,
     name,
     defaultChoiceId: "table",
+    panel: { kind: "none" },
     choices: (kind === "standalone" ? [] : target.choices.slice(0, 1)).concat(
       { id: "table", name: "Table", renderer: "table", viewId: "spec", variant: "table" },
       { id: "cards", name: "Cards", renderer: "card", viewId: "spec", variant: "card" },
@@ -386,6 +390,7 @@ describe("view selection", () => {
       kind: "type",
       name: "Spec",
       defaultChoiceId: table,
+      panel: { kind: "none" },
       choices: [
         {
           id: table,

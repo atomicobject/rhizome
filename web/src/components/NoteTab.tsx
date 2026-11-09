@@ -243,6 +243,7 @@ export const NoteTab = memo(function NoteTab({
       kind: "node",
       name: resolvedType,
       defaultChoiceId: configured?.defaultChoiceId || "builtin:read",
+      panel: configured?.panel ?? { kind: "none" },
       choices: (
         configured?.choices ?? [
           { id: "builtin:read", name: "Structure", renderer: "read" },
