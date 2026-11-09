@@ -44,6 +44,9 @@ const fetchInvocation = async (showing: ExperienceShowing) =>
 
 const fetchGeneration = async () => (await getStatus()).generation;
 
+/** The store a window's experience frames and sidebar panel frames share. */
+export const newExperienceFrames = () => new ExperienceFrames({ fetchInvocation, fetchGeneration });
+
 type LayerProps = {
   children: ReactNode;
   session: OntologyEditSessionResponse | null;
@@ -52,6 +55,8 @@ type LayerProps = {
   openTabIds: ReadonlySet<string>;
   /** Frames belong to one vault; another vault starts none of them again. */
   vaultKey: string | null;
+  /** The store, when the shell shares it with the sidebar's panel slot. */
+  frames?: ExperienceFrames;
 };
 
 export function ExperienceFrameLayer({
@@ -60,8 +65,10 @@ export function ExperienceFrameLayer({
   readLifecycle,
   openTabIds,
   vaultKey,
+  frames: shared,
 }: LayerProps) {
-  const [frames] = useState(() => new ExperienceFrames({ fetchInvocation, fetchGeneration }));
+  const [own] = useState(() => shared ?? newExperienceFrames());
+  const frames = shared ?? own;
   const vaultRef = useRef(vaultKey);
 
   useEffect(() => {
@@ -152,18 +159,31 @@ function useCoverRect(layer: HTMLElement | null, placeholder: HTMLElement | null
   return rect;
 }
 
-function FrameLayer({ frames }: { frames: ExperienceFrames }) {
-  const views = useSyncExternalStore(frames.subscribe, frames.views);
+/**
+ * The frames of the workbench, or (`panel`) of the sidebar's panel slot, laid
+ * over the active placeholder. `onFrameLoad` sees each frame's new document.
+ */
+export function FrameLayer({
+  frames,
+  panel = false,
+  onFrameLoad,
+}: {
+  frames: ExperienceFrames;
+  panel?: boolean;
+  onFrameLoad?: (frame: HTMLIFrameElement) => void;
+}) {
+  const all = useSyncExternalStore(frames.subscribe, frames.views);
+  const views = useMemo(() => all.filter((each) => each.panel === panel), [all, panel]);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
 
   const placeholder = views.some((each) => each.visible || each.starting)
-    ? frames.activePlaceholder()
+    ? frames.activePlaceholder(panel)
     : null;
 
   const rect = useCoverRect(layer, placeholder);
 
   return (
-    <div ref={setLayer} className="experience-frame-layer">
+    <div ref={setLayer} className={panel ? "panel-frame-layer" : "experience-frame-layer"}>
       {views.map((view) => {
         const placed = (view.visible || view.starting) && rect;
 
@@ -175,11 +195,12 @@ function FrameLayer({ frames }: { frames: ExperienceFrames }) {
             ref={(element) => {
               if (element) frames.attach(view.id, element.contentWindow);
             }}
-            className="experience-frame"
+            className={panel ? "panel-frame" : "experience-frame"}
             data-experience={view.experienceKey}
             data-shown={view.visible || undefined}
             title={view.title}
             src={view.src}
+            onLoad={onFrameLoad && ((event) => onFrameLoad(event.currentTarget))}
             style={placed ? rect : undefined}
             aria-hidden={view.visible ? undefined : true}
             inert={view.visible ? undefined : true}
@@ -195,6 +216,8 @@ const isNotesPath = (pathname: string) =>
 
 type PageProps = {
   layer: NonNullable<ReturnType<typeof useExperienceLayer>>;
+  /** The experience's sidebar panel: its page takes the declared defaults and never the workspace URL. */
+  panel?: boolean;
   experienceKey: string;
   view: ViewCatalogEntry;
   context: ViewContext;
@@ -208,6 +231,7 @@ type PageProps = {
  */
 export function ExperiencePlaceholder({
   layer: { frames, tabId },
+  panel = false,
   experienceKey,
   view,
   context,
@@ -223,7 +247,7 @@ export function ExperiencePlaceholder({
   const searchRef = useRef(browser.search);
 
   if (isNotesPath(browser.pathname)) searchRef.current = browser.search;
-  const paramsJSON = JSON.stringify(readViewParams(declarations, searchRef.current));
+  const paramsJSON = JSON.stringify(readViewParams(declarations, panel ? "" : searchRef.current));
   const contextJSON = JSON.stringify(context);
 
   // Messages reach the services this tab last rendered with.
@@ -256,7 +280,8 @@ export function ExperiencePlaceholder({
         preferenceSlot,
         params: JSON.parse(paramsJSON),
         services: stableServices,
-        ownsLocation: isNotesPath(window.location.pathname),
+        ownsLocation: !panel && isNotesPath(window.location.pathname),
+        panel,
       },
       box.current,
     );
@@ -265,6 +290,7 @@ export function ExperiencePlaceholder({
     declarations,
     experienceKey,
     frames,
+    panel,
     paramsJSON,
     preferenceSlot,
     stableServices,
@@ -277,7 +303,9 @@ export function ExperiencePlaceholder({
 
   const shown = useSyncExternalStore(
     frames.subscribe,
-    () => frames.views().find((each) => each.experienceKey === experienceKey)?.visible ?? false,
+    () =>
+      frames.views().find((each) => each.experienceKey === experienceKey && each.panel === panel)
+        ?.visible ?? false,
   );
 
   const error = useSyncExternalStore(frames.subscribe, () => frames.error(tabId));

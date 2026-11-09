@@ -223,6 +223,43 @@
   white-space: nowrap;
 }
 
+/* A custom panel's frame: in a layer over the rail, laid over the slot's
+   body, so it outlives the slot showing Folder or nothing (moving an iframe
+   reloads it). */
+.notes-left-rail {
+  position: relative;
+}
+
+.panel-frame-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.panel-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 0;
+  background: transparent;
+  visibility: hidden;
+}
+
+.panel-frame[data-shown] {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.sidebar-panel__body:has(> .experience-placeholder) {
+  padding: 0;
+}
+
+.sidebar-panel .experience-placeholder__status {
+  margin: 6px 12px;
+  color: var(--chrome-muted);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sidebar-panel__title,
   .sidebar-panel__control,

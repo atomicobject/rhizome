@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "./fixtures";
+import { feedbackScreenshot } from "./groupViewHelpers";
 
-// The Notes sidebar's panel slot and the built-in Folder panel (SPEC-0136 R6).
+// The Notes sidebar's panel slot, the built-in Folder panel, and a custom
+// panel view on the synthetic experience in fixtures/experience (SPEC-0136 R6).
 
 const NOTE = "notes/decisions/backlink-decision.md";
 
@@ -106,4 +108,84 @@ test("a page without a note holds no panel", async ({ page }) => {
 
   await expect(rail.getByRole("region", { name: "Collections" })).toBeVisible();
   await expect(rail.getByRole("region", { name: "Folder panel" })).toHaveCount(0);
+});
+
+test("a custom panel keeps one frame and its state across subjects, covers, minimises, and gives way to Folder", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/notes/group/E2E%20Experience");
+  const rail = page.getByRole("complementary", { name: "Notes navigation" });
+  const collections = rail.getByRole("region", { name: "Collections" });
+  const slot = rail.getByRole("region", { name: "Claims panel" });
+  const panelFrames = page.locator("iframe.panel-frame");
+  const panel = page.frameLocator("iframe.panel-frame[data-shown]");
+  const shownPage = page.frameLocator("iframe.experience-frame[data-shown]");
+  const subject = panel.getByLabel("Panel subject");
+  const marks = panel.getByRole("button", { name: /^Marked/ });
+
+  const tab = (name: RegExp) =>
+    page.getByRole("tablist", { name: "Open notes" }).getByRole("tab", { name });
+
+  // The group's subject shows the experience's panel in its own frame.
+  await expect(subject).toHaveText("E2E Experience");
+  await expect(panelFrames).toHaveCount(1);
+  expect(await panelFrames.getAttribute("src")).toMatch(/[?&]frame=experience(&|$)/);
+  const start = await panel.getByLabel("Panel frame").textContent();
+  await marks.click();
+  await expect(marks).toHaveText("Marked 1");
+
+  // A record of the experience moves the same page to its subject.
+  await shownPage.getByRole("button", { name: "Open alpha" }).click();
+  await expect(tab(/Claim alpha/i)).toHaveAttribute("aria-selected", "true");
+  await expect(subject).toHaveText("alpha.md");
+  await expect(marks).toHaveText("Marked 1");
+  await expect(panel.getByLabel("Panel frame")).toHaveText(start ?? "");
+  await expect(panelFrames).toHaveCount(1);
+  await feedbackScreenshot(page, "experience-panel");
+
+  // Cover fills the sidebar with the same frame.
+  const cover = slot.getByRole("button", { name: "Fill the sidebar with Claims" });
+  await cover.click();
+  await expect(collections).toBeHidden();
+  await expect(marks).toHaveText("Marked 1");
+  await cover.click();
+  await expect(collections).toBeVisible();
+
+  // Minimised, the frame suspends out of sight and comes back as it was.
+  const title = slot.getByRole("button", { name: "Claims", exact: true });
+  await title.click();
+  await expect(title).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("iframe.panel-frame[data-shown]")).toHaveCount(0);
+  await title.click();
+  await expect(marks).toHaveText("Marked 1");
+  await expect(panel.getByLabel("Panel frame")).toHaveText(start ?? "");
+
+  // The sidebar shortcut works with focus inside the panel's frame.
+  await marks.focus();
+  await page.keyboard.press("ControlOrMeta+Backslash");
+  await expect(rail).toBeHidden();
+  await page.keyboard.press("ControlOrMeta+Backslash");
+  await expect(rail).toBeVisible();
+  await expect(marks).toHaveText("Marked 1");
+
+  // Another tab of the experience keeps the panel.
+  await tab(/^Home$/).click();
+  await expect(subject).toHaveText("E2E Experience");
+  await expect(marks).toHaveText("Marked 1");
+
+  // An untyped note gets Folder; the panel's frame waits, suspended.
+  await page.evaluate(() => {
+    window.history.pushState({}, "", "/notes?note=notes%2Ftask-flow.md");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+  await expect(rail.getByRole("region", { name: "Folder panel" })).toBeVisible();
+  await expect(slot).toHaveCount(0);
+  await expect(panelFrames).toHaveCount(1);
+  await expect(page.locator("iframe.panel-frame[data-shown]")).toHaveCount(0);
+
+  await tab(/Claim alpha/i).click();
+  await expect(subject).toHaveText("alpha.md");
+  await expect(marks).toHaveText("Marked 1");
+  await expect(panel.getByLabel("Panel frame")).toHaveText(start ?? "");
 });

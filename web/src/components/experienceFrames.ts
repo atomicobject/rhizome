@@ -1,7 +1,9 @@
 // The host's experience frames (SPEC-0136 R2, R3): one long-lived frame per
 // experience in a window, moved between tab pages with location messages,
-// suspended while none of its pages shows, and evicted beyond K. The frame
-// layer renders what this store holds; the store owns every message.
+// suspended while none of its pages shows, and evicted beyond K. An
+// experience's sidebar panel (R6) is a frame of its own here, with one page
+// (tab PANEL_TAB_ID), and counts toward the same K. The frame layer and the
+// panel slot render what this store holds; the store owns every message.
 import type { JsonObject } from "../api/parse";
 import { isJsonObject, isString } from "../api/parse";
 import type { OntologyEditSessionResponse } from "../api/types";
@@ -53,6 +55,8 @@ export type ExperienceShowing = {
   services: Omit<BridgeServices, "session" | "readLifecycle">;
   /** Whether the shell may write the page's params to the workspace URL. */
   ownsLocation: boolean;
+  /** The experience's sidebar panel frame, not its page frame. */
+  panel?: boolean;
 };
 
 type Page = {
@@ -67,6 +71,9 @@ type Page = {
 
 type Frame = {
   id: number;
+  /** The experience key, prefixed for a panel frame. */
+  key: string;
+  panel: boolean;
   experienceKey: string;
   src: string;
   title: string;
@@ -94,6 +101,7 @@ type Frame = {
 export type FrameView = {
   id: number;
   experienceKey: string;
+  panel: boolean;
   src: string;
   title: string;
   /** Shown over the active tab's placeholder. */
@@ -113,6 +121,9 @@ type Session = {
   session: OntologyEditSessionResponse | null;
   readLifecycle?: EditReadLifecycle;
 };
+
+const frameKey = ({ experienceKey, panel }: Pick<ExperienceShowing, "experienceKey" | "panel">) =>
+  panel ? `panel:${experienceKey}` : experienceKey;
 
 const sessionKey = ({ session, readLifecycle }: Session) =>
   `${editSessionFingerprint(session)}\n${readLifecycle?.revision ?? ""}`;
@@ -171,7 +182,8 @@ export class ExperienceFrames {
   /** The latest location request per tab; an older one that settles later is dropped. */
   private requests = new Map<string, object>();
   private errors = new Map<string, string>();
-  private placeholder: HTMLElement | null = null;
+  /** The active placeholder of the workbench (false) and of the panel slot (true). */
+  private placeholders = new Map<boolean, HTMLElement | null>();
 
   constructor(private options: Options) {}
 
@@ -185,8 +197,8 @@ export class ExperienceFrames {
 
   views = () => this.snapshot;
 
-  /** The active placeholder, which the visible frame covers. */
-  activePlaceholder = () => this.placeholder;
+  /** The active placeholder, which the visible frame covers: the workbench's, or the panel slot's. */
+  activePlaceholder = (panel = false) => this.placeholders.get(panel) ?? null;
 
   /** Why a tab's page could not be shown, if it could not. */
   error = (tabId: string) => this.errors.get(tabId) ?? null;
@@ -206,6 +218,7 @@ export class ExperienceFrames {
         return {
           id: frame.id,
           experienceKey: frame.experienceKey,
+          panel: frame.panel,
           src: frame.src,
           title: frame.title,
           visible: active && painted,
@@ -225,13 +238,15 @@ export class ExperienceFrames {
 
   /** A tab of an experience is on screen, at `placeholder`. */
   show(showing: ExperienceShowing, placeholder: HTMLElement | null) {
-    this.placeholder = placeholder;
-    let frame = this.frames.get(showing.experienceKey);
+    const panel = showing.panel === true;
+    this.placeholders.set(panel, placeholder);
+    let frame = this.frames.get(frameKey(showing));
 
     if (!frame) frame = this.create(showing);
 
+    // The workbench shows one page and the slot one panel, side by side.
     for (const other of this.frames.values())
-      if (other !== frame && other.activeTab !== null) this.leave(other);
+      if (other !== frame && other.panel === panel && other.activeTab !== null) this.leave(other);
 
     const resuming = frame.suspended;
     frame.activeTab = showing.tabId;
@@ -259,14 +274,16 @@ export class ExperienceFrames {
 
     // Another tab of the same experience may show in this same commit.
     queueMicrotask(() => {
-      if (frame.activeTab === null && this.frames.get(frame.experienceKey) === frame)
-        this.leave(frame);
+      if (frame.activeTab === null && this.frames.get(frame.key) === frame) this.leave(frame);
     });
   }
 
   /** Drop the pages of tabs that closed. */
   retainTabs(open: ReadonlySet<string>) {
     for (const frame of this.frames.values()) {
+      // The panel's page is not a workbench tab's.
+      if (frame.panel) continue;
+
       for (const tabId of frame.pages.keys()) {
         if (open.has(tabId)) continue;
         frame.pages.delete(tabId);
@@ -303,6 +320,8 @@ export class ExperienceFrames {
 
     const frame: Frame = {
       id: this.nextId++,
+      key: frameKey(showing),
+      panel: showing.panel === true,
       experienceKey: showing.experienceKey,
       src: `${url.pathname}${url.search}`,
       title: showing.viewName,
@@ -322,7 +341,7 @@ export class ExperienceFrames {
       folders: new Set(),
     };
 
-    this.frames.set(showing.experienceKey, frame);
+    this.frames.set(frame.key, frame);
 
     return frame;
   }
@@ -331,7 +350,7 @@ export class ExperienceFrames {
     if (frame.awaiting) clearTimeout(frame.awaiting.timer);
     frame.awaiting = null;
 
-    if (this.frames.get(frame.experienceKey) === frame) this.frames.delete(frame.experienceKey);
+    if (this.frames.get(frame.key) === frame) this.frames.delete(frame.key);
   }
 
   /** Replace a frame with a fresh one at the location its active tab shows. */
@@ -339,7 +358,7 @@ export class ExperienceFrames {
     const showing = frame.activeTab === null ? null : frame.showing;
     this.destroy(frame);
 
-    if (showing) this.show(showing, this.placeholder);
+    if (showing) this.show(showing, this.activePlaceholder(frame.panel));
     else this.publish();
   }
 
@@ -380,7 +399,7 @@ export class ExperienceFrames {
     this.requests.set(tabId, token);
 
     const current = () =>
-      this.requests.get(tabId) === token && this.frames.get(frame.experienceKey) === frame;
+      this.requests.get(tabId) === token && this.frames.get(frame.key) === frame;
 
     let result: Invocation;
 

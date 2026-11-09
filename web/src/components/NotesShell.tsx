@@ -20,7 +20,11 @@ import { flushEditors } from "./editing/editorFlush";
 import { useFocusRegions } from "./focusManagement";
 import { clearPersistedEditorDrafts, editCommitSucceeded } from "./editing/editSessionState";
 import { NotesLeftRail } from "./NotesLeftRail";
-import { ExperienceFrameLayer, ExperienceTabContext } from "./ExperienceFrameLayer";
+import {
+  ExperienceFrameLayer,
+  ExperienceTabContext,
+  newExperienceFrames,
+} from "./ExperienceFrameLayer";
 import { activePanel } from "./activePanel";
 import { sameNoteTabContext, type NoteTabContext } from "./noteTabContext";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
@@ -761,6 +765,23 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     ],
   );
 
+  // The workbench's experience frames and the sidebar's panel frames share
+  // one store, so a suspended panel counts toward the window's K.
+  const [experienceFrames] = useState(newExperienceFrames);
+
+  const panelServices = useMemo(
+    () => ({
+      onOpenNote: openTab,
+      onOpenNode: openNode,
+      onOpenView: openView,
+      onOpenSearch: openSearch,
+      onStageOps: stageOps,
+      onOpenIssues: selectIssues,
+      onSelectCollection: selectCollection,
+    }),
+    [openNode, openSearch, openTab, openView, selectCollection, selectIssues, stageOps],
+  );
+
   const viewEditSession = useMemo(
     () => ({
       session: editSession.session,
@@ -870,6 +891,9 @@ export function NotesShell({ active = true }: { active?: boolean }) {
             onOpenRecent={openRecent}
             onOpenConfiguredView={openConfiguredView}
             activePanel={sidebarPanel}
+            vaultKey={editSession.vaultKey}
+            frames={experienceFrames}
+            panelServices={panelServices}
           />
         </DiagnosticRegion>
       </WorkbenchSidebar>
@@ -952,6 +976,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
               inert={searchActive ? true : undefined}
             >
               <ExperienceFrameLayer
+                frames={experienceFrames}
                 session={editSession.session}
                 readLifecycle={editSession.readLifecycle}
                 openTabIds={openTabIds}

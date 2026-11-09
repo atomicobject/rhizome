@@ -59,19 +59,22 @@ function harness(generation = "g1") {
     }
   });
 
-  const frame = (experienceKey: string) => {
-    const view = frames.views().find((each) => each.experienceKey === experienceKey);
+  // `panel` picks the experience's sidebar panel frame.
+  const frame = (experienceKey: string, panel = false) => {
+    const view = frames
+      .views()
+      .find((each) => each.experienceKey === experienceKey && each.panel === panel);
 
     return view ? { ...windows.get(view.id)!, view } : null;
   };
 
-  const from = (experienceKey: string, data: JsonObject) =>
+  const from = (experienceKey: string, data: JsonObject, panel = false) =>
     frames.receive(
-      new MessageEvent("message", { origin, source: frame(experienceKey)!.window, data }),
+      new MessageEvent("message", { origin, source: frame(experienceKey, panel)!.window, data }),
     );
 
-  const lastLocation = (experienceKey: string) =>
-    frame(experienceKey)!
+  const lastLocation = (experienceKey: string, panel = false) =>
+    frame(experienceKey, panel)!
       .sent.filter((each) => each.type === LOCATION_MESSAGE)
       .at(-1)!;
 
@@ -95,6 +98,17 @@ const showing = (overrides: Partial<ExperienceShowing> = {}): ExperienceShowing 
   ownsLocation: true,
   ...overrides,
 });
+
+const panelShowing = (overrides: Partial<ExperienceShowing> = {}) =>
+  showing({
+    tabId: "panel",
+    viewId: "kb.panel",
+    viewName: "Knowledge panel",
+    declarations: [],
+    ownsLocation: false,
+    panel: true,
+    ...overrides,
+  });
 
 describe("ExperienceFrames", () => {
   beforeEach(() => vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }));
@@ -258,6 +272,67 @@ describe("ExperienceFrames", () => {
       "exp_4",
       "exp_5",
     ]);
+  });
+
+  it("runs an experience's panel in its own frame beside its page, updating one page per subject", async () => {
+    const { frames, frame, from, lastLocation } = harness();
+    frames.show(showing(), null);
+    frames.show(panelShowing(), null);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(frames.views().map((each) => each.panel)).toEqual([false, true]);
+    expect(frame("exp_kb", true)!.view.src).toMatch(/[?&]frame=experience(&|$)/);
+    expect(frame("exp_kb", true)!.view.src).toMatch(/[?&]hosted=1(&|$)/);
+
+    from("exp_kb", { type: FRAME_READY_MESSAGE });
+    from("exp_kb", { type: FRAME_READY_MESSAGE }, true);
+    // The panel and the page both show: neither suspends the other.
+    expect(frame("exp_kb")!.sent.map((each) => each.type)).not.toContain(SUSPEND_MESSAGE);
+    const first = lastLocation("exp_kb", true);
+    expect(first).toMatchObject({ tabId: "panel", generation: "g1" });
+
+    frames.show(
+      panelShowing({
+        context: { kind: "node", type: "Assertion", ref: { notePath: "a.md", kind: "NOTE" } },
+      }),
+      null,
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    const next = lastLocation("exp_kb", true);
+    expect(frames.views()).toHaveLength(2);
+    expect(next).toMatchObject({ tabId: "panel", invocation: { context: { kind: "node" } } });
+    expect(next.navigationId).not.toBe(first.navigationId);
+    expect(next.generation).toBeUndefined();
+
+    // Closing workbench tabs never closes the panel's page.
+    frames.retainTabs(new Set());
+    expect(frame("exp_kb", true)!.sent.map((each) => each.type)).not.toContain(CLOSE_PAGE_MESSAGE);
+  });
+
+  it(`suspends a hidden panel and counts it among the ${RETAINED_FRAMES} retained frames`, async () => {
+    const { frames, frame, from } = harness();
+    frames.show(panelShowing(), null);
+    await vi.advanceTimersByTimeAsync(0);
+    from("exp_kb", { type: FRAME_READY_MESSAGE }, true);
+    frames.hide("panel");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(frame("exp_kb", true)!.sent.at(-1)).toEqual({ type: SUSPEND_MESSAGE });
+
+    frames.show(panelShowing(), null);
+    expect(frame("exp_kb", true)!.sent.at(-1)).toMatchObject({ type: RESUME_MESSAGE });
+    frames.hide("panel");
+    await vi.advanceTimersByTimeAsync(0);
+
+    // K pages shown after it leave the panel the least recently shown of K + 1.
+    for (let index = 0; index < RETAINED_FRAMES; index += 1) {
+      frames.show(showing({ experienceKey: `exp_${index}`, tabId: `view:${index}` }), null);
+      await vi.advanceTimersByTimeAsync(0);
+    }
+
+    expect(frame("exp_kb", true)).not.toBeNull();
+    frames.hide(`view:${RETAINED_FRAMES - 1}`);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(frame("exp_kb", true)).toBeNull();
+    expect(frames.views()).toHaveLength(RETAINED_FRAMES);
   });
 
   it("answers a stale page's stage with an error and acts only for the current page", async () => {

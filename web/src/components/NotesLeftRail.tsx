@@ -1,25 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
 import { buildRailGroups } from "./noteRailGroups";
-import { memo, type ReactNode, useMemo } from "react";
+import { memo, type ReactNode, useMemo, useState } from "react";
 
-import { getStatus } from "../api/client";
-import { queryKeys } from "../api/queryKeys";
 import type {
   OntologyEditSessionResponse,
   OntologySummaryResponse,
   ViewCatalogEntry,
-  ViewTarget,
 } from "../api/types";
-import type { ViewContext } from "../views/context";
+import type { ActivePanel } from "./activePanel";
+import type { ExperienceFrames } from "./experienceFrames";
 import { FolderPanel } from "./FolderPanel";
-import { useLocationSnapshot } from "./locationStore";
-import { panelIdentity, SidebarPanelSlot } from "./SidebarPanelSlot";
-import {
-  parseNotesLocation,
-  PSEUDO_TYPE_ALL,
-  PSEUDO_TYPE_ISSUES,
-  PSEUDO_TYPE_MODIFIED,
-} from "./notesRoute";
+import { panelIdentity, type SidebarPanel, SidebarPanelSlot } from "./SidebarPanelSlot";
+import { type PanelServices, SidebarPanelFrames, SidebarPanelView } from "./SidebarPanelView";
+import { PSEUDO_TYPE_ALL, PSEUDO_TYPE_ISSUES, PSEUDO_TYPE_MODIFIED } from "./notesRoute";
 import {
   RailIcon,
   type RailIconName,
@@ -34,39 +26,6 @@ import { validationHealth } from "./validation/validationPresentation";
 import { groupStandaloneViews } from "./viewCatalog";
 
 const EXPANDED_KEY = "rhizome:notes:left-rail:expanded:v1";
-
-/**
- * The active target's resolved panel and its context (SPEC-0136 R6). The
- * shell resolves `owner` before passing it, so the rail sees view, folder, or
- * none.
- */
-export type ActivePanel = { panel: ViewTarget["panel"]; context: ViewContext | null };
-
-const NO_PANEL: ActivePanel = { panel: { kind: "none" }, context: null };
-
-// ponytail: stand-in until NotesShell passes `activePanel` and `vaultKey`
-// (lane P6): Folder for the note in the URL, keyed by the status vault path.
-function useLocationPanel(enabled: boolean) {
-  const location = useLocationSnapshot();
-  const status = useQuery({ queryKey: queryKeys.status(), queryFn: getStatus, enabled: false });
-
-  const note = enabled
-    ? parseNotesLocation(location.pathname, location.search, location.hash).note
-    : null;
-
-  return {
-    activePanel: (note
-      ? {
-          panel: { kind: "folder" },
-          context: { kind: "node", type: "", ref: { notePath: note, kind: "NOTE" } },
-        }
-      : NO_PANEL) satisfies ActivePanel,
-    vaultKey: status.data?.vaultPath || null,
-  };
-}
-
-const notePathOf = (context: ViewContext | null) =>
-  context?.kind === "node" ? context.ref.notePath : null;
 
 export type NotesLeftRailProps = {
   active?: boolean;
@@ -86,8 +45,12 @@ export type NotesLeftRailProps = {
   onOpenConfiguredView: (view: ViewCatalogEntry) => void;
   /** Scopes the panel's remembered size and state; from the shell. */
   vaultKey?: string | null;
-  /** The active tab's sidebar panel and the context it is invoked with (SPEC-0136 R6); omitted, the URL's note gets Folder. */
+  /** The active tab's sidebar panel and the context it is invoked with (SPEC-0136 R6); null while unknown. */
   activePanel?: ActivePanel | null;
+  /** The window's experience frames, which a custom panel's frame joins; without them only Folder shows. */
+  frames?: ExperienceFrames;
+  /** What a custom panel's page may ask the workspace to do. */
+  panelServices?: PanelServices;
 };
 
 export const NotesLeftRail = memo(function NotesLeftRail({
@@ -104,23 +67,39 @@ export const NotesLeftRail = memo(function NotesLeftRail({
   onSelectGroup,
   onOpenRecent,
   onOpenConfiguredView,
-  vaultKey: vaultKeyProp,
-  activePanel: activePanelProp,
+  vaultKey = null,
+  activePanel,
+  frames,
+  panelServices,
 }: NotesLeftRailProps) {
-  const fallback = useLocationPanel(activePanelProp === undefined);
-
-  const activePanel =
-    activePanelProp === undefined ? fallback.activePanel : (activePanelProp ?? NO_PANEL);
-
-  const vaultKey = vaultKeyProp === undefined ? fallback.vaultKey : vaultKeyProp;
-  const panelNote = notePathOf(activePanel.context);
-  // Custom panel frames arrive with lane P6's message bridge; until then only
-  // Folder has content to host.
-  const folder = activePanel.panel.kind === "folder" && panelNote !== null;
-
   const catalogQuery = useViewCatalogQuery(active);
   const validationQuery = useValidationQuery(active);
   const catalog = catalogQuery.data?.views ?? [];
+
+  // While the next subject's panel is unknown (a note still loading), the
+  // last one stays, so the slot and its panel do not remount between subjects.
+  const [held, setHeld] = useState(activePanel ?? null);
+
+  if (activePanel && activePanel !== held) setHeld(activePanel);
+  const shown = activePanel === null ? held : activePanel;
+  const panel = shown?.panel;
+  const context = shown?.context;
+
+  const folderNote =
+    panel?.kind === "folder" && context?.kind === "node" ? context.ref.notePath : null;
+
+  const panelView =
+    panel?.kind === "view" ? catalog.find((view) => view.id === panel.viewId) : undefined;
+
+  const hostsView = panelView !== undefined && frames !== undefined && panelServices !== undefined;
+
+  const slotPanel: SidebarPanel | null =
+    folderNote !== null && panel
+      ? { identity: panelIdentity(panel) ?? "", title: "Folder", minimisedByDefault: true }
+      : hostsView && panel
+        ? { identity: panelIdentity(panel) ?? "", title: panelView.name }
+        : null;
+
   const standaloneGroups = useMemo(() => groupStandaloneViews(catalog), [catalog]);
 
   const railGroups = useMemo(
@@ -282,21 +261,25 @@ export const NotesLeftRail = memo(function NotesLeftRail({
 
   return (
     <aside className="notes-left-rail" aria-label="Notes navigation">
-      <SidebarPanelSlot
-        vaultKey={vaultKey}
-        panel={
-          folder
-            ? {
-                identity: panelIdentity(activePanel.panel) ?? "",
-                title: "Folder",
-                minimisedByDefault: true,
-              }
-            : null
-        }
-        navigation={navigation}
-      >
-        {folder && panelNote ? <FolderPanel notePath={panelNote} active={active} /> : null}
+      <SidebarPanelSlot vaultKey={vaultKey} panel={slotPanel} navigation={navigation}>
+        {folderNote !== null ? (
+          <FolderPanel
+            notePath={folderNote}
+            active={active}
+            onOpenNote={panelServices && ((path) => panelServices.onOpenNote(path, "activate"))}
+          />
+        ) : hostsView && panel?.kind === "view" && context ? (
+          <SidebarPanelView
+            frames={frames}
+            view={panelView}
+            experienceKey={panel.experienceKey}
+            context={context}
+            services={panelServices}
+            active={active}
+          />
+        ) : null}
       </SidebarPanelSlot>
+      {frames ? <SidebarPanelFrames frames={frames} /> : null}
     </aside>
   );
 });

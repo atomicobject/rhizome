@@ -80,6 +80,15 @@ describe("the sidebar panel", () => {
     );
   });
 
+  it("keeps the panel mounted while the next subject's panel is still unknown", async () => {
+    const view = render(<NotesLeftRail {...props()} vaultKey="/vault" activePanel={notePanel} />);
+    const panel = await screen.findByRole("region", { name: "Folder panel" });
+
+    // A note tab whose node is still loading reports null.
+    view.rerender(<NotesLeftRail {...props()} vaultKey="/vault" activePanel={null} />);
+    expect(screen.getByRole("region", { name: "Folder panel" })).toBe(panel);
+  });
+
   it("holds no panel for a target that resolves to none", async () => {
     render(
       <NotesLeftRail
