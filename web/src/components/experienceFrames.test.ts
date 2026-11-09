@@ -199,6 +199,31 @@ describe("ExperienceFrames", () => {
     expect(frame("exp_kb")!.sent.at(-1)).toEqual({ type: CLOSE_PAGE_MESSAGE, tabId: "note:a.md" });
   });
 
+  it("retires a tab's page when its next subject fails to open, so the error shows", async () => {
+    const { frames, fetchInvocation, frame, from, lastLocation } = harness();
+    frames.show(showing({ tabId: "other" }), null);
+    await vi.advanceTimersByTimeAsync(0);
+    from("exp_kb", { type: FRAME_READY_MESSAGE });
+    frames.hide("other");
+    frames.show(showing(), null);
+    await vi.advanceTimersByTimeAsync(0);
+    const { navigationId } = lastLocation("exp_kb");
+    from("exp_kb", { type: LOCATION_ACCEPTED_MESSAGE, tabId: "home", navigationId });
+    from("exp_kb", { type: LOCATION_RENDERED_MESSAGE, tabId: "home", navigationId, at: 1 });
+    expect(frame("exp_kb")!.view.visible).toBe(true);
+
+    fetchInvocation.mockRejectedValueOnce(new Error("Subject B is missing."));
+    frames.show(showing({ context: { kind: "group", group: "B" } }), null);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(frames.error("home")).toBe("Subject B is missing.");
+    expect(frame("exp_kb")!.view.visible).toBe(false);
+    expect(frame("exp_kb")!.sent.at(-1)).toEqual({ type: CLOSE_PAGE_MESSAGE, tabId: "home" });
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    from("exp_kb", { type: OPEN_NOTE_MESSAGE, path: "a.md", tabId: "home", navigationId });
+    expect(services.onOpenNote).not.toHaveBeenCalled();
+  });
+
   it("replaces a frame that does not accept its location in time", async () => {
     const { frames, frame, from } = harness();
     frames.show(showing(), null);

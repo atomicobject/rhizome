@@ -282,6 +282,9 @@ export class ExperienceFrames {
       if (!current()) return;
       this.errors.set(tabId, error instanceof Error ? error.message : String(error));
 
+      // The tab's earlier page is superseded: it neither shows nor acts, so the error shows.
+      if (frame.pages.delete(tabId)) this.post(frame, { type: CLOSE_PAGE_MESSAGE, tabId });
+
       // A refused invocation, such as revoked trust, ends the frame.
       if (frame.pages.size === 0) this.destroy(frame);
       this.publish();
