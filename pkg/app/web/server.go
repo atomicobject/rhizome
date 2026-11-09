@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"net/http"
 
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -466,6 +467,11 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys http.FileSystem, fil
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
+	}
+	// ServeContent would ask the mime package, which on Windows reads the registry
+	// (.js can be application/javascript or text/plain); the fixed table wins.
+	if contentType := viewerMIMETypes[strings.ToLower(filepath.Ext(file))]; contentType != "" {
+		w.Header().Set("Content-Type", contentType)
 	}
 	http.ServeContent(w, r, stat.Name(), stat.ModTime(), f)
 }

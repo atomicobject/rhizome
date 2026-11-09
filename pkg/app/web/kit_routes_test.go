@@ -1,6 +1,7 @@
 package web
 
 import (
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -35,6 +36,12 @@ func getKit(s *Server, target string, header http.Header) *httptest.ResponseReco
 }
 
 func TestKitBuildStampedPathIsImmutable(t *testing.T) {
+	// Windows fills the mime table from the registry, where .js can be text/plain.
+	original := mime.TypeByExtension(".js")
+	t.Cleanup(func() { _ = mime.AddExtensionType(".js", original) })
+	if err := mime.AddExtensionType(".js", "text/plain"); err != nil {
+		t.Fatal(err)
+	}
 	s := newKitRouteServer(kitFiles("// kit"))
 	base := s.kitBase()
 	if !strings.HasPrefix(base, "/kit/v1/") || base == "/kit/v1/" || !strings.HasSuffix(base, "/") {
