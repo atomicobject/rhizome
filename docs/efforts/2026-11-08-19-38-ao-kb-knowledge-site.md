@@ -159,7 +159,7 @@ The same copy reproduced the planning counts exactly: 181 concept-side outbound 
 
 - **Outcome:** US7 complete for AO KBs.
 - **Work:** `views/knowledge/panel.{yaml,tsx}` (`ao-kb.panel`, `mount: { kind: panel }`) with the KB title, Find by title (Enter opens the first match; "Search all text" sends open-search with no folder), the site links and counted lists, the locator from the site library with the record's scope read, the `panel` line in `experience.yml`, and the Recent list built from `useViewLocation` and kept in `sessionStorage` keyed by vault and experience (R6), so it survives eviction within the window.
-- **Exit evidence:** its own `web/tests/e2e-ao-kb/panel.spec.ts` through the panel on Batch C's harness, including Recent after the panel frame is evicted and recreated and two windows keeping separate Recent lists; view validation passes with the `panel` line; the Batch D copies rechecked for the panel.
+- **Exit evidence:** its own `web/tests/e2e-ao-kb/panel.spec.ts` through the panel on Batch C's harness, including Recent after the panel frame is evicted and recreated, two windows keeping separate Recent lists, and Folder on an untyped note (`notes/untyped.md`, added to the legacy fixture by this batch); view validation passes with the `panel` line; the Batch D copies rechecked for the panel.
 
 #### Batch G. Custom-first view switcher (independent; can start any time)
 
