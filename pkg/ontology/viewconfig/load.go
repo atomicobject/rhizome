@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -41,6 +42,9 @@ func LoadRoots(repoRoot string, roots []assetroots.Root) ([]ViewDefinition, []Is
 		for i := range rootViews {
 			rootViews[i].Source.Root = dir
 			rootViews[i].Source.Module = root.Module
+			if exp := rootViews[i].Experience; exp != nil {
+				exp.Module = root.Module
+			}
 		}
 		views = append(views, rootViews...)
 		issues = append(issues, rootIssues...)
@@ -59,6 +63,7 @@ func LoadPath(path string) ([]ViewDefinition, []Issue) {
 	}
 	var views []ViewDefinition
 	var issues []Issue
+	experiences := map[string]*Experience{}
 	err = filepath.WalkDir(path, func(current string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			issues = append(issues, Issue{Code: "view_path_error", Path: current, Message: walkErr.Error()})
@@ -68,6 +73,15 @@ func LoadPath(path string) ([]ViewDefinition, []Issue) {
 			if current != path && privateName(d.Name()) {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if isExperienceFile(current) {
+			data, err := os.ReadFile(current)
+			if err != nil {
+				issues = append(issues, Issue{Code: "view_read_error", Path: current, Message: err.Error()})
+				return nil
+			}
+			experiences[slashFolder(path, current)] = decodeExperience(data, current)
 			return nil
 		}
 		if !isViewFile(current) {
@@ -81,8 +95,18 @@ func LoadPath(path string) ([]ViewDefinition, []Issue) {
 	if err != nil {
 		issues = append(issues, Issue{Code: "view_path_error", Path: path, Message: err.Error()})
 	}
+	attachExperiences(views, experiences, func(view ViewDefinition) string { return slashFolder(path, view.Source.Path) })
 	sortViews(views)
 	return views, issues
+}
+
+// slashFolder is the folder holding file, as a slash path relative to root.
+func slashFolder(root, file string) string {
+	rel, err := filepath.Rel(root, filepath.Dir(file))
+	if err != nil {
+		return ""
+	}
+	return filepath.ToSlash(rel)
 }
 
 // LoadFS loads every definition in fsys, skipping private folders like the
@@ -97,6 +121,7 @@ func LoadFS(fsys fs.FS) ([]ViewDefinition, []Issue) {
 	}
 	var views []ViewDefinition
 	var issues []Issue
+	experiences := map[string]*Experience{}
 	err := WalkFolder(fsys, ".", func(rel string, _ fs.DirEntry) {
 		if !isViewFile(rel) {
 			return
@@ -106,6 +131,10 @@ func LoadFS(fsys fs.FS) ([]ViewDefinition, []Issue) {
 			issues = append(issues, Issue{Code: "view_read_error", Path: rel, Message: err.Error()})
 			return
 		}
+		if isExperienceFile(rel) {
+			experiences[pathpkg.Dir(rel)] = decodeExperience(data, rel)
+			return
+		}
 		fileViews, fileIssues := Decode(data, rel)
 		views = append(views, fileViews...)
 		issues = append(issues, fileIssues...)
@@ -113,6 +142,7 @@ func LoadFS(fsys fs.FS) ([]ViewDefinition, []Issue) {
 	if err != nil {
 		issues = append(issues, Issue{Code: "view_path_error", Path: ".", Message: err.Error()})
 	}
+	attachExperiences(views, experiences, func(view ViewDefinition) string { return pathpkg.Dir(view.Source.Path) })
 	sortViews(views)
 	return views, issues
 }

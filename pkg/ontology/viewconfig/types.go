@@ -4,6 +4,8 @@ package viewconfig
 import (
 	"encoding/json"
 	"io/fs"
+
+	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 )
 
 // WHY: configured views are native Rhizome repo settings, not Obsidian `.base`
@@ -30,6 +32,9 @@ const (
 	MountKindWorkspace  MountKind = "workspace"
 	MountKindGroup      MountKind = "group"
 	MountKindNode       MountKind = "node"
+	// MountKindPanel marks an experience's panel view (SPEC-0136 R6). It
+	// matches no target, so it is never a view choice.
+	MountKindPanel MountKind = "panel"
 )
 
 // Origin says where a catalog definition came from. A repository definition
@@ -71,6 +76,12 @@ type ViewDefinition struct {
 	// relative to the bundled views filesystem, not an absolute path.
 	Origin Origin `json:"-" yaml:"-"`
 	Source Source `json:"sourceLocation,omitempty" yaml:"-"`
+	// Experience is the experience whose folder holds the definition, nil
+	// outside one or when its experience.yml is invalid (SPEC-0136 R1).
+	Experience *Experience `json:"-" yaml:"-"`
+	// ExperiencePage is set by Validate when a custom view in an experience
+	// renders in the experience's frame: a script entry with a default export.
+	ExperiencePage bool `json:"-" yaml:"-"`
 }
 
 type SourceSpec struct {
@@ -249,6 +260,12 @@ type ValidateOptions struct {
 	// slash paths inside it, and custom entries are checked there instead of on
 	// disk. Bundled views are validated this way.
 	EntryFS fs.FS
+	// Schema, when set, lets validation warn when two experiences with panels
+	// tie for a target (SPEC-0136 R6).
+	Schema *ontoschema.Schema
+	// ScanDefaultExport reports whether a view script exports a module
+	// default (viewscript.HasDefaultExport). Nil skips that check.
+	ScanDefaultExport func(name string, source []byte) (bool, error)
 }
 
 type ValidationResult struct {

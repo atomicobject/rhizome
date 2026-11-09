@@ -81,3 +81,27 @@ func TestTransformRewritesOnlyRelativeStylesheetSideEffects(t *testing.T) {
 		t.Fatal("css module request detection")
 	}
 }
+
+func TestHasDefaultExportReadsTheTransformedModule(t *testing.T) {
+	for source, want := range map[string]bool{
+		"export default function View() { return <div /> }":                 true,
+		"const View = () => null;\nexport default View;":                    true,
+		"function View() { return null }\nexport { View as default };":      true,
+		"export { default } from './page.tsx';":                             true,
+		"export { default as Page, other } from './page.tsx';":              false,
+		"export function View() { return null }":                            false,
+		"const text = 'export default x';\nexport const View = () => text;": false,
+		"import type { X } from './x';\nexport default class Page {}":       true,
+	} {
+		got, err := HasDefaultExport("view.tsx", []byte(source))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != want {
+			t.Errorf("%q: HasDefaultExport = %v, want %v", source, got, want)
+		}
+	}
+	if _, err := HasDefaultExport("view.tsx", []byte("export default <")); err == nil {
+		t.Fatal("a script that does not transform should report its error")
+	}
+}

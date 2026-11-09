@@ -8,6 +8,7 @@ import (
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/viewscript"
 	"sort"
 	"strings"
 	"time"
@@ -72,6 +73,16 @@ func (s *Service) catalog(ctx context.Context, includeHidden bool) (Catalog, err
 	issues = append(issues, bundledIssues...)
 	entries := catalogEntries(all, issues, includeHidden)
 	return Catalog{Views: entries, Issues: issues}, nil
+}
+
+// Panel resolves the sidebar panel for one target, as Catalog reports it on
+// that target, without the catalog's count reads.
+func (s *Service) Panel(ctx context.Context, kind viewconfig.MountKind, name string) (viewconfig.Panel, error) {
+	catalog, err := s.catalog(ctx, false)
+	if err != nil {
+		return viewconfig.Panel{}, err
+	}
+	return panelResolver(s.opts.Schema, catalog.Views).Resolve(kind, name), nil
 }
 
 // View returns one catalog entry, with the same default variant the catalog
@@ -330,6 +341,9 @@ func (s *Service) bundledDefinitions(repository []viewconfig.ViewDefinition, opt
 			continue
 		}
 		def.Origin = viewconfig.OriginBundled
+		if def.Experience != nil {
+			def.Experience.Bundled = true
+		}
 		out = append(out, def)
 	}
 	var kept []viewconfig.Issue
@@ -348,6 +362,7 @@ func (s *Service) loadDefinitions() ([]viewconfig.ViewDefinition, []viewconfig.I
 }
 func (s *Service) validateOptions() viewconfig.ValidateOptions {
 	opts := viewconfig.SchemaValidateOptions(s.opts.Schema)
+	opts.ScanDefaultExport = viewscript.HasDefaultExport
 	if s.opts.VaultPath != "" {
 		recipes, _ := s.opts.QueryRecipes.Catalog()
 		opts.QueryRecipeIDs = map[string]struct{}{}

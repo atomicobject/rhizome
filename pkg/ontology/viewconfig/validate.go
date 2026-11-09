@@ -41,6 +41,7 @@ func Validate(defs []ViewDefinition, opts ValidateOptions) ValidationResult {
 		out.Issues = append(out.Issues, validateVariants(normalized)...)
 	}
 	out.Issues = append(out.Issues, validateMountedDefaults(out.Views, out.Issues)...)
+	out.Issues = append(out.Issues, validateExperiences(out.Views, out.Issues, opts)...)
 	return out
 }
 
@@ -284,6 +285,12 @@ func validateMount(def ViewDefinition, opts ValidateOptions) []Issue {
 		issues = append(issues, unexpectedMountFields(def, "mount.type", def.Mount.Type, "mount.interface", def.Mount.Interface, "mount.group", def.Mount.Group)...)
 	case MountKindStandalone:
 		issues = append(issues, unexpectedMountFields(def, "mount.type", def.Mount.Type, "mount.interface", def.Mount.Interface)...)
+	case MountKindPanel:
+		// Whether an experience names it is checked with the experience.
+		issues = append(issues, unexpectedMountFields(def, "mount.type", def.Mount.Type, "mount.interface", def.Mount.Interface, "mount.group", def.Mount.Group)...)
+		if def.SourceSpec.Kind != SourceKindCustom {
+			issues = append(issues, issue(def, "unsupported_mount_kind", "mount.kind", "panel mounts require a custom source"))
+		}
 	case "":
 		return []Issue{issue(def, "missing_required_field", "mount.kind", "mount.kind is required")}
 	default:
