@@ -65,7 +65,11 @@ func resolveTargets(schema *ontoschema.Schema, entries []CatalogEntry) []ViewTar
 		}
 	}
 	for _, entry := range entries {
-		if entry.Mount.Hidden || hasBlockingIssues(entry.Issues) {
+		// A hidden standalone page of an experience still gets a target, with
+		// no choices, so a tab that opens it can read its experience's panel
+		// (SPEC-0136 R6).
+		experiencePage := entry.Mount.Kind == viewconfig.MountKindStandalone && entry.ExperienceKey != ""
+		if hasBlockingIssues(entry.Issues) || (entry.Mount.Hidden && !experiencePage) {
 			continue
 		}
 		switch entry.Mount.Kind {

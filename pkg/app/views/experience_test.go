@@ -130,9 +130,9 @@ func TestHiddenViewsTakePartInPanelResolution(t *testing.T) {
 	for _, choice := range memo.Choices {
 		require.NotEqual(t, "notes.memo", choice.ViewID, "a hidden view is never a choice")
 	}
-	for _, target := range catalog.Targets {
-		require.NotEqual(t, "notes.secret", target.Name, "a hidden standalone view has no target")
-	}
+	secret := catalogTarget(t, catalog, viewconfig.MountKindStandalone, "notes.secret")
+	require.Equal(t, panel, secret.Panel, "a tab showing a hidden standalone view reads its experience's panel")
+	require.Empty(t, secret.Choices, "a hidden standalone view is never a choice")
 
 	got, err := service.Panel(context.Background(), viewconfig.MountKindStandalone, "notes.secret")
 	require.NoError(t, err)
