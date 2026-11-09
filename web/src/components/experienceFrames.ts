@@ -37,12 +37,6 @@ import {
   type BridgeServices,
 } from "../views/viewBridge";
 
-/**
- * The longest an accepted page stays hidden waiting for its paint signal. A
- * page that fails to load reports no paint, and its error should show.
- */
-const REVEAL_LIMIT_MS = 1000;
-
 /** K: how many suspended frames the window keeps; the least recently shown beyond it are destroyed. */
 export const RETAINED_FRAMES = 4;
 
@@ -89,7 +83,6 @@ type Frame = {
   /** The tab of the last location posted: the page the frame shows. */
   locatedTab: string | null;
   awaiting: { navigationId: string; timer: ReturnType<typeof setTimeout> } | null;
-  revealing: ReturnType<typeof setTimeout> | null;
   generationSent: boolean;
   /** The edit session last posted, compared by fingerprint and read revision. */
   sessionSent: string | null;
@@ -324,7 +317,6 @@ export class ExperienceFrames {
       pending: null,
       locatedTab: null,
       awaiting: null,
-      revealing: null,
       generationSent: false,
       sessionSent: null,
       folders: new Set(),
@@ -337,8 +329,6 @@ export class ExperienceFrames {
 
   private destroy(frame: Frame) {
     if (frame.awaiting) clearTimeout(frame.awaiting.timer);
-
-    if (frame.revealing) clearTimeout(frame.revealing);
     frame.awaiting = null;
 
     if (this.frames.get(frame.experienceKey) === frame) this.frames.delete(frame.experienceKey);
@@ -576,12 +566,6 @@ export class ExperienceFrames {
           clearTimeout(frame.awaiting.timer);
           frame.awaiting = null;
         }
-
-        if (frame.revealing) clearTimeout(frame.revealing);
-        frame.revealing = setTimeout(
-          () => this.painted(frame, request.tabId, request.navigationId),
-          REVEAL_LIMIT_MS,
-        );
 
         return;
       case "location-rendered":
