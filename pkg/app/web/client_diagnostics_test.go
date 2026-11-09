@@ -22,6 +22,8 @@ const validClientBatch = `{
     "actual_max_ms": 6.25, "base_total_ms": 20, "base_max_ms": 8, "commits_after_refresh": 3}},
   "frames": {"over_50ms": 2, "over_200ms": 1, "stalled_ms": 310.5, "longest_ms": 240},
   "refresh": {"cycles": 1, "refetched": 5, "unchanged": 4, "churned": 1},
+  "experiences": {"0a1b2c3d4e5f60": {"frames_created": 1, "locations_reused": 2, "pages_retained": 3,
+    "resumes": 1, "evictions": 0, "phases": {"first-render": {"count": 4, "p50_ms": 40, "p95_ms": 85.5}}}},
   "stability": {"reconnects": 1, "errors": {"TypeError": 2}, "rejections": {}}
 }`
 
@@ -77,10 +79,11 @@ func TestClientDiagnosticsRecordsOneEventPerBatch(t *testing.T) {
 	require.Equal(t, "2025-10-25T13:46:40Z", event.Attributes["window_start"])
 	require.Equal(t, float64(10_000), event.Attributes["window_ms"])
 	var metrics struct {
-		Regions map[string]clientRegion `json:"regions"`
-		Frames  clientFrames            `json:"frames"`
-		Refresh clientRefresh           `json:"refresh"`
-		Stab    clientStability         `json:"stability"`
+		Regions map[string]clientRegion     `json:"regions"`
+		Frames  clientFrames                `json:"frames"`
+		Refresh clientRefresh               `json:"refresh"`
+		Exp     map[string]clientExperience `json:"experiences"`
+		Stab    clientStability             `json:"stability"`
 	}
 	require.NoError(t, json.Unmarshal(event.Metrics, &metrics))
 	require.Equal(t, uint64(4), metrics.Regions["sidebar"].Update)
@@ -89,6 +92,8 @@ func TestClientDiagnosticsRecordsOneEventPerBatch(t *testing.T) {
 	require.Equal(t, uint64(4), metrics.Refresh.Unchanged)
 	require.Equal(t, uint64(1), metrics.Refresh.Churned)
 	require.Equal(t, uint64(2), metrics.Stab.Errors["TypeError"])
+	require.Equal(t, uint64(3), metrics.Exp["0a1b2c3d4e5f60"].PagesRetained)
+	require.Equal(t, 85.5, metrics.Exp["0a1b2c3d4e5f60"].Phases["first-render"].P95Ms)
 	require.False(t, event.Truncated)
 }
 
@@ -112,6 +117,9 @@ func TestClientDiagnosticsRejectsInvalidBatchesWithoutRecording(t *testing.T) {
 		{"session pattern", replace(`0123456789abcdef0123456789abcdef`, `../PRIVATE_PATH`), "", http.StatusBadRequest},
 		{"region pattern", replace(`"sidebar"`, `"notes/PRIVATE.md"`), "", http.StatusBadRequest},
 		{"route kind", replace(`"route": "notes"`, `"route": "/notes/PRIVATE.md"`), "", http.StatusBadRequest},
+		{"experience path", replace(`"0a1b2c3d4e5f60"`, `"Views/PRIVATE_PATH"`), "", http.StatusBadRequest},
+		{"experience phase", replace(`"first-render"`, `"PRIVATE_TITLE"`), "", http.StatusBadRequest},
+		{"experience duration", replace(`"p50_ms": 40`, `"p50_ms": -1`), "", http.StatusBadRequest},
 		{"error name", replace(`"TypeError"`, `"PRIVATE message: failed"`), "", http.StatusBadRequest},
 		{"negative count", replace(`"reconnects": 1`, `"reconnects": -1`), "", http.StatusBadRequest},
 		{"trailing value", validClientBatch + `{}`, "", http.StatusBadRequest},

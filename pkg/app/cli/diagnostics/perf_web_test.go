@@ -49,6 +49,31 @@ func TestPerfSummarizesWebBatchesAndFlagsChurnStallsAndReconnects(t *testing.T) 
 	require.Equal(t, 1, flagsOfKind(summary, "web_stream_instability")[0].Count)
 }
 
+func TestPerfMergesExperienceFramesPerHash(t *testing.T) {
+	root := t.TempDir()
+	start := time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
+	f := newPerfFixture(t, root, start)
+	f.at(10*time.Second).webBatch("desktop", "aaaaaaaaaaaaaaaa",
+		`{"frames":{},"refresh":{},"stability":{},"experiences":{"0a1b2c3d4e5f60":{"frames_created":1,"pages_retained":2,"phases":{"first-render":{"count":3,"p50_ms":40,"p95_ms":90},"shell-start":{"count":1,"p50_ms":12,"p95_ms":12}}}}}`)
+	f.at(10*time.Second).webBatch("desktop", "aaaaaaaaaaaaaaaa",
+		`{"frames":{},"refresh":{},"stability":{},"experiences":{"0a1b2c3d4e5f60":{"locations_reused":4,"pages_retained":1,"resumes":1,"evictions":1,"phases":{"first-render":{"count":1,"p50_ms":20,"p95_ms":20}}}}}`)
+	require.NoError(t, f.recorder.Close())
+
+	desktop := readPerf(t, root, f.now, "1h").Perf.Web[0]
+	require.Equal(t, []WebExperience{{
+		Hash: "0a1b2c3d4e5f60", Windows: 2, FramesCreated: 1, LocationsReused: 4, PagesRetained: 2, Resumes: 1, Evictions: 1,
+		Phases: []WebExperiencePhase{
+			{Phase: "shell-start", Samples: 1, P50Ms: 12, P95MaxMs: 12},
+			{Phase: "first-render", Samples: 4, P50Ms: 35, P95MaxMs: 90},
+		},
+	}}, desktop.Experiences)
+
+	var text strings.Builder
+	writeWebText(&text, []WebSummary{desktop})
+	require.Contains(t, text.String(), "experience 0a1b2c3d4e5f60: windows=2 frames created=1 locations reused=4 pages retained<=2 resumes=1 evictions=1")
+	require.Contains(t, text.String(), "first-render: samples=4 p50=35ms p95<=90ms")
+}
+
 func TestPerfTotalsReadCacheWindowsPerQueryHash(t *testing.T) {
 	root := t.TempDir()
 	start := time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
