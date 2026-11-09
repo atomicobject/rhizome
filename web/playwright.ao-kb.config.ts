@@ -6,7 +6,7 @@ import { defineConfig } from "@playwright/test";
 // The AO KB specs run against their own disposable vaults with the ao-kb starter
 // installed, so they never change the shared suite's vault: the booking fixture
 // for the journey specs, and the legacy fixture (AO schema 5) for the Knowledge
-// site, on the next port.
+// site and its panel, on the next port.
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const repoRoot = path.resolve(dirname, "..");
@@ -51,12 +51,12 @@ export default defineConfig({
   projects: [
     {
       name: "booking",
-      testIgnore: /site\.spec\.ts/,
+      testIgnore: /(site|panel)\.spec\.ts/,
       use: { ...use, baseURL: `http://127.0.0.1:${port}` },
     },
     {
       name: "legacy",
-      testMatch: /site\.spec\.ts/,
+      testMatch: /(site|panel)\.spec\.ts/,
       use: { ...use, baseURL: `http://127.0.0.1:${sitePort}` },
     },
   ],
