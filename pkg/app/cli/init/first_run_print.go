@@ -228,12 +228,12 @@ func printNextSteps(out io.Writer, report syncReport, hint string, needIndex boo
 	printNext(out, steps, notes...)
 }
 
-// commitPaths lists the top-level paths a first run wrote, for the commit
-// reminder.
+// commitPaths lists the top-level paths a run created, updated, or removed,
+// for the commit reminder.
 func commitPaths(report syncReport) []string {
 	commit := []string{".rhizome/"}
 	seen := map[string]bool{}
-	for _, path := range append(append([]string{}, report.Created...), report.Updated...) {
+	for _, path := range append(append(append([]string{}, report.Created...), report.Updated...), report.Removed...) {
 		top, _, nested := strings.Cut(path, "/")
 		if nested {
 			top += "/"

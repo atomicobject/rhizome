@@ -105,21 +105,7 @@ func (r *initRun) planRerun(before, s setup, acceptOptIn bool) (rerunPlan, error
 
 	var support []string
 	if len(plan.settings) == 0 {
-		// Workflow sections live in .rhizome/workflows.yml.
-		files := map[string]bool{}
-		for section := range r.configChanges(res.cfg) {
-			switch section {
-			case sectionWorkflowTmpls, sectionWorkflowAddons, sectionWorkflowMgmt:
-				files[".rhizome/workflows.yml"] = true
-			default:
-				files[".rhizome/config.yml"] = true
-			}
-		}
-		for _, file := range []string{".rhizome/config.yml", ".rhizome/workflows.yml"} {
-			if files[file] {
-				support = append(support, file)
-			}
-		}
+		support = r.configFiles(res.cfg)
 	}
 	root := r.layout.ProjectRoot
 	var missing []string
@@ -192,6 +178,27 @@ func mergeSkips(current, more []skip) []skip {
 		if p := cleanSkipPath(sk.path); !seen[p] {
 			seen[p] = true
 			out = append(out, sk)
+		}
+	}
+	return out
+}
+
+// configFiles lists the settings files a resolved config changes. Workflow
+// sections live in .rhizome/workflows.yml.
+func (r *initRun) configFiles(cfg repoconfig.LocalConfig) []string {
+	files := map[string]bool{}
+	for section := range r.configChanges(cfg) {
+		switch section {
+		case sectionWorkflowTmpls, sectionWorkflowAddons, sectionWorkflowMgmt:
+			files[".rhizome/workflows.yml"] = true
+		default:
+			files[".rhizome/config.yml"] = true
+		}
+	}
+	var out []string
+	for _, file := range []string{".rhizome/config.yml", ".rhizome/workflows.yml"} {
+		if files[file] {
+			out = append(out, file)
 		}
 	}
 	return out

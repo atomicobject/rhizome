@@ -14,6 +14,14 @@ import { TeamAccount } from "./TeamAccount";
 
 const listeners = new Set<() => void>();
 /** The app broadcasts successful provider-setting writes across its windows. */
+/** Calls listener after each provider-setting write; returns the unsubscribe. */
+export function onProviderAccessChanged(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 export function providerAccessChanged() {
   for (const listener of listeners) listener();
 }

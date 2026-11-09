@@ -1,9 +1,9 @@
 ---
 type: ExperienceSpec
 id: SPEC-0118
-summary: "Rhizome Desktop sets up an unconfigured worktree from one review sheet backed by rzm init's machine-readable report, and gives every repository a page for administering what gets indexed, including rules inherited from .gitignore."
+summary: "Rhizome Desktop sets up an unconfigured worktree from one review sheet backed by rzm init's machine-readable report, lets a person change a set-up repository's workflow, add-ons, agents, and search provider from a Settings tab, and gives every repository a page for administering what gets indexed, including rules inherited from .gitignore."
 spec-status: proposed
-last-updated: 2026-10-06
+last-updated: 2026-11-09
 aliases:
   - SPEC-0118
 ---
@@ -16,6 +16,8 @@ Opening a folder that has no Rhizome configuration in [[rhizome-desktop|Rhizome 
 
 The same app also gets a "What gets indexed" page. It shows every rule that decides which paths Rhizome indexes: the rules in `.rhizome/ignore`, the rules inherited from `.gitignore` files, the built-in list, and configuration excludes. It lets the user add and remove Rhizome's own rules. The setup sheet opens the page before anything is written, and a repository's options open it at any time afterward.
 
+After setup, Settings has a tab for the repository the window shows, next to the app's own settings. It shows the same choices the setup sheet offers, as the repository has them now, and applies changes the way a rerun of `rzm init` in a terminal does: it lists the files the change writes, applies them together, and shows what was written.
+
 The app does not reimplement setup. Each step runs the Rhizome executable that owns the folder: the executable that would set up the folder before setup, and the worktree's selected executable afterward. That executable reports its findings and choices as JSON and applies the choices passed as options in one run. Init wording, starter metadata, and the ignore-file format therefore stay in one place, and the app shows exactly what that version would do.
 
 ## Goals
@@ -24,11 +26,14 @@ The app does not reimplement setup. Each step runs the Rhizome executable that o
 - Show the findings, recommendations, and planned writes before anything is written.
 - Accept a semantic search key in the app without exposing it in process arguments, logs, or the repository.
 - Explain what Rhizome indexes, including what it inherits from `.gitignore`, and let the user change Rhizome's own rules before and after setup.
-- Give scripts and agents the same machine-readable setup and index-scope contracts the app uses.
+- Change a set-up repository's workflow, add-ons, agents, and search provider from the app, with the files each change writes listed before anything is written.
+- Give scripts and agents the same machine-readable setup, settings, and index-scope contracts the app uses.
 
 ## Non-Goals
 
-- Rerun maintenance from the app: refreshing generated files, reviewing edited files, ejecting or restoring workflows, and changing an existing setup's workflow, agents, or search provider. Reruns stay in `rzm init` in a terminal.
+- Rerun maintenance as its own task in the app: deciding about files someone edited, ejecting or restoring workflows, and accepting rerun suggestions stay in `rzm init` in a terminal. Applying a settings change also brings Rhizome's unedited generated files up to date, as any non-interactive rerun does, and the file list says so; files someone edited are kept and listed.
+- Choosing, when a workflow change drops starters, whether to eject their files for the team instead of removing Rhizome's copies. The app follows `rzm init --workflow`, which removes them; the terminal settings menu still offers ejection.
+- Entering a search key while changing a set-up repository's provider. Keys are saved in the app's own provider access settings.
 - Editing `.gitignore` files, `notes.includes`, `notes.excludes`, `code.disabledLanguages`, or code folder limits. The page shows configuration excludes but does not edit them.
 - Removing built-in rules before setup. They become ordinary `.rhizome/ignore` lines at setup and can be removed afterward.
 - A path tester that explains why one path is indexed or skipped. `rzm index --explain` remains the tool for that.
@@ -70,7 +75,7 @@ The app does not reimplement setup. Each step runs the Rhizome executable that o
 
 #### Acceptance Criteria
 
-- The page is opened from the setup sheet's Skip row and from the repository's options menu ("What Gets Indexed…"). From the menu, it acts on the worktree the window shows, or on the primary worktree when the window shows none.
+- The page is opened from the setup sheet's Skip row and from the repository settings tab's Edit rules action (US3), which the repository's options menu opens. From the menu, it acts on the worktree the window shows, or on the primary worktree when the window shows none. Closing a page opened from the settings tab returns to that tab.
 - The page lists rules in evaluation order, grouped by layer. Each rule shows its source file and line where it has one:
   - **Rhizome rules** from `.rhizome/ignore`. Suggested skips show their reason; included folders are labeled as included.
   - **Inherited from .gitignore**: rules from the root and nested `.gitignore` files that Rhizome reads. A nested file's rules are labeled with the folder they apply to. These rules are read-only.
@@ -80,6 +85,21 @@ The app does not reimplement setup. Each step runs the Rhizome executable that o
 - Before setup, the page shows the Rhizome rules setup will write as planned: the built-in list and the suggested skips for the sheet's current choices. The user can skip a folder or file by path, decline a suggested skip, and include a folder that `.gitignore` excludes. Planned built-in rules are read-only. Edits are held and become part of Set up. Leaving setup without applying discards them.
 - After setup, the user can skip a folder or file by path, remove any rule from `.rhizome/ignore`, and include a folder that `.gitignore` excludes. Removing a suggested skip records that the path stays indexed, so init does not propose it again. Each edit is applied immediately by the worktree's selected executable, and the page reloads its rules from that executable. The running runtime picks up `.rhizome/ignore` changes as it already does. Opening the page for a configured worktree requires trust, like opening the worktree.
 - Edit errors, such as a path that does not exist or a rule that is no longer present, are shown on the page and leave the file unchanged.
+
+### US3 - Change a set-up repository's settings
+
+- id:: ^SPEC-0118-US3
+- summary:: A person changes a set-up repository's workflow, add-ons, agents, or search provider from a Settings tab for that repository, reviews the files the change writes, and applies it in one step.
+- status:: draft
+
+#### Acceptance Criteria
+
+- Settings has two tabs when the window shows a repository: one for Rhizome on this Mac, holding the existing app settings, and one named for the repository and its worktree. The repository's options menu has "Repository Settings…" in place of "What Gets Indexed…", and it opens Settings on the repository tab. Settings opened another way shows the tab last chosen.
+- The repository tab reads the current choices from the worktree's selected executable and shows them in the setup sheet's rows: workflow, add-ons (optional add-ons included, so an installed one is never hidden), agents, and semantic search with each provider's readiness. It also shows the pinned Rhizome version, and a What gets indexed row whose Edit rules action opens the page from US2.
+- Changing a choice marks its row as changed and offers Undo for that row. A bar at the bottom names the number of changed rows, lists the changes and every file they write, and offers Discard and Apply changes. The list refreshes when a choice changes and shows that it is refreshing. Generated files that are out of date are listed too, so the bar also appears when there is nothing to change but Rhizome has updates for this repository.
+- Choosing a provider that is not ready says why and links to the app's provider settings, where its key is saved.
+- Apply changes runs the worktree's selected executable once with the chosen options. While it runs, other changes are disabled. On success, the tab reloads the choices, shows what was written in the summary lines the terminal prints, names files someone edited that were kept, and asks the person to commit the changed paths.
+- Errors from the executable are shown on the tab with its message, and the choices stay as the person left them. When the executable lacks these contracts, the tab says Rhizome needs an update to change settings from the app, offers Manage installation, and mentions `rzm init` in a terminal. Trust is required as for opening the worktree.
 
 ## Requirements
 
@@ -99,7 +119,9 @@ The app does not reimplement setup. Each step runs the Rhizome executable that o
   - the files and settings that would be written for the choices passed as options
 - The check report MUST reflect every choice option it is given, including skip edits and included folders, so the planned rules and file list match what the same options would apply.
 - `rzm init --json` without `--check` MUST apply the choices passed as options without prompting. It MUST report as JSON what was created, updated, and kept, plus the summary lines the terminal prints, the paths to commit, any saved key's label (never its value), the search hint, warnings, and the pinned-executable result. When files were written but installing the pinned executable failed, the report MUST include both, and the command MUST exit non-zero.
-- On a configured folder, `rzm init --json`, with or without `--check`, MUST fail with a JSON error stating that machine-readable output covers first-run setup. Rerun reporting is out of scope.
+- On a configured folder, `rzm init --check --json` MUST report the repository's settings with `configured: true`. It MUST include the workflow, every add-on including optional ones, the agents, and the search provider as the given options would leave them, with the same option lists and readiness as a first-run report. It MUST also include the pinned version and the docs and code findings. Its writes MUST list the change lines a terminal rerun prints for the same options and every file those changes create, update, or remove, plus edited files it would keep as decisions. It MUST NOT apply opt-in suggestions.
+- On a configured folder, `rzm init --json` without `--check` MUST apply the given options as a non-interactive rerun does: it keeps edited files and does not apply opt-in suggestions. It MUST report the past-tense lines the terminal prints, what it created, updated, and kept, the paths to commit, warnings, and the pinned-executable result in the first-run result's shape. When nothing would change, it MUST succeed and say that everything is up to date.
+- On a configured folder, `--workflow`, `--agents`, `--search`, `--add-addon`, and `--remove-addon` are the options both commands accept. First-run options (`--addons`, `--skip`, `--keep-indexed`, `--search-key-stdin`) MUST still fail with the `not_first_run` code.
 - Every `--json` failure MUST be a JSON object with a stable `code`, a human-readable `message`, and any saved key's label, written to standard output, with a non-zero exit.
 - `rzm init --addons <ids|none>` MUST choose add-on starters explicitly. Listed add-ons install. Default add-ons of the chosen workflow that are not listed are recorded as disabled in `.rhizome/workflows.yml`. Unknown ids and required dependencies MUST be rejected before any write.
 - `rzm init --skip <path>` and `rzm init --keep-indexed <path>`, both repeatable, MUST add a path to the suggested skips and decline a suggested skip, in the same write as the rest of setup, with the reasons and markers the settings menu writes.
@@ -113,18 +135,20 @@ The app does not reimplement setup. Each step runs the Rhizome executable that o
 - Before using these contracts, the app MUST confirm that the selected executable supports them, such as by probing `--help`. When it does not, the app MUST report a distinct `setup_unsupported` problem rather than a generic failure.
 - A key MUST travel from the shell to the executable only through command payloads and standard input. It MUST NOT be stored by the app, placed in process arguments or environment variables, or logged by the shell, native layer, or bridge.
 - Setup MUST record trust for the worktree's canonical checkout, through the same trust store as the Trust action, whenever the folder's configuration exists after the setup run, even if a later step failed. It MUST NOT record trust when no configuration was written.
-- Setup and index-scope edits for one worktree MUST be serialized with that worktree's other open, trust, and setup work, as `Initialize` is today.
+- Repository settings MUST be reported and applied through the worktree's selected executable, after trust, with the same `setup_unsupported` probe pattern. A settings apply MUST NOT accept a key.
+- Setup, settings, and index-scope edits for one worktree MUST be serialized with that worktree's other open, trust, and setup work, as `Initialize` is today.
 - Only shell webviews MAY invoke these operations. Repository content webviews remain without native command permissions.
 
 ### Verification
 
 - Go tests MUST cover the JSON check report and apply result for a first run, including planned rules that follow `--include-ignored`, `--skip`, and `--keep-indexed`. They MUST also cover `--addons` (including turning off a default add-on and rejecting a required dependency), key input from standard input (saved, never echoed, rejected with `--check`, and team-key recognition), the configured-folder JSON errors, `index scope` reporting across all four layers, and `index scope` edits, including removing a suggested skip and all-or-nothing failure.
 - Desktop tests MUST cover the bridge setup and scope operations against fixture executables, the `setup_unsupported` problem, trust recorded exactly when configuration was written, and shell behavior for choices, held edits passed to Set up, the summary, and errors.
+- Go tests MUST cover the configured-folder settings report and apply, including a workflow change, adding and removing an add-on, an agent change, a provider change, an up-to-date apply, and the `not_first_run` failure for first-run options. Desktop tests MUST cover the bridge settings operations, the Settings tabs, staged changes with Undo and Discard, the apply summary, and errors.
 - Native verification MUST exercise the packaged app on an unconfigured fixture repository with an ignored nested repository: set it up with non-default choices and held edits, then add and remove rules after setup. It MUST confirm that the written files and `.rhizome/ignore` match a terminal run of `rzm init` with the same options, and that the workspace opens and indexes without a trust prompt.
 
 ## Open questions
 
-None. The shape, starter choice, in-app key, trust on setup, and the page's availability before and after setup were settled with Drew on 2026-10-06.
+None. The shape, starter choice, in-app key, trust on setup, and the page's availability before and after setup were settled with Drew on 2026-10-06. The Settings tabs, the repository tab's rows, and staging with one Apply were settled with Drew on 2026-11-09 from a mockup.
 
 ## Documentation plan
 

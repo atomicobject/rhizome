@@ -31,7 +31,8 @@ import {
 } from "./Switcher";
 import { ScopePage } from "./IndexScope";
 import { PageSections, PageTools } from "./PageControls";
-import { Settings } from "./Settings";
+import { RepositorySettings } from "./RepositorySettings";
+import { Settings, type SettingsTab } from "./Settings";
 import { providerAccessChanged } from "./ProviderAccess";
 import { SetupSheet } from "./SetupSheet";
 import { Notice, OpenStatus } from "./Status";
@@ -54,8 +55,21 @@ export function App() {
   );
   const [restored, setRestored] = useState(false);
   const [settings, setSettings] = useState(false);
-  /** The worktree whose What gets indexed page covers the content area. */
-  const [scopeView, setScopeView] = useState<{ repository: string; worktree: string } | null>(null);
+  /** The Settings tab last chosen; Settings opens on it. */
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("app");
+  /** The worktree a repository menu opened Settings for, else the window's. */
+  const [settingsFor, setSettingsFor] = useState<{ repository: string; worktree: string } | null>(
+    null,
+  );
+  /** The repository tab has changes that have not been applied. */
+  const [settingsChanged, setSettingsChanged] = useState(false);
+  /** The worktree whose What gets indexed page covers the content area, and
+   * whether closing it returns to that worktree's settings. */
+  const [scopeView, setScopeView] = useState<{
+    repository: string;
+    worktree: string;
+    fromSettings?: boolean;
+  } | null>(null);
   const [global, setGlobal] = useState<GlobalInfo | null>(null);
   const [link, setLink] = useState<LinkInfo | null>(null);
   const [update, setUpdate] = useState<UpdateStatus | null>(null);
@@ -393,7 +407,14 @@ export function App() {
     setLink(linked);
   }
 
+  /** Manage installation and repairs: the app's own settings. */
   function openSettings() {
+    showSettings("app");
+  }
+
+  function showSettings(tab: SettingsTab, target?: { repository: string; worktree: string }) {
+    setSettingsTab(tab);
+    setSettingsFor(target ?? null);
     setScopeView(null);
     setSettings(true);
     void perform("Checking Rhizome…", loadInstallation);
@@ -531,12 +552,10 @@ export function App() {
             void request("reveal", { worktree: path }).catch((cause) => setAlert(failure(cause))),
         },
         {
-          label: "What Gets Indexed…",
+          label: "Repository Settings…",
           disabled: !path || !subject?.configured,
           run: () => {
-            if (!path) return;
-            setSettings(false);
-            setScopeView({ repository: repository.id, worktree: path });
+            if (path) showSettings("repository", { repository: repository.id, worktree: path });
           },
         },
         { separator: true },
@@ -680,7 +699,7 @@ export function App() {
         if (command === "add-repository") addRepository();
         if (command === "repositories" || command === "worktrees")
           if (library) finder.open(command);
-        if (command === "settings") openSettings();
+        if (command === "settings") showSettings(settingsTab);
         if (command === "focus-search") {
           searchField.current?.focus();
           searchField.current?.select();
@@ -689,9 +708,57 @@ export function App() {
     };
   });
 
+  /** The repository tab: the worktree a menu chose, else the one the window
+   * shows, once it is set up. */
+  function repositoryTab() {
+    const target =
+      settingsFor ??
+      (selection.repository && selection.worktree
+        ? { repository: selection.repository, worktree: selection.worktree }
+        : null);
+    const repository = target && repositories.find((r) => r.id === target.repository);
+    const worktree =
+      repository && found[repository.id]?.info?.worktrees.find((w) => w.path === target.worktree);
+    if (!target || !repository || !worktree?.configured) return undefined;
+    return {
+      name: repository.name,
+      branch: worktreeName(worktree),
+      changed: settingsChanged,
+      content: (
+        <RepositorySettings
+          key={target.worktree}
+          repository={target.repository}
+          worktree={target.worktree}
+          onChanged={setSettingsChanged}
+          onEditRules={() => setScopeView({ ...target, fromSettings: true })}
+          onManageInstallation={openSettings}
+          onProviderSettings={() => {
+            setSettingsTab("app");
+            requestAnimationFrame(() =>
+              document.getElementById("provider-access-title")?.scrollIntoView({ block: "start" }),
+            );
+          }}
+        />
+      ),
+    };
+  }
+
+  function scopePage(view: { repository: string; worktree: string }) {
+    return (
+      <ScopePage
+        key={view.worktree}
+        repository={view.repository}
+        worktree={view.worktree}
+        name={repositories.find((r) => r.id === view.repository)?.name ?? ""}
+        onClose={() => setScopeView(null)}
+        onManageInstallation={openSettings}
+      />
+    );
+  }
+
   function content() {
     if (settings) {
-      return (
+      const page = (
         <Settings
           info={global}
           link={link}
@@ -734,6 +801,9 @@ export function App() {
             ),
           )}
           onClose={() => setSettings(false)}
+          tab={settingsTab}
+          onTab={setSettingsTab}
+          repository={repositoryTab()}
           appearance={appSettings}
           // The app's settings message, sent to every shell after each save
           // in save order, sets the settings; a reply can arrive out of order.
@@ -768,19 +838,17 @@ export function App() {
           }
         />
       );
-    }
-    if (scopeView) {
+      // Settings stays mounted, in the same place, under a rules page it
+      // opened, so the repository tab keeps its unapplied changes.
+      const rules = scopeView?.fromSettings ? scopeView : null;
       return (
-        <ScopePage
-          key={scopeView.worktree}
-          repository={scopeView.repository}
-          worktree={scopeView.worktree}
-          name={repositories.find((r) => r.id === scopeView.repository)?.name ?? ""}
-          onClose={() => setScopeView(null)}
-          onManageInstallation={openSettings}
-        />
+        <>
+          <div hidden={!!rules}>{page}</div>
+          {rules && scopePage(rules)}
+        </>
       );
     }
+    if (scopeView) return scopePage(scopeView);
     if (loadError) {
       return (
         <Notice title="Could not load your repositories" failure={loadError}>
@@ -988,7 +1056,11 @@ export function App() {
               className="icon-button"
               aria-label="Settings"
               aria-pressed={settings}
-              onClick={() => (settings ? setSettings(false) : openSettings())}
+              onClick={() => {
+                if (!settings) return showSettings(settingsTab);
+                setSettings(false);
+                setScopeView(null);
+              }}
             >
               <svg viewBox="0 0 16 16" aria-hidden="true">
                 <circle cx="8" cy="8" r="2.2" />

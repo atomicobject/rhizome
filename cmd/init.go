@@ -52,12 +52,18 @@ files, and lists them.
 rzm init --check prints the same report, writes nothing, and exits with status 1
 when init would change something.
 
-For a first run, --json writes one JSON document instead of text: with --check,
-what setup would do with the given choices and every choice it offers; without
-it, what setup wrote. Scripts and the desktop app use it with --workflow,
---addons, --agents, --search, --skip, --keep-indexed, --include-ignored, and
---search-key-stdin, which reads a key from a pipe so it never appears in
-arguments.`,
+--json writes one JSON document instead of text. For a first run, with --check,
+it reports what setup would do with the given choices and every choice it
+offers; without it, what setup wrote. Scripts and the desktop app use it with
+--workflow, --addons, --agents, --search, --skip, --keep-indexed,
+--include-ignored, and --search-key-stdin, which reads a key from a pipe so it
+never appears in arguments.
+
+On a folder that is already set up, --json reports or changes the repository's
+settings: with --check, the settings --workflow, --agents, --search,
+--add-addon, and --remove-addon would leave and the files they would write;
+without it, it applies them as a run without a terminal does and reports what
+it wrote.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -203,7 +209,7 @@ func (commandOptions *initInvocationOptions) registerInitCommands(initCmd, rootC
 	initCmd.Flags().StringVar(&commandOptions.initRestore, "restore", "", "resume updates for an ejected workflow")
 	initCmd.Flags().StringVar(&commandOptions.initAddAddon, "add-addon", "", "install an add-on starter, such as compounding, in an existing setup (comma-separated)")
 	initCmd.Flags().StringVar(&commandOptions.initRemoveAddon, "remove-addon", "", "stop installing an add-on starter in an existing setup (comma-separated)")
-	initCmd.Flags().BoolVar(&commandOptions.initJSON, "json", false, "write one JSON document instead of text; first-run setup only (with --check: the plan and every choice)")
+	initCmd.Flags().BoolVar(&commandOptions.initJSON, "json", false, "write one JSON document instead of text: first-run setup, or repository settings once set up (with --check: the plan and every choice)")
 	initCmd.Flags().StringVar(&commandOptions.initAddons, "addons", "", "add-on starters to install with the workflow, such as action-items or compounding (comma-separated), or none; first run only")
 	initCmd.Flags().StringArrayVar(&commandOptions.initSkip, "skip", nil, "leave a folder or file out of the index (repeatable; first run only)")
 	initCmd.Flags().StringArrayVar(&commandOptions.initKeepIndexed, "keep-indexed", nil, "keep indexing a path init suggests skipping (repeatable; first run only)")

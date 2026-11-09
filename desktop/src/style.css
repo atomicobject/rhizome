@@ -961,6 +961,155 @@ label.choice {
   margin-top: 14px;
 }
 
+/* Settings tabs: Rhizome on this Mac, and the repository the window shows
+   (SPEC-0118 US3). Selection is an ink underline, never red. */
+.settings-tabs {
+  display: flex;
+  gap: 22px;
+  margin: -6px 0 18px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-tabs [role="tab"] {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 1px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.settings-tabs [role="tab"]:hover:enabled {
+  background: transparent;
+  color: var(--text);
+}
+.settings-tabs [role="tab"][aria-selected="true"] {
+  color: var(--text);
+  font-weight: 600;
+}
+.settings-tabs [role="tab"][aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text);
+}
+.settings-tabs [role="tab"]:focus-visible {
+  outline-offset: -2px;
+}
+.settings-tabs .branch {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--surface-sunk);
+}
+.settings-lede {
+  margin-bottom: 17px;
+}
+/* A change that is not applied yet: the gold triangle, as everywhere. */
+.changed-mark {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 9px solid var(--warning);
+  vertical-align: 1px;
+}
+.repo-settings .setup-row {
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+  padding: 12px 0;
+}
+.repo-settings .setup-row > h2 {
+  display: flex;
+  align-self: start;
+  align-items: center;
+  gap: 7px;
+}
+.repo-settings .setup-row > p {
+  color: var(--text);
+}
+.repo-settings .setup-row > button {
+  align-self: start;
+}
+.repo-settings .undo {
+  align-self: start;
+  padding: 0 4px;
+  font-size: var(--fs-sm);
+}
+.repo-settings-lede {
+  margin-bottom: 14px;
+}
+.repo-settings-result {
+  margin-bottom: 14px;
+}
+.repo-settings-result .setup-summary {
+  margin: 0 0 8px;
+}
+.repo-settings-foot {
+  padding: 12px 0 0;
+  border-top: 1px solid var(--border);
+}
+.repo-settings-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+}
+.actions.start {
+  justify-content: flex-start;
+}
+/* Unapplied changes: a bar pinned to the bottom of the scrolling content. */
+.apply-bar {
+  position: sticky;
+  bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 12px 12px 12px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.apply-bar .writes {
+  min-width: 0;
+}
+.apply-what {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text);
+  font-weight: 600;
+}
+.apply-bar details {
+  margin-top: 2px;
+}
+.apply-bar .writes-summary {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+}
+/* The bar stays pinned over the rows, so its file list stays short. */
+.apply-bar .file-list {
+  max-height: 132px;
+}
+.apply-bar .actions {
+  flex-shrink: 0;
+}
+
 /* What gets indexed: every rule by layer, in evaluation order. */
 .scope-page .section-heading {
   margin-bottom: 0;

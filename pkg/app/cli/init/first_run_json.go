@@ -1,10 +1,13 @@
-// Machine-readable first runs: `rzm init --check --json` reports what a
-// first run would do and the choices it offers, and `rzm init --json`
-// applies the choices it is given. The desktop app's setup sheet is built
-// from these documents. Display text comes from the same functions the
-// terminal prints with.
+// Machine-readable runs: `rzm init --check --json` reports what a first run
+// would do and the choices it offers, and `rzm init --json` applies the
+// choices it is given. On a configured folder both report and change its
+// settings instead (settings_json.go). The desktop app's setup sheet and
+// repository settings are built from these documents. Display text comes
+// from the same functions the terminal prints with.
 //
-// Docs: [[desktop-repository-setup#^SPEC-0118-US1]]
+// Docs:
+// - [[desktop-repository-setup#^SPEC-0118-US1]]
+// - [[desktop-repository-setup#^SPEC-0118-US3]]
 package init
 
 import (
@@ -113,6 +116,9 @@ type IgnoredRepository struct {
 type SetupWrites struct {
 	Summary []string `json:"summary"`
 	Files   []string `json:"files"`
+	// Kept lists files someone edited that have a newer version; a run
+	// without a terminal keeps them. Only configured folders report it.
+	Kept []string `json:"kept,omitempty"`
 }
 
 // SetupResult is what a first run wrote.
@@ -141,12 +147,16 @@ type PinResult struct {
 }
 
 // Plan reports what a first run would do with opts' choices, and the
-// choices it offers, without asking or writing.
+// choices it offers, without asking or writing. For a configured folder it
+// reports the settings opts' choices would leave and what they would write.
 func Plan(opts RunOptions) (SetupPlan, error) {
 	opts.Check = true
 	r, s, workflowChosen, err := startMachineRun(opts)
 	if err != nil {
 		return SetupPlan{}, err
+	}
+	if r.layout.HasExistingConfig {
+		return r.settingsPlan(s)
 	}
 	s, res, outcome, err := r.prepareFirstRun(s, workflowChosen)
 	if err != nil {
@@ -158,11 +168,16 @@ func Plan(opts RunOptions) (SetupPlan, error) {
 // Apply sets up a first run with opts' choices without asking. The result
 // carries a saved key's label even with an error. A failed install of the
 // pinned executable is reported in the result, because setup was written.
+// For a configured folder it applies opts' choices as a rerun without a
+// terminal does.
 func Apply(opts RunOptions) (SetupResult, error) {
 	result := SetupResult{Schema: SetupSchema}
 	r, s, workflowChosen, err := startMachineRun(opts)
 	if err != nil {
 		return result, err
+	}
+	if r.layout.HasExistingConfig {
+		return r.applySettings(s)
 	}
 	result.Root = r.layout.ProjectRoot
 	s, res, outcome, err := r.prepareFirstRun(s, workflowChosen)
@@ -193,20 +208,14 @@ func Apply(opts RunOptions) (SetupResult, error) {
 	return result, nil
 }
 
-// startMachineRun starts a run that never asks or prints, for a folder that
-// is not set up yet.
+// startMachineRun starts a run that never asks or prints. start rejects
+// first-run options on a configured folder with ErrNotFirstRun.
 func startMachineRun(opts RunOptions) (*initRun, setup, bool, error) {
 	opts.Interactive = false
+	opts.AcceptSuggestions = false
 	opts.Stdin = strings.NewReader("")
 	opts.Stdout, opts.Stderr = io.Discard, io.Discard
-	r, s, workflowChosen, err := start(opts)
-	if err != nil {
-		return nil, setup{}, false, err
-	}
-	if r.layout.HasExistingConfig {
-		return nil, setup{}, false, ErrNotFirstRun
-	}
-	return r, s, workflowChosen, nil
+	return start(opts)
 }
 
 func (r *initRun) setupPlan(s setup, res resolved, outcome firstRunOutcome) (SetupPlan, error) {
@@ -284,14 +293,20 @@ func addonOptions(registry map[string]starterTemplateMetadata, effective []strin
 		if meta.OptionalAddon {
 			continue
 		}
-		option := AddonOption{ID: id, Label: firstNonEmpty(meta.Name, id), Description: meta.Description, DefaultFor: []string{}, Enabled: contains(effective, id)}
-		for _, choice := range workflowChoices {
-			set, err := resolveTemplateSet(choice.starters, repoconfig.WorkflowTemplateAddons{}, registry)
-			if err == nil && set.Causes[id] == templateCauseDefaultAddon {
-				option.DefaultFor = append(option.DefaultFor, choice.id)
-			}
+		out = append(out, AddonOption{ID: id, Label: firstNonEmpty(meta.Name, id), Description: meta.Description, DefaultFor: defaultForWorkflows(id, registry), Enabled: contains(effective, id)})
+	}
+	return out
+}
+
+// defaultForWorkflows lists the workflow choices that turn an add-on on by
+// default.
+func defaultForWorkflows(id string, registry map[string]starterTemplateMetadata) []string {
+	out := []string{}
+	for _, choice := range workflowChoices {
+		set, err := resolveTemplateSet(choice.starters, repoconfig.WorkflowTemplateAddons{}, registry)
+		if err == nil && set.Causes[id] == templateCauseDefaultAddon {
+			out = append(out, choice.id)
 		}
-		out = append(out, option)
 	}
 	return out
 }

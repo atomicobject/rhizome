@@ -123,6 +123,45 @@ fn setup_and_scope_actions_decode_the_shell_contract() {
 }
 
 #[test]
+fn settings_actions_decode_the_shell_contract() {
+    let choices = json!({"workflow":"none", "agents":["claude"], "search":"off", "addAddons":["compounding"], "removeAddons":["action-items"]});
+    let action: Action = serde_json::from_value(
+        json!({"operation":"settings-apply", "id":"repo", "worktree":"/worktree", "choices":choices}),
+    )
+    .unwrap();
+    let Action::SettingsApply {
+        choices: decoded, ..
+    } = &action
+    else {
+        panic!("unexpected action");
+    };
+    let payload = serde_json::to_value(Request {
+        operation: "settings-apply",
+        settings: Some(decoded),
+        ..Request::default()
+    })
+    .unwrap();
+    assert_eq!(payload["settings"], choices);
+    assert!(payload.get("setup").is_none());
+    assert!(matches!(
+        serde_json::from_value::<Action>(
+            json!({"operation":"settings-report", "id":"repo", "worktree":"/worktree"})
+        )
+        .unwrap(),
+        Action::SettingsReport { choices: None, .. }
+    ));
+    let mut unknown = choices.clone();
+    unknown["surprise"] = true.into();
+    for input in [
+        json!({"operation":"settings-apply", "id":"repo", "worktree":"/worktree"}),
+        json!({"operation":"settings-apply", "id":"repo", "worktree":"/worktree", "choices":choices, "key":"synthetic-search-secret"}),
+        json!({"operation":"settings-report", "id":"repo", "worktree":"/worktree", "choices":unknown}),
+    ] {
+        assert!(serde_json::from_value::<Action>(input).is_err());
+    }
+}
+
+#[test]
 fn page_requests_carry_the_command_beside_the_operation() {
     let action: Action = serde_json::from_value(
         json!({"operation": "page", "command": "section", "section": "agent"}),

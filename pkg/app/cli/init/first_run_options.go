@@ -17,7 +17,7 @@ import (
 
 // ErrNotFirstRun reports a first-run option or machine-readable output on a
 // folder that is already set up.
-var ErrNotFirstRun = errors.New("this folder is already set up for Rhizome; --json, --addons, --skip, --keep-indexed, and --search-key-stdin apply only to first-run setup")
+var ErrNotFirstRun = errors.New("this folder is already set up for Rhizome; --addons, --skip, --keep-indexed, and --search-key-stdin apply only to first-run setup")
 
 func hasFirstRunOption(opts RunOptions) bool {
 	return strings.TrimSpace(opts.Addons) != "" || len(opts.Skip) > 0 || len(opts.KeepIndexed) > 0 || strings.TrimSpace(opts.SearchKey) != ""

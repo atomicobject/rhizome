@@ -294,26 +294,89 @@ describe("desktop shell", () => {
     expect(call).toHaveBeenCalledWith("setup-report", { id: repository.id, worktree: main });
   });
 
-  it("opens What Gets Indexed from the repository menu over the workspace", async () => {
-    start(undefined, (operation) =>
-      operation === "scope"
-        ? { builtInApplies: false, rules: [], keepIndexed: [], root: main }
-        : undefined,
-    );
+  it("opens Repository Settings from the repository menu on the repository tab", async () => {
+    start(undefined, (operation) => {
+      if (operation === "scope")
+        return { builtInApplies: false, rules: [], keepIndexed: [], root: main };
+      if (operation === "settings-report") throw { code: "setup_unsupported", message: "Too old." };
+      if (operation === "global-status") return null;
+      return undefined;
+    });
     await waitFor(() => expect(opened()).toHaveLength(1));
     present();
-    const item = (await repositoryMenu()).find((entry) => entry.label === "What Gets Indexed…")!;
+    const item = (await repositoryMenu()).find((entry) => entry.label === "Repository Settings…")!;
     expect(item.disabled).toBe(false);
     act(() => emit({ type: "menu", id: item.id! }));
+    expect(await screen.findByRole("heading", { name: "Settings" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: /project/ })).toHaveAttribute("aria-selected", "true");
+    expect(
+      await screen.findByRole("heading", {
+        name: "Rhizome needs an update to change settings from the app",
+      }),
+    ).toBeVisible();
+    expect(call).toHaveBeenCalledWith("settings-report", { id: repository.id, worktree: main });
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith("layout", expect.objectContaining({ covered: true })),
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Rhizome on this Mac" }));
+    expect(screen.getByRole("tab", { name: "Rhizome on this Mac" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("heading", { name: "Settings" })).toBeNull();
+    // The gear opens Settings on the tab last chosen.
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByRole("tab", { name: "Rhizome on this Mac" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  it("returns from the rules page to the repository tab that opened it", async () => {
+    const plan = {
+      root: main,
+      name: "project",
+      configured: true,
+      findings: { docs: "all Markdown", code: "Go" },
+      workflow: "none",
+      workflows: [
+        { id: "none", label: "Search and agent guidance only", description: "", recommended: true },
+      ],
+      addons: [],
+      agents: [{ id: "claude", label: "Claude Code", enabled: false }],
+      search: {
+        provider: "off",
+        ready: false,
+        providers: [{ id: "off", label: "Off", ready: true }],
+      },
+      ignoredRepositories: [],
+      pin: "",
+      writes: { summary: [], files: [] },
+    };
+    start(undefined, (operation) => {
+      if (operation === "scope")
+        return { builtInApplies: false, rules: [], keepIndexed: [], root: main };
+      if (operation === "settings-report") return plan;
+      if (operation === "global-status") return null;
+      return undefined;
+    });
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    present();
+    const item = (await repositoryMenu()).find((entry) => entry.label === "Repository Settings…")!;
+    act(() => emit({ type: "menu", id: item.id! }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Claude Code/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit rules…" }));
     expect(
       await screen.findByRole("heading", { name: "What gets indexed in project" }),
     ).toBeVisible();
     expect(call).toHaveBeenCalledWith("scope", { id: repository.id, worktree: main });
-    await waitFor(() =>
-      expect(call).toHaveBeenCalledWith("layout", expect.objectContaining({ covered: true })),
-    );
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
-    expect(screen.queryByRole("heading", { name: "What gets indexed in project" })).toBeNull();
+    expect(screen.getByRole("tab", { name: /project/ })).toHaveAttribute("aria-selected", "true");
+    // The staged change survived the rules page.
+    expect(screen.getByRole("checkbox", { name: /Claude Code/ })).toBeChecked();
+    expect(screen.getByText("1 change not applied")).toBeVisible();
   });
 
   it("offers retry and starting without copying after a seeding failure", async () => {
@@ -1225,7 +1288,7 @@ describe("desktop shell", () => {
     expect(items.filter((item) => item.label).map((item) => item.label)).toEqual([
       "Open in Browser",
       "Reveal in Finder",
-      "What Gets Indexed…",
+      "Repository Settings…",
       "Stop Rhizome for main",
       "Restart Rhizome for main",
       "Primary worktree",

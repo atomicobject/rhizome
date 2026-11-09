@@ -25,6 +25,7 @@ type Request struct {
 	GlobalExecutable string                       `json:"globalExecutable,omitempty"`
 	Primary          string                       `json:"primary,omitempty"`
 	Setup            *SetupChoices                `json:"setup,omitempty"`
+	Settings         *SettingsChoices             `json:"settings,omitempty"`
 	Key              string                       `json:"key,omitempty"`
 	Provider         string                       `json:"provider,omitempty"`
 	Preference       string                       `json:"preference,omitempty"`
@@ -117,6 +118,8 @@ func (s *Service) Handle(ctx context.Context, req Request) Response {
 			response.Result, err = s.Scope(ctx, req)
 		case "initialize":
 			response.Result, err = s.Initialize(ctx, req)
+		case "settings-report", "settings-apply":
+			response.Result, err = s.Settings(ctx, req)
 		case "credential-status":
 			response.Result, err = s.CredentialStatus()
 		case "credential-import":

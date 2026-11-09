@@ -330,10 +330,12 @@ export interface SearchProvider {
   teamKey?: boolean;
   hint?: string;
 }
-/** `rzm init --check --json`: what setup would do, and every choice it offers. */
+/** `rzm init --check --json`: what setup would do, and every choice it offers.
+ * For a set-up folder, the settings the given choices would leave. */
 export interface SetupPlan {
   root: string;
   name: string;
+  configured: boolean;
   findings: { docs: string; code: string; skip?: string };
   workflow: string;
   workflows: { id: string; label: string; description: string; recommended: boolean }[];
@@ -349,11 +351,22 @@ export interface SetupPlan {
   ignoredRepositories: { path: string; included: boolean; source?: string; line?: number }[];
   pin: string;
   scope: Scope;
-  writes: { summary: string[]; files: string[] };
+  /** `kept`: files someone edited that a change leaves as they are (set-up folders only). */
+  writes: { summary: string[]; files: string[]; kept?: string[] };
+}
+/** Changes to a set-up repository. Omitted fields leave a setting as it is. */
+export interface SettingsChoices {
+  workflow?: string;
+  agents?: string[];
+  search?: string;
+  addAddons?: string[];
+  removeAddons?: string[];
 }
 /** `rzm init --json`: what setup wrote. */
 export interface SetupResult {
   root: string;
+  created: string[];
+  updated: string[];
   summary: string[];
   commit: string[];
   warnings: string[];
@@ -403,6 +416,8 @@ type Results = {
   trust: unknown;
   "setup-report": SetupPlan;
   initialize: { result: SetupResult; folder: unknown };
+  "settings-report": SetupPlan;
+  "settings-apply": SetupResult;
   scope: Scope & { root: string };
   "scope-edit": Scope & { root: string };
   open: { generation: number; library: Library };
@@ -457,6 +472,9 @@ type Args = {
   "setup-report": { id: string; worktree: string; choices?: SetupChoices };
   /** A key is sent only here, never with a report. */
   initialize: { id: string; worktree: string; choices: SetupChoices; key?: string };
+  /** Without choices, the report is the repository's settings as they are. */
+  "settings-report": { id: string; worktree: string; choices?: SettingsChoices };
+  "settings-apply": { id: string; worktree: string; choices: SettingsChoices };
   scope: { id: string; worktree: string };
   "scope-edit": { id: string; worktree: string; edits: ScopeEdits };
   /** `selection` numbers the user's choices in this window, oldest first. */

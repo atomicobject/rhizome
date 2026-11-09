@@ -221,43 +221,9 @@ func sameYAML(a, b any) bool {
 // - [[init-starter-workflow#^SPEC-0038-US4]]
 func (r *initRun) rerun(s setup) error {
 	out := r.opts.Stdout
-	before := s
-	cfg := &s.cfg
-	if _, err := normalizeLegacyAgenticEngineeringState(cfg); err != nil {
-		return err
-	}
-	clearRetiredWorkflowManagement(cfg)
-	if _, err := applyBinaryManagerOption(cfg, r.opts); err != nil {
-		return err
-	}
-	if strings.TrimSpace(r.opts.Agents) != "" {
-		_, prefs, err := applyAgentOverrides(r.layout.AgentHarnesses, cfg.Agents, r.opts)
-		if err != nil {
-			return err
-		}
-		cfg.Agents = prefs
-	}
-	applyHooksOption(cfg, r.opts.Hooks)
-	if strings.TrimSpace(r.opts.Search) != "" {
-		provider, _ := normalizeSearchOption(r.opts.Search)
-		ready := searchReady(provider, r.session, cfg.NoteEmbeddings)
-		applySearchChoice(cfg, provider, ready)
-		noticeSearchNotReady(out, provider, ready)
-	}
-	// The change list shows ejection and restore, so nothing prints here.
-	if _, err := applyStarterManagementOptions(cfg, r.opts, nil); err != nil {
-		return err
-	}
-	workflows, err := applyAddonOptions(cfg, s.workflows, suppressDefaultAddonsForExistingConfig(r.layout, *cfg), r.opts)
+	before, s, err := r.applyRerunOptions(s)
 	if err != nil {
 		return err
-	}
-	s.workflows = workflows
-	// Restoring a starter the chosen workflow no longer installs selects it
-	// again, so its files resume updates instead of being removed.
-	if restored, _ := normalizeTemplateNames(splitList(r.opts.Restore)); len(restored) > 0 &&
-		!contains(r.starterClosure(s, s.workflows), restored[0]) {
-		s.workflows = append(cloneTemplates(s.workflows), restored[0])
 	}
 
 	accept := r.opts.Interactive || r.opts.AcceptSuggestions
@@ -315,6 +281,52 @@ confirm:
 	}
 	printNext(out, steps)
 	return indexErr
+}
+
+// applyRerunOptions applies a rerun's options to an existing setup: legacy
+// workflow state, then --binary-manager, --agents, --hooks, --search, starter
+// management, and add-on changes. It returns the setup as it was before them,
+// which the change list compares against. Terminal and machine reruns share it.
+func (r *initRun) applyRerunOptions(s setup) (setup, setup, error) {
+	before := s
+	cfg := &s.cfg
+	if _, err := normalizeLegacyAgenticEngineeringState(cfg); err != nil {
+		return before, s, err
+	}
+	clearRetiredWorkflowManagement(cfg)
+	if _, err := applyBinaryManagerOption(cfg, r.opts); err != nil {
+		return before, s, err
+	}
+	if strings.TrimSpace(r.opts.Agents) != "" {
+		_, prefs, err := applyAgentOverrides(r.layout.AgentHarnesses, cfg.Agents, r.opts)
+		if err != nil {
+			return before, s, err
+		}
+		cfg.Agents = prefs
+	}
+	applyHooksOption(cfg, r.opts.Hooks)
+	if strings.TrimSpace(r.opts.Search) != "" {
+		provider, _ := normalizeSearchOption(r.opts.Search)
+		ready := searchReady(provider, r.session, cfg.NoteEmbeddings)
+		applySearchChoice(cfg, provider, ready)
+		noticeSearchNotReady(r.opts.Stdout, provider, ready)
+	}
+	// The change list shows ejection and restore, so nothing prints here.
+	if _, err := applyStarterManagementOptions(cfg, r.opts, nil); err != nil {
+		return before, s, err
+	}
+	workflows, err := applyAddonOptions(cfg, s.workflows, suppressDefaultAddonsForExistingConfig(r.layout, *cfg), r.opts)
+	if err != nil {
+		return before, s, err
+	}
+	s.workflows = workflows
+	// Restoring a starter the chosen workflow no longer installs selects it
+	// again, so its files resume updates instead of being removed.
+	if restored, _ := normalizeTemplateNames(splitList(r.opts.Restore)); len(restored) > 0 &&
+		!contains(r.starterClosure(s, s.workflows), restored[0]) {
+		s.workflows = append(cloneTemplates(s.workflows), restored[0])
+	}
+	return before, s, nil
 }
 
 // offerIndex asks, in a terminal, whether to build the search index now, and

@@ -48,6 +48,24 @@ pub struct SetupChoices {
     pub include_ignored: Vec<String>,
 }
 
+/// Changes to a set-up repository: the workflow, agents, and search provider
+/// it should have, and the add-ons to turn on or off. Omitted fields leave
+/// that setting as it is.
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SettingsChoices {
+    #[serde(default)]
+    pub workflow: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agents: Option<Vec<String>>,
+    #[serde(default)]
+    pub search: String,
+    #[serde(default)]
+    pub add_addons: Vec<String>,
+    #[serde(default)]
+    pub remove_addons: Vec<String>,
+}
+
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ScopeEdits {

@@ -25,7 +25,7 @@ func setupFixture(t *testing.T, body string) (Request, string) {
 	require.NoError(t, err)
 	args := filepath.Join(canonical, "args")
 	target := script(t, filepath.Join(t.TempDir(), "rzm"), `
-if [ "$1" = init ] && [ "$2" = --help ]; then echo '--search-key-stdin'; exit; fi
+if [ "$1" = init ] && [ "$2" = --help ]; then echo '--search-key-stdin'; echo 'repository settings once set up'; exit; fi
 if [ "$1" = index ] && [ "$2" = scope ] && [ "$3" = --help ]; then echo '--remove-rule'; exit; fi
 [ "$RZM_REPO_DELEGATED" = 1 ] && [ "$RZM_SKIP_REPO_DELEGATE" = 1 ] || exit 7
 printf '%s\n' "$@" > "$PWD/args"
@@ -231,6 +231,65 @@ func TestScopeChecksAndErrorMapping(t *testing.T) {
 	require.EqualError(t, err, "No such rule.")
 	script(t, dev, "echo '--remove-rule'; exit 1")
 	_, err = s.Scope(context.Background(), req)
+	code(t, err, "setup_unsupported")
+}
+
+func TestSettingsRunTheSelectedExecutableWithRerunOptions(t *testing.T) {
+	const doc = `{"schema":1,"configured":true,"pin":"v0.51.0","writes":{"summary":[],"files":[]}}`
+	for _, run := range []struct {
+		operation string
+		choices   *SettingsChoices
+		want      []string
+	}{
+		{"settings-report", nil, []string{"--check"}},
+		{"settings-report", &SettingsChoices{}, []string{"--check"}},
+		{"settings-report", &SettingsChoices{Agents: []string{}}, []string{"--check", "--agents", "shared"}},
+		{"settings-apply", &SettingsChoices{
+			Workflow: "none", Agents: []string{"claude", "cursor"}, Search: "off",
+			AddAddons: []string{"compounding"}, RemoveAddons: []string{"action-items", "ao-kb"},
+		}, []string{"--workflow", "none", "--agents", "claude,cursor", "--search", "off", "--add-addon", "compounding", "--remove-addon", "action-items,ao-kb"}},
+	} {
+		t.Run(fmt.Sprintf("%s %+v", run.operation, run.choices), func(t *testing.T) {
+			s := testService(t)
+			req, args := setupFixture(t, `echo '`+doc+`'`)
+			require.NoError(t, repoconfig.SaveLocalConfig(req.Folder, repoconfig.LocalConfig{Rhizome: repoconfig.LocalRhizomeConfig{BinaryManager: "external"}}))
+			req.Operation, req.Settings = run.operation, run.choices
+			req.Executable, req.GlobalExecutable = req.GlobalExecutable, "/must-not-select-global"
+			response := s.Handle(context.Background(), req)
+			require.Nil(t, response.Error)
+			require.JSONEq(t, doc, string(response.Result.(json.RawMessage)))
+			require.Equal(t, append([]string{"init", "--path", req.Folder, "--json"}, run.want...), argv(t, args))
+		})
+	}
+}
+
+func TestSettingsChecksBeforeExecution(t *testing.T) {
+	s := testService(t)
+	req, args := setupFixture(t, `echo '{"schema":1,"error":{"code":"setup_failed","message":"unknown add-on"}}'; exit 1`)
+	req.Operation, req.Settings = "settings-apply", &SettingsChoices{}
+	_, err := s.Settings(context.Background(), req)
+	code(t, err, "not_configured")
+	require.NoFileExists(t, args)
+
+	require.NoError(t, repoconfig.SaveLocalConfig(req.Folder, repoconfig.LocalConfig{Rhizome: repoconfig.LocalRhizomeConfig{BinaryManager: "external"}}))
+	for _, bad := range []Request{
+		{Operation: "settings-apply"},
+		{Operation: "settings-report", Setup: &SetupChoices{}},
+		{Operation: "settings-report", Key: "synthetic-search-secret"},
+	} {
+		bad.Protocol, bad.Folder, bad.GlobalExecutable = Protocol, req.Folder, req.GlobalExecutable
+		response := s.Handle(context.Background(), bad)
+		require.NotNil(t, response.Error)
+		require.Equal(t, "invalid_request", response.Error.Code)
+	}
+	require.NoFileExists(t, args)
+
+	_, err = s.Settings(context.Background(), req)
+	code(t, err, "settings_failed")
+	require.EqualError(t, err, "unknown add-on")
+
+	script(t, req.GlobalExecutable, "echo '--search-key-stdin'")
+	_, err = s.Settings(context.Background(), req)
 	code(t, err, "setup_unsupported")
 }
 
