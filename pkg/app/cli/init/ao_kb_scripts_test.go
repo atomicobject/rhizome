@@ -29,7 +29,7 @@ func TestAoKbScripts(t *testing.T) {
 
 	// Go caches test results by the files a test reads; Node reads these, so
 	// read them here too or an edited script would reuse a cached pass.
-	for _, dir := range []string{"testdata/ao-kb", "templates/starters/ao-kb"} {
+	for _, dir := range []string{"testdata/ao-kb", "templates/starters/ao-kb", "../../../../testdata/ao-kb-legacy", "../../../../testdata/ao-kb-model/account", "../../../../testdata/ao-kb-model/intermediate.json"} {
 		require.NoError(t, filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
 			if err != nil || entry.IsDir() {
 				return err

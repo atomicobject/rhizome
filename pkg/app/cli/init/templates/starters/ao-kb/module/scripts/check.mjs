@@ -47,11 +47,17 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
   const frontmatter = vault?.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1] ?? '';
   // AO's own reading (metamodel.vault_schema_version): a vault.md that records no schemaVersion is current.
   const schema = vault?.match(/^schemaVersion:[ \t]*['"]?(\d+)/m)?.[1];
-  const current = schema === undefined || Number(schema) === 8;
-  add('schemaVersion', current ? 'ok' : 'unsupported', schema === undefined
-    ? 'No schemaVersion recorded; AO reads such a vault as current, so the schemaVersion 8 baseline applies.'
-    : current ? 'Inspected schemaVersion 8 baseline.' : `Unsupported schemaVersion ${schema}; ${Number(schema) < 8 ? 'upgrade AO KB first' : 'requires a compatible knowledge adapter'}.`, vaultPath);
   const mode = scalar(frontmatter, 'productMode');
+  const version = schema === undefined ? 8 : Number(schema);
+  // Schema 4 to 7 reads knowledge through AO's documented legacy spellings; the model needs 8.
+  const legacy = version >= 4 && version < 8;
+  const singleProduct = !mode || mode === 'single';
+  add('schemaVersion', version === 8 || (legacy && singleProduct) ? 'ok' : 'unsupported', schema === undefined
+    ? 'No schemaVersion recorded; AO reads such a vault as current, so the schemaVersion 8 baseline applies.'
+    : version === 8 ? 'Inspected schemaVersion 8 baseline.'
+    : legacy && singleProduct ? `schemaVersion ${schema}: knowledge is supported through a read-only legacy spelling adapter, and product-model bindings are not applicable below schemaVersion 8. Upgrade the KB with AO's own migration to enable the model.`
+    : legacy ? `schemaVersion ${schema} in product mode ${mode}: legacy product-mode accounts are not supported; upgrade AO KB first with AO's own migration.`
+    : `Unsupported schemaVersion ${schema}; ${version < 4 ? "upgrade AO KB first with AO's own migration" : 'requires a compatible knowledge adapter'}.`, vaultPath);
   add('product mode', mode === 'single' ? 'ok' : 'warning', mode === 'single'
     ? 'Single product supported.' : `Product mode ${mode || '(missing)'}: setup requires one explicit product for knowledge admission and model bindings. Before refresh, static knowledge typing is unscoped; run rzm ao-kb refresh-bindings --product <slug>.`, vaultPath);
   const stampPath = '.kb/config/manifest.json';
@@ -67,8 +73,11 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
     const paths = ['assertions', 'sources', 'concepts', 'artifacts'];
     const knowledge = patterns && paths.every(path => patterns.some(p => ['**/*.md', '**', `${path}/**`, `${path}/**/*.md`].includes(p)));
     // Discovery skips hidden directories unless an include names the hidden path literally.
-    const registry = !existsSync(join(root, '.kb/curation/_conflicts.md'))
-      || patterns?.some(p => p === '.kb/curation/_conflicts.md' || p.startsWith('.kb/curation/') || p.startsWith('.kb/'));
+    const curation = existsSync(join(root, '.kb/curation')) ? readdirSync(join(root, '.kb/curation'), { withFileTypes: true })
+      .filter(e => e.isFile() && e.name.endsWith('.md')).map(e => `.kb/curation/${e.name}`) : [];
+    const documents = curation.some(path => path !== '.kb/curation/_conflicts.md');
+    const registry = curation.every(path => patterns?.some(p => p.startsWith('.kb/') && globMatch(p, path)));
+    const curationInclude = documents ? '.kb/curation/*.md' : '.kb/curation/_conflicts.md';
     // Structured model sources need an include naming their extension; broad globs do not activate them.
     const model = (json(root, `${module}/bindings/manifest.json`)?.sources ?? []).map(s => s.path);
     const unincluded = [...new Set(model)].filter(path => !patterns?.some(p => p === path
@@ -76,12 +85,12 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
     // A first includes list replaces the default, so it must restate it.
     const first = patterns === DEFAULT_INCLUDES ? ' notes.includes is absent, so discovery covers every Markdown file; start the new list with **/*.md so the rest of the repository stays indexed.' : '';
     add('note includes', knowledge && registry && !unincluded.length ? 'ok' : 'warning', knowledge && registry && !unincluded.length
-      ? 'Includes cover the AO knowledge paths, the conflict registry, and the compiled model sources. Ignore rules may still exclude files; prove projection after indexing.'
+      ? 'Includes cover the AO knowledge paths, the curation documents, and the compiled model sources. Ignore rules may still exclude files; prove projection after indexing.'
       : knowledge && registry
       ? `Compiled model sources are not included, so they will not be indexed. Append these entries to notes.includes without replacing unrelated rules: ${unincluded.join(', ')}.${first}`
       : !knowledge
       ? 'Simple includes do not cover assertions/, sources/, concepts/, and artifacts/. Inspect notes.includes and ignore rules; append the missing AO paths without replacing unrelated rules.'
-      : `Add the include .kb/curation/_conflicts.md: note discovery skips hidden directories unless an include names the path, so the conflict registry is not indexed.${first}`, configPath);
+      : `Add the include ${curationInclude}: note discovery skips hidden directories unless an include names the path, so the ${documents ? 'curation registries and reports are' : 'conflict registry is'} not indexed.${first}`, configPath);
   });
   const ownershipPath = '.rhizome/source-ownership.yml';
   inspect('source ownership', ownershipPath, () => {

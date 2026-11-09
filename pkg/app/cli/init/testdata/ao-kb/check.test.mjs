@@ -254,3 +254,44 @@ test('local schema types whose query roots collide with the starter knowledge ty
   assert.equal(module.status, 'error');
   assert.equal(named(fixture(t, { '.rhizome/ontology/other.graphql': 'type hub { x: String }\n' }), 'knowledge bindings').status, 'ok');
 });
+
+test('legacy single-product KBs report knowledge supported and every model row not applicable', t => {
+  const reason = "Product-model bindings need AO schemaVersion 8; this KB records schemaVersion 5, so the model stage is not applicable. Upgrade the KB with AO's own migration to enable the model.";
+  const legacy = (indexReady) => () => ({ starterInstalled: true, bindingsReady: true, knowledgeReady: true, modelReady: false, indexReady, status: 'ready', dependencies: {},
+    bindings: { knowledge: { ready: true, status: 'ready' }, model: { ready: false, status: 'not applicable', reason } }, diagnostics: [] });
+  for (const version of [4, 5, 7]) {
+    const root = fixture(t, { '.kb/config/vault.md': `---\nschemaVersion: ${version}\nproductMode: single\n---\n` });
+    const row = named(root, 'schemaVersion', legacy(false));
+    assert.equal(row.status, 'ok', String(version));
+    assert.match(row.message, /legacy spelling adapter.*not applicable below schemaVersion 8.*AO's own migration/);
+  }
+  const root = fixture(t, { '.kb/config/vault.md': '---\nschemaVersion: 5\nproductMode: single\n---\n' });
+  for (const name of ['model compiler dependencies', 'model bindings', 'model source ownership']) {
+    const row = named(root, name, legacy(false));
+    assert.equal(row.status, 'not applicable', name);
+    assert.equal(row.message, reason, name);
+  }
+  assert.equal(named(root, 'model index', legacy(false)).status, 'pending');
+  assert.equal(named(root, 'model index', legacy(true)).status, 'ok');
+  assert.equal(named(root, 'knowledge admission', legacy(true)).status, 'ok');
+  const report = check(root, { runCompiler: legacy(true) });
+  assert.equal(report.bindingsReady, true);
+  assert.equal(report.modelReady, false);
+  assert.equal(report.bindings.model.status, 'not applicable');
+  for (const version of [3, 9]) assert.equal(named(fixture(t, { '.kb/config/vault.md': `---\nschemaVersion: ${version}\nproductMode: single\n---\n` }), 'schemaVersion').status, 'unsupported', String(version));
+  const product = named(fixture(t, { '.kb/config/vault.md': '---\nschemaVersion: 5\nproductMode: multi-nested\n---\n' }), 'schemaVersion');
+  assert.equal(product.status, 'unsupported');
+  assert.match(product.message, /legacy product-mode accounts are not supported.*AO's own migration/);
+});
+
+test('curation documents beyond the conflict registry need the .kb/curation/*.md include', t => {
+  const broad = 'notes:\n  includes: ["**/*.md", ".kb/curation/_conflicts.md"]\n';
+  const docs = { '.kb/curation/_conflicts.md': '# Conflicts\n', '.kb/curation/review-log.md': '# Log\n' };
+  const missing = named(fixture(t, { ...docs, '.rhizome/config.yml': broad }), 'note includes');
+  assert.equal(missing.status, 'warning');
+  assert.match(missing.message, /Add the include \.kb\/curation\/\*\.md/);
+  assert.match(missing.message, /curation registries and reports/);
+  const covered = 'notes:\n  includes: ["**/*.md", ".kb/curation/*.md"]\n';
+  assert.equal(named(fixture(t, { ...docs, '.rhizome/config.yml': covered }), 'note includes').status, 'ok');
+  assert.equal(named(fixture(t, { '.kb/curation/report.md': '# Report\n', '.rhizome/config.yml': covered }), 'note includes').status, 'ok');
+});

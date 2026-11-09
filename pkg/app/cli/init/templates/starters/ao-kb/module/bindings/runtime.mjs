@@ -70,17 +70,6 @@ export async function fingerprint(root, directory, ir, selection) {
   return {inputs, fingerprint: hash(json({inputs, selection, toolkit: ir.toolkit, contract: ir.providerContract, root,
     sources: [...new Set(ir.sources.map(s => s.path))].sort()}))};
 }
-export async function indexSignature(root, ir) {
-  const files = [...new Set([...ir.sources, ...(ir.knowledgeSources || [])].map(s => s.path))].sort();
-  const revisions = [];
-  for (const name of files) {
-    let revision = null;
-    try { revision = hash(await readFile(path.join(root, name))); }
-    catch (error) { if (error.code !== 'ENOENT') throw error; }
-    revisions.push([name, revision]);
-  }
-  return hash(json(revisions));
-}
 export async function schemaFiles(root) {
   const dirs = [path.join(root, '.rhizome/ontology')];
   try {
