@@ -6,7 +6,7 @@
 import { makeResolver } from "./relations.ts";
 import { citations, dateNumber } from "./knowledge.ts";
 import type { Assertion as EvidenceAssertion, Source as EvidenceSource } from "./knowledge.ts";
-import { paragraphs } from "./prose.ts";
+import { maskCode, paragraphs } from "./prose.ts";
 import { KIND_GROUPS, KNOWN_CONFIDENCE, cmp, groupOf, isStored, kindConflict } from "./kinds.ts";
 import type { GroupId } from "./kinds.ts";
 import { neighbourhood } from "./neighbourhood.ts";
@@ -477,11 +477,11 @@ export function citationState(c: { source?: unknown; locator?: string }, passage
 }
 
 /** Index in `paragraphs(body)` of the first paragraph holding an authored wikilink or Markdown
- * link that the resolver maps to the assertion, or -1. Pass the note body without frontmatter. */
+ * link, outside code, that the resolver maps to the assertion, or -1. Pass the note body without frontmatter. */
 export function bodyLinkParagraph(body: string, assertion: string, resolve: (ref: string) => string | undefined) {
   const targets = (p: string) => [
     ...[...p.matchAll(/\[\[([^[\]\n]+)\]\]/g)].map((m) => m[1]),
     ...[...p.matchAll(/\]\(\s*<?([^)\s>]+)>?[^)]*\)/g)].map((m) => m[1]).filter((t) => !/^[a-z][a-z0-9+.-]*:/i.test(t)).map((t) => { try { return decodeURIComponent(t); } catch { return t; } }),
   ];
-  return paragraphs(body).findIndex((p) => targets(p).some((t) => resolve(t) === assertion));
+  return paragraphs(maskCode(body)).findIndex((p) => targets(p).some((t) => resolve(t) === assertion));
 }

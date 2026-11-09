@@ -192,6 +192,16 @@ test("each US3 citation state", () => {
   assert.equal(citationState(gone, undefined, -1), "unresolved");
 });
 
+test("a link inside code is not an authored assertion link, and paragraphs keep their places", () => {
+  const assertion = A("claim");
+  const site = buildSite(kb({ assertion: [assertion] }));
+  const fenced = "Intro.\n\n```md\nSee [[claim]].\n\n[the claim](../assertions/claim.md)\n```\n\nLater.";
+  assert.equal(bodyLinkParagraph(fenced, assertion.path, site.resolveAssertion), -1);
+  assert.equal(bodyLinkParagraph("Use `[[claim]]` to link.", assertion.path, site.resolveAssertion), -1);
+  assert.equal(bodyLinkParagraph("~~~\n[[claim]]\n~~~\n\nAfter the fence, [[claim]].", assertion.path, site.resolveAssertion), 1);
+  assert.equal(bodyLinkParagraph(`${fenced}\n\nAnd \`code\` then [[claim]].`, assertion.path, site.resolveAssertion), 4);
+});
+
 test("a source's scope includes an assertion that cites it only through provenanceSource, with its concepts on the map", () => {
   const site = buildSite(kb({
     assertion: [A("linked"), A("prov", { provenanceSource: "s-src" }), A("aside")],

@@ -30,3 +30,23 @@ export function paragraphs(text: string) {
     .split(/\r?\n[ \t]*\r?\n+/)
     .filter(Boolean);
 }
+
+/** `text` with fenced code blocks and inline code spans masked character for character, so
+ * nothing inside them reads as a link while every line keeps its length and blankness and
+ * `paragraphs` splits the result exactly as it splits `text`. */
+export function maskCode(text: string) {
+  const mask = (s: string) => s.replace(/\S/g, "_");
+  let fence = "";
+  const lines = text.split("\n").map((line) => {
+    const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
+    if (!fence) {
+      if (!marker) return line;
+      fence = marker;
+    } else if (marker?.[0] === fence[0] && marker.length >= fence.length && /^\s*[`~]+\s*$/.test(line)) {
+      fence = "";
+    }
+    return mask(line);
+  });
+  // An inline span never crosses a blank line.
+  return lines.join("\n").replace(/(`+)(?:(?!\n[ \t]*\n)[^`])+?\1(?!`)/g, mask);
+}
