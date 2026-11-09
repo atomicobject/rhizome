@@ -3,7 +3,8 @@ import { expect, test, type FrameLocator, type Page } from "@playwright/test";
 // SPEC-0133 R7 / Batch 4: knowledge browsing reaches product-model records through their
 // evidence, and each YAML row keeps its own identity in the list, the record, and Trace.
 
-const frame = (page: Page) => page.frameLocator("iframe");
+// The content's frame, not the sidebar panel's.
+const frame = (page: Page) => page.frameLocator("iframe:not(.panel-frame)");
 
 // The Knowledge experience's one frame, on screen (SPEC-0136 R2).
 const traceFrame = (page: Page) => page.frameLocator("iframe.experience-frame[data-shown]");

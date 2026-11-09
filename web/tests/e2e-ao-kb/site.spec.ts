@@ -6,8 +6,8 @@ import { expect, test, type Page } from "@playwright/test";
 const group = (presentation?: string, params = "") =>
   `/notes/group/Knowledge${presentation ? `?presentation=ao-kb.${presentation}${params}` : ""}`;
 
-// The content area's frame; a hosted panel has a frame of its own outside `main`.
-const frame = (page: Page) => page.frameLocator("main iframe").first();
+// The content area's frame; the sidebar's Knowledge panel has a frame of its own.
+const frame = (page: Page) => page.frameLocator("main iframe:not(.panel-frame)").first();
 
 // The saved-analysis read (SPEC-0133) asks for .kb/index/kb-weights.json, which the legacy
 // fixture does not have; the page says "Unavailable", and the browser logs the 400.
@@ -318,7 +318,7 @@ test("records opened in new tabs share one experience frame, and each tab return
   await tab(page, /Tickets/).click();
   await expect(recordHeading("Tickets")).toBeVisible();
 
-  await expect(page.locator("main iframe")).toHaveCount(1);
+  await expect(page.locator("main iframe:not(.panel-frame)")).toHaveCount(1);
   expect(await frameIdentity(page)).toBe(identity);
   expect(errors).toEqual([]);
 });

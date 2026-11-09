@@ -3,7 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 const workspace = (presentation: string) =>
   `/notes/group/Knowledge?presentation=ao-kb.${presentation}`;
 
-const frame = (page: Page) => page.frameLocator("iframe");
+// The content's frame, not the sidebar panel's.
+const frame = (page: Page) => page.frameLocator("iframe:not(.panel-frame)");
 
 async function assertion(page: Page, slug: string) {
   await page.goto(

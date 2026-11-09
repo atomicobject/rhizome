@@ -3,9 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 // The Knowledge panel (SPEC-0135 US7, R6) in the Notes sidebar, on the legacy fixture
 // (testdata/ao-kb-legacy) served by playwright.ao-kb.config.ts's second server.
 //
-// The cases marked fixme need the sidebar to host custom panel frames (SPEC-0136 R6, the
-// platform's P7b); until then NotesLeftRail renders only the built-in Folder panel. Remove
-// the fixme marks when P7b is integrated.
+// The panel's frame lives in a layer over the slot, outside the "Knowledge panel" region
+// (which owns it through aria-owns), so moving between panels never reloads it.
 
 const record = (notePath: string) => `/notes?${new URLSearchParams({ note: notePath })}`;
 
@@ -16,29 +15,30 @@ const rail = (page: Page) => page.getByRole("complementary", { name: "Notes navi
 
 const knowledgePanel = (page: Page) => rail(page).getByRole("region", { name: "Knowledge panel" });
 
-const panel = (page: Page) => knowledgePanel(page).frameLocator("iframe");
+const panelFrame = (page: Page) => rail(page).locator("iframe.panel-frame[data-shown]");
+
+const panel = (page: Page) => panelFrame(page).contentFrame();
 
 const recent = (page: Page) => panel(page).getByRole("list", { name: "Recent" });
 
 // Tags the panel frame's document, so a later check can tell the same frame from a new one.
 const tagFrame = (page: Page) =>
-  knowledgePanel(page)
-    .locator("iframe")
-    .evaluate((frame: HTMLIFrameElement) =>
-      frame.contentDocument?.documentElement.setAttribute("data-e2e-tag", "kept"),
-    );
+  panelFrame(page).evaluate((frame: HTMLIFrameElement) =>
+    frame.contentDocument?.documentElement.setAttribute("data-e2e-tag", "kept"),
+  );
 
 const frameTag = (page: Page) =>
-  knowledgePanel(page)
-    .locator("iframe")
-    .evaluate((frame: HTMLIFrameElement) =>
-      frame.contentDocument?.documentElement.getAttribute("data-e2e-tag"),
-    );
+  panelFrame(page).evaluate((frame: HTMLIFrameElement) =>
+    frame.contentDocument?.documentElement.getAttribute("data-e2e-tag"),
+  );
 
 async function openRecord(page: Page, notePath: string, title: string) {
   await page.goto(record(notePath));
   await expect(
-    page.frameLocator("main iframe").first().getByRole("heading", { name: title, level: 1 }),
+    page
+      .frameLocator("main iframe:not(.panel-frame)")
+      .first()
+      .getByRole("heading", { name: title, level: 1 }),
   ).toBeVisible();
 }
 
@@ -74,7 +74,7 @@ test("an untyped note outside the experience shows Folder, not the Knowledge pan
   await expect(knowledgePanel(page)).toHaveCount(0);
 });
 
-test.fixme("inside the experience: title, site links, counted lists, and the collapsed locator", async ({
+test("inside the experience: title, site links, counted lists, and the collapsed locator", async ({
   page,
 }) => {
   await page.goto(group());
@@ -100,7 +100,7 @@ test.fixme("inside the experience: title, site links, counted lists, and the col
   await expect(page).toHaveURL(/presentation=ao-kb\.review/);
 });
 
-test.fixme("Find by title matches aliases, Enter opens the first match, and Search all text searches the vault", async ({
+test("Find by title matches aliases, Enter opens the first match, and Search all text searches the vault", async ({
   page,
 }) => {
   await page.goto(group());
@@ -122,7 +122,7 @@ test.fixme("Find by title matches aliases, Enter opens the first match, and Sear
   await expect(page).not.toHaveURL(/folder=/);
 });
 
-test.fixme("on a record page the locator highlights its scope and lists its concepts", async ({
+test("on a record page the locator highlights its scope and lists its concepts", async ({
   page,
 }) => {
   await openRecord(page, "concepts/timetable.md", "Timetable");
@@ -139,7 +139,7 @@ test.fixme("on a record page the locator highlights its scope and lists its conc
   expect(await frameTag(page)).toBe("kept");
 });
 
-test.fixme("Recent survives the panel frame being evicted and recreated", async ({ page }) => {
+test("Recent survives the panel frame being evicted and recreated", async ({ page }) => {
   await openRecord(page, "concepts/timetable.md", "Timetable");
   await openRecord(page, "concepts/tickets.md", "Tickets");
   await expect(recent(page).getByRole("link")).toHaveText(["Tickets", "Timetable"]);
@@ -166,7 +166,7 @@ test.fixme("Recent survives the panel frame being evicted and recreated", async 
   await expect(panel(page).getByRole("searchbox", { name: "Find by title" })).toHaveValue("");
 });
 
-test.fixme("two windows keep separate Recent lists", async ({ page, context }) => {
+test("two windows keep separate Recent lists", async ({ page, context }) => {
   await openRecord(page, "concepts/timetable.md", "Timetable");
   const other = await context.newPage();
   await other.setViewportSize({ width: 1440, height: 900 });
