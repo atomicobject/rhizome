@@ -24,7 +24,10 @@ type ViewContext struct {
 	Type      string               `json:"type,omitempty"`
 	Interface string               `json:"interface,omitempty"`
 	Group     string               `json:"group,omitempty"`
-	Ref       *ontology.NodeRef    `json:"ref,omitempty"`
+	// View names the standalone view a standalone context is for. A panel's
+	// context needs it to resolve that view's target (SPEC-0136 R6).
+	View string            `json:"view,omitempty"`
+	Ref  *ontology.NodeRef `json:"ref,omitempty"`
 }
 
 type customViewInvocation struct {
@@ -41,6 +44,8 @@ type customViewIdentity struct {
 	ID     string            `json:"id"`
 	Name   string            `json:"name"`
 	Origin viewconfig.Origin `json:"origin"`
+	// ExperienceKey is set for an experience's pages and panel (SPEC-0136).
+	ExperienceKey string `json:"experienceKey,omitempty"`
 }
 
 func (s *Server) customViewInvocation(ctx context.Context, def viewconfig.ViewDefinition, raw string, hosted bool) (customViewInvocation, error) {
@@ -50,6 +55,9 @@ func (s *Server) customViewInvocation(ctx context.Context, def viewconfig.ViewDe
 	}
 	if c.Kind == viewconfig.MountKindStandalone || c.Kind == viewconfig.MountKindWorkspace {
 		c = ViewContext{Kind: c.Kind}
+	}
+	if def.Mount.Kind == viewconfig.MountKindPanel && raw == "" {
+		return customViewInvocation{}, fmt.Errorf("panel view %q requires the active target's context", def.ID)
 	}
 	if raw != "" {
 		c = ViewContext{}
@@ -63,10 +71,17 @@ func (s *Server) customViewInvocation(ctx context.Context, def viewconfig.ViewDe
 		}
 	}
 	name := ""
+	if c.View != "" && c.Kind != viewconfig.MountKindStandalone {
+		return customViewInvocation{}, fmt.Errorf("only a standalone context names a view")
+	}
 	switch c.Kind {
 	case viewconfig.MountKindStandalone, viewconfig.MountKindWorkspace:
 		if c.Type != "" || c.Interface != "" || c.Group != "" || c.Ref != nil {
 			return customViewInvocation{}, fmt.Errorf("%s context cannot contain a subject", c.Kind)
+		}
+		name = c.View
+		if def.Mount.Kind != viewconfig.MountKindPanel && name != "" && name != def.ID {
+			return customViewInvocation{}, fmt.Errorf("standalone context names view %q, not %q", name, def.ID)
 		}
 	case viewconfig.MountKindType:
 		name = c.Type
@@ -122,7 +137,11 @@ func (s *Server) customViewInvocation(ctx context.Context, def viewconfig.ViewDe
 	default:
 		return customViewInvocation{}, fmt.Errorf("invalid view context kind %q", c.Kind)
 	}
-	if !viewconfig.MatchesMount(def.Mount, c.Kind, name) {
+	if def.Mount.Kind == viewconfig.MountKindPanel {
+		if err := s.checkPanelMount(ctx, def, c, name); err != nil {
+			return customViewInvocation{}, err
+		}
+	} else if !viewconfig.MatchesMount(def.Mount, c.Kind, name) {
 		return customViewInvocation{}, fmt.Errorf("view %q is not available for %s %q", def.ID, c.Kind, name)
 	}
 	if c.Kind != viewconfig.MountKindStandalone && c.Kind != viewconfig.MountKindWorkspace {
@@ -146,7 +165,11 @@ func (s *Server) customViewInvocation(ctx context.Context, def viewconfig.ViewDe
 			return customViewInvocation{}, fmt.Errorf("view subject %s %q does not exist", c.Kind, name)
 		}
 	}
-	return customViewInvocation{View: customViewIdentity{ID: def.ID, Name: def.Name, Origin: def.Origin}, Context: c, Configuration: def.Configuration, Params: def.Params, VaultKey: s.cfg.VaultPath}, nil
+	identity := customViewIdentity{ID: def.ID, Name: def.Name, Origin: def.Origin}
+	if def.Experience != nil && def.ExperiencePage {
+		identity.ExperienceKey = def.Experience.Key()
+	}
+	return customViewInvocation{View: identity, Context: c, Configuration: def.Configuration, Params: def.Params, VaultKey: s.cfg.VaultPath}, nil
 }
 
 func (s *Server) customViewInvocationForRequest(r *http.Request, def viewconfig.ViewDefinition) (customViewInvocation, error) {

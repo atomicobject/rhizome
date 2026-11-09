@@ -158,6 +158,10 @@ func (s *Server) registerRoutes() {
 			s.requireIndexReady(s.handlePublicViewFieldCandidates)(w, r)
 			return
 		}
+		if strings.HasSuffix(clean, "/invocation") {
+			s.handlePublicViewInvocation(w, r)
+			return
+		}
 		if strings.HasSuffix(clean, "/save") {
 			s.handlePublicViewSave(w, r)
 			return
