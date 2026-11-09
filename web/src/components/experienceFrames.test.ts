@@ -19,12 +19,8 @@ import {
 } from "../lib/customViewMessages";
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import { STREAM_RECONNECTED_EVENT, VIEWS_CHANGED_EVENT } from "../query/vaultEvents";
-import {
-  ExperienceFrames,
-  RETAINED_FRAMES,
-  checkFolder,
-  type ExperienceShowing,
-} from "./experienceFrames";
+import { checkFolder, type ExperienceShowing } from "./experienceFrameRecords";
+import { ExperienceFrames, RETAINED_FRAMES } from "./experienceFrames";
 
 type Sent = { type: string } & JsonObject;
 

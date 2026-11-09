@@ -1,11 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { JsonObject } from "../api/parse";
-import {
-  ExperienceFrames,
-  RETAINED_FRAMES,
-  type ExperienceShowing,
-} from "../components/experienceFrames";
+import type { ExperienceShowing } from "../components/experienceFrameRecords";
+import { ExperienceFrames, RETAINED_FRAMES } from "../components/experienceFrames";
 import {
   FRAME_READY_MESSAGE,
   LOCATION_ACCEPTED_MESSAGE,

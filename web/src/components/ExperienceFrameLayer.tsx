@@ -25,7 +25,8 @@ import type { ViewContext } from "../views/context";
 import { readViewParams } from "../views/params";
 import type { BridgeServices } from "../views/viewBridge";
 import { useLocationSnapshot } from "./locationStore";
-import { ExperienceFrames, type ExperienceShowing } from "./experienceFrames";
+import type { ExperienceShowing } from "./experienceFrameRecords";
+import { ExperienceFrames } from "./experienceFrames";
 import { NOTES_ROOT_PATH } from "./notesRoute";
 
 const LayerContext = createContext<ExperienceFrames | null>(null);

@@ -4,9 +4,6 @@
 // experience's sidebar panel (R6) is a frame of its own here, with one page
 // (tab PANEL_TAB_ID), and counts toward the same K. The frame layer and the
 // panel slot render what this store holds; the store owns every message.
-import type { JsonObject } from "../api/parse";
-import { isJsonObject, isString } from "../api/parse";
-import type { OntologyEditSessionResponse } from "../api/types";
 import {
   recordExperienceCount,
   recordExperiencePhase,
@@ -16,8 +13,6 @@ import {
 import {
   CLOSE_PAGE_MESSAGE,
   EDIT_SESSION_MESSAGE,
-  EXPERIENCE_FRAME_PARAM,
-  EXPERIENCE_FRAME_VALUE,
   GENERATION_MESSAGE,
   LOCATION_ACCEPT_TIMEOUT_MS,
   LOCATION_MESSAGE,
@@ -32,9 +27,6 @@ import {
   VIEWS_CHANGED_EVENT,
   type VaultEvent,
 } from "../query/vaultEvents";
-import { editSessionFingerprint, type EditReadLifecycle } from "../staging/stagedQuery";
-import { customViewHref, type ViewContext } from "../views/context";
-import { viewParamsIdentity, type ViewParamDeclaration, type ViewParams } from "../views/params";
 import {
   isServiceRequest,
   messageStamp,
@@ -42,145 +34,33 @@ import {
   runServiceRequest,
   staleStageResult,
   viewRequest,
-  type BridgeServices,
 } from "../views/viewBridge";
+import {
+  changedFolder,
+  checkFolder,
+  eventGeneration,
+  frameKey,
+  frameView,
+  nested,
+  newFrame,
+  now,
+  pageKey,
+  sessionKey,
+  type ExperienceShowing,
+  type Frame,
+  type FrameView,
+  type Invocation,
+  type PhaseClock,
+  type Session,
+} from "./experienceFrameRecords";
 
 /** K: how many suspended frames the window keeps; the least recently shown beyond it are destroyed. */
 export const RETAINED_FRAMES = 4;
-
-/** What the active tab of one experience shows. */
-export type ExperienceShowing = {
-  tabId: string;
-  experienceKey: string;
-  viewId: string;
-  viewName: string;
-  declarations: readonly ViewParamDeclaration[];
-  context: ViewContext;
-  preferenceSlot?: string;
-  params: ViewParams;
-  services: Omit<BridgeServices, "session" | "readLifecycle">;
-  /** Whether the shell may write the page's params to the workspace URL. */
-  ownsLocation: boolean;
-  /** The experience's sidebar panel frame, not its page frame. */
-  panel?: boolean;
-};
-
-/** Where phase times start, and the phases already recorded from there. */
-type PhaseClock = { startedAt: number; marked: Set<ExperienceMark> };
-
-type Page = PhaseClock & {
-  navigationId: string;
-  /** View, context, and identity params: a change replaces the page. */
-  key: string;
-  declarations: readonly ViewParamDeclaration[];
-  services: ExperienceShowing["services"];
-  /** The last location posted, so an unchanged one is not posted twice. */
-  posted: string;
-};
-
-/** A frame's clock starts at its creation, for its frame-wide phases. */
-type Frame = PhaseClock & {
-  id: number;
-  /** The experience key, prefixed for a panel frame. */
-  key: string;
-  panel: boolean;
-  experienceKey: string;
-  src: string;
-  title: string;
-  window: Window | null;
-  ready: boolean;
-  /** The page the frame last painted; the frame shows only while that is the active tab's. */
-  rendered: { tabId: string; navigationId: string } | null;
-  suspended: boolean;
-  shownAt: number;
-  activeTab: string | null;
-  showing: ExperienceShowing | null;
-  pages: Map<string, Page>;
-  pending: ExperienceLocation | null;
-  /** The tab of the last location posted: the page the frame shows. */
-  locatedTab: string | null;
-  awaiting: { navigationId: string; timer: ReturnType<typeof setTimeout> } | null;
-  generationSent: boolean;
-  /** The edit session last posted, compared by fingerprint and read revision. */
-  sessionSent: string | null;
-  /** View definition folders the frame has loaded, as views.changed names them. */
-  folders: Set<string>;
-};
-
-/** One frame as the layer renders it. */
-export type FrameView = {
-  id: number;
-  experienceKey: string;
-  panel: boolean;
-  src: string;
-  title: string;
-  /** Shown over the active tab's placeholder. */
-  visible: boolean;
-  /** Placed over the active placeholder but not yet painted, so hidden. */
-  starting: boolean;
-};
-
-export type Invocation = { invocation: JsonObject; generation?: string };
 
 type Options = {
   fetchInvocation: (showing: ExperienceShowing) => Promise<Invocation>;
   fetchGeneration: () => Promise<string | undefined>;
 };
-
-type Session = {
-  session: OntologyEditSessionResponse | null;
-  readLifecycle?: EditReadLifecycle;
-};
-
-const frameKey = ({ experienceKey, panel }: Pick<ExperienceShowing, "experienceKey" | "panel">) =>
-  panel ? `panel:${experienceKey}` : experienceKey;
-
-// Epoch milliseconds, as the kit stamps its phase marks.
-const now = () => performance.timeOrigin + performance.now();
-
-const sessionKey = ({ session, readLifecycle }: Session) =>
-  `${editSessionFingerprint(session)}\n${readLifecycle?.revision ?? ""}`;
-
-/**
- * The views.changed folder of a view, from its invocation's folder check URL
- * (`/views/_check/<folder>` or `/views/_module/<module>/_check/<folder>`).
- * Bundled views never change, so they name none.
- */
-export function checkFolder({ check }: JsonObject): string | null {
-  if (!isString(check)) return null;
-  const match = /^\/views\/(?:_module\/([^/]+)\/)?_check\/(.*)$/.exec(check);
-
-  if (!match || check.startsWith("/views/_bundled/")) return null;
-  const folder = decodeURIComponent(match[2] ?? "");
-
-  if (!match[1]) return folder || ".";
-  const module = `/module/${decodeURIComponent(match[1])}`;
-
-  return folder ? `${module}/${folder}` : module;
-}
-
-const nested = (a: string, b: string) => a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
-
-function changedFolder(data: string | undefined) {
-  try {
-    const payload: unknown = data ? JSON.parse(data) : null;
-    const inner = isJsonObject(payload) ? payload.data : null;
-
-    return isJsonObject(inner) && isString(inner.folder) ? inner.folder.replace(/\/+$/, "") : null;
-  } catch {
-    return null;
-  }
-}
-
-function eventGeneration(data: string | undefined) {
-  try {
-    const payload: unknown = data ? JSON.parse(data) : null;
-
-    return isJsonObject(payload) && isString(payload.generation) ? payload.generation : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 export class ExperienceFrames {
   private frames = new Map<string, Frame>();
@@ -217,27 +97,7 @@ export class ExperienceFrames {
   error = (tabId: string) => this.errors.get(tabId) ?? null;
 
   private publish() {
-    this.snapshot = [...this.frames.values()]
-      .sort((a, b) => a.id - b.id)
-      .map((frame) => {
-        const active = frame.activeTab !== null && !frame.suspended;
-        const page = frame.activeTab === null ? undefined : frame.pages.get(frame.activeTab);
-
-        const painted =
-          frame.rendered !== null &&
-          frame.rendered.tabId === frame.activeTab &&
-          frame.rendered.navigationId === page?.navigationId;
-
-        return {
-          id: frame.id,
-          experienceKey: frame.experienceKey,
-          panel: frame.panel,
-          src: frame.src,
-          title: frame.title,
-          visible: active && painted,
-          starting: active && !painted,
-        };
-      });
+    this.snapshot = [...this.frames.values()].sort((a, b) => a.id - b.id).map(frameView);
 
     for (const listener of this.listeners) listener();
   }
@@ -331,36 +191,7 @@ export class ExperienceFrames {
   // ---- frames ----------------------------------------------------------------
 
   private create(showing: ExperienceShowing): Frame {
-    const href = customViewHref(showing.viewId, showing.context, { hosted: true });
-    const url = new URL(href, "http://rhizome.invalid");
-    url.searchParams.set(EXPERIENCE_FRAME_PARAM, EXPERIENCE_FRAME_VALUE);
-
-    if (showing.preferenceSlot) url.searchParams.set("preferenceSlot", showing.preferenceSlot);
-
-    const frame: Frame = {
-      startedAt: now(),
-      marked: new Set(),
-      id: this.nextId++,
-      key: frameKey(showing),
-      panel: showing.panel === true,
-      experienceKey: showing.experienceKey,
-      src: `${url.pathname}${url.search}`,
-      title: showing.viewName,
-      window: null,
-      ready: false,
-      rendered: null,
-      suspended: false,
-      shownAt: 0,
-      activeTab: null,
-      showing: null,
-      pages: new Map(),
-      pending: null,
-      locatedTab: null,
-      awaiting: null,
-      generationSent: false,
-      sessionSent: null,
-      folders: new Set(),
-    };
+    const frame = newFrame(showing, this.nextId++);
 
     this.frames.set(frame.key, frame);
     recordExperienceCount(showing.experienceKey, "frames_created");
@@ -443,11 +274,7 @@ export class ExperienceFrames {
     if (!current()) return;
     this.errors.delete(tabId);
 
-    const key = JSON.stringify([
-      showing.viewId,
-      showing.context,
-      viewParamsIdentity(showing.declarations, showing.params),
-    ]);
+    const key = pageKey(showing);
 
     const existing = frame.pages.get(tabId);
     const reused = existing?.key === key ? existing : undefined;
