@@ -60,7 +60,7 @@ func validateEmbeddedFieldsWithResolver(snapshot *DocumentSnapshot, schema *onto
 				projection.Ref.Structural,
 			)...)
 			for _, field := range projection.Type.Fields {
-				if field == nil || (field.Kind != ontoschema.FieldKindScalar && field.Kind != ontoschema.FieldKindEnum) {
+				if field == nil || (field.Kind != ontoschema.FieldKindScalar && field.Kind != ontoschema.FieldKindEnum && field.Kind != ontoschema.FieldKindLink) {
 					continue
 				}
 				binding := projection.Fields[field.Name]
