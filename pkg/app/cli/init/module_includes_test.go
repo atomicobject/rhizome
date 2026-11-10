@@ -101,3 +101,39 @@ func TestModuleIncludesPreserveBraceAdmission(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, config, string(data))
 }
+
+func TestModuleIncludesPreflightAllGuidanceBeforeWriting(t *testing.T) {
+	root := t.TempDir()
+	writeFixtureFile(t, root, ".rhizome/config.yml", "notes:\n  includes: [docs/**/*.md]\n")
+	cfg, err := repoconfig.LoadLocalConfig(root)
+	require.NoError(t, err)
+	section, err := renderRhizomeMd(*cfg)
+	require.NoError(t, err)
+	writeFixtureFile(t, root, "AGENTS.md", buildManagedRhizomeBlock(section)+"\n")
+	writeFixtureFile(t, root, "CLAUDE.md", managedRhizomeBlockStart+"\nbroken fence\n")
+	record, _ := loadGeneratedFiles(root)
+	record.recordWritten("AGENTS.md#rhizome", contentFingerprint([]byte(section)))
+	require.NoError(t, record.save(root))
+	before := map[string][]byte{}
+	for _, name := range []string{".rhizome/config.yml", ".rhizome/generated-files.yml", "AGENTS.md", "CLAUDE.md"} {
+		before[name], err = os.ReadFile(filepath.Join(root, name))
+		require.NoError(t, err)
+	}
+	require.ErrorContains(t, ensureModuleIncludes(t, t.Context(), root, []string{".kb/curation/report.md"}), "malformed managed block in CLAUDE.md")
+	for name, content := range before {
+		after, err := os.ReadFile(filepath.Join(root, name))
+		require.NoError(t, err)
+		require.Equal(t, content, after, name+" must not change after a failed preflight")
+	}
+	writeFixtureFile(t, root, "CLAUDE.md", buildManagedRhizomeBlock(section)+"\n")
+	require.NoError(t, ensureModuleIncludes(t, t.Context(), root, []string{".kb/curation/report.md"}))
+	record, _ = loadGeneratedFiles(root)
+	for _, name := range []string{"AGENTS.md", "CLAUDE.md"} {
+		data, err := os.ReadFile(filepath.Join(root, name))
+		require.NoError(t, err)
+		body, ok := managedBlockBody(string(data), "rhizome")
+		require.True(t, ok)
+		require.Contains(t, body, ".kb/curation/report.md")
+		require.Equal(t, contentFingerprint([]byte(body)), record.Written[name+"#rhizome"])
+	}
+}

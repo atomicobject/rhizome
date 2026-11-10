@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/atomicobject/rhizome/pkg/fileio"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/notediscovery"
@@ -50,14 +49,19 @@ func EnsureModuleSourceIncludes(ctx context.Context, root string, sources []stri
 			includes = append(includes, p)
 		}
 	}
-	if slices.Equal(includes, cfg.Notes.Includes) {
-		return refreshModuleGuidance(root, *cfg)
-	}
+	changed := !slices.Equal(includes, cfg.Notes.Includes)
 	cfg.Notes.Includes = includes
-	if err := repoconfig.SaveLocalConfig(root, *cfg); err != nil {
+	guidance, err := prepareModuleGuidance(root, *cfg)
+	if err != nil {
 		return err
 	}
-	return refreshModuleGuidance(root, *cfg)
+	if changed {
+		if err := repoconfig.SaveLocalConfig(root, *cfg); err != nil {
+			return err
+		}
+	}
+	_, err = guidance.apply(nil)
+	return err
 }
 
 func checkModuleSourceLocation(root, source string) error {
@@ -80,50 +84,37 @@ func checkModuleSourceLocation(root, source string) error {
 	}
 }
 
-func refreshModuleGuidance(root string, cfg repoconfig.LocalConfig) error {
+func prepareModuleGuidance(root string, cfg repoconfig.LocalConfig) (*preparedFiles, error) {
 	section, err := renderRhizomeMd(cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	record, _ := loadGeneratedFiles(root)
-	changed := false
+	plan := &filePlan{}
 	for _, rel := range []string{"AGENTS.md", "CLAUDE.md"} {
-		if rel == "CLAUDE.md" && (claudeDocIncludesAgentsMd(filepath.Join(root, rel)) || sameFile(filepath.Join(root, "AGENTS.md"), filepath.Join(root, rel))) {
-			continue
-		}
 		file := filepath.Join(root, rel)
 		data, err := os.ReadFile(file)
 		if os.IsNotExist(err) {
 			continue
 		}
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if err = checkManagedFences(rel, string(data)); err != nil {
-			return err
+			return nil, err
 		}
-		body, found := managedBlockBody(string(data), "rhizome")
-		if !found {
+		if rel == "CLAUDE.md" && (claudeDocIncludesAgentsMd(file) || sameFile(filepath.Join(root, "AGENTS.md"), file)) {
 			continue
 		}
-		key := rel + "#rhizome"
-		if previous, recorded := record.Written[key]; recorded && previous != contentFingerprint([]byte(body)) {
+		if _, found := managedBlockBody(string(data), "rhizome"); !found {
 			continue
 		}
-		next := replaceDelimitedBlock(string(data), managedRhizomeBlockStart, managedRhizomeBlockEnd, buildManagedRhizomeBlock(section))
-		if next == string(data) {
-			continue
-		}
-		if err = fileio.WriteFileAtomicPreservingMode(file, []byte(next), 0644); err != nil {
-			return err
-		}
-		record.recordWritten(key, contentFingerprint([]byte(strings.TrimSpace(section))))
-		changed = true
+		plan.docs = append(plan.docs, generatedDoc{
+			rel: rel, blocks: []managedDocBlock{{key: "rhizome", content: section}},
+			preserve: staleTemplateBlocks(string(data), generatedDoc{}),
+		})
 	}
-	if changed {
-		return record.save(root)
-	}
-	return nil
+	return classifyFilePlan(root, plan, record)
 }
 
 func moduleSourceIncluded(source string, includes []string, formats noteformat.Registry) bool {
