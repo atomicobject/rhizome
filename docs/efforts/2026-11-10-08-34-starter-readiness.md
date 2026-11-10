@@ -31,7 +31,7 @@ Deliver [[starter-readiness|SPEC-0138]] using the existing module-action and run
 - [x] Shared readiness and automatic eligible setup, including CLI installation and runtime reopen.
 - [x] Persistent visible status, concrete recovery actions, conflict and input handling.
 - [x] Ontology folder-only event refresh and client invalidation.
-- [ ] Regression tests, required gates, and real fixture UI verification.
+- [x] Regression tests, required gates, and real fixture UI verification.
 
 ## Plan
 
@@ -49,7 +49,7 @@ A starter installation reaches ready automatically when possible, otherwise rema
 
 ## Actual Delivered
 
-US1 and US2 are implemented in the shared runtime coordinator, installed AO lifecycle actions, public HTTP recovery API, and persistent shell notice. Parent-owned integrated verification, packaged-app validation, and independent review remain pending. The effort remains active.
+All three stories are implemented. Installed starters reconcile setup and indexing through the runtime and expose persistent recovery through one HTTP/UI contract. AO KB handles product selection, schema conflicts, dependencies, source admission, interrupted work, and unchanged reopen. Folder-only ontology changes refresh typed data. The shell uses the compact notice reviewed and implemented by Opus. Full source, browser, and packaged-app verification passed; final branch review and delivery recording remain.
 
 ## Execution Notes
 
@@ -107,3 +107,7 @@ Active on `feat/starter-readiness`.
 
 - Full parent verification passed with `make build` and `make check-full`, including race-enabled Go tests, all 2157 web tests, all integration packages, and mixed integration tests. The new main commit `cd607d89` allocated SPEC-0137 concurrently; this effort's new specification was mechanically renumbered to SPEC-0138 before integration, with its frozen story references updated and scope unchanged.
 - The delayed maintainability review repeated the already-fixed admission and ignore findings and identified a guidance preflight gap. Source-include updates now reuse init's prepared file plan instead of writing managed blocks sequentially. The regression proves malformed CLAUDE.md leaves configuration, AGENTS.md, CLAUDE.md, and generated ownership records unchanged, and that repairing the fence then updates both blocks with matching records. Focused tests passed.
+- Integrated the requested Opus design pass (`378ed048`, carried here as `d9c40f27`): a compact themed notice, existing status marks and controls, one main recovery action, and expandable diagnostics. Parent applied its desktop recommendations: no duplicate trust control, an inline trusted/untrusted state, dedicated Trusting progress, and a disabled pending trust action. The desktop frontend suite passed all 166 tests. Native and final combined verification follow integration.
+- Final automated verification: the build, race-enabled Go suite, all 2172 web unit tests, all integration packages, and mixed integration tests passed in `make verify`. Its Chromium/HTML browser projects passed 147 tests. The WebKit project initially could not start because its browser binary was absent. After `npx playwright install webkit`, `RHIZOME_E2E_SKIP_WEB_BUILD=1 npx playwright test --project=webkit` passed all 14 tests, including the starter recovery journey added to that project. This was a missing test prerequisite, not a test retry or timeout change.
+- Native verification: `make desktop-deps`, `make desktop-check`, and `make desktop-build` passed on macOS arm64; the native suite passed 145 tests and the final desktop frontend suite passed 166 tests. A separately launched `Rhizome.app` used isolated app data and a disposable legacy AO KB. Installing the add-on through Settings showed the compact trust notice. Its Settings action recorded worktree trust and automatically advanced to the `artifact`/`Artifact` schema conflict. The notice survived navigation and reload, Details showed the schema paths, Escape returned focus, and Retry kept the unresolved conflict visible. Renaming only the fixture's conflicting type resumed setup and indexing without a command. The overview loaded 43 assertions, 4 concepts, 7 sources, and 5 artifacts. Stopping the runtime and reopening the app restored ready state with the same data and an unchanged index-receipt timestamp. Drew's installed Rhizome Dev app and actual KB were not replaced by the test build.
+- Generated surfaces and documentation: built-CLI `init --workflow none --add-addon ao-kb --agents none --binary-manager external`, then `init --check --agents none`, reported everything up to date in a disposable repository. `./scripts/rzm validate` checked 633 identifiers with zero issues and errors; `./scripts/rzm validate frozen-scope-drift` also passed with no drift. The original unrelated `AGENTS.md` and generated index HTML changes remain preserved.

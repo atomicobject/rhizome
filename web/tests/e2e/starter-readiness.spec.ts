@@ -1,7 +1,5 @@
 import { expect, test } from "./fixtures";
 
-// The HTTP owner has separate runtime regressions. This journey exercises the
-// shell's visible choice, retry, and navigation path through its public contract.
 test("starter recovery remains visible across navigation and reload", async ({ page }) => {
   let state = "required_input";
   const requests: unknown[] = [];
@@ -37,15 +35,19 @@ test("starter recovery remains visible across navigation and reload", async ({ p
     });
   });
   await page.goto("/notes");
-  const notice = page.getByRole("complementary", { name: "AO Knowledge Base setup" });
+  const notice = page.getByRole("group", { name: "AO Knowledge Base setup" });
   await expect(notice).toBeVisible();
   await notice.getByRole("combobox").selectOption("beta");
   await notice.getByRole("button", { name: "Use this product" }).click();
   await expect.poll(() => requests).toEqual([{ kind: "choice", value: "beta" }]);
   await page.goto("/ontology");
-  await expect(notice).toContainText("uv is missing");
+  await expect(notice.getByRole("status")).toContainText("Setup failed");
+  await notice.getByText("Details", { exact: true }).click();
+  await expect(notice.getByText("uv is missing. Install uv, then retry.")).toBeVisible();
   await page.reload();
-  await expect(notice).toContainText("uv is missing");
+  await expect(notice.getByRole("status")).toContainText("Setup failed");
+  await notice.getByText("Details", { exact: true }).click();
+  await expect(notice.getByText("uv is missing. Install uv, then retry.")).toBeVisible();
   await notice.getByRole("button", { name: "Retry setup" }).click();
   await expect(notice).toBeHidden({ timeout: 10000 });
   expect(requests).toEqual([{ kind: "choice", value: "beta" }, { kind: "retry" }]);

@@ -177,7 +177,7 @@ func (c *Coordinator) scan(ctx context.Context, request *recoveryRequest) {
 		case trust != "":
 			s.State = Blocked
 			s.Reason = trust
-			s.Recovery = []Recovery{{Kind: Trust, Label: "Trust this repository in Settings"}, {Kind: Retry, Label: "Retry"}}
+			s.Recovery = []Recovery{{Kind: Trust, Label: "Trust this worktree in Settings"}, {Kind: Retry, Label: "Retry"}}
 		default:
 			var input map[string]any
 			if forced {

@@ -3,7 +3,7 @@ package serve
 import (
 	"context"
 	"fmt"
-	"slices"
+	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/actions"
 	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
@@ -37,12 +37,7 @@ func moduleSchema(root string) error {
 		return fmt.Errorf("authored ontology: %w", err)
 	}
 	if _, err = query.BuildExecutableSchema(authored); err != nil {
-		names := make([]string, 0, len(authored.Types))
-		for name := range authored.Types {
-			names = append(names, name)
-		}
-		slices.Sort(names)
-		return fmt.Errorf("executable query schema for types %v in %v: %w", names, authored.Files, err)
+		return fmt.Errorf("ontology query schema: %w\nSchema files:\n%s", err, strings.Join(authored.Files, "\n"))
 	}
 	return nil
 }

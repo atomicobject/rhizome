@@ -416,6 +416,7 @@ describe("repository settings", () => {
 
   it("asks for trust and explains an executable without settings support", async () => {
     let trusted = false;
+    let finish!: () => void;
     serve({
       "settings-report": () => {
         if (!trusted) throw { code: "trust_required", message: "Confirm trust." };
@@ -425,12 +426,32 @@ describe("repository settings", () => {
         };
       },
       trust: () => {
-        trusted = true;
-        return null;
+        return new Promise<void>((resolve) => {
+          finish = () => {
+            trusted = true;
+            resolve();
+          };
+        });
       },
     });
-    tab();
-    fireEvent.click(await screen.findByRole("button", { name: "Trust and continue" }));
+    tab(
+      {},
+      {
+        worktree: {
+          path: worktree,
+          configured: true,
+          hasDatabase: true,
+          trusted: false,
+          trustRequired: true,
+          authority: "managed",
+        },
+      },
+    );
+    const trust = await screen.findByRole("button", { name: "Trust and continue" });
+    expect(screen.queryByRole("button", { name: "Trust this worktree" })).toBeNull();
+    fireEvent.click(trust);
+    expect(screen.getByRole("button", { name: "Trusting…" })).toBeDisabled();
+    finish();
     expect(
       await screen.findByRole("heading", {
         name: "This repository's Rhizome is too old to change settings here",

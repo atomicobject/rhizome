@@ -38,6 +38,7 @@ export function RepositoryRhizome({
   onChanging?: (changing: boolean) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [trusting, setTrusting] = useState(false);
   const [error, setError] = useState<Failure | null>(null);
   const managed = worktree.authority === "managed";
   const development = worktree.authority === "development";
@@ -67,6 +68,20 @@ export function RepositoryRhizome({
   }
 
   const useApp = () => appPath && void change(() => onSelect(appPath));
+
+  async function trust() {
+    if (!onTrust) return;
+    setTrusting(true);
+    setError(null);
+    try {
+      await onTrust();
+      await onReload();
+    } catch (cause) {
+      setError(failure(cause));
+    } finally {
+      setTrusting(false);
+    }
+  }
   // Offered only when it would change what runs.
   const canUseApp = !!appPath && !development && selection !== "app";
   const unavailable = unsupported && (
@@ -147,10 +162,10 @@ export function RepositoryRhizome({
         {worktree.trusted && <p className="hint">Trusted on this Mac</p>}
         {!worktree.trusted && onTrust && (
           <div className="actions start">
-            <button disabled={busy || disabled} onClick={() => void change(onTrust)}>
-              Trust this worktree
+            <span className="hint">Not trusted on this Mac</span>
+            <button disabled={busy || disabled || trusting} onClick={() => void trust()}>
+              {trusting ? "Trusting…" : "Trust this worktree"}
             </button>
-            <span className="hint">Allow this worktree to run its module actions.</span>
           </div>
         )}
         {offer && !unsupported && (
