@@ -59,6 +59,8 @@ export function RepositoryRhizome({
   }
 
   const useApp = () => appPath && void change(() => onSelect(appPath));
+  // Offered only when it would change what runs.
+  const canUseApp = !!appPath && !development && selection !== "app";
   const unavailable = unsupported && (
     <span className="recommended warning-ink">Can't change settings from the app</span>
   );
@@ -171,7 +173,7 @@ export function RepositoryRhizome({
                 Update {name} to {offer.available}
               </button>
             )}
-            {appPath && !development && (
+            {canUseApp && (
               <button
                 className={offer ? "" : "primary"}
                 disabled={busy || disabled}
@@ -183,7 +185,7 @@ export function RepositoryRhizome({
               </button>
             )}
           </div>
-          {(offer || (appPath && !development)) && (
+          {(offer || canUseApp) && (
             <p className="hint">
               {offer
                 ? "Updating changes .rhizome/config.yml. Commit it so teammates get the same version."
@@ -193,7 +195,8 @@ export function RepositoryRhizome({
             </p>
           )}
           <p className="hint">
-            Run <code>rzm init</code> in this folder from a terminal.
+            {offer || canUseApp ? "Or run" : "Run"} <code>rzm init</code> in this folder from a
+            terminal.
           </p>
         </div>
       )}
