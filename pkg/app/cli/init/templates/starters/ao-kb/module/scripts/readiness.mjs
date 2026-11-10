@@ -5,8 +5,7 @@ import {check as compilerCheck} from '../bindings/publish.mjs';
 import {knowledge, scalar, siteInventory} from '../bindings/knowledge.mjs';
 import {readJSON, adapter} from '../bindings/runtime.mjs';
 import {verifyKnowledgeIndex, verifyIndex} from '../bindings/verify-index.mjs';
-import {globMatch} from './lib/bindings-check.mjs';
-import {check as prerequisites, includes as noteIncludes} from './check.mjs';
+import {check as prerequisites} from './check.mjs';
 
 const retry = {kind: 'retry', label: 'Retry'};
 const blocked = (reason, recovery = [retry]) => ({next: 'blocked', reason, recovery});
@@ -55,18 +54,10 @@ export async function assess(root, {check = compilerCheck, preflight = prerequis
   }
   const manifest = await readJSON(path.join(directory, 'manifest.json'));
   const includes = [...new Set([...(manifest?.sources ?? []).map(s => s.path), ...await siteInventory(root, selection.product)])];
-  let configText;
-  try { configText = await readFile(path.join(root, '.rhizome/config.yml'), 'utf8'); }
-  catch (error) { if (error.code !== 'ENOENT') throw error; configText = null; }
-  const patterns = noteIncludes(configText);
-  if (!patterns) return blocked('Cannot interpret notes.includes in .rhizome/config.yml. Use a scalar list of include patterns, then retry.');
-  const uncovered = includes.some(file => !patterns.some(pattern => globMatch(pattern, file)
-    && file.split('/').filter(part => part.startsWith('.')).every(part => pattern.includes(`${part}/`))
-    && (file.endsWith('.md') || pattern.endsWith(path.extname(file)))));
-  if (!report.indexReady || uncovered) return {next: 'index', reason: 'Publishing the Knowledge Base index', includes};
+  if (!report.indexReady) return {next: 'index', reason: 'Publishing the Knowledge Base index', includes};
   try { await verify(root, directory, selection, report); }
   catch (error) { return {next: 'index', reason: `Verifying the current index: ${error.message}`, includes}; }
-  return {next: 'ready', reason: 'Knowledge bindings and current index receipts are verified.'};
+  return {next: 'ready', reason: 'Knowledge bindings and current index receipts are verified.', includes};
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {

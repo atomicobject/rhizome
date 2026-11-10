@@ -930,7 +930,7 @@ func TestRhizomeGitIgnoreTracksTaskFilesButNotTaskState(t *testing.T) {
 		require.False(t, ignored(".rhizome/modules/ao-kb/bindings/"+tracked), tracked)
 	}
 	require.False(t, ignored(".rhizome/modules/ao-kb/ontology/ao-model.generated.graphql"), "generated bindings may be committed")
-	for _, local := range []string{"refresh.lock/owner", "sdl.tmp", "manifest.previous", "index-receipt.json"} {
+	for _, local := range []string{"refresh.lock", "refresh.lock/owner", "refresh.owner.tmp/owner.json", "sdl.tmp", "manifest.previous", "index-receipt.json"} {
 		require.True(t, ignored(".rhizome/modules/ao-kb/bindings/"+local), local)
 	}
 }

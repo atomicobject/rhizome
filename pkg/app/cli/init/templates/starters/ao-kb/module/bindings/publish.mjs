@@ -1,9 +1,10 @@
-import {mkdir, readFile, rm} from 'node:fs/promises';
+import {readFile, rm} from 'node:fs/promises';
 import path from 'node:path';
 import {json, readJSON, hash, fingerprint, adapter, validateSDL, dependencies} from './runtime.mjs';
 import {render} from './render.mjs';
 import {knowledge, ownership, indexSignature, schemaVersion, notApplicable, MODEL_SCHEMA} from './knowledge.mjs';
 import {atomic, failure, manifestPath, publishSet} from './generation.mjs';
+import {acquire} from './lock.mjs';
 export {atomic} from './generation.mjs';
 
 const sdlPath = (directory, stage) => path.join(directory, `../ontology/ao-${stage}.generated.graphql`);
@@ -12,30 +13,29 @@ async function readSDL(directory, stage) {
   catch (error) { if (error.code === 'ENOENT') return ''; throw error; }
 }
 export async function refresh({root, directory, selection, exportModel = adapter, validate = validateSDL, beforePublish = async () => {}, renameFile}) {
-  const lock = path.join(directory, 'refresh.lock');
-  try { await mkdir(lock); }
-  catch (error) { if (error.code === 'EEXIST') throw new Error('ao_refresh_locked: another refresh is running; remove refresh.lock only after confirming it stopped'); throw error; }
+  const lock = await acquire(directory);
   let stage = 'knowledge';
   // A product switch must not leave the new knowledge scope beside the previous product's model.
-  const previousModel = await readJSON(manifestPath(directory, 'model'));
-  const switching = Boolean(previousModel?.sdlHash) && (previousModel.context?.product ?? null) !== (selection?.product ?? null);
+  let switching = false;
   const previousKnowledge = {};
-  for (const name of ['../ontology/ao-knowledge.generated.graphql', 'selection.json', path.basename(manifestPath(directory, 'knowledge'))]) {
-    try { previousKnowledge[name] = await readFile(path.resolve(directory, name)); }
-    catch (error) { if (error.code !== 'ENOENT') throw error; previousKnowledge[name] = null; }
-  }
   try {
+    const previousModel = await readJSON(manifestPath(directory, 'model'));
+    switching = Boolean(previousModel?.sdlHash) && (previousModel.context?.product ?? null) !== (selection?.product ?? null);
+    for (const name of ['../ontology/ao-knowledge.generated.graphql', 'selection.json', path.basename(manifestPath(directory, 'knowledge'))]) {
+      try { previousKnowledge[name] = await readFile(path.resolve(directory, name)); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; previousKnowledge[name] = null; }
+    }
     if (!selection || selection.formatVersion !== 1) throw new Error('ao_selection_required: refresh-bindings --product <slug> (or --single true)');
     const scoped = await knowledge(root, directory, selection);
     await validate(root, await readSDL(directory, 'model'), undefined, scoped.sdl);
     const verify = await knowledge(root, directory, selection);
     if (verify.fingerprint !== scoped.fingerprint) throw new Error('ao_input_changed: knowledge configuration changed during compilation');
     await publishSet(directory, 'knowledge', {'../ontology/ao-knowledge.generated.graphql': scoped.sdl, 'selection.json': json(selection)},
-      {formatVersion: 1, status: 'ready', context: scoped.context, artifactPhases: scoped.artifactPhases, fingerprint: scoped.fingerprint, inputs: scoped.inputs, sdlHash: hash(scoped.sdl), diagnostics: scoped.notes}, renameFile);
+      {formatVersion: 1, status: 'ready', context: scoped.context, artifactPhases: scoped.artifactPhases, fingerprint: scoped.fingerprint, inputs: scoped.inputs, sdlHash: hash(scoped.sdl), diagnostics: scoped.notes}, lock.directory, renameFile);
     stage = 'model';
     // Below schemaVersion 8 the model exporter never runs; any previous model generation is withdrawn.
     if (scoped.schemaVersion < MODEL_SCHEMA) return await publishSet(directory, 'model', {},
-      {formatVersion: 1, compilerVersion: '1', status: 'not applicable', reason: notApplicable(scoped.schemaVersion), context: scoped.context, diagnostics: []}, renameFile);
+      {formatVersion: 1, compilerVersion: '1', status: 'not applicable', reason: notApplicable(scoped.schemaVersion), context: scoped.context, diagnostics: []}, lock.directory, renameFile);
     const ir = await exportModel(root, directory, selection);
     await ownership(root, ir.sources.map(s => s.path));
     const snapshot = await fingerprint(root, directory, ir, selection);
@@ -51,7 +51,7 @@ export async function refresh({root, directory, selection, exportModel = adapter
       sdlHash: hash(result.sdl), sources: ir.sources, knowledgeSources: ir.knowledgeSources, typeMap: result.typeMap, diagnostics: result.diagnostics};
     const files = {'../ontology/ao-model.generated.graphql': result.sdl,
       ...Object.fromEntries(Object.entries(result.views).map(([name, bytes]) => [`../views/knowledge/${name}`, bytes]))};
-    return await publishSet(directory, 'model', files, manifest, renameFile);
+    return await publishSet(directory, 'model', files, manifest, lock.directory, renameFile);
   } catch (error) {
     if (switching && stage === 'model') {
       for (const [name, bytes] of Object.entries(previousKnowledge)) {
@@ -62,7 +62,7 @@ export async function refresh({root, directory, selection, exportModel = adapter
     await failure(directory, stage, error);
     error.knowledgeReady = stage === 'model';
     throw error;
-  } finally { await rm(lock, {recursive: true, force: true}); }
+  } finally { await lock.release(); }
 }
 // A failed check names its actual state: a missing dependency or duplicate source IDs is not staleness.
 const STALE = new Set(['ao_bindings_stale', 'ao_knowledge_stale', 'ao_artifact_phases_stale', 'ao_input_changed']);

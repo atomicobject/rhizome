@@ -7,6 +7,9 @@ inputs:
   - .rhizome/modules
   - .rhizome/ontology
   - .rhizome/config.yml
+  - .rhizome/ignore
+  - .obsidianignore
+  - .gitignore
   - .rhizome/source-ownership.yml
   - .kb/config
   - .kb/curation
@@ -19,5 +22,7 @@ inputs:
   - _moc.md
   - _improvements
 excludes:
+  - .rhizome/modules/*/bindings/refresh.lock
+  - .rhizome/modules/*/bindings/refresh.*.tmp
   - sources/_raw
   - products/*/sources/_raw

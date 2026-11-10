@@ -11,8 +11,11 @@ import (
 
 func (c *Coordinator) evaluate(ctx context.Context, d modulelifecycle.Descriptor, key *string, trust string, s Snapshot, input map[string]any) Snapshot {
 	fail := func(err error) Snapshot {
-		if current, err := modulelifecycle.Fingerprint(c.opts.Root, d); err == nil {
-			*key = current + trust
+		if current, readErr := modulelifecycle.Fingerprint(c.opts.Root, d); readErr == nil && current+trust != *key {
+			s.State = Checking
+			s.Reason = ""
+			s.Recovery = nil
+			return s
 		}
 		s.State = Failed
 		s.Reason = err.Error()
@@ -76,6 +79,20 @@ func (c *Coordinator) evaluate(ctx context.Context, d modulelifecycle.Descriptor
 			return s
 		}
 		*key = current + trust
+		if (a.Next == NextReady || a.Next == NextIndex) && c.opts.Include != nil {
+			if err = c.opts.Include(ctx, a.Includes); err != nil {
+				return fail(err)
+			}
+			after, err = modulelifecycle.Fingerprint(c.opts.Root, d)
+			if err != nil {
+				return fail(err)
+			}
+			if after != current && a.Next == NextReady {
+				a.Next = NextIndex
+				a.Reason = "Indexing updated source includes"
+			}
+			*key = after + trust
+		}
 		s.Reason = a.Reason
 		s.Recovery = a.Recovery
 		switch a.Next {
@@ -100,11 +117,6 @@ func (c *Coordinator) evaluate(ctx context.Context, d modulelifecycle.Descriptor
 					return fail(err)
 				}
 			} else {
-				if c.opts.Include != nil {
-					if err = c.opts.Include(ctx, a.Includes); err != nil {
-						return fail(err)
-					}
-				}
 				if err = c.action(ctx, d.Module+"/"+d.Index, nil, nil); err != nil {
 					return fail(err)
 				}

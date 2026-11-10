@@ -163,6 +163,29 @@ function tab(
 beforeEach(() => vi.resetAllMocks());
 
 describe("repository settings", () => {
+  it("offers explicit trust when configured settings load without requiring it", async () => {
+    serve({ trust: () => ({}) });
+    tab(
+      {},
+      {
+        worktree: {
+          path: worktree,
+          configured: true,
+          hasDatabase: true,
+          trusted: false,
+          trustRequired: false,
+          authority: "external",
+        },
+      },
+    );
+    const trust = await screen.findByRole("button", { name: "Trust this worktree" });
+    expect(calls("trust")).toEqual([]);
+    fireEvent.click(trust);
+    await waitFor(() => expect(calls("trust")).toEqual([{ id, worktree }]));
+    expect(await screen.findByText("Trusted on this Mac")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Trust this worktree" })).toBeNull();
+  });
+
   it("shows the repository's settings as they are, with nothing to apply", async () => {
     serve();
     const { onEditRules } = tab();

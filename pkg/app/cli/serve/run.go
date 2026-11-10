@@ -293,7 +293,7 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 		Hooks:    hooks,
 	})
 
-	modules := moduleReadiness(rt.VaultPath, rt.VaultDef.Name, func() { rt.PublishGlobalEvent(moduleReadinessEvent, nil) })
+	modules := moduleReadiness(rt.VaultPath, rt.VaultDef.Name, rt.NoteFormatRegistry(), func() { rt.PublishGlobalEvent(moduleReadinessEvent, nil) })
 	srv, err := web.NewServer(serveCtx, web.Config{
 		Vault:                     rt.Vault,
 		VaultDef:                  rt.VaultDef,

@@ -55,6 +55,9 @@ type Runner struct {
 	Vault string
 	// Trust explains why the repository may not run actions, or returns "".
 	Trust func(ctx context.Context) string
+	// Lifecycle is set only by the elected runtime's serial readiness worker.
+	// Its module actions may reclaim locks whose recorded process has stopped.
+	Lifecycle bool
 }
 
 // trustStore is the person's repository trust store; tests replace it.
@@ -310,10 +313,13 @@ func (r *Runner) environment() []string {
 	env := procrun.WithPath(os.Environ(), procrun.LoginPath())
 	filtered := env[:0]
 	for _, value := range env {
-		if strings.HasPrefix(value, "RZM=") || strings.HasPrefix(value, "RZM_SKIP_REPO_DELEGATE=") || strings.HasPrefix(value, "RZM_REPO_DELEGATED=") {
+		if strings.HasPrefix(value, "RZM=") || strings.HasPrefix(value, "RZM_SKIP_REPO_DELEGATE=") || strings.HasPrefix(value, "RZM_REPO_DELEGATED=") || strings.HasPrefix(value, "RZM_MODULE_LIFECYCLE=") {
 			continue
 		}
 		filtered = append(filtered, value)
+	}
+	if r.Lifecycle {
+		filtered = append(filtered, "RZM_MODULE_LIFECYCLE=1")
 	}
 	return append(filtered, "RZM="+executable, "RZM_SKIP_REPO_DELEGATE=1", "RZM_REPO_DELEGATED=1")
 }

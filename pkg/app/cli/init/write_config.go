@@ -288,7 +288,7 @@ func rhizomeGitIgnoreBody() string {
 		"!modules/**",
 		// A module's binding compiler keeps its selection, manifest, and
 		// generated schema in Git; its lock, scratch, and receipts are local.
-		"modules/*/bindings/refresh.lock/",
+		"modules/*/bindings/refresh.lock",
 		"modules/*/bindings/*.tmp",
 		"modules/*/bindings/*.previous",
 		"modules/*/bindings/index-receipt.json",

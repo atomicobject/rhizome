@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/fileio"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/notediscovery"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
@@ -16,7 +17,7 @@ import (
 
 // EnsureModuleSourceIncludes adds exact source paths without replacing a person's
 // other include rules. LocalConfig's patch writer preserves unrelated values.
-func EnsureModuleSourceIncludes(ctx context.Context, root string, sources []string) error {
+func EnsureModuleSourceIncludes(ctx context.Context, root string, sources []string, formats noteformat.Registry) error {
 	if len(sources) == 0 {
 		return nil
 	}
@@ -39,17 +40,13 @@ func EnsureModuleSourceIncludes(ctx context.Context, root string, sources []stri
 		includes = []string{"**/*.md"}
 	}
 	for _, p := range sources {
-		if p == "" || filepath.IsAbs(p) || filepath.ToSlash(filepath.Clean(p)) != p || p == ".." || strings.HasPrefix(p, "../") || strings.ContainsAny(p, `\*?[]`) {
+		if p == "" || p == "." || filepath.IsAbs(p) || filepath.ToSlash(filepath.Clean(p)) != p || p == ".." || strings.HasPrefix(p, "../") || strings.ContainsAny(p, `\*?[]`) {
 			return fmt.Errorf("module source must be an exact repository-relative path: %q", p)
 		}
-		resolved, err := filepath.EvalSymlinks(filepath.Join(root, filepath.FromSlash(p)))
-		if err != nil {
+		if err := checkModuleSourceLocation(root, p); err != nil {
 			return err
 		}
-		if !strings.HasPrefix(resolved, root+string(os.PathSeparator)) {
-			return fmt.Errorf("module source escapes repository: %s", p)
-		}
-		if !moduleSourceIncluded(p, includes) {
+		if !moduleSourceIncluded(p, includes, formats) {
 			includes = append(includes, p)
 		}
 	}
@@ -61,6 +58,26 @@ func EnsureModuleSourceIncludes(ctx context.Context, root string, sources []stri
 		return err
 	}
 	return refreshModuleGuidance(root, *cfg)
+}
+
+func checkModuleSourceLocation(root, source string) error {
+	for candidate := filepath.Join(root, filepath.FromSlash(source)); ; candidate = filepath.Dir(candidate) {
+		_, err := os.Lstat(candidate)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		resolved, err := filepath.EvalSymlinks(candidate)
+		if err != nil {
+			return err
+		}
+		if resolved != root && !strings.HasPrefix(resolved, root+string(os.PathSeparator)) {
+			return fmt.Errorf("module source escapes repository: %s", source)
+		}
+		return nil
+	}
 }
 
 func refreshModuleGuidance(root string, cfg repoconfig.LocalConfig) error {
@@ -109,7 +126,12 @@ func refreshModuleGuidance(root string, cfg repoconfig.LocalConfig) error {
 	return nil
 }
 
-func moduleSourceIncluded(source string, includes []string) bool {
+func moduleSourceIncluded(source string, includes []string, formats noteformat.Registry) bool {
+	provider, found := formats.ProviderForPath(paths.RelPath(source))
+	if !found {
+		return false
+	}
+	descriptor := provider.Descriptor()
 	for _, pattern := range includes {
 		hiddenCovered := true
 		for _, part := range strings.Split(source, "/") {
@@ -120,10 +142,10 @@ func moduleSourceIncluded(source string, includes []string) bool {
 		if !hiddenCovered {
 			continue
 		}
-		if strings.HasSuffix(source, ".md") && pathMatchesAnyGlob(source, []string{pattern}) {
+		if descriptor.OwnershipPolicy == noteformat.OwnershipDefault && pathMatchesAnyGlob(source, []string{pattern}) {
 			return true
 		}
-		if notediscovery.MatchesExplicitInclude(pattern, paths.RelPath(source), []string{filepath.Ext(source)}) {
+		if notediscovery.MatchesExplicitInclude(pattern, paths.RelPath(source), descriptor.Extensions) {
 			return true
 		}
 	}

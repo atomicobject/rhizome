@@ -44,3 +44,17 @@ test('empty verified KB can be ready and missing dependencies have an actionable
   assert.match(failure.reason, /uv is missing/);
   assert.equal(failure.recovery[0].kind, 'retry');
 });
+
+test('readiness delegates source admission without rejecting a valid brace include', async t => {
+  const {root, write} = await fixture(t);
+  const source = 'artifacts/_assets/_model/items.yaml';
+  await write('.rhizome/modules/ao-kb/bindings/selection.json', '{"formatVersion":1,"product":null}');
+  await write('.rhizome/modules/ao-kb/bindings/manifest.json', JSON.stringify({sources: [{path: source}]}));
+  await write('.rhizome/config.yml', 'notes:\n  includes:\n    - "artifacts/_assets/_model/*.{yaml,yml}"\n');
+  const result = await assess(root, {
+    preflight: () => ({checks: []}), verify: async () => {},
+    check: async () => ({bindingsReady: true, indexReady: true}),
+  });
+  assert.equal(result.next, 'ready');
+  assert.deepEqual(result.includes, [source]);
+});

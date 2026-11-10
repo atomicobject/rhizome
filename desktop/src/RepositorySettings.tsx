@@ -244,6 +244,10 @@ export function RepositorySettings({
       disabled={running || refreshing || rows.length > 0}
       note={rows.length > 0 ? "Apply or discard your changes to change Rhizome." : undefined}
       onChanging={setChangingVersion}
+      onTrust={async () => {
+        await request("trust", { id, worktree });
+        setTrustedHere(true);
+      }}
       onReload={async () => {
         reports.current++;
         setCurrent(null);

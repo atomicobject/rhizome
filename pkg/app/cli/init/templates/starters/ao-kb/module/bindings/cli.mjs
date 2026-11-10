@@ -3,11 +3,12 @@ import {parseArgs} from 'node:util';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
-import {mkdir, realpath, rm} from 'node:fs/promises';
+import {realpath} from 'node:fs/promises';
 import {refresh, check, atomic} from './publish.mjs';
 import {json, readJSON, run, adapter} from './runtime.mjs';
 import {indexSignature} from './knowledge.mjs';
 import {verifyIndex, verifyKnowledgeIndex} from './verify-index.mjs';
+import {acquire} from './lock.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 try {
@@ -41,8 +42,7 @@ try {
     process.stdout.write(json(report));
     if (!report.bindingsReady) process.exitCode = 1;
   } else {
-    const lock = path.join(directory, 'refresh.lock');
-    await mkdir(lock);
+    const lock = await acquire(directory);
     try {
       const before = await check({root, directory});
       if (!before.bindingsReady) throw new Error('ao_bindings_stale: refresh bindings before indexing');
@@ -65,7 +65,7 @@ try {
         ? {formatVersion: 1, fingerprint: manifest.fingerprint, knowledgeFingerprint: knowledge.fingerprint, sdlHash: manifest.sdlHash, sourceSignature}
         : {formatVersion: 1, model: 'not applicable', knowledgeFingerprint: knowledge.fingerprint, sourceSignature}));
       process.stdout.write(json({...after, indexReady: true}));
-    } finally { await rm(lock, {recursive: true, force: true}); }
+    } finally { await lock.release(); }
   }
 } catch (error) {
   process.stdout.write(json({starterInstalled: true, bindingsReady: false, indexReady: false,

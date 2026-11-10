@@ -14,17 +14,17 @@ governing-specs:
 
 ## Scope
 
-Deliver [[starter-readiness|SPEC-0137]] using the existing module-action and runtime-indexing owners. The motivating incident is an AO KB installation in `agentic-process` that collided with an existing lowercase schema and exposed no complete setup or recovery flow. Existing per-file automatic ontology refresh remains in place.
+Deliver [[starter-readiness|SPEC-0138]] using the existing module-action and runtime-indexing owners. The motivating incident is an AO KB installation in `agentic-process` that collided with an existing lowercase schema and exposed no complete setup or recovery flow. Existing per-file automatic ontology refresh remains in place.
 
 ## Spec Set (Frozen)
 
-- [[starter-readiness|SPEC-0137]], initial revision on this branch dated 2026-11-10, all requirements and US1 through US3.
+- [[starter-readiness|SPEC-0138]], initial revision on this branch dated 2026-11-10, all requirements and US1 through US3.
 
 ## Stories In Scope (Frozen)
 
-- [[starter-readiness#^SPEC-0137-US1]]
-- [[starter-readiness#^SPEC-0137-US2]]
-- [[starter-readiness#^SPEC-0137-US3]]
+- [[starter-readiness#^SPEC-0138-US1]]
+- [[starter-readiness#^SPEC-0138-US2]]
+- [[starter-readiness#^SPEC-0138-US3]]
 
 ## Spec Coverage Checklist
 
@@ -96,3 +96,13 @@ Active on `feat/starter-readiness`.
 - Verification corrections: sandboxed runtime tests could not read macOS process lock identity and were rerun with host permissions. A final path-helper change exposed macOS root aliases in the cancellation regression; the fingerprint owner now canonicalizes its root before converting paths, and the test bounds action startup. Raw AO evidence archives are excluded from readiness fingerprints to keep unrelated recordings outside the bounded input budget.
 - Remaining gates: parent integrates the commits, runs full concurrency/integration/native/packaged checks, performs independent review, and records final closure. No PR, merge, or Rhizome Dev installation was performed by this implementation leaf.
 - Final source verification: all six affected Go packages passed with host permissions, including the added AO script and schema regressions. The final `make check-fast`, source-only rebuild after the root-alias correction, and `cargo fmt --check` passed. The final targeted race suite passed for module readiness, descriptors, and init helpers. Build-generated web index HTML was restored to its pre-task bytes; source and generated API types carry the implementation.
+- Independent Sol correctness review found four defects: populated knowledge verification used the wrong node-batch shape, failures during input changes could persist against the new inputs, ignore files did not invalidate readiness, and killed binding actions left an unrecoverable lock. All four were corrected. The real query uses `items`, explicit batch size, per-item errors, and `pageInfo.truncated`. The runtime reassesses changed inputs and observes all three repository ignore files. Binding lock ownership is published atomically, and only the elected serial lifecycle runner may reclaim a stopped owner. Live owners and unknown legacy locks remain protected.
+- The init include helper now accepts a declared source before its file exists while rejecting paths through an external symlink. This preserves the default Markdown include and permits compiler-declared optional sources without creating them.
+- Corrected runtime verification passed with `GOCACHE=$PWD/.gocache go test -mod=vendor -tags 'fts5 integration' ./tests/integration/aokb -run 'TestInstalledStarterAutomatically|TestAOKBLegacyKnowledgeOnlySetup' -count=1 -v`. It covers real populated batches above 100 notes, empty setup, CLI install while open, unchanged reopen, and automatic failure/recovery after each of `.rhizome/ignore`, `.obsidianignore`, and `.gitignore` changes. Node regressions also exercise a real killed lock owner and refusal to reclaim a live owner. Full integrated and packaged checks follow this correction.
+- The first full verification stopped at the existing format-neutral architecture gate. The include helper's Markdown branch now consumes the live runtime's immutable registry and each provider's ownership policy. Focused architecture and admission regressions passed, including broad Markdown admission without activating YAML accidentally. Full verification was restarted against this correction.
+- The fresh Sol review identified a duplicate JavaScript include check that rejected valid brace patterns. Source admission now has one owner: the runtime invokes init's format-aware helper before accepting ready or indexing. AO assessments supply source paths without interpreting include patterns. A new coordinator regression proves changed admission indexes before ready; Node and Go regressions cover `*.{yaml,yml}` without a redundant include or retry loop. The second full run passed the race-enabled Go suite before being stopped to apply this correction.
+- Packaged-app verification found that trust recovery opened Settings without offering a trust action for a configured worktree using an external executable. Repository Settings now exposes the existing worktree-scoped trust command explicitly; it does not grant trust merely by opening Settings. Its regression passed with the full desktop frontend suite (165 tests). The executable-schema regression also now uses valid node path declarations and asserts the generated-root collision, separately from authored SDL failure.
+- Following the trust button through the real bridge exposed a second issue: its existing trust operation did nothing when the selected executable required no checkout trust. The explicit operation now records the selected worktree's trust for module actions as well, while opening a repository with an external/global executable remains independent of action trust. Focused desktop-service tests passed.
+- Drew rejected the readiness banner's visual design and requested Opus review and improvement. An isolated Claude Opus 5.5 design pass owns the readiness component and styling, with the supplied screenshot and the existing design system as evidence. Backend verification continues independently; final UI acceptance will use the integrated redesign.
+
+- Full parent verification passed with `make build` and `make check-full`, including race-enabled Go tests, all 2157 web tests, all integration packages, and mixed integration tests. The new main commit `cd607d89` allocated SPEC-0137 concurrently; this effort's new specification was mechanically renumbered to SPEC-0138 before integration, with its frozen story references updated and scope unchanged.

@@ -4,6 +4,7 @@ package aokb
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,8 +17,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInstalledStarterAutomaticallyReachesReadyWithEmptyKnowledge(t *testing.T) {
+func TestInstalledStarterAutomaticallyReachesReady(t *testing.T) {
+	for _, populated := range []bool{false, true} {
+		t.Run(fmt.Sprintf("populated=%t", populated), func(t *testing.T) {
+			testInstalledStarterReadiness(t, populated)
+		})
+	}
+}
+
+func testInstalledStarterReadiness(t *testing.T, populated bool) {
 	kb := &aoKB{t: t, root: filepath.Join(t.TempDir(), "vault"), home: t.TempDir()}
+	if populated {
+		require.NoError(t, os.CopyFS(kb.root, os.DirFS(filepath.Join(fixture.RepoRoot(t), "testdata/ao-kb-legacy"))))
+		for i := range 50 {
+			kb.write(fmt.Sprintf("assertions/additional-%d.md", i), "# Additional assertion\n")
+		}
+	}
 	kb.write(".rhizome/config.yml", "notes:\n  includes: [\"**/*.md\"]\n")
 	kb.write(".kb/config/vault.md", "---\nschemaVersion: 5\nproductMode: single\n---\n")
 	store, err := repositorytrust.DefaultStore()
@@ -28,8 +43,10 @@ func TestInstalledStarterAutomaticallyReachesReadyWithEmptyKnowledge(t *testing.
 	base := kb.serve()
 	output, err := kb.rzm("init", "--add-addon", "ao-kb", "--agents", "none")
 	require.NoError(t, err, output)
+	kb.authored = kb.files()
 	var states []modulereadiness.Snapshot
-	waitReady := func() {
+	waitFor := func(state modulereadiness.State) {
+		t.Helper()
 		require.Eventually(t, func() bool {
 			response, err := http.Get(base + "/api/v1/starter-readiness")
 			if err != nil {
@@ -39,10 +56,11 @@ func TestInstalledStarterAutomaticallyReachesReadyWithEmptyKnowledge(t *testing.
 			if json.NewDecoder(response.Body).Decode(&states) != nil {
 				return false
 			}
-			return len(states) == 1 && states[0].State == modulereadiness.Ready
-		}, 30*time.Second, 100*time.Millisecond, "readiness: %+v", states)
+			return len(states) == 1 && states[0].State == state
+		}, 45*time.Second, 100*time.Millisecond, "readiness: %+v", states)
 	}
-	waitReady()
+	waitFor(modulereadiness.Ready)
+	kb.requireUnchanged()
 	selection := filepath.Join(kb.root, ".rhizome/modules/ao-kb/bindings/selection.json")
 	data, err := os.ReadFile(selection)
 	require.NoError(t, err)
@@ -52,11 +70,19 @@ func TestInstalledStarterAutomaticallyReachesReadyWithEmptyKnowledge(t *testing.
 	require.NoError(t, err)
 	fixture.StopRuntime(t, kb.root)
 	base = kb.serve()
-	waitReady()
+	waitFor(modulereadiness.Ready)
 	afterReopen, err := os.Stat(receipt)
 	require.NoError(t, err)
 	require.Equal(t, info.ModTime(), afterReopen.ModTime(), "reopen observes current queries without indexing again")
 	// An unrelated file never triggers setup or rewrites the verified receipt.
 	kb.write("unrelated.txt", "unchanged inputs")
 	require.Never(t, func() bool { after, err := os.Stat(receipt); return err != nil || after.ModTime() != info.ModTime() }, 3*time.Second, 100*time.Millisecond)
+	if populated {
+		for _, ignore := range []string{".rhizome/ignore", ".obsidianignore", ".gitignore"} {
+			kb.write(ignore, "assertions/**\n")
+			waitFor(modulereadiness.Failed)
+			require.NoError(t, os.Remove(filepath.Join(kb.root, ignore)))
+			waitFor(modulereadiness.Ready)
+		}
+	}
 }

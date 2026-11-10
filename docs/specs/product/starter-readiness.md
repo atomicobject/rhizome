@@ -1,10 +1,10 @@
 ---
 type: ProductSpec
-id: SPEC-0137
+id: SPEC-0138
 summary: Installed starters become usable through automatic setup and index refresh, with persistent readiness and actionable recovery in the desktop.
 spec-status: active
 last-updated: 2026-11-10
-aliases: [SPEC-0137]
+aliases: [SPEC-0138]
 ---
 
 # Starter readiness
@@ -34,7 +34,7 @@ Rhizome uses one readiness contract for desktop installations, installations mad
 
 ### US1 - Install a starter and reach a usable state
 
-- id:: ^SPEC-0137-US1
+- id:: ^SPEC-0138-US1
 - summary:: A person installs a starter and Rhizome completes the setup that needs no additional decision.
 - status:: ready
 
@@ -48,7 +48,7 @@ Rhizome uses one readiness contract for desktop installations, installations mad
 
 ### US2 - Understand and recover unfinished setup
 
-- id:: ^SPEC-0137-US2
+- id:: ^SPEC-0138-US2
 - summary:: A person sees the current setup state and can resolve a blocker or retry a failed step.
 - status:: ready
 
@@ -64,7 +64,7 @@ Rhizome uses one readiness contract for desktop installations, installations mad
 
 ### US3 - Refresh after ontology folders change
 
-- id:: ^SPEC-0137-US3
+- id:: ^SPEC-0138-US3
 - summary:: A person adds, removes, or replaces an ontology folder and Rhizome refreshes the affected typed data.
 - status:: ready
 

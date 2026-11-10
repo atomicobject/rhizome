@@ -44,9 +44,13 @@ export async function verifyKnowledgeIndex(root, query = text => JSON.parse(run(
   const files = await siteInventory(root, selection?.product);
   for (let offset = 0; offset < files.length; offset += 100) {
     const batch = files.slice(offset, offset + 100);
-    const response = await query(`{ nodes(refs: ${JSON.stringify(batch)}) { ref { notePath } } }`);
+    const response = await query(`{ nodes(refs: ${JSON.stringify(batch)}, first: ${batch.length}) { items { requestedRef ref { notePath } node { __typename } error { code message } } pageInfo { truncated } } }`);
     if (response.errors?.length) throw new Error(`ao_index_query_failed: ${response.errors[0].message}`);
-    const found = new Set((response.data?.nodes ?? []).map(node => node?.ref?.notePath));
+    const result = response.data?.nodes;
+    if (!Array.isArray(result?.items) || result.pageInfo?.truncated !== false) throw new Error('ao_index_coverage_missing: complete node batch is required');
+    const failed = result.items.find(item => item.error);
+    if (failed) throw new Error(`ao_index_projection_incomplete: ${failed.requestedRef}: ${failed.error.message}. Check note includes and ignore rules.`);
+    const found = new Set(result.items.filter(item => item.node).map(item => item.ref?.notePath));
     const missing = batch.filter(file => !found.has(file));
     if (missing.length) throw new Error(`ao_index_projection_incomplete: ${missing.join(', ')}. Check note includes and ignore rules.`);
   }

@@ -10,6 +10,7 @@ export interface RepositoryRhizomeProps {
   onSelect: (executable: string | null) => Promise<void>;
   onChoose: () => Promise<boolean>;
   onAdvance: () => Promise<void>;
+  onTrust?: () => Promise<void>;
 }
 
 /** The local execution choice is independent of the shared repository pin. */
@@ -22,6 +23,7 @@ export function RepositoryRhizome({
   onSelect,
   onChoose,
   onAdvance,
+  onTrust,
   unsupported,
   onReload,
   disabled,
@@ -143,6 +145,14 @@ export function RepositoryRhizome({
         {note && <p className="hint">{note}</p>}
         {version && <p className="hint">Runs Rhizome {version}.</p>}
         {worktree.trusted && <p className="hint">Trusted on this Mac</p>}
+        {!worktree.trusted && onTrust && (
+          <div className="actions start">
+            <button disabled={busy || disabled} onClick={() => void change(onTrust)}>
+              Trust this worktree
+            </button>
+            <span className="hint">Allow this worktree to run its module actions.</span>
+          </div>
+        )}
         {offer && !unsupported && (
           <div className="actions start">
             <button disabled={busy || disabled} onClick={() => void change(onAdvance)}>

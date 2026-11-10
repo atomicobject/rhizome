@@ -120,6 +120,49 @@ func TestChangedDuringObservationRejectsStaleCompletion(t *testing.T) {
 	c.scan(context.Background(), nil)
 	require.Equal(t, Ready, c.Snapshot()[0].State)
 }
+
+func TestChangedDuringFailedIndexIsReassessedWithoutRetry(t *testing.T) {
+	root := fixture(t)
+	indexed := false
+	runner := &fakeRunner{run: func(id string, _ map[string]any) (Assessment, error) {
+		if id == "demo/index" {
+			indexed = true
+			require.NoError(t, os.WriteFile(filepath.Join(root, "input"), []byte("edited during index"), 0644))
+			return Assessment{}, os.ErrInvalid
+		}
+		if indexed {
+			return Assessment{Next: NextReady}, nil
+		}
+		return Assessment{Next: NextIndex}, nil
+	}}
+	c := New(Options{Root: root, Runner: runner})
+	c.scan(context.Background(), nil)
+	require.Equal(t, Checking, c.Snapshot()[0].State)
+	c.scan(context.Background(), nil)
+	require.Equal(t, Ready, c.Snapshot()[0].State)
+	require.Equal(t, []string{"demo/observe", "demo/index", "demo/observe"}, runner.calls)
+}
+
+func TestReadyReconcilesSourceAdmissionBeforeReportingReady(t *testing.T) {
+	root := fixture(t)
+	admitted := false
+	runner := &fakeRunner{run: func(id string, _ map[string]any) (Assessment, error) {
+		return Assessment{Next: NextReady, Includes: []string{"model.yaml"}}, nil
+	}}
+	c := New(Options{Root: root, Runner: runner, Include: func(_ context.Context, sources []string) error {
+		require.Equal(t, []string{"model.yaml"}, sources)
+		if !admitted {
+			admitted = true
+			return os.WriteFile(filepath.Join(root, "input"), []byte("admitted"), 0644)
+		}
+		return nil
+	}})
+	c.scan(context.Background(), nil)
+	require.Equal(t, Ready, c.Snapshot()[0].State)
+	require.Equal(t, []string{"demo/observe", "demo/index", "demo/observe"}, runner.calls)
+	c.scan(context.Background(), nil)
+	require.Len(t, runner.calls, 3, "unchanged admission does not repeat indexing")
+}
 func TestDiscoversCLIInstallAndCancels(t *testing.T) {
 	root := t.TempDir()
 	ran := make(chan struct{}, 1)
