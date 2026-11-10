@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -46,31 +47,39 @@ func testInstalledStarterReadiness(t *testing.T, populated bool) {
 	output, err := kb.rzm("init", "--add-addon", "ao-kb", "--agents", "none")
 	require.NoError(t, err, output)
 	kb.authored = kb.files()
-	var states []modulereadiness.Snapshot
-	waitFor := func(state modulereadiness.State) {
+	waitFor := func(state modulereadiness.State) modulereadiness.Snapshot {
 		t.Helper()
-		var lastRead string
+		type observation struct {
+			states   []modulereadiness.Snapshot
+			response string
+		}
+		var latest atomic.Pointer[observation]
+		latest.Store(&observation{})
 		ready := assert.Eventually(t, func() bool {
 			response, err := http.Get(base + "/api/v1/starter-readiness")
 			if err != nil {
-				lastRead = err.Error()
+				latest.Store(&observation{response: err.Error()})
 				return false
 			}
 			defer response.Body.Close()
 			data, err := io.ReadAll(io.LimitReader(response.Body, 64<<10))
-			lastRead = fmt.Sprintf("HTTP %d: %s", response.StatusCode, data)
-			if err != nil || json.Unmarshal(data, &states) != nil {
+			current := &observation{response: fmt.Sprintf("HTTP %d: %s", response.StatusCode, data)}
+			valid := err == nil && json.Unmarshal(data, &current.states) == nil
+			latest.Store(current)
+			if !valid {
 				return false
 			}
-			return len(states) == 1 && states[0].State == state
+			return len(current.states) == 1 && current.states[0].State == state
 		}, 45*time.Second, 100*time.Millisecond)
 		if !ready {
 			for _, file := range kb.serveLogs {
 				data, err := os.ReadFile(file)
 				t.Logf("runtime log %s (%v):\n%s", file, err, data)
 			}
-			t.Fatalf("waiting for %s; readiness: %+v; last response: %s", state, states, lastRead)
+			current := latest.Load()
+			t.Fatalf("waiting for %s; readiness: %+v; last response: %s", state, current.states, current.response)
 		}
+		return latest.Load().states[0]
 	}
 	waitFor(modulereadiness.Ready)
 	kb.requireUnchanged()
@@ -95,6 +104,13 @@ func testInstalledStarterReadiness(t *testing.T, populated bool) {
 			kb.write(ignore, "assertions/**\n")
 			waitFor(modulereadiness.Failed)
 			require.NoError(t, os.Remove(filepath.Join(kb.root, ignore)))
+			waitFor(modulereadiness.Ready)
+		}
+		for _, guidance := range []string{"AGENTS.md", "CLAUDE.md"} {
+			kb.write(guidance, "<!-- BEGIN RZM INIT RHIZOME BLOCK -->\nbroken fence\n")
+			failure := waitFor(modulereadiness.Failed)
+			require.Contains(t, failure.Reason, "malformed managed block in "+guidance)
+			kb.write(guidance, "# Repaired guidance\n")
 			waitFor(modulereadiness.Ready)
 		}
 	}
