@@ -1,0 +1,5 @@
+Validation selector: frozen-scope-drift
+Effective checks: frozen-scope-drift
+[completed] frozen-scope-drift: required validation prerequisites are available
+  Check: no frozen scope drift detected
+Validation summary: 0 issues; 0 errors; exit=0

@@ -207,6 +207,9 @@ func validateSelectionSet(execSchema *ExecutableSchema, set ast.SelectionSet, fr
 					}
 				}
 			}
+			if current.Definition != nil && current.ObjectDefinition != nil && current.ObjectDefinition.Name == "NodeWorkspaceProjection" && current.Name == "sourceLinks" {
+				errs = append(errs, validateTypedRootOffset("sourceLinks", current.ArgumentMap(variables))...)
+			}
 			if childErrs := validateSelectionSet(execSchema, current.SelectionSet, fragments, false, usesSemantic, usesSearch, variables); len(childErrs) > 0 {
 				errs = append(errs, childErrs...)
 			}

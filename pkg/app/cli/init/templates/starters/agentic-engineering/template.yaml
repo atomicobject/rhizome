@@ -1,5 +1,6 @@
 id: agentic-engineering
 name: Agentic Engineering
+description: "Shape specs, select delivery slices, and resume or finish efforts with the Delivery experience and repository workflow skills"
 requires:
   - core
 activatesByDefault:

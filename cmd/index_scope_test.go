@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"github.com/atomicobject/rhizome/internal/testkit"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 
@@ -119,11 +121,15 @@ func TestInitCommandJSONReportsAPlanWithoutWriting(t *testing.T) {
 
 func TestInitCommandJSONReportsAndChangesAConfiguredFoldersSettings(t *testing.T) {
 	t.Setenv(repoSkipDelegateEnv, "1")
+	releases := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(releases.Close)
+	t.Setenv("RZM_UPDATE_MANIFEST_URL", releases.URL+"/releases/latest")
 	dir := t.TempDir()
 	writeCmdFixture(t, dir, "docs/readme.md", "# Docs\n")
+	seedCurrentPinnedBinary(t, dir)
 	ctx := vaultconfig.WithEnv(context.Background(), testkit.Env(t))
-	_, stderr, err := runRootCLI(t, ctx, []string{"init", "--path", dir, "--json", "--workflow", "none", "--search", "off"})
-	require.NoError(t, err, stderr)
+	setupStdout, stderr, err := runRootCLI(t, ctx, []string{"init", "--path", dir, "--json", "--workflow", "none", "--search", "off"})
+	require.NoErrorf(t, err, "stdout=%s\nstderr=%s", setupStdout, stderr)
 
 	type settings struct {
 		Configured bool   `json:"configured"`
@@ -133,7 +139,7 @@ func TestInitCommandJSONReportsAndChangesAConfiguredFoldersSettings(t *testing.T
 		} `json:"writes"`
 	}
 	stdout, stderr, err := runRootCLI(t, ctx, []string{"init", "--path", dir, "--check", "--json", "--workflow", "agentic-engineering"})
-	require.NoError(t, err, stderr)
+	require.NoErrorf(t, err, "stdout=%s\nstderr=%s", stdout, stderr)
 	var plan settings
 	require.NoError(t, json.Unmarshal([]byte(stdout), &plan), stdout)
 	require.True(t, plan.Configured)
@@ -142,7 +148,7 @@ func TestInitCommandJSONReportsAndChangesAConfiguredFoldersSettings(t *testing.T
 	require.NoFileExists(t, filepath.Join(dir, ".agents", "skills", "agentic-engineering", "SKILL.md"))
 
 	stdout, stderr, err = runRootCLI(t, ctx, []string{"init", "--path", dir, "--json", "--workflow", "agentic-engineering"})
-	require.NoError(t, err, stderr)
+	require.NoErrorf(t, err, "stdout=%s\nstderr=%s", stdout, stderr)
 	var result struct {
 		Summary []string `json:"summary"`
 	}

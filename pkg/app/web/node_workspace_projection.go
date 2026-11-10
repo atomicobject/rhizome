@@ -8,6 +8,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/noderead"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"net/url"
@@ -87,7 +88,9 @@ func (s *Server) resolveNodeProjection(ctx context.Context, defs *ontologyDefini
 	if defs == nil || defs.schema == nil {
 		return nil, fmt.Errorf("ontology is unavailable")
 	}
-	if s != nil && s.nodeProjectionCache != nil {
+	provider, registered := s.noteFormats.ProviderForPath(paths.RelPath(ref.NotePath))
+	useMarkdownCache := !registered || strings.EqualFold(string(provider.Descriptor().ID), "markdown")
+	if useMarkdownCache && s.nodeProjectionCache != nil {
 		noteReader := s.noteReader
 		if noteReader == nil {
 			noteReader = &obsidian.Note{}

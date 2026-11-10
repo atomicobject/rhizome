@@ -1,0 +1,11 @@
+Validation selector: default
+Effective checks: ontology, identifiers, broken-links
+[completed] ontology: required validation prerequisites are available
+  Check: ontology valid
+[completed] identifiers: required validation prerequisites are available
+  Check: 618 identifier nodes checked
+[completed] broken-links: required validation prerequisites are available
+  Check: no broken links
+Identifier reconciliation: collisions=0; fingerprint=05ce27f47bc5f9884ef4e3bf98e8e145b5f4cceebe0553b8a8e81db0cb44ad1a; history-complete=true; fallback-collisions=0
+  Timings: inventory=48.669084ms; git-provenance=0s; reference-discovery=0s; transaction-construction=0s; apply=0s; post-validation=0s
+Validation summary: 0 issues; 0 errors; exit=0

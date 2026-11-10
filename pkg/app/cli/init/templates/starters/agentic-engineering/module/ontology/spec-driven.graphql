@@ -187,13 +187,13 @@ type AcceptanceCriterion
   """Optional concise check, command, or evidence path that can verify this criterion."""
   verification: String @field
 
-  """Efforts that selected this criterion through their frozen story scope."""
+  """Efforts mentioning this criterion subtree; not proof of frozen selection."""
   efforts: [Effort!]
     @neighbors(direction: INBOUND, type: "Effort", scope: SUBTREE)
     @guidance(
-      meaning: "Effort-owned relation showing which efforts selected this criterion through `Stories In Scope (Frozen)`.",
+      meaning: "Inbound effort mentions of this criterion subtree, wherever authored.",
       authoring: "Do not author effort links on criteria. Link the criterion from the owning effort's frozen scope instead.",
-      agentImplications: "Use this inbound relation for criterion-level execution provenance, coverage, audit, and backport evidence."
+      agentImplications: "Inspect focused source links in the authoritative frozen section to prove exact criterion selection. This relation alone proves only a mention."
     )
 }
 
@@ -729,13 +729,13 @@ type UserStory
       agentImplications: "Treat this as rollout grouping within the spec, not as readiness or implementation-task sequencing. It can help select stories for an effort, but effort scope should still freeze the exact story set."
     )
 
-  """Efforts that selected this story through their frozen story scope."""
+  """Efforts mentioning this story subtree; not proof of frozen selection."""
   efforts: [Effort!]
     @neighbors(direction: INBOUND, type: "Effort", scope: SUBTREE)
     @guidance(
-      meaning: "Effort-owned relation showing which efforts selected this story through `Stories In Scope (Frozen)`.",
+      meaning: "Inbound effort mentions of this story subtree, wherever authored.",
       authoring: "Do not author effort links on stories. Add or preserve story ids in the owning effort's frozen scope instead.",
-      agentImplications: "Use this inbound relation for execution provenance while keeping specs free of live effort state."
+      agentImplications: "Inspect focused source links in the authoritative frozen section to prove exact story selection. This relation alone proves only a mention."
     )
 
   """Reference docs linked from this story subtree."""
@@ -804,7 +804,7 @@ type EffortMaterial
   @node(paths: ["docs/efforts/*/plan.html", "docs/efforts/*/work-log.md", "docs/efforts/*/materials/*.md", "docs/efforts/*/materials/*.html", "pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/plan.html", "pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/work-log.md", "pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/materials/*.md", "pkg/app/cli/init/templates/starters/agentic-engineering/repo/docs/efforts/*/materials/*.html"]) {
   title: String
 
-  """Optional lifecycle snapshots in the explicitly linked Markdown work log. Missing sections are missing evidence, never approval or completion. Read the full entry, plan, and log sources before acting; the entry remains the identity and frozen-scope owner."""
+  """Frozen sections are authoritative only when this Markdown material is explicitly selected by frozenScope. Otherwise they are snapshots. Missing or duplicate sections are incomplete evidence, never empty scope, approval, or completion."""
   specSetFrozen: NarrativeSection @contains(level: H2, heading: "Spec Set (Frozen)")
   storiesInScopeFrozen: NarrativeSection @contains(level: H2, heading: "Stories In Scope (Frozen)")
   planApproval: NarrativeSection @contains(level: H2, heading: "Plan Approval")
@@ -819,7 +819,7 @@ type EffortMaterial
 """
 HTML entry note for an effort with separately linked materials.
 Use a timestamped basename ending in -effort.html inside its dedicated effort folder.
-The entry note owns identity and frozen scope; directory proximity confers no relationship.
+The entry owns identity and explicitly selects a Markdown frozen-scope source. Missing selection leaves authority unknown; directory proximity confers no relationship.
 """
 type EffortWorkspace implements Effort
   @display(singular: "Effort workspace", plural: "Effort workspaces")
@@ -866,6 +866,9 @@ type EffortWorkspace implements Effort
 
   """Explicit append-only execution history."""
   workLog: EffortMaterial! @display(hover: false) @link(source: "work-log", includeBodyLinks: false, includeBacklinks: false) @workspaceMember(label: "Work log")
+
+  """Authoritative Markdown frozen-section source, explicitly selected by the entry. No work-log fallback; absent selection leaves legacy authority unknown."""
+  frozenScope: EffortMaterial @display(hover: false) @link(source: "frozen-scope", includeBodyLinks: false, includeBacklinks: false) @workspaceMember(label: "Frozen scope")
 
   """Supporting materials explicitly selected by the author, never inferred from the folder."""
   materials: [EffortMaterial!] @display(hover: false) @link(includeBodyLinks: false, includeBacklinks: false) @workspaceMember

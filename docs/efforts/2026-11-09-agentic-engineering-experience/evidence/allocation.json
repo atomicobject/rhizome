@@ -1,0 +1,23 @@
+{
+  "spec": {
+    "type": "ExperienceSpec",
+    "next": "SPEC-0137",
+    "strategy": "SEQUENTIAL",
+    "source": "rzm agent next-id --type ExperienceSpec"
+  },
+  "effort": {
+    "type": "EffortNote",
+    "next": "EFF-2026-11-09-21-28",
+    "strategy": "DATETIME",
+    "paths": [
+      "docs/efforts/2026-11-09-21-28-agentic-engineering-experience.md"
+    ],
+    "allocations": [
+      {
+        "path": "docs/efforts/2026-11-09-21-28-agentic-engineering-experience.md",
+        "id": "EFF-2026-11-09-21-28",
+        "base": "EFF-2026-11-09-21-28"
+      }
+    ]
+  }
+}

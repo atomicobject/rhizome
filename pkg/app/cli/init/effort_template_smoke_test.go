@@ -114,7 +114,7 @@ func TestRun_CopiedEffortFormsAndHistoricalNoteRemainQueryable(t *testing.T) {
 	require.NoError(t, err)
 	prepared, errors := ontologyquery.Prepare(execSchema, `{
   current: note(path: "`+newNotePath+`") { resolvedType ... on EffortNote { id name summary plan { content } } ... on Effort { governingSpecs { id } } }
-  workspace: note(path: "`+workspacePath+`") { resolvedType ... on EffortWorkspace { id name summary implementationPlan { path } workLog { path } } }
+  workspace: note(path: "`+workspacePath+`") { resolvedType ... on EffortWorkspace { id name summary implementationPlan { path } workLog { path } frozenScope { path } } }
   historical: note(path: "`+historicalPath+`") { ... on EffortNote { id name plan { content } } }
  }`)
 	require.Empty(t, errors)
@@ -135,6 +135,7 @@ func TestRun_CopiedEffortFormsAndHistoricalNoteRemainQueryable(t *testing.T) {
 	require.Equal(t, summary, workspace["summary"])
 	require.Equal(t, folder+"/plan.html", workspace["implementationPlan"].(map[string]any)["path"])
 	require.Equal(t, folder+"/work-log.md", workspace["workLog"].(map[string]any)["path"])
+	require.Equal(t, workspace["workLog"], workspace["frozenScope"])
 	note := result.Data["historical"].(map[string]any)
 	require.Equal(t, "EFF-2026-09-12-10-00", note["id"])
 	require.Contains(t, narrativeContent(t, note, "plan"), "historical plan")

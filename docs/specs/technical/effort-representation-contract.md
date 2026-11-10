@@ -5,7 +5,7 @@ aliases:
   - SPEC-0103
 summary: "Defines the shared effort contract across historical Markdown notes and HTML workspaces with explicit materials and delivery evidence."
 spec-status: active
-last-updated: 2026-09-13
+last-updated: 2026-11-09
 ---
 
 # Effort representation contract
@@ -34,15 +34,15 @@ The contract composes [[docs/specs/product/multi-format-html-notes|SPEC-0083]], 
 
 - `Effort` MUST remain the shared interface for `EffortNote` and `EffortWorkspace`, exposing identity, name, creation timestamp, summary, status, and approver. Mixed queries MUST return both concrete types; consumers MUST use concrete fragments for representation-specific fields rather than treating the interface as an allocation target.
 - Markdown `EffortNote` MUST retain its existing inline section contract. Existing notes, identifiers, links, frozen selections, and historical lifecycle values MUST remain usable without a source rewrite.
-- HTML `EffortWorkspace` MUST remain a file-backed root with canonical HTML metadata. Its entry MUST own effort identity and frozen governing scope. HTML headings MUST NOT become ontology sections or embedded stories.
+- HTML `EffortWorkspace` MUST remain a file-backed root with canonical HTML metadata. Its entry MUST own effort identity and explicitly select any authoritative Markdown frozen-section source through optional `frozen-scope: EffortMaterial`. HTML headings MUST NOT become ontology sections or embedded stories.
 - Saved effort context and frozen-spec recipes MUST cover both concrete types. Markdown lifecycle evidence MUST come from inline sections; workspace recipes MUST expose explicit component references and the linked Markdown work-log sections. A missing section MUST remain missing evidence, not an inferred approval or completion.
 
 ### Explicit components and materials
 
-- A workspace MUST explicitly link `implementation-plan` and `work-log`; optional `materials` MUST contain only author-selected collateral. `governing-specs` MUST carry the explicit frozen spec selection.
+- A workspace MUST explicitly link `implementation-plan` and `work-log`; optional `materials` MUST contain only author-selected collateral. `governing-specs` MUST carry explicit governing links, separately from frozen-section selection. The optional `frozen-scope` field MUST use authored metadata only. Its selected Markdown material's Spec Set (Frozen) and Stories In Scope (Frozen) sections establish exact frozen occurrences.
 - These fields MUST resolve only their authored values. Body links, backlinks, and adjacent files MUST NOT silently supply membership or frozen scope.
 - `EffortMaterial` path selectors MAY classify plan, work-log, and supporting Markdown or HTML files. Classification MUST NOT establish membership. An unlinked file in the same folder MUST remain outside the workspace's component relations.
-- The implementation plan MUST be read from its linked source. Work-log sections MAY expose lifecycle snapshots, but MUST NOT replace entry identity or silently override frozen scope. Conflicting sources MUST be surfaced before action.
+- The implementation plan MUST be read from its linked source. Work-log sections MAY expose lifecycle snapshots, but MUST NOT replace entry identity or silently override frozen scope. Conflicting sources MUST be surfaced before action. Entry prose and inbound story or criterion effort relations MUST NOT prove frozen membership. A different work log remains a snapshot; the same canonical source MUST retain both roles without duplicated evidence. Absent selectors MUST leave legacy authority unknown without rewriting records. Broken or unsupported sources and missing or duplicate frozen sections MUST remain incomplete evidence.
 
 ### Lifecycle, scope, approval, and delivery
 

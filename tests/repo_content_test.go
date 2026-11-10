@@ -3,11 +3,14 @@
 package repocontent_test
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
+	cliinit "github.com/atomicobject/rhizome/pkg/app/cli/init"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
@@ -100,12 +103,14 @@ func TestCoreStarterOwnsSharedRuntimeRecipes(t *testing.T) {
 	require.Contains(t, actionItems, "assessment-assumptions")
 }
 
-func TestShippedEngineeringRecipesValidateAgainstRepositorySchema(t *testing.T) {
+func TestShippedEngineeringRecipesValidateAgainstStarterSchema(t *testing.T) {
 	root := repositoryRoot(t)
 	recipes, issues := queryrecipe.LoadPath(filepath.Join(root, "pkg", "app", "cli", "init", "templates", "starters", "agentic-engineering", "module", "recipes"))
 	require.Empty(t, issues)
 	require.NotEmpty(t, recipes)
-	schema, err := ontoschema.LoadSchema(root)
+	installed := t.TempDir()
+	require.NoError(t, cliinit.Run(cliinit.RunOptions{Env: testkit.Env(t), Dir: installed, Workflow: "agentic-engineering", BinaryManager: "external", Stdout: io.Discard, Stderr: io.Discard}))
+	schema, err := ontoschema.LoadSchema(installed)
 	require.NoError(t, err)
 	executable, err := ontologyquery.BuildExecutableSchema(schema)
 	require.NoError(t, err)

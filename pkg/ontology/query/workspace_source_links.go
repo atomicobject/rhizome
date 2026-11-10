@@ -23,7 +23,7 @@ type workspaceSourceLink struct {
 	ResolvedRef                                                            *ontology.NodeRef
 }
 
-func (e *executor) workspaceSourceLinks(ctx context.Context, projection *ontology.NodeProjection, first int, path []string) []workspaceSourceLink {
+func (e *executor) workspaceSourceLinks(ctx context.Context, projection *ontology.NodeProjection, first, offset int, path []string) []workspaceSourceLink {
 	if e == nil || e.loaders == nil || e.loaders.scope == nil || projection == nil {
 		return []workspaceSourceLink{}
 	}
@@ -33,9 +33,14 @@ func (e *executor) workspaceSourceLinks(ctx context.Context, projection *ontolog
 	}
 
 	links := projection.SourceLinks()
-	if len(links) == 0 {
+	if offset < 0 {
+		e.addError(path, "sourceLinks(...) offset must be >= 0")
 		return []workspaceSourceLink{}
 	}
+	if offset >= len(links) {
+		return []workspaceSourceLink{}
+	}
+	links = links[offset:]
 	if len(links) > first {
 		links = links[:first]
 	}

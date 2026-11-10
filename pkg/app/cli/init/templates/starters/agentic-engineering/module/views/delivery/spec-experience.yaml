@@ -1,0 +1,10 @@
+apiVersion: rhizome.view.v1
+id: agentic-engineering.spec.experience
+name: Contract
+source: { kind: custom, entry: spec.tsx }
+mount:
+  kind: node
+  type: ExperienceSpec
+  default: true
+params:
+  - { name: story, kind: string }
