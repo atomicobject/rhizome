@@ -4,6 +4,7 @@ package sourceownership
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +17,12 @@ import (
 )
 
 const DeclarationPath = ".rhizome/source-ownership.yml"
+
+// Generation follows the declaration independently of index writes or configuration reloads.
+func Generation(root string) string {
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(DeclarationPath)))
+	return fmt.Sprintf("%x", sha256.Sum256(append([]byte(fmt.Sprint(err)), data...)))[:12]
+}
 
 type Source struct {
 	Owner  string   `yaml:"owner"`

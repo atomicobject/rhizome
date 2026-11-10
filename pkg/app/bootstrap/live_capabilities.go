@@ -9,6 +9,7 @@ import (
 	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	"github.com/atomicobject/rhizome/pkg/embedindex"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -98,7 +99,7 @@ func (rt *LiveRuntime) Snapshot() runtimeview.Snapshot {
 	rt.ownershipConfigMu.Lock()
 	vaultDefinition := rt.currentOwnershipVaultDefinition()
 	configuration := rt.Configuration()
-	configGeneration := rt.configGeneration.value
+	configGeneration := rt.configGeneration.value + "-" + sourceownership.Generation(rt.VaultPath)
 	rt.ownershipConfigMu.Unlock()
 	notePath := ""
 	if cfg := rt.embCfg.Load(); cfg != nil {

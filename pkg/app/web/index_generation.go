@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 )
 
@@ -142,9 +143,9 @@ func (s *Server) configGeneration() string {
 			return generation
 		}
 	}
-	// Without a live runtime nothing reloads configuration, so the files'
-	// hash at startup stays accurate.
-	return s.generation.staticConfig
+	// Ownership is read directly on each request even without a live runtime.
+	// Other configuration keeps its startup hash until a runtime reloads it.
+	return s.generation.staticConfig + "-" + sourceownership.Generation(s.cfg.VaultPath)
 }
 
 func configFilesHash(vaultPath string) string {

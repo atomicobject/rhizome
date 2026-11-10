@@ -41,3 +41,15 @@ func TestConfigGenerationChangesOnEveryConfigurationPublication(t *testing.T) {
 	publish("ignore change")
 	publish("unchanged reload")
 }
+
+func TestConfigGenerationFollowsOwnershipWithoutPublication(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0o755))
+	rt := &LiveRuntime{VaultPath: root}
+	before := rt.Snapshot().ConfigGeneration
+	path := filepath.Join(root, ".rhizome", "source-ownership.yml")
+	require.NoError(t, os.WriteFile(path, []byte("sources: []\n"), 0o644))
+	require.NotEqual(t, before, rt.Snapshot().ConfigGeneration)
+	require.NoError(t, os.Remove(path))
+	require.Equal(t, before, rt.Snapshot().ConfigGeneration)
+}

@@ -149,3 +149,33 @@ func TestViewExecutionBoundToTheCurrentUserIsNotStored(t *testing.T) {
 	require.Len(t, set.Rows, 1, "the configured user's plan shows at the same generation")
 	require.Zero(t, srv.reads.Metrics().Entries)
 }
+
+func TestCachedViewFollowsOwnershipWithoutIndexWrites(t *testing.T) {
+	fixture := prepareOntologyFixtureVault(t)
+	dir := filepath.Join(fixture.root, ".rhizome", "views")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "plans.yaml"), []byte("apiVersion: rhizome.view.v1\nid: plans\nname: Plans\nsource:\n  kind: ontology_type\n  type: Plan\nmount:\n  kind: standalone\nvariants:\n  table:\n    columns:\n      - field: title\n"), 0o644))
+	srv := newFixtureServer(t, fixture, nil)
+	before, response := executeView(t, srv, "plans", appviews.ExecuteRequest{})
+	require.NotEmpty(t, response.Rows)
+	for _, row := range response.Rows {
+		require.Empty(t, row.ReadOnlyReason)
+	}
+	writes, _ := srv.writesGeneration(t.Context())
+	path := filepath.Join(fixture.root, ".rhizome", "source-ownership.yml")
+	require.NoError(t, os.WriteFile(path, []byte("sources:\n  - owner: Synthetic tool\n    reason: Managed externally.\n    paths: [\"**\"]\n"), 0o644))
+	owned, response := executeView(t, srv, "plans", appviews.ExecuteRequest{})
+	require.NotEqual(t, before, owned)
+	for _, row := range response.Rows {
+		require.Contains(t, row.ReadOnlyReason, "Managed externally.")
+	}
+	executeView(t, srv, "plans", appviews.ExecuteRequest{})
+	require.NoError(t, os.Remove(path))
+	_, response = executeView(t, srv, "plans", appviews.ExecuteRequest{})
+	for _, row := range response.Rows {
+		require.Empty(t, row.ReadOnlyReason)
+	}
+	afterWrites, _ := srv.writesGeneration(t.Context())
+	require.Equal(t, writes, afterWrites)
+	require.GreaterOrEqual(t, srv.reads.Metrics().Queries[readQueryHash("view", "plans")].Hits, uint64(1))
+}
