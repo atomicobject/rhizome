@@ -31,9 +31,6 @@ type Execution struct {
 	TrustRoot string
 	// InstallPin means Target is a managed pin to install before running.
 	InstallPin bool
-	// PinFallback is the user's choice, run only once the pin's release is
-	// known to be missing.
-	PinFallback string
 	// ExactBuild means Target's file identity is its build. An external
 	// manager's executable or the user's choice may be a shim.
 	ExactBuild bool
@@ -52,9 +49,15 @@ func Resolve(plan Plan, caller Caller) Execution {
 		}
 	case "global":
 		e.Target, e.FromCaller, e.Reason = caller.Executable, true, "no repository selection"
+		if caller.Chosen != "" {
+			e.Target, e.FromCaller, e.ExactBuild, e.Reason = caller.Chosen, false, false, "chosen for this worktree"
+		}
 	case "managed":
-		e.InstallPin, e.PinFallback = true, caller.Chosen
+		e.InstallPin = true
 		e.Reason = "pinned to Rhizome " + plan.PinnedVersion
+		if caller.Chosen != "" {
+			e.Target, e.InstallPin, e.ExactBuild, e.Reason = caller.Chosen, false, false, "chosen for this worktree"
+		}
 	case "development":
 		switch {
 		case plan.DevApp:
@@ -67,8 +70,8 @@ func Resolve(plan Plan, caller Caller) Execution {
 	}
 	trust := plan.trustPlan(caller.ActsOnPin)
 	e.TrustRoot = trust.trustRoot()
-	if e.TrustRoot != "" && caller.Executable != "" && SameExecutablePath(trust.Target, caller.Executable) {
-		// The caller already runs the selected binary; nothing new runs.
+	if e.TrustRoot != "" && caller.Chosen == "" && caller.Executable != "" && SameExecutablePath(trust.Target, caller.Executable) {
+		// Without an override, the caller already runs the selected binary.
 		e.TrustRoot = ""
 	}
 	return e

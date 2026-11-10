@@ -9,6 +9,7 @@ import {
 } from "./api";
 import { onProviderAccessChanged } from "./ProviderAccess";
 import { Elapsed } from "./Status";
+import { RepositoryRhizome, type RepositoryRhizomeProps } from "./RepositoryRhizome";
 
 /** How long the tab waits after a change before asking for a fresh report. */
 const REFRESH_MS = 250;
@@ -84,7 +85,7 @@ export function RepositorySettings({
   repository,
   worktree,
   onEditRules,
-  onManageInstallation,
+  rhizome,
   onProviderSettings,
   onChanged,
 }: {
@@ -92,7 +93,7 @@ export function RepositorySettings({
   worktree: string;
   /** Opens What gets indexed for this worktree. */
   onEditRules: () => void;
-  onManageInstallation: () => void;
+  rhizome: RepositoryRhizomeProps;
   /** Shows the app's provider settings, where keys are saved. */
   onProviderSettings: () => void;
   /** Reports whether there are changes that have not been applied. */
@@ -105,6 +106,8 @@ export function RepositorySettings({
   const [plan, setPlan] = useState<SetupPlan | null>(null);
   const [problem, setProblem] = useState<Failure | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [changingVersion, setChangingVersion] = useState(false);
+  const [trustedHere, setTrustedHere] = useState(false);
   const [started, setStarted] = useState<number | null>(null);
   const [applyError, setApplyError] = useState<Failure | null>(null);
   const [result, setResult] = useState<SetupResult | null>(null);
@@ -230,59 +233,81 @@ export function RepositorySettings({
     }
   }
 
+  const versionSection = (
+    <RepositoryRhizome
+      {...rhizome}
+      worktree={{
+        ...rhizome.worktree,
+        trusted: rhizome.worktree.trusted || trustedHere,
+      }}
+      unsupported={problem?.code === "setup_unsupported"}
+      disabled={running || refreshing}
+      onChanging={setChangingVersion}
+      onReload={async () => {
+        reports.current++;
+        setCurrent(null);
+        setPlan(null);
+        setDraft(null);
+        setResult(null);
+        setApplyError(null);
+        await load();
+      }}
+    />
+  );
+
   if (!current || !draft || !plan || !saved) {
     if (!problem) {
       return (
-        <p className="repo-settings-status" role="status">
-          Reading this repository's settings…
-        </p>
+        <>
+          {versionSection}
+          <p className="repo-settings-status" role="status">
+            Reading this repository's settings…
+          </p>
+        </>
       );
     }
     if (problem.code === "trust_required") {
       return (
-        <div className="repo-settings-status">
-          <h2>Trust this worktree?</h2>
-          <p>
-            Its settings are read and changed by the Rhizome executable this worktree selects. Trust
-            is recorded for this worktree only.
-          </p>
-          <p className="path confirmation-path">{worktree}</p>
-          <button
-            className="primary"
-            disabled={refreshing}
-            onClick={() =>
-              void request("trust", { id, worktree })
-                .then(() => load())
-                .catch((cause) => setProblem(failure(cause)))
-            }
-          >
-            Trust and continue
-          </button>
-        </div>
+        <>
+          {versionSection}
+          <div className="repo-settings-status">
+            <h2>Trust this worktree?</h2>
+            <p>
+              Its settings are read and changed by the Rhizome executable this worktree selects.
+              Trust is recorded for this worktree only.
+            </p>
+            <p className="path confirmation-path">{worktree}</p>
+            <button
+              className="primary"
+              disabled={refreshing}
+              onClick={() =>
+                void request("trust", { id, worktree })
+                  .then(() => {
+                    setTrustedHere(true);
+                    return load();
+                  })
+                  .catch((cause) => setProblem(failure(cause)))
+              }
+            >
+              Trust and continue
+            </button>
+          </div>
+        </>
       );
     }
-    const unsupported = problem.code === "setup_unsupported";
     return (
-      <div className="repo-settings-status" role="alert">
-        <h2>
-          {unsupported
-            ? "Rhizome needs an update to change settings from the app"
-            : "Could not read this repository's settings"}
-        </h2>
-        <p>{problem.message}</p>
-        {unsupported && (
-          <p>
-            Update Rhizome under Manage installation, or run <code>rzm init</code> in a terminal in
-            this folder.
-          </p>
+      <>
+        {versionSection}
+        {problem.code !== "setup_unsupported" && (
+          <div className="repo-settings-status" role="alert">
+            <h2>Could not read this repository's settings</h2>
+            <p>{problem.message}</p>
+            <button className="primary" disabled={refreshing} onClick={() => void load()}>
+              Try again
+            </button>
+          </div>
         )}
-        <div className="actions start">
-          {unsupported && <button onClick={onManageInstallation}>Manage installation</button>}
-          <button className="primary" disabled={refreshing} onClick={() => void load()}>
-            Try again
-          </button>
-        </div>
-      </div>
+      </>
     );
   }
 
@@ -310,6 +335,7 @@ export function RepositorySettings({
 
   return (
     <div className="repo-settings">
+      {versionSection}
       <p className="repo-settings-lede">
         Saved in this worktree's files, so everyone who opens the repository gets the same setup.
         Commit the changes after you apply them.
@@ -345,7 +371,10 @@ export function RepositorySettings({
           )}
         </div>
       )}
-      <fieldset className="setup-form" disabled={running}>
+      <fieldset
+        className="setup-form"
+        disabled={running || changingVersion || problem?.code === "setup_unsupported"}
+      >
         <div className={rowClass("workflow")} role="radiogroup" aria-labelledby="repo-workflow">
           <h2 id="repo-workflow">Workflow {rows.includes("workflow") && <ChangedMark />}</h2>
           <div className="choices">
@@ -481,15 +510,6 @@ export function RepositorySettings({
           </dl>
           <button onClick={onEditRules}>Edit rules…</button>
         </div>
-
-        <div className="setup-row">
-          <h2>Rhizome version</h2>
-          <p>
-            {current.pin
-              ? `Rhizome ${current.pin}, pinned for this repository. Everyone who opens it runs this version.`
-              : "Not pinned. This worktree runs the Rhizome the app selects."}
-          </p>
-        </div>
       </fieldset>
 
       <p className="repo-settings-foot hint">
@@ -557,7 +577,7 @@ export function RepositorySettings({
                 {(rows.length > 0 || pending) && (
                   <button
                     className="primary"
-                    disabled={refreshing || !pending || !!problem}
+                    disabled={refreshing || changingVersion || !pending || !!problem}
                     onClick={() => void apply()}
                   >
                     {rows.length > 0 ? "Apply changes" : "Update files"}

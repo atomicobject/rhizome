@@ -19,6 +19,8 @@
 
 ### Fixed
 
+- Repository Settings offers a pin update or the app's Rhizome when an old executable cannot report settings, and reloads after the fix. Its Rhizome version section controls the executable for this worktree on this Mac, keeps the shared pin unchanged, and preserves checkout trust. Explicit worktree choices now take precedence over managed pins in the desktop app.
+
 - Rhizome Desktop no longer dead-ends when a folder's selected Rhizome can't serve it:
   - A worktree pinned to a release that is no longer published offers to update the pin, or, when the app is not newer, to check for app updates or choose an executable for the worktree.
   - The app offers a pin update only to a Rhizome that can read the worktree's index, and says when it could not check.

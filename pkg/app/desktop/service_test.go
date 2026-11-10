@@ -240,36 +240,36 @@ func TestOpenReportsAPinTooOldForDesktopSeparately(t *testing.T) {
 	code(t, err, "runtime_error")
 }
 
-// A pin at or above the app's version has no pin advance, so choosing an
-// executable for the worktree is its way out. The choice applies only once
-// the pin's release is known to be missing, and may be a shim, so Open does
-// not compare build identities.
-func TestOpenUsesTheWorktreeChoiceInsteadOfAnUnpublishedPin(t *testing.T) {
+func TestOpenWorktreeChoiceOverridesPinAndClearingRestoresIt(t *testing.T) {
 	s := testService(t)
 	folder := config(t, repoconfig.LocalRhizomeConfig{Version: "v0.48.0"})
-	_, err := s.Trust(folder)
-	require.NoError(t, err)
 	chosen := workingScript(t, filepath.Join(t.TempDir(), "rzm"))
 	pinned := filepath.Join(folder, ".rhizome", "bin", repoexec.PlatformDir(), repoexec.ExecutableName())
+	installed := 0
 	s.ensurePinned = func(context.Context, appupdate.EnsureOptions) error {
+		installed++
 		workingScript(t, pinned)
 		return nil
 	}
 	s.ensure = func(_ context.Context, opts appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
+		if opts.Executable == chosen {
+			require.Empty(t, opts.BuildID, "a chosen executable may be a shim")
+		}
 		return appruntime.EnsureResult{Spawned: true, Client: &appruntime.Client{Manifest: appruntime.InstanceManifest{HTTPURL: "http://127.0.0.1:4567"}}, Health: appruntime.Health{VaultPath: folder, PID: 123, Mode: appruntime.ModeHeadless, BuildID: opts.BuildID, Version: opts.Executable}}, nil
 	}
+	_, err := s.Open(context.Background(), Request{Folder: folder, Executable: chosen})
+	code(t, err, "trust_required")
+	require.Zero(t, installed)
+	_, err = s.Trust(folder)
+	require.NoError(t, err)
 	result, err := s.Open(context.Background(), Request{Folder: folder, Executable: chosen})
 	require.NoError(t, err)
-	require.Equal(t, pinned, result.Version, "an installable pin wins over a saved choice")
-
-	s.ensurePinned = func(context.Context, appupdate.EnsureOptions) error { return appupdate.ErrReleaseNotFound }
-	s.ensure = func(_ context.Context, opts appruntime.EnsureOptions) (appruntime.EnsureResult, error) {
-		require.Equal(t, chosen, opts.Executable)
-		require.Empty(t, opts.BuildID, "a chosen executable may be a shim")
-		return appruntime.EnsureResult{Spawned: true, Client: &appruntime.Client{Manifest: appruntime.InstanceManifest{HTTPURL: "http://127.0.0.1:4567"}}, Health: appruntime.Health{VaultPath: folder, PID: 123, Mode: appruntime.ModeHeadless, BuildID: "the-real-binary"}}, nil
-	}
-	_, err = s.Open(context.Background(), Request{Folder: folder, Executable: chosen})
+	require.Equal(t, chosen, result.Version)
+	require.Zero(t, installed)
+	result, err = s.Open(context.Background(), Request{Folder: folder})
 	require.NoError(t, err)
+	require.Equal(t, pinned, result.Version)
+	require.Equal(t, 1, installed)
 }
 
 func TestOpenRejectsUnsupportedBuildBeforeSpawn(t *testing.T) {

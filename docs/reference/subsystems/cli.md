@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, parity duties, and review checklist for the CLI layer: thin Cobra commands in cmd/, shared capabilities in pkg/app/operations and CLI workflows in pkg/app/cli."
 reference-kind: guide
-last-verified: 2026-11-09
+last-verified: 2026-11-10
 code-paths:
   - cmd
   - pkg/app/operations
@@ -81,6 +81,7 @@ code-anchors:
 - **`rzm agent *` commands emit JSON** via the shared validation renderer and signal validation failure with exact exit 0/1/2. Human `validate fix --apply` carries a reusable `Confirm` callback through `validationProductRequest`; plan-only runs carry none. Agent apply always sets `NonInteractive` and a nil callback, so JSON surfaces never prompt. `validate fix --action <id-or-issue-key>` (repeatable) and `--from-plan <file>` require `--apply` and thread an exact reviewed selection to `validate.Options.ApplySelection`; the file parser (`ParseValidationApplySelection`) lives in `pkg/app/operations`. Human, agent, and CI commands share the same production runner.
 - **Path handling**: resolve user inputs via `pkg/paths` — `AbsFromInputWithVaultPaths` for filesystem I/O, `ResolveNoteInputWithVaultPaths`/`ResolveCodeInputWithVaultPaths` for (rel, abs) pairs. No ad hoc `filepath.Abs/Rel`; indexes store vault-root-relative paths only (`VaultPaths.RelStrict` family). Legacy `obsidian.NormalizePath`/`AddMdSuffix` are compat-only.
 - **Index diagnostics mirror system-note precedence.** `rzm index --explain` evaluates exact `CONTEXT.md` with the hard visibility matcher and reports its ordinary include/exclude bypass; all other paths retain the unified configured matcher.
+- **Desktop executable choices stay local.** `repoexec.Resolve` lets an explicit desktop worktree choice override a managed pin without installing or changing it. Canonical-checkout trust still gates managed overrides. CLI callers supply no worktree choice and keep normal delegation.
 - **Repo delegation does not own the pinned binary's config schema.** Global dispatch may warn about keys its full loader does not recognize, but it must select the repo binary from the `rhizome` block before that binary performs strict canonical config validation.
 - **Pinned executable resolution has one owner.** `pkg/app/update.ResolveInvocation` resolves the current executable, the pin-gated repo target, and whether the process already has repo identity for both delegation and update. It first uses `LocalRhizomeConfig.UsesExternalBinaryManager`: external ownership trusts the current executable and produces no Rhizome repo target, while unknown or mixed ownership fails. Otherwise, a non-empty `rhizome.version` creates repo target ownership; `binaryPath`/`binaryDir` only choose its logical destination. File identity may classify the invocation, but mutation planning deduplicates logical pathnames rather than inode or symlink identity.
 - **Unix delegation preserves process ownership.** Replace the launcher process with the pinned executable so supervisor signals reach the actual command once and its PID, terminal, and standard streams remain owned by that command. Windows retains its console-backed child and waits for its exit.

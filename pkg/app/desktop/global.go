@@ -14,9 +14,10 @@ import (
 var desktopExecutable = os.Executable
 
 type GlobalInfo struct {
-	Path    string `json:"path"`
-	Version string `json:"version"`
-	Bundled bool   `json:"bundled"`
+	Path        string `json:"path"`
+	Version     string `json:"version"`
+	Bundled     bool   `json:"bundled"`
+	BundledPath string `json:"bundledPath,omitempty"`
 }
 
 func (s *Service) globalExecutable(override string) (string, error) {
@@ -56,6 +57,12 @@ func (s *Service) globalExecutable(override string) (string, error) {
 
 func (s *Service) GlobalStatus(ctx context.Context, override string) (GlobalInfo, error) {
 	info := GlobalInfo{}
+	if own, err := desktopExecutable(); err == nil {
+		info.BundledPath, err = bundledExecutable(own)
+		if err != nil {
+			return info, err
+		}
+	}
 	target, err := s.globalExecutable(override)
 	if err != nil {
 		return info, err

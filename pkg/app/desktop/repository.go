@@ -25,6 +25,7 @@ type Worktree struct {
 	Trusted       bool      `json:"trusted"`
 	TrustRequired bool      `json:"trustRequired"`
 	Authority     string    `json:"authority,omitempty"`
+	PinnedVersion string    `json:"pinnedVersion,omitempty"`
 	Executable    string    `json:"executable,omitempty"`
 	Error         string    `json:"error,omitempty"`
 	PinOffer      *PinOffer `json:"pinOffer,omitempty"`
@@ -140,7 +141,7 @@ func (s *Service) repository(repo Repository, worktrees []gitWorktree, primary s
 		if w.Error == "" {
 			info, err := s.Inspect(wt.path)
 			w.Configured, w.Trusted, w.TrustRequired, w.Authority, w.Executable = info.Configured, info.Trusted, info.TrustRequired, info.Authority, info.Executable
-			w.PinOffer = info.PinOffer
+			w.PinOffer, w.PinnedVersion = info.PinOffer, info.PinnedVersion
 			if err != nil {
 				w.Error = err.Error()
 			}

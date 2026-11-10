@@ -159,11 +159,14 @@ async function repositoryMenu() {
   );
   return lastMenu();
 }
-function present(runtimes: Record<string, { state: "running" | "starting" | "stopped" }> = {}) {
+function present(
+  runtimes: Record<string, { state: "running" | "starting" | "stopped" }> = {},
+  info = discovery,
+) {
   act(() =>
     emit({
       type: "presence",
-      repositories: { [repository.id]: { info: discovery } },
+      repositories: { [repository.id]: { info } },
       runtimes: Object.fromEntries(
         Object.entries(runtimes).map(([path, { state }]) => [path, { state, mode: null }]),
       ),
@@ -311,7 +314,7 @@ describe("desktop shell", () => {
     expect(screen.getByRole("tab", { name: /project/ })).toHaveAttribute("aria-selected", "true");
     expect(
       await screen.findByRole("heading", {
-        name: "Rhizome needs an update to change settings from the app",
+        name: "This repository's Rhizome is too old to change settings here",
       }),
     ).toBeVisible();
     expect(call).toHaveBeenCalledWith("settings-report", { id: repository.id, worktree: main });
@@ -1446,4 +1449,71 @@ it("shows runtime provider reports in Settings and restarts that worktree throug
   await waitFor(() =>
     expect(call).toHaveBeenCalledWith("restart", { id: repository.id, worktree: main }),
   );
+});
+
+it("selects the bundled Rhizome, restarts the runtime, and reloads repository settings", async () => {
+  const managedInfo: Discovery = {
+    ...discovery,
+    worktrees: discovery.worktrees.map((w) => ({
+      ...w,
+      authority: "managed",
+      pinnedVersion: "v0.51.0",
+    })),
+  };
+  let picked = false;
+  let reads = 0;
+  const bundled = "/Applications/Test Rhizome.app/Contents/MacOS/rzm";
+  const updated = {
+    ...library,
+    revision: 2,
+    repositories: [{ ...repository, executables: { [main]: bundled } }],
+  };
+  start(undefined, (operation) => {
+    if (operation === "discover") return managedInfo;
+    if (operation === "global-status") return { path: bundled, version: "v0.51.0", bundled: true };
+    if (operation === "settings-report") {
+      reads++;
+      throw {
+        code: picked ? "settings_failed" : "setup_unsupported",
+        message: picked ? "Report reached the new executable" : "Too old",
+      };
+    }
+    if (operation === "set-executable") {
+      picked = !picked;
+      return picked ? updated : library;
+    }
+    if (operation === "restart") return null;
+    if (operation === "open" && picked) return { generation: ++generation, library: updated };
+    return undefined;
+  });
+  await waitFor(() => expect(opened()).toHaveLength(1));
+  present({ [main]: { state: "running" } }, managedInfo);
+  const item = (await repositoryMenu()).find((entry) => entry.label === "Repository Settings…")!;
+  act(() => emit({ type: "menu", id: item.id! }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Use the app's Rhizome for this repository" }),
+  );
+  expect(await screen.findByText("Report reached the new executable")).toBeVisible();
+  expect(reads).toBe(2);
+  expect(call).toHaveBeenCalledWith("set-executable", {
+    id: repository.id,
+    worktree: main,
+    executable: bundled,
+  });
+  expect(call).toHaveBeenCalledWith("restart", { id: repository.id, worktree: main });
+  expect(screen.getByRole("radio", { name: /The app's Rhizome/ })).toBeChecked();
+  fireEvent.click(screen.getByRole("radio", { name: /Pinned version/ }));
+  await waitFor(() =>
+    expect(call).toHaveBeenCalledWith("set-executable", {
+      id: repository.id,
+      worktree: main,
+      executable: null,
+    }),
+  );
+  expect(
+    await screen.findByRole("heading", {
+      name: "This repository's Rhizome is too old to change settings here",
+    }),
+  ).toBeVisible();
+  expect(call.mock.calls.filter(([op]) => op === "restart")).toHaveLength(2);
 });

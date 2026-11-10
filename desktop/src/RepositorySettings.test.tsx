@@ -126,11 +126,33 @@ function calls(operation: string) {
 function tab(props: Partial<Parameters<typeof RepositorySettings>[0]> = {}) {
   const handlers = {
     onEditRules: vi.fn(),
-    onManageInstallation: vi.fn(),
     onProviderSettings: vi.fn(),
     onChanged: vi.fn(),
   };
-  render(<RepositorySettings repository={id} worktree={worktree} {...handlers} {...props} />);
+  render(
+    <RepositorySettings
+      repository={id}
+      worktree={worktree}
+      rhizome={{
+        name: "acme",
+        worktree: {
+          path: worktree,
+          configured: true,
+          hasDatabase: true,
+          trusted: true,
+          trustRequired: false,
+          authority: "managed",
+          pinnedVersion: "v0.51.0",
+        },
+        app: { path: "/app/rzm", version: "v0.51.0", bundled: true },
+        onSelect: vi.fn().mockResolvedValue(undefined),
+        onChoose: vi.fn().mockResolvedValue(false),
+        onAdvance: vi.fn().mockResolvedValue(undefined),
+      }}
+      {...handlers}
+      {...props}
+    />,
+  );
   return handlers;
 }
 beforeEach(() => vi.resetAllMocks());
@@ -144,7 +166,7 @@ describe("repository settings", () => {
     expect(screen.getByRole("checkbox", { name: /Compounding/ })).not.toBeChecked();
     expect(screen.getByRole("checkbox", { name: /Claude Code/ })).toBeChecked();
     expect(screen.getByLabelText("Search")).toHaveValue("voyage");
-    expect(screen.getByText(/Rhizome v0.51.0, pinned for this repository/)).toBeVisible();
+    expect(screen.getByRole("radio", { name: /Pinned version, v0.51.0/ })).toBeChecked();
     expect(screen.queryByRole("region", { name: "Unapplied changes" })).toBeNull();
     expect(calls("settings-report")).toEqual([{ id, worktree }]);
     fireEvent.click(screen.getByRole("button", { name: "Edit rules…" }));
@@ -362,15 +384,17 @@ describe("repository settings", () => {
         return null;
       },
     });
-    const { onManageInstallation } = tab();
+    tab();
     fireEvent.click(await screen.findByRole("button", { name: "Trust and continue" }));
     expect(
       await screen.findByRole("heading", {
-        name: "Rhizome needs an update to change settings from the app",
+        name: "This repository's Rhizome is too old to change settings here",
       }),
     ).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Manage installation" }));
-    expect(onManageInstallation).toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Manage installation" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Use the app's Rhizome for this repository" }),
+    ).toHaveClass("primary");
     expect(calls("trust")).toEqual([{ id, worktree }]);
   });
 });

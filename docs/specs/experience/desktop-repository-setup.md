@@ -3,7 +3,7 @@ type: ExperienceSpec
 id: SPEC-0118
 summary: "Rhizome Desktop sets up an unconfigured worktree from one review sheet backed by rzm init's machine-readable report, lets a person change a set-up repository's workflow, add-ons, agents, and search provider from a Settings tab, and gives every repository a page for administering what gets indexed, including rules inherited from .gitignore."
 spec-status: proposed
-last-updated: 2026-11-09
+last-updated: 2026-11-10
 aliases:
   - SPEC-0118
 ---
@@ -39,7 +39,7 @@ The app does not reimplement setup. Each step runs the Rhizome executable that o
 - A path tester that explains why one path is indexed or skipped. `rzm index --explain` remains the tool for that.
 - Choosing an external binary manager in the app. `rzm init --binary-manager external` remains a terminal option.
 - Streaming progress from inside `rzm init`. Setup shows one progress state with elapsed time.
-- Setup for an executable older than the release that ships these contracts. Like [[rhizome-desktop|SPEC-0113]], the app carries no compatibility behavior for older Rhizome versions. It names the missing capability and offers Manage installation.
+- Setup for an executable older than the release that ships these contracts. Like [[rhizome-desktop|SPEC-0113]], the app carries no compatibility behavior for older Rhizome versions. Setup names the missing capability and offers Manage installation. Repository Settings offers the local remedies in US3.
 - Windows and Linux desktop builds.
 
 ## User Stories
@@ -95,11 +95,12 @@ The app does not reimplement setup. Each step runs the Rhizome executable that o
 #### Acceptance Criteria
 
 - Settings has two tabs when the window shows a repository: one for Rhizome on this Mac, holding the existing app settings, and one named for the repository and its worktree. The repository's options menu has "Repository Settings…" in place of "What Gets Indexed…", and it opens Settings on the repository tab. Settings opened another way shows the tab last chosen.
-- The repository tab reads the current choices from the worktree's selected executable and shows them in the setup sheet's rows: workflow, add-ons (optional add-ons included, so an installed one is never hidden), agents, and semantic search with each provider's readiness. It also shows the pinned Rhizome version, and a What gets indexed row whose Edit rules action opens the page from US2.
+- The repository tab reads the current choices from the worktree's selected executable and shows them in the setup sheet's rows: workflow, add-ons (optional add-ons included, so an installed one is never hidden), agents, and semantic search with each provider's readiness. It also shows a What gets indexed row whose Edit rules action opens the page from US2.
+- A Rhizome version section stays at the top even when the settings report fails. Managed worktrees offer Pinned version with the version from `.rhizome/config.yml`, The app's Rhizome, and Another executable through the existing file picker. The active choice shows a capability warning when it cannot report settings. Trusted worktrees say "Trusted on this Mac". Source checkouts show their development build without ineffective choices; external and global authority name their default execution instead of offering a pin. The app choice uses the bundled executable even when a global override exists, falls back to the app's global executable for portable installs, and is hidden when neither exists. An advance offer also appears inline when settings are readable.
 - Changing a choice marks its row as changed and offers Undo for that row. A bar at the bottom names the number of changed rows, lists the changes and every file they write, and offers Discard and Apply changes. The list refreshes when a choice changes and shows that it is refreshing. Generated files that are out of date are listed too, so the bar also appears when there is nothing to change but Rhizome has updates for this repository.
 - Choosing a provider that is not ready says why and links to the app's provider settings, where its key is saved.
 - Apply changes runs the worktree's selected executable once with the chosen options. While it runs, other changes are disabled. On success, the tab reloads the choices, shows what was written in the summary lines the terminal prints, names files someone edited that were kept, and asks the person to commit the changed paths.
-- Errors from the executable are shown on the tab with its message, and the choices stay as the person left them. When the executable lacks these contracts, the tab says Rhizome needs an update to change settings from the app, offers Manage installation, and mentions `rzm init` in a terminal. Trust is required as for opening the worktree.
+- Errors from the executable are shown on the tab with its message, and the choices stay as the person left them. When the executable lacks these contracts, the tab says "This repository's Rhizome is too old to change settings here" and names the version or executable. If the settings report cannot be read, the tab shows no settings data. It offers "Update <repository> to <available>" when the worktree has an advance offer, with "Use the app's Rhizome instead" as a secondary action. Otherwise, "Use the app's Rhizome for this repository" is primary when that executable is available. Updating changes `.rhizome/config.yml`, switches an explicit local override back to the pin, and asks the person to commit it. The local executable choice changes only this Mac and keeps the shared pin. Both actions reload the tab after success. The terminal fallback is `rzm init` in this folder. Try again remains for other report failures. Trust is required as for opening the worktree.
 
 ## Requirements
 
@@ -136,6 +137,7 @@ The app does not reimplement setup. Each step runs the Rhizome executable that o
 - A key MUST travel from the shell to the executable only through command payloads and standard input. It MUST NOT be stored by the app, placed in process arguments or environment variables, or logged by the shell, native layer, or bridge.
 - Setup MUST record trust for the worktree's canonical checkout, through the same trust store as the Trust action, whenever the folder's configuration exists after the setup run, even if a later step failed. It MUST NOT record trust when no configuration was written.
 - Repository settings MUST be reported and applied through the worktree's selected executable, after trust, with the same `setup_unsupported` probe pattern. A settings apply MUST NOT accept a key.
+- An explicit desktop worktree executable MUST take precedence over a managed pin for opening, settings, and index scope, without installing or changing the pin. Clearing the choice MUST restore the repository selection. Managed overrides MUST retain canonical-checkout trust through the shared repoexec execution decision. The CLI's delegation MUST stay unchanged. Running worktrees MUST restart after the choice changes, while the repository Settings tab stays open.
 - Setup, settings, and index-scope edits for one worktree MUST be serialized with that worktree's other open, trust, and setup work, as `Initialize` is today.
 - Only shell webviews MAY invoke these operations. Repository content webviews remain without native command permissions.
 
