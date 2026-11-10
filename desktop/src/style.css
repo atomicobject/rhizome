@@ -1060,6 +1060,17 @@ label.choice {
   padding: 12px 0 0;
   border-top: 1px solid var(--border);
 }
+.repo-rhizome {
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.repo-rhizome h2 {
+  margin-bottom: 12px;
+}
+.repo-rhizome .hint {
+  margin-top: 8px;
+}
 .repo-settings-status {
   display: flex;
   flex-direction: column;

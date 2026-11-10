@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
+	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
 
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
@@ -328,5 +329,38 @@ func TestSetupProtocolRejectsUnknownNestedFields(t *testing.T) {
 		var output bytes.Buffer
 		err := Serve(context.Background(), testService(t), strings.NewReader(request), &output)
 		code(t, err, "invalid_request")
+	}
+}
+
+func TestManagedWorktreeChoiceRunsSettingsAndScopeAfterTrust(t *testing.T) {
+	for _, operation := range []string{"settings-report", "settings-apply", "scope", "scope-edit"} {
+		t.Run(operation, func(t *testing.T) {
+			s := testService(t)
+			req, args := setupFixture(t, `echo '{"schema":1}'`)
+			require.NoError(t, repoconfig.SaveLocalConfig(req.Folder, repoconfig.LocalConfig{Rhizome: repoconfig.LocalRhizomeConfig{Version: "v0.51.0"}}))
+			req.Operation, req.Executable, req.GlobalExecutable = operation, req.GlobalExecutable, "/must-not-run"
+			if operation == "settings-apply" {
+				req.Settings = &SettingsChoices{}
+			}
+			if operation == "scope-edit" {
+				req.Edits = &ScopeEdits{}
+			}
+			response := s.Handle(context.Background(), req)
+			require.NotNil(t, response.Error)
+			require.Equal(t, "trust_required", response.Error.Code)
+			require.NoFileExists(t, args)
+			_, err := s.Trust(req.Folder)
+			require.NoError(t, err)
+			s.ensurePinned = func(context.Context, appupdate.EnsureOptions) error {
+				t.Fatal("an explicit choice must not install the pin")
+				return nil
+			}
+			response = s.Handle(context.Background(), req)
+			require.Nil(t, response.Error)
+			require.FileExists(t, args)
+			info, err := s.Repository(req.Folder, "")
+			require.NoError(t, err)
+			require.Equal(t, "v0.51.0", info.Worktrees[0].PinnedVersion)
+		})
 	}
 }

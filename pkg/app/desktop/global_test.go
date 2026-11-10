@@ -27,7 +27,7 @@ func TestBundledGlobalExecutableUsesInvokingBundleUnlessOverridden(t *testing.T)
 	require.Equal(t, resolved, chosen)
 	status, err := s.GlobalStatus(context.Background(), "")
 	require.NoError(t, err)
-	require.Equal(t, GlobalInfo{Path: resolved, Version: "v1.2.3", Bundled: true}, status)
+	require.Equal(t, GlobalInfo{Path: resolved, Version: "v1.2.3", Bundled: true, BundledPath: resolved}, status)
 	override := workingScript(t, filepath.Join(t.TempDir(), "override-rzm"))
 	chosen, err = s.globalExecutable(override)
 	require.NoError(t, err)
@@ -35,6 +35,7 @@ func TestBundledGlobalExecutableUsesInvokingBundleUnlessOverridden(t *testing.T)
 	status, err = s.GlobalStatus(context.Background(), override)
 	require.NoError(t, err)
 	require.False(t, status.Bundled)
+	require.Equal(t, resolved, status.BundledPath)
 }
 
 func TestLinuxGlobalExecutableIsTheRzmBesideTheDesktopApp(t *testing.T) {

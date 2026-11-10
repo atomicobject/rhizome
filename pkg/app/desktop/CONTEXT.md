@@ -57,9 +57,10 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   is app-owned, so selecting it needs no trust even in a pinned source
   checkout: desktop runs only serve, scope, and seeding with it, none of which
   act on the pin. (CLI dispatch keeps trust there, because `init` and `update`
-  do.) A per-worktree executable the user chose runs for an external
-  worktree, and for a managed one only once its pin's release is known to be
-  missing; an installable pin wins. Open compares no build identity for a
+  do.) A per-worktree executable the user chose takes precedence over a managed
+  pin, external manager fallback, or global fallback on this Mac. Clearing it
+  restores the repository selection. A managed override still requires the same
+  canonical-checkout trust; it never installs or changes the pin. Open compares no build identity for a
   chosen executable, since it may be a shim. Only explicit initialization
   writes setup files; opening an unconfigured folder never initializes it.
 - Verified running status also carries optional runtime version and provider-access reports. Constructed Voyage and last constructed Jev access are distinct from the next-construction decision in that runtime's environment. An older runtime without reports is unknown; desktop never substitutes its own credential report as actual repository routing.
@@ -74,6 +75,14 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   `setup_partial` when the folder is configured after the failed run, so the
   shell offers opening instead of a setup that can no longer run. A run that
   outlives its deadline reports that it timed out.
+- The repository Settings tab always shows Rhizome version and local trust before
+  reading settings. Discovery includes `pinnedVersion` even without a pin offer.
+  Managed repositories can use the pin, the app's executable, or a file-picker
+  choice. Source builds show their development authority without ineffective
+  overrides. A missing settings capability offers a pin advance when available,
+  or a local app-executable choice, and reloads after success. It shows no
+  settings data when the selected executable cannot report it. Executable changes
+  restart running worktrees and preserve the repository Settings tab.
 - Settings-report and settings-apply change a set-up repository
   (SPEC-0118 US3): they require configuration and trust, prepare the
   worktree's selected executable, and probe `init --help` for "repository
@@ -259,13 +268,14 @@ The result retains the existing repository fields and adds only the optional
     "trusted": true,
     "trustRequired": false,
     "authority": "managed",
+    "pinnedVersion": "v1.2.3",
     "pinOffer": {"state":"advance","pinned":"v1.2.3","available":"v1.3.0"}
   }]
 }
 ```
 
 Repository `defaultBranch` and `subpath` are optional strings. Worktree
-`branch`, `head`, `authority`, `executable`, and `error` are optional strings;
+`branch`, `head`, `authority`, `pinnedVersion`, `executable`, and `error` are optional strings;
 `main` is an optional boolean omitted when false. Each worktree computes its
 own offer, so linked worktrees with different pins may show different states.
 The same shape appears under `status` results at
@@ -276,7 +286,9 @@ The same shape appears under `status` results at
 Request: `{"protocol":1,"operation":"global-status"}`. Optional
 `"globalExecutable":"/absolute/rzm"` selects an explicit override.
 
-Result: `{"path":"/Applications/Rhizome.app/Contents/MacOS/rzm","version":"v1.3.0","bundled":true}`.
+Result: `{"path":"/Applications/Rhizome.app/Contents/MacOS/rzm","version":"v1.3.0","bundled":true,"bundledPath":"/Applications/Rhizome.app/Contents/MacOS/rzm"}`.
+`bundledPath`, when present, always names this app's companion, even when `path`
+is a global override. Repository Settings prefers it for The app's Rhizome.
 `bundled` means the selected executable is owned by a recognized macOS bundle or
 Windows/Linux installation image. With no executable found, the result is `{"path":"","version":"","bundled":false}`.
 The `managedPath`, `installed`, and `canUpdate` fields and the `global-install`
