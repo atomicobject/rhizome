@@ -14,6 +14,17 @@ type docState struct {
 	stale    []string
 }
 
+func checkDocUnchanged(projectRoot string, doc generatedDoc, state docState) error {
+	current, exists, err := readIfExists(filepath.Join(projectRoot, filepath.FromSlash(doc.rel)))
+	if err != nil {
+		return err
+	}
+	if exists != state.exists || string(current) != state.existing {
+		return fmt.Errorf("%s changed while setup was being prepared; retry setup", doc.rel)
+	}
+	return nil
+}
+
 // declinedRemoval marks a removal someone chose not to make.
 const declinedRemoval = "keep"
 
@@ -285,6 +296,9 @@ func applyFileChange(projectRoot string, file generatedFile, c *change, record *
 }
 
 func applyDocChanges(projectRoot string, doc generatedDoc, state docState, byKey map[string]*change, record *generatedFiles, report *syncReport) error {
+	if err := checkDocUnchanged(projectRoot, doc, state); err != nil {
+		return err
+	}
 	for _, block := range doc.blocks {
 		c := byKey[doc.rel+"#"+block.key]
 		switch {

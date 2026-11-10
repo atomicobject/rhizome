@@ -53,7 +53,8 @@ func shouldDropVaultRelPath(path string) bool {
 	if strings.TrimSpace(path) == "" {
 		return false
 	}
-	p := strings.ToLower(filepath.ToSlash(filepath.Clean(path)))
+	rel := filepath.ToSlash(filepath.Clean(path))
+	p := strings.ToLower(rel)
 	// Git metadata is never vault content, even when a .rhizome/ignore file
 	// replaces the default ignores; a periodic fetch would otherwise refresh
 	// every open view.
@@ -70,29 +71,12 @@ func shouldDropVaultRelPath(path string) bool {
 	if p == ".rhizome/config.yml" || p == ".rhizome/ignore" {
 		return false
 	}
-	if assetroots.IsAssetPath(p, assetroots.Ontology) && strings.HasSuffix(p, ".graphql") {
+	if assetroots.IsAssetPath(rel, assetroots.Ontology) && strings.HasSuffix(rel, ".graphql") {
 		return false
 	}
-	// A module's folders can appear after startup; non-recursive backends
+	// Ontology folders can appear after startup; non-recursive backends
 	// only watch them if their create events get through.
-	return !isModuleOntologyAncestor(p)
-}
-
-// isModuleOntologyAncestor reports whether p is `.rhizome/modules`, a module
-// folder, or a module's ontology folder.
-func isModuleOntologyAncestor(p string) bool {
-	if p == assetroots.ModulesDir {
-		return true
-	}
-	rest, ok := strings.CutPrefix(p, assetroots.ModulesDir+"/")
-	if !ok {
-		return false
-	}
-	module, kind, nested := strings.Cut(rest, "/")
-	if !assetroots.ValidModuleName(module) {
-		return false
-	}
-	return !nested || kind == string(assetroots.Ontology)
+	return !assetroots.IsAssetRootOrAncestor(rel, assetroots.Ontology)
 }
 
 func hasPathSegment(path, segment string) bool {

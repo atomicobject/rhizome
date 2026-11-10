@@ -17,7 +17,9 @@ Add-Type -Path (Join-Path $PSScriptRoot 'portability-windows.cs')
 
 function Save-WindowEvidence([Diagnostics.Process]$Process, [string]$Stage, [IntPtr]$ApplicationWindow = [IntPtr]::Zero) {
     if ($ApplicationWindow -eq [IntPtr]::Zero) {
-        $applications = @([DesktopPortabilityWindows]::ApplicationWindows($Process.Id))
+        $applications = @([DesktopPortabilityWindows]::Owned($Process.Id) | Where-Object {
+            -not [DesktopPortabilityWindows]::ToolWindow($_)
+        })
         if ($applications.Count -gt 0) { $ApplicationWindow = $applications[0] }
     }
     @{
@@ -27,6 +29,9 @@ function Save-WindowEvidence([Diagnostics.Process]$Process, [string]$Stage, [Int
         foregroundWindow = [DesktopPortabilityWindows]::Describe([DesktopPortabilityWindows]::GetForegroundWindow())
         focus = [DesktopPortabilityWindows]::FocusEvidence($ApplicationWindow)
         newWindowMenu = [DesktopPortabilityWindows]::NewWindowMenu($ApplicationWindow)
+        ownedWindows = @([DesktopPortabilityWindows]::Owned($Process.Id) | ForEach-Object {
+            [DesktopPortabilityWindows]::Describe($_)
+        })
         visibleWindows = @([DesktopPortabilityWindows]::Visible($Process.Id) | ForEach-Object {
             [DesktopPortabilityWindows]::Describe($_)
         })
@@ -79,7 +84,9 @@ function Wait-VisibleChildFocus([Diagnostics.Process]$Process, [IntPtr]$Window) 
 }
 
 $previousState = [Environment]::GetEnvironmentVariable('RHIZOME_DESKTOP_DATA_DIR', 'Process')
+$previousTrace = [Environment]::GetEnvironmentVariable('RHIZOME_DESKTOP_STARTUP_TRACE', 'Process')
 $env:RHIZOME_DESKTOP_DATA_DIR = Join-Path $output ('state-' + [Guid]::NewGuid().ToString('N'))
+$env:RHIZOME_DESKTOP_STARTUP_TRACE = '1'
 $process = $null
 $targetWindow = [IntPtr]::Zero
 try {
@@ -155,6 +162,7 @@ try {
     throw $failure
 } finally {
     [Environment]::SetEnvironmentVariable('RHIZOME_DESKTOP_DATA_DIR', $previousState, 'Process')
+    [Environment]::SetEnvironmentVariable('RHIZOME_DESKTOP_STARTUP_TRACE', $previousTrace, 'Process')
     if ($null -ne $process) {
         $process.Refresh()
         if (-not $process.HasExited) {

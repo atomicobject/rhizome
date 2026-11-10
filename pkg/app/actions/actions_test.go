@@ -203,3 +203,29 @@ func TestScriptEnvelopeForEachResult(t *testing.T) {
 		})
 	}
 }
+
+func TestSelectedExecutableReachesCommandActions(t *testing.T) {
+	skipWindows(t)
+	root := repo(t, map[string]string{".rhizome/modules/demo/actions/check.yaml": shAction(`printf '{"rzm":"%s","skip":"%s","delegated":"%s"}' "$RZM" "$RZM_SKIP_REPO_DELEGATE" "$RZM_REPO_DELEGATED"`, "")})
+	r := &Runner{RepoRoot: root, Trust: trusted, Rzm: "/absolute/selected/rzm"}
+	result, err := r.Run(context.Background(), "demo/check", nil)
+	require.NoError(t, err)
+	require.Equal(t, StatusOK, result.Status, result.Reason)
+	require.JSONEq(t, `{"rzm":"/absolute/selected/rzm","skip":"1","delegated":"1"}`, string(result.Result))
+}
+
+func TestOnlyLifecycleRunnerGrantsAbandonedLockRecovery(t *testing.T) {
+	skipWindows(t)
+	t.Setenv("RZM_MODULE_LIFECYCLE", "1")
+	root := repo(t, map[string]string{".rhizome/modules/demo/actions/check.yaml": shAction(`printf '{"lifecycle":"%s"}' "$RZM_MODULE_LIFECYCLE"`, "")})
+	r := &Runner{RepoRoot: root, Trust: trusted}
+	result, err := r.Run(context.Background(), "demo/check", nil)
+	require.NoError(t, err)
+	require.Equal(t, StatusOK, result.Status, result.Reason)
+	require.JSONEq(t, `{"lifecycle":""}`, string(result.Result))
+	r.Lifecycle = true
+	result, err = r.Run(context.Background(), "demo/check", nil)
+	require.NoError(t, err)
+	require.Equal(t, StatusOK, result.Status, result.Reason)
+	require.JSONEq(t, `{"lifecycle":"1"}`, string(result.Result))
+}

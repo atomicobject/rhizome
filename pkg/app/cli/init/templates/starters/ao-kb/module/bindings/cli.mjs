@@ -3,11 +3,12 @@ import {parseArgs} from 'node:util';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
-import {mkdir, realpath, rm} from 'node:fs/promises';
+import {realpath} from 'node:fs/promises';
 import {refresh, check, atomic} from './publish.mjs';
 import {json, readJSON, run, adapter} from './runtime.mjs';
 import {indexSignature} from './knowledge.mjs';
-import {verifyIndex} from './verify-index.mjs';
+import {verifyIndex, verifyKnowledgeIndex} from './verify-index.mjs';
+import {acquire} from './lock.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 try {
@@ -41,8 +42,7 @@ try {
     process.stdout.write(json(report));
     if (!report.bindingsReady) process.exitCode = 1;
   } else {
-    const lock = path.join(directory, 'refresh.lock');
-    await mkdir(lock);
+    const lock = await acquire(directory);
     try {
       const before = await check({root, directory});
       if (!before.bindingsReady) throw new Error('ao_bindings_stale: refresh bindings before indexing');
@@ -55,6 +55,7 @@ try {
       const signature = await signed();
       run(process.env.RZM || 'rzm', ['index'], {cwd: root, timeout: 0});
       if (model) await verifyIndex(root, await adapter(root, directory, selected, {offline: true}));
+      await verifyKnowledgeIndex(root);
       const after = await check({root, directory});
       const current = await readJSON(path.join(directory, 'manifest.json'));
       const currentKnowledge = await readJSON(path.join(directory, 'knowledge-manifest.json'));
@@ -64,12 +65,13 @@ try {
         ? {formatVersion: 1, fingerprint: manifest.fingerprint, knowledgeFingerprint: knowledge.fingerprint, sdlHash: manifest.sdlHash, sourceSignature}
         : {formatVersion: 1, model: 'not applicable', knowledgeFingerprint: knowledge.fingerprint, sourceSignature}));
       process.stdout.write(json({...after, indexReady: true}));
-    } finally { await rm(lock, {recursive: true, force: true}); }
+    } finally { await lock.release(); }
   }
 } catch (error) {
   process.stdout.write(json({starterInstalled: true, bindingsReady: false, indexReady: false,
     knowledgeReady: Boolean(error.knowledgeReady), modelReady: false,
     bindings: {knowledge: {ready: Boolean(error.knowledgeReady), status: error.knowledgeReady ? 'ready' : 'incomplete'}, model: {ready: false, status: 'incomplete'}},
     diagnostics: error.diagnostics || [{code: error.message.split(':')[0], severity: 'error', message: error.message}]}));
+  console.error(error.diagnostics?.map(d => d.message).join("\n") || error.message);
   process.exitCode = 1;
 }

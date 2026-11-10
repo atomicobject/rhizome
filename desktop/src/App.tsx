@@ -686,6 +686,8 @@ export function App() {
         run?.();
       } else if (message.type === "finder") {
         chooseInFinder(message);
+      } else if (message.type === "repository-settings") {
+        showSettings("repository", { repository: message.repository, worktree: message.worktree });
       } else if (message.type === "settings") {
         settingsHeard.current = true;
         setAppSettings(message.settings);

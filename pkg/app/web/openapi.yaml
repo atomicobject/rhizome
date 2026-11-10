@@ -568,6 +568,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OntologyQuerySchemaResponse"
+  /api/v1/starter-readiness:
+    get:
+      operationId: starterReadiness
+      summary: Read installed starter setup status without running setup
+      responses:
+        '200':
+          description: Runtime-owned snapshots, available even when GraphQL is broken
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StarterReadiness'
+  /api/v1/starter-readiness/{module}:
+    post:
+      operationId: recoverStarter
+      summary: Queue a recovery offered by the current module snapshot
+      parameters:
+        - in: path
+          name: module
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [kind]
+                  properties:
+                    kind: {type: string, enum: [retry]}
+                - type: object
+                  required: [kind, value]
+                  properties:
+                    kind: {type: string, enum: [choice]}
+                    value: {type: string}
+      responses:
+        '202':
+          description: Recovery queued on the runtime lifetime
+        '409':
+          description: The current snapshot does not offer this recovery
   /api/v1/status:
     get:
       operationId: getPublicStatus
@@ -1722,6 +1764,33 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
   schemas:
+    StarterReadiness:
+      type: object
+      required: [module, title, state]
+      properties:
+        module: {type: string}
+        title: {type: string}
+        state: {type: string, enum: [checking, working, required_input, blocked, failed, ready]}
+        reason: {type: string}
+        recovery:
+          type: array
+          items:
+            $ref: '#/components/schemas/StarterRecovery'
+    StarterRecovery:
+      oneOf:
+        - type: object
+          required: [kind, label, input, choices]
+          properties:
+            kind: {type: string, enum: [choice]}
+            label: {type: string}
+            input: {type: string}
+            choices: {type: array, items: {type: string}}
+        - type: object
+          required: [kind, label]
+          properties:
+            kind: {type: string, enum: [retry, trust, install, review]}
+            label: {type: string}
+            paths: {type: array, items: {type: string}}
     ViewPreferenceContext:
       type: object
       additionalProperties: false

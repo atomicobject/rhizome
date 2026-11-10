@@ -6,6 +6,8 @@
 - Custom views can render Markdown: `MarkdownDocument` and `markdownLinks` from `@rhizome/kit/markdown` render a whole document with GitHub-flavored Markdown, highlighted code, and Mermaid, resolve note links through the view, and highlight the block holding a chosen link. The AO KB Knowledge site renders record bodies and claims with it, so fenced code, lists, tables, emphasis, and reference links read as written, and "Open in source" highlights exactly the block holding the first link to the assertion.
 - The AO KB add-on no longer makes KB notes read-only. Assertions, sources, concepts, artifacts, maps of content, submissions, and curation documents are edited through Rhizome's editors like any other note; `rzm ao-kb refresh-bindings` lifts the add-on's former read-only declaration from an existing installation while keeping entries other tools declared, and `rzm ao-kb check` reports one still in place. YAML and JSON model records stay read-only.
 - Whole-file Markdown saves clear the transferred draft so a successful save leaves edit mode, while preserving newer typing.
+- Stopping a just-started runtime waits for its detached child to exit before repository cleanup.
+- Installed starters now complete eligible setup and indexing automatically through the runtime. Unfinished setup stays visible across navigation and reopening, with product selection, concrete conflict and dependency reasons, Settings recovery, and Retry. CLI installations use the same readiness owner; existing schemas and AO knowledge remain intact.
 - Refine Agentic Engineering Delivery lists, source notices, sorting, and contextual navigation; load Markdown tooling only in views that use it.
 - Agentic Engineering now includes a Delivery experience: a workflow map, selectable shaping and implementation lists with composed agent prompts, full inline spec criteria, source-grounded effort resume briefs, and a contextual Find and Recent panel. Frozen scope stays separate from governing metadata and mentions; missing evidence never becomes approval or completion.
 - Workspace source-link reads support offset pagination and an occurrence count, so callers can establish complete authored scope without losing repeated or unresolved links.
@@ -29,6 +31,7 @@
 
 ### Fixed
 
+- Creating, removing, or renaming ontology and module folders refreshes the live ontology and capabilities even when individual schema-file events are absent.
 - Repository Settings offers a pin update or the app's Rhizome when an old executable cannot report settings, and reloads after the fix. Its Rhizome version section controls the executable for this worktree on this Mac, keeps the shared pin unchanged, and preserves checkout trust. Explicit worktree choices now take precedence over managed pins in the desktop app.
 
 - Rhizome Desktop no longer dead-ends when a folder's selected Rhizome can't serve it:

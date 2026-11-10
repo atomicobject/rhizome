@@ -20,6 +20,7 @@ import { SidebarToggle, useSidebarShortcut, WorkbenchSidebar } from "./Workbench
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ExplorerWorkspace } from "./ExplorerWorkspace";
 import { FinderQuickOpen } from "./FinderQuickOpen";
+import { StarterReadiness } from "./StarterReadiness";
 import { IndexReadyBanner } from "./IndexReadyBanner";
 import { AppearanceMenu } from "./AppearanceMenu";
 import { KeyboardShortcuts } from "./KeyboardShortcuts";
@@ -416,6 +417,7 @@ export function AppShell() {
           </button>
         </div>
       )}
+      <StarterReadiness />
       <IndexReadyBanner
         status={status}
         onStatusChange={setStatus}

@@ -32,7 +32,8 @@ export default defineConfig({
     // message's event.source), so the experience and board specs run here too.
     {
       name: "webkit",
-      testMatch: /(type-(board|cards)|experience-(frames|panel)|client-diagnostics)\.spec\.ts/,
+      testMatch:
+        /(type-(board|cards)|experience-(frames|panel)|client-diagnostics|starter-readiness)\.spec\.ts/,
       // The host-resolver flag is Chromium-only.
       use: { browserName: "webkit", launchOptions: { args: [] } },
     },

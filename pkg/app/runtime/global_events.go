@@ -13,6 +13,7 @@ const (
 	GlobalEventEditSessionInvalidated  = "edit_session.invalidated"
 	GlobalEventViewsChanged            = "views.changed"
 	GlobalEventViewPreferencesChanged  = "view_preferences.changed"
+	GlobalEventStarterReadinessChanged = "starter-readiness.changed"
 
 	// A failed reconciliation leaves validation stale without admitting a refresh.
 	GlobalEventReasonReconcileFailed = "reconcile-failed"

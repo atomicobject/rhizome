@@ -247,7 +247,9 @@ func trySpawn(ctx context.Context, opts EnsureOptions, logf func(string, ...any)
 		_ = registry.ClearIntent(ctx, opts.VaultPath, token)
 		return false, err
 	}
-	pid, err := spawnHeadlessWithToken(executable, opts.VaultPath, token)
+	pid, err := spawnHeadlessWithToken(executable, opts.VaultPath, token, func(pid int) error {
+		return registry.recordSpawnedChild(ctx, opts.VaultPath, token, pid)
+	})
 	if err != nil {
 		_ = registry.ClearIntent(ctx, opts.VaultPath, token)
 		return false, fmt.Errorf("start vault runtime: %w", err)
@@ -272,8 +274,7 @@ func trySpawn(ctx context.Context, opts EnsureOptions, logf func(string, ...any)
 }
 
 // waitProbeReady polls until the vault has a probe-verified manifest or the
-// budget runs out. The child was released after Start, so its exit is only
-// observable as a manifest that never appears.
+// budget runs out. Readiness is established by the published manifest.
 func waitProbeReady(ctx context.Context, vaultPath string, deadline time.Time) error {
 	gateCtx, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()

@@ -22,6 +22,7 @@ export const VIEW_PREFERENCES_EVENT = "view_preferences.changed";
 export const VAULT_EVENTS = [
   ...INDEX_EVENTS,
   ...VALIDATION_EVENTS,
+  "starter-readiness.changed",
   VIEWS_CHANGED_EVENT,
   VIEW_PREFERENCES_EVENT,
 ] as const;

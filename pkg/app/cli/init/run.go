@@ -125,6 +125,12 @@ func start(opts RunOptions) (*initRun, setup, bool, error) {
 	if err != nil {
 		return fail(err)
 	}
+	if r.layout.HasExistingConfig {
+		r.configSnapshot, err = configSnapshot(r.layout.ExistingLocal)
+		if err != nil {
+			return fail(err)
+		}
+	}
 	r.detectedAgents = r.layout.AgentHarnesses
 	if r.layout.HasExistingConfig && hasFirstRunOption(opts) {
 		if strings.TrimSpace(opts.Addons) != "" {

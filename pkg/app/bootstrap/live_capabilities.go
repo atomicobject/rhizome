@@ -8,6 +8,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	"github.com/atomicobject/rhizome/pkg/embedindex"
+	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
@@ -202,6 +203,11 @@ func (rt *LiveRuntime) NoteMetadataIndexer() notemeta.Indexer {
 		return notemeta.Indexer{}
 	}
 	return rt.noteMetadataIndexer
+}
+
+// NoteFormatRegistry returns the same immutable ownership descriptors as indexing.
+func (rt *LiveRuntime) NoteFormatRegistry() noteformat.Registry {
+	return rt.noteFormats.Registry()
 }
 
 // SessionDedupeStore returns the narrow session persistence capability.

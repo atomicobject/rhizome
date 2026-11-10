@@ -16,6 +16,12 @@ Run from the vault root, using the repository's Rhizome launcher in place of `rz
 
 Report **starter installed**, **bindings ready**, and **index ready** separately. Use the check's computed `bindingsReady`, not the saved manifest's status, which only records the last successful refresh. Neither managed-file checks nor prerequisites alone certify a usable projection.
 
+## Automatic setup in a running repository
+
+The runtime discovers this add-on after Settings or CLI installation and on reopening. A persistent notice reports checking, working, required input, blocked, failed, or ready. It automatically prepares an unambiguous single product, adds exact current source includes and refreshes untouched managed guidance, submits indexing through the existing runtime, and verifies current query coverage and receipts. Multiple eligible products offer an explicit choice, persisted through the normal refresh action.
+
+The notice reports authored SDL and executable-query conflicts before setup. It never deletes schemas or changes AO knowledge. Retry resumes after a dependency repair; relevant repository file fixes trigger another check automatically. Unchanged ready and failed inputs do not repeat setup or indexing. A legitimately empty KB is ready when its required queries complete successfully. CLI installation itself remains file installation only; compilers run in the trusted runtime.
+
 ## Older AO schema versions
 
 A single-product KB at AO schemaVersion 4 through 7 sets up knowledge-only, without migrating and without uv or Python. Knowledge reads through an adapter for AO's documented key renames: `assertionKind` for `kind`, `format` for a source's kind, `attestedBy` for `speaker`, and `supportingAssertions` for an artifact's `supported_by`, each read only when the current key is absent. Raw values are shown as stored. Product-model bindings need schemaVersion 8, so the model stage is `not applicable`: refresh publishes knowledge bindings and records the model manifest as `not applicable` with the reason; the check reports `bindingsReady` with `modelReady: false`, and its model dependency and model bindings rows say `not applicable`; the index wrapper indexes, skips model-record verification, and writes a receipt that `indexReady` compares. AO's own migration is the way to enable the model. A legacy product-mode account is reported `ao_schema_unsupported`.
@@ -83,7 +89,7 @@ The starter declares no source ownership. `.rhizome/source-ownership.yml` remain
 
 - A failed refresh keeps the previous generated schema and marks its manifest stale; the check shows the AO error, such as a YAML parse error with its file. Wherever model data appears, the Knowledge views read both manifests and say when bindings are stale, incomplete, or unreadable, so the retained generation never reads as current. Fix the AO file, refresh, and run the index wrapper. Do not delete authored sources to repair bindings.
 - `ao_index_inputs_changed` means AO files or configuration changed while the wrapper indexed: refresh, then run the wrapper again.
-- `ao_refresh_locked`: remove `.rhizome/modules/ao-kb/bindings/refresh.lock/` only after confirming no refresh or index wrapper is running.
+- `ao_refresh_locked`: wait for the active refresh or index wrapper. The runtime can recover a lock after its recorded process stops. Remove an old lock with no owner record only after confirming no refresh or index wrapper is running.
 - A collision in `knowledge bindings`: retire or rename the named local types, then refresh.
 
 ## Release boundaries

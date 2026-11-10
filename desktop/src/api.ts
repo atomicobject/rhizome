@@ -209,6 +209,7 @@ export type Message =
   | ({ type: "alert" } & Alert)
   /** A brief confirmation, such as after Copy Page URL. */
   | { type: "notice"; message: string }
+  | { type: "repository-settings"; repository: string; worktree: string }
   | { type: "menu"; id: string }
   | { type: "update"; status: UpdateStatus }
   | {

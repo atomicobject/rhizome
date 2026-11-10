@@ -136,6 +136,16 @@ func stopOne(ctx context.Context, vaultPath string, grace time.Duration, out io.
 	var targetToken string
 	var targetPID int
 	var unresponsive *InstanceManifest
+	stoppedStartup := func() error {
+		if targetPID > 0 && !waitForExit(gateCtx, targetPID, time.Until(deadline), nil) {
+			if err := gateCtx.Err(); err != nil {
+				return err
+			}
+			return fmt.Errorf("runtime pid %d did not exit within %s", targetPID, grace)
+		}
+		fmt.Fprintf(out, "stopped %s startup\n", vaultPath)
+		return nil
+	}
 	for {
 		intent, pending, err := registry.StartIntentFor(gateCtx, vaultPath)
 		if err != nil {
@@ -152,28 +162,30 @@ func stopOne(ctx context.Context, vaultPath string, grace time.Duration, out io.
 		}
 		if pending && targetToken == "" {
 			targetToken, targetPID = intent.Token, intent.OwnerPID
-			_, cancelled, cancelErr := registry.CancelIntent(gateCtx, vaultPath, targetToken)
+			cancelledIntent, cancelled, cancelErr := registry.CancelIntent(gateCtx, vaultPath, targetToken)
 			if cancelErr != nil {
 				return fmt.Errorf("cancel runtime startup: %w", cancelErr)
 			}
-			if !cancelled {
+			if cancelled {
+				intent = cancelledIntent
+			} else {
 				if owner, live := LockOwner(vaultPath); !live || owner != targetPID {
-					fmt.Fprintf(out, "stopped %s startup\n", vaultPath)
-					return nil
+					return stoppedStartup()
 				}
 			}
+		}
+		if pending && intent.Token == targetToken && intent.OwnerPID > 0 {
+			targetPID = intent.OwnerPID
 		}
 		if pending && targetToken != "" && intent.Token != targetToken {
 			// A fresh start owns a new token. This invocation stopped the
 			// original owner and must not cancel its successor.
-			fmt.Fprintf(out, "stopped %s startup\n", vaultPath)
-			return nil
+			return stoppedStartup()
 		}
 		client, _, err = LiveManifest(ctx, vaultPath)
 		if err == nil && client != nil {
 			if targetToken != "" && client.Manifest.RunID != targetToken {
-				fmt.Fprintf(out, "stopped %s startup\n", vaultPath)
-				return nil
+				return stoppedStartup()
 			}
 			break
 		}
@@ -182,8 +194,7 @@ func stopOne(ctx context.Context, vaultPath string, grace time.Duration, out io.
 			// may be draining. Give cancellation its full grace before escalation.
 			if manifest, readErr := ReadManifest(vaultPath); readErr == nil {
 				if targetToken != "" && manifest.RunID != targetToken {
-					fmt.Fprintf(out, "stopped %s startup\n", vaultPath)
-					return nil
+					return stoppedStartup()
 				}
 				unresponsive = &manifest
 			}
@@ -197,15 +208,13 @@ func stopOne(ctx context.Context, vaultPath string, grace time.Duration, out io.
 		spawnBusy := liveSpawnLease(vaultPath)
 		if pending && intent.Cancelled && !live && !spawnBusy && (intent.OwnerPID == 0 || !indexlock.PIDExists(intent.OwnerPID)) {
 			_ = registry.ClearIntent(ctx, vaultPath, intent.Token)
-			fmt.Fprintf(out, "stopped %s startup\n", vaultPath)
-			return nil
+			return stoppedStartup()
 		}
 		if !live && !pending && !spawnBusy {
 			if targetToken != "" {
-				fmt.Fprintf(out, "stopped %s startup\n", vaultPath)
-			} else {
-				fmt.Fprintf(out, "%s: no running runtime\n", vaultPath)
+				return stoppedStartup()
 			}
+			fmt.Fprintf(out, "%s: no running runtime\n", vaultPath)
 			return nil
 		}
 		if time.Now().After(deadline) {

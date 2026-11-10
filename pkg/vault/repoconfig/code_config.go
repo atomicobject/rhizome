@@ -1,6 +1,7 @@
 package repoconfig
 
 import (
+	"context"
 	"slices"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
@@ -169,17 +170,11 @@ func applyAutomaticCodeScope(result *codeanchor.Config, local LocalCodeConfig) {
 // SaveCodeConfig updates the canonical code section in local config.
 // It persists only the enabled flag and disabled languages to keep config minimal.
 func SaveCodeConfig(vaultPath string, codeCfg codeanchor.Config) error {
-	localCfg, err := LoadLocalConfig(vaultPath)
-	if err != nil {
-		return err
-	}
-
-	// Only persist enabled flag and disabled languages; language-specific config
-	// (Go/Python/TS/CSharp/PHP blocks) are preserved as-is from the existing config.
-	localCfg.Code.Enabled = codeCfg.Enabled
-	if len(codeCfg.DisabledLanguages) > 0 {
-		localCfg.Code.DisabledLanguages = codeCfg.DisabledLanguages
-	}
-
-	return SaveLocalConfig(vaultPath, *localCfg)
+	return UpdateLocalConfig(context.Background(), vaultPath, func(localCfg *LocalConfig) error {
+		localCfg.Code.Enabled = codeCfg.Enabled
+		if len(codeCfg.DisabledLanguages) > 0 {
+			localCfg.Code.DisabledLanguages = codeCfg.DisabledLanguages
+		}
+		return nil
+	})
 }

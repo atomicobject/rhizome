@@ -108,6 +108,7 @@ export function RepositorySettings({
   const [refreshing, setRefreshing] = useState(false);
   const [changingVersion, setChangingVersion] = useState(false);
   const [trustedHere, setTrustedHere] = useState(false);
+  const [trusting, setTrusting] = useState(false);
   const [started, setStarted] = useState<number | null>(null);
   const [applyError, setApplyError] = useState<Failure | null>(null);
   const [result, setResult] = useState<SetupResult | null>(null);
@@ -233,6 +234,16 @@ export function RepositorySettings({
     }
   }
 
+  async function trust() {
+    setTrusting(true);
+    try {
+      await request("trust", { id, worktree });
+      setTrustedHere(true);
+    } finally {
+      setTrusting(false);
+    }
+  }
+
   const versionSection = (
     <RepositoryRhizome
       {...rhizome}
@@ -244,6 +255,7 @@ export function RepositorySettings({
       disabled={running || refreshing || rows.length > 0}
       note={rows.length > 0 ? "Apply or discard your changes to change Rhizome." : undefined}
       onChanging={setChangingVersion}
+      onTrust={problem?.code === "trust_required" ? undefined : trust}
       onReload={async () => {
         reports.current++;
         setCurrent(null);
@@ -280,17 +292,14 @@ export function RepositorySettings({
             <p className="path confirmation-path">{worktree}</p>
             <button
               className="primary"
-              disabled={refreshing}
+              disabled={refreshing || trusting}
               onClick={() =>
-                void request("trust", { id, worktree })
-                  .then(() => {
-                    setTrustedHere(true);
-                    return load();
-                  })
+                void trust()
+                  .then(load)
                   .catch((cause) => setProblem(failure(cause)))
               }
             >
-              Trust and continue
+              {trusting ? "Trusting…" : "Trust and continue"}
             </button>
           </div>
         </>

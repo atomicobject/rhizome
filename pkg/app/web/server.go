@@ -79,7 +79,8 @@ type Config struct {
 	TasksOpener func(ctx context.Context, vaultPath string) (TasksAPI, error)
 	// Actions runs the vault's module actions; nil uses actions.New on
 	// VaultPath, which checks the person's repository trust.
-	Actions *actions.Runner
+	Actions         *actions.Runner
+	ModuleReadiness ModuleReadiness
 	// RepositoryTrusted reports whether a checkout may run its repository and
 	// module views; nil uses the person's repository trust store.
 	RepositoryTrusted func(checkout string) (bool, error)

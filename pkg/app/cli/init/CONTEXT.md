@@ -2,6 +2,8 @@
 
 `pkg/app/cli/init` owns `rzm init`: config detection/writes, agent-surface mode resolution, managed agent docs, workflow starter scaffolds, starter ontology schemas, command-backed prompt/command artifacts, skills, and the one ownership rule for generated files.
 
+Init publication and legacy configuration migration hold `repoconfig.LockLocalConfig`, shared with background module include updates and ordinary configuration saves. The publisher checks the configuration captured before planning and refuses a stale plan before writing. Prepared guidance documents are rechecked before publication and before each document write; later edits remain intact and require a fresh plan.
+
 The pure overlay model, strict YAML decoder, Markdown slot parser, and renderer live in `pkg/skilloverlay`. Init retains embedded template discovery and starter resolution, then passes loaded skills/overlays to that engine. `ValidateBundledSkillOverlays` returns the neutral manifest for application-injected validation; `LoadAgentHelperTemplate` reads actual embedded helper bytes for command-composed bootstrap loading. Template sources remain in this package.
 
 Template embeds share `markdownsyntax.FenceState` with skill overlays, while retaining their existing unmatched/escaped backtick protection and expansion in indented text. This template grammar is distinct from the broader Markdown link-protection grammar. The compounding starter resolves its executable through `lib/calls.mjs`: explicit `RZM`, then this repository's `bin/rzm`, then `rzm` on PATH. Its finding loader supplies status, action text, and assignee from one note read.
@@ -44,3 +46,5 @@ The retired `project-kb` starter is no longer offered or bundled. Existing insta
 Stale command and prompt files use the same generated-file removal plan as other owned files. Only recorded direct-child command paths are candidates; preview and apply share the same decisions, edited or unrecorded files stay by default, and accepted removals update the record and result. Filename prefixes alone grant no deletion authority.
 
 Compounding CLI calls record stdin write errors until the child closes. A rejecting child keeps its own diagnostic; a successful exit with undelivered request input is still a failed call.
+
+Optional installed `module/lifecycle.yml` assets participate in normal starter installation and removal. `EnsureModuleSourceIncludes` admits exact module-reported current source paths, preserving existing include rules and unrelated configuration. AO KB readiness reuses compiler preparation, product selection, query checks, and index receipts. It never changes AO-authored knowledge or removes conflicting schemas.

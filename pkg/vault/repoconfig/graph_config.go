@@ -3,7 +3,7 @@ package repoconfig
 // Docs: [Graph (Hub)](docs/hubs/Graph (Hub).md), [List + prompt matching DSL](docs/reference/domain/List + prompt matching DSL.md)
 
 import (
-	"errors"
+	"context"
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
@@ -56,17 +56,12 @@ type AuthorityFactorRule struct {
 
 // SaveGraphConfig writes the canonical graph section in .rhizome/config.yml.
 func SaveGraphConfig(vaultPath string, graphCfg LocalGraphConfig) error {
-	localCfg, err := LoadLocalConfig(vaultPath)
-	if err != nil {
-		if !errors.Is(err, ErrNoLocalConfig) {
-			return err
+	return updateLocalConfig(context.Background(), vaultPath, true, func(localCfg *LocalConfig) error {
+		localCfg.Graph = &LocalGraphConfig{
+			Ignore:           append([]string{}, graphCfg.Ignore...),
+			KeyNotePatterns:  append([]string{}, graphCfg.KeyNotePatterns...),
+			AuthorityFactors: append([]AuthorityFactorRule{}, graphCfg.AuthorityFactors...),
 		}
-		localCfg = &LocalConfig{}
-	}
-	localCfg.Graph = &LocalGraphConfig{
-		Ignore:           append([]string{}, graphCfg.Ignore...),
-		KeyNotePatterns:  append([]string{}, graphCfg.KeyNotePatterns...),
-		AuthorityFactors: append([]AuthorityFactorRule{}, graphCfg.AuthorityFactors...),
-	}
-	return SaveLocalConfig(vaultPath, *localCfg)
+		return nil
+	})
 }

@@ -25,7 +25,7 @@ Keep unrelated note includes; when `notes.includes` is absent, start the first l
 
 `init --check` certifies managed assets only. The check independently reports `starterInstalled`, `bindingsReady`, `knowledgeReady`, `modelReady`, `bindings.knowledge`, `bindings.model`, and `indexReady`. Installation alone is incomplete setup. Before the first refresh in a multi-product account, the static knowledge types are unscoped; check names the exact refresh command rather than claiming that product scope is ready.
 
-Fix the named prerequisite or compatibility diagnostic, refresh, then index. A failed model stage keeps the current knowledge admission and previous model generation, advertising model setup as incomplete. A failed knowledge stage retains its previous generation. Do not delete authored sources to repair bindings. Remove `bindings/refresh.lock/` only after confirming no refresh or index wrapper is running.
+Fix the named prerequisite or compatibility diagnostic, refresh, then index. A failed model stage keeps the current knowledge admission and previous model generation, advertising model setup as incomplete. A failed knowledge stage retains its previous generation. Do not delete authored sources to repair bindings. The runtime recovers an abandoned `bindings/refresh.lock` after confirming its recorded process stopped. A legacy lock with no owner record needs manual removal after confirming no refresh or index wrapper is running.
 
 ## Legacy schema versions
 

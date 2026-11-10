@@ -406,6 +406,11 @@ func (p *preparedFiles) apply(ui ownershipUI) (syncReport, error) {
 	projectRoot, plan, record := p.root, p.plan, p.record
 	recordStale := p.recordStale()
 	resolveChanges(p.changes, ui)
+	for i, doc := range plan.docs {
+		if err := checkDocUnchanged(projectRoot, doc, p.docStates[i]); err != nil {
+			return syncReport{}, err
+		}
+	}
 
 	report := syncReport{}
 	byKey := map[string]*change{}
