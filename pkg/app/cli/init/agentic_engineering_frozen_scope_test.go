@@ -94,7 +94,6 @@ status:: ready
 		writeQueryRecipeExperienceNote(t, root, path, source)
 		originals[path] = []byte(source)
 	}
-	// Inbound and neighboring candidates must not supply the selector.
 	writeQueryRecipeExperienceNote(t, root, folder+"materials/neighbor.md", scope+"\n[["+folder+"absent-effort.html]]\n")
 	require.NoError(t, Run(opts))
 	for path, before := range originals {

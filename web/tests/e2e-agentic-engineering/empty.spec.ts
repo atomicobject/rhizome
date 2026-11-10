@@ -11,7 +11,11 @@ for (const colorScheme of ["light", "dark"] as const) {
       await openGroup(page, "Delivery");
 
       for (const name of groups)
-        await expect(content(page).getByRole("link", { name: new RegExp(name) })).toBeVisible();
+        await expect(
+          content(page)
+            .getByRole("navigation", { name: "Delivery workflow" })
+            .getByRole("link", { name: new RegExp(name) }),
+        ).toBeVisible();
       const outcome = content(page).getByRole("textbox", { name: /outcome/i });
       await outcome.fill("Let a passenger reserve a seat on the harbor ferry.");
       await expect(content(page).getByRole("textbox", { name: /prompt/i })).toHaveValue(/specify/);

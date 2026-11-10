@@ -60,8 +60,9 @@ function run(command, args, cwd = repoRoot) {
 if (!process.env.RHIZOME_E2E_SKIP_WEB_BUILD)
   run("npm", ["run", "build"], path.join(repoRoot, "web"));
 
-// e2efake avoids writing to the user's repository trust store.
-run("go", ["build", "-mod=vendor", "-tags", "fts5 e2efake", "-o", rzm, "."]);
+const untrustedFixtureBuildTags = "fts5 e2efake";
+
+run("go", ["build", "-mod=vendor", "-tags", untrustedFixtureBuildTags, "-o", rzm, "."]);
 
 run("git", ["init", "-q"], vault);
 

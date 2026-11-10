@@ -16,7 +16,7 @@ export type ViewContext =
 /** View queries may return null for optional GraphQL ref fields. */
 export type ViewNodeRef = {
   [K in keyof NodeRef]: undefined extends NodeRef[K] ? NodeRef[K] | null : NodeRef[K];
-};
+} & { structural?: string | null };
 
 export type ViewContextInput =
   | Exclude<ViewContext, { kind: "node" }>
@@ -45,6 +45,8 @@ export function isViewNodeRef(value: unknown): value is NodeRef {
 export function parseViewNodeRef(value: unknown): NodeRef | null {
   if (!isPlainObject(value)) return null;
   const ref = { ...value };
+  ref.structuralFingerprint ??= ref.structural;
+  delete ref.structural;
 
   for (const key of [
     "fragment",
@@ -153,7 +155,9 @@ export function nodeHref(ref: ViewNodeRef, options: OpenNodeOptions = {}) {
 
   if (ref.nodeId) params.set("nodeId", ref.nodeId);
 
-  if (ref.structuralFingerprint) params.set("structural", ref.structuralFingerprint);
+  const structural = ref.structuralFingerprint ?? ref.structural;
+
+  if (structural) params.set("structural", structural);
 
   if (options.view) params.set("presentation", options.view);
 

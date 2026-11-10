@@ -1,5 +1,6 @@
 import { eligibility, groupResult, type Stage } from './groups.ts';
 import { identity, type Portfolio } from './model.ts';
+import { inventoryComplete } from './coverage.ts';
 
 export type Prompt = { text: string; copyable: boolean; reasons: readonly string[] };
 
@@ -21,6 +22,9 @@ export function promptFor(stage: Stage, input: Portfolio, selectedKeys: readonly
     return result.reason ? [result.reason] : [];
   });
   if (!chosen.length) reasons.push('Select eligible records');
+  if (chosen.length && !inventoryComplete(chosen.map(row => row.record.coverage))) {
+    reasons.push('Selected records do not share complete evidence from one graph generation');
+  }
   if (seen.size !== selected.size) reasons.push('Selection changed or is no longer available');
   if (reasons.length) return { text: '', copyable: false, reasons };
   const lines: string[] = [];

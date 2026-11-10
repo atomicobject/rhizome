@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
 import { composeCoverage, composePages, identity, frozenScope, distinctTargets, sourceRoles,
   selectionFor, attributionFor, groups, groupResult, eligibility, promptFor, firstDayPrompt }
   from '../../templates/starters/agentic-engineering/module/views/delivery/lib/index.ts';
@@ -164,6 +165,8 @@ test('unknown statuses cannot establish an empty group and legacy logs never bec
     authored: [], coverage: coverage(), material: material([occurrence(ref('spec.md', 'log-only'))]) } });
   assert.equal(legacy.source, null);
   assert.equal(legacy.state, 'unknown');
+  assert.ok(legacy.reasons.every(reason => !reason.includes('generation')));
+  assert.deepEqual(legacy.coverage.errors, []);
   assert.deepEqual(legacy.selections, []);
 });
 
@@ -177,6 +180,10 @@ test('each work group uses its installed workflow route and incomplete selected 
     const result = promptFor(stage, input, keys(groupResult(stage, input)));
     assert.equal(result.copyable, true, stage);
     assert.match(result.text, route);
+    const skill = readFileSync(new URL('../../templates/starters/agentic-engineering/agents/skills/agentic-engineering/SKILL.md', import.meta.url), 'utf8');
+    for (const phase of result.text.matchAll(/(?:agentic-engineering |or )(specify|classify|implement|finish|reconcile)(?: route)?/g)) {
+      assert.ok(skill.includes('`' + phase[1] + '`'), `${stage}: installed phase ${phase[1]}`);
+    }
   }
   const ready = groupResult('ready', input);
   input.specs[0].stories[0].criteriaCoverage.complete = false;
@@ -238,4 +245,15 @@ test('effort prompts retain explicit plan and log references without inventing a
   assert.equal(prompt.copyable, true);
   assert.match(prompt.text, /docs\/efforts\/team\/plan.html \(implementation plan\)/);
   assert.match(prompt.text, /Recorded work log: \[\[missing log\]\] \(reference not verified in this read\)/);
+});
+
+test('a composed multi-effort prompt requires one graph generation', () => {
+  const first = effort('active');
+  const second = { ...effort('active'), ...record('other-effort.md') };
+  second.coverage = coverage({ graphGeneration: 8 });
+  second.scope = { ...second.scope, coverage: coverage({ graphGeneration: 8 }) };
+  const input = portfolio([], [first, second]);
+  const result = promptFor('active', input, [identity(first.ref), identity(second.ref)]);
+  assert.equal(result.copyable, false);
+  assert.match(result.reasons.join(' '), /generation/i);
 });

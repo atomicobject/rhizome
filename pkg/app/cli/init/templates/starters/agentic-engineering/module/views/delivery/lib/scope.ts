@@ -23,13 +23,14 @@ export function frozenScope(input:
     if (!targetsKnown(section.occurrences)) reasons.push('Frozen target unresolved or unsupported');
   }
   const reads = material ? [material.coverage, material.specs.coverage, material.stories.coverage] : [];
-  const coverage = composeCoverage(reads);
-  // A selector belongs to the entry, whose revision differs from the material's.
-  if (input.form === 'EffortWorkspace' && (!isComplete(input.selector.coverage)
-    || input.selector.coverage.graphGeneration !== coverage.graphGeneration)) {
+  const coverage = material || input.form === 'EffortNote' ? composeCoverage(reads)
+    : { ...input.selector.coverage, complete: false, sourceRevision: null };
+  const selectorReadMatchesGeneration = input.form !== 'EffortWorkspace'
+    || isComplete(input.selector.coverage) && (!material || input.selector.coverage.graphGeneration === coverage.graphGeneration);
+  if (!selectorReadMatchesGeneration) {
     reasons.push('Selector read incomplete or graph generation changed');
   }
-  if (!isComplete(coverage)) reasons.push('Frozen source read incomplete');
+  if (material && !isComplete(coverage)) reasons.push('Frozen source read incomplete');
   const authoritative = input.form === 'EffortNote' || input.selector.state === 'selected';
   return {
     state: input.form === 'EffortWorkspace' && input.selector.state === 'missing' ? 'unknown'

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Agentic Engineering now includes a Delivery experience: a workflow map, selectable shaping and implementation lists with composed agent prompts, full inline spec criteria, source-grounded effort resume briefs, and a contextual Find and Recent panel. Frozen scope stays separate from governing metadata and mentions; missing evidence never becomes approval or completion.
+- Workspace source-link reads support offset pagination and an occurrence count, so callers can establish complete authored scope without losing repeated or unresolved links.
+- HTML metadata saves preserve the provider's format and saved title in their returned workspaces.
+
 - Rhizome Desktop's Settings has a tab for the repository the window shows, opened from the repository menu's Repository Settings…. It changes a set-up repository's workflow, add-ons, agents, and search provider, lists the files each change writes before anything is written, and applies them in one step. On a set-up folder, `rzm init --check --json` and `rzm init --json` now report and apply those settings instead of failing.
 - Optional `ao-kb` add-on reads an existing AO KB repository side by side with AO's own skills, which keep every write. It adds a Knowledge workspace (Attention, Concepts, Assertions, Knowledge trace) with honest evidence states, record pages for assertions, sources, and the selected product's model, and `check` and `refresh-bindings` actions that report install, binding, and index readiness separately.
 - The AO KB add-on's Knowledge workspace is now a Knowledge site: a KB overview with a topic map, sources by date, and a kind-by-concept matrix; record pages for concepts, sources, artifacts, and assertions; and a Review page for gaps, submissions, and curation documents. Legacy single-product KBs at AO schemaVersion 4 to 7 set up knowledge-only, with the model stage reported as not applicable.

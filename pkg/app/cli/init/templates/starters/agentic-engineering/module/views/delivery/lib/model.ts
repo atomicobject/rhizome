@@ -1,4 +1,3 @@
-/** Adapter inputs are facts from public reads, never inferred link membership. */
 export type Ref = {
   ref?: string;
   structural?: string | null;
@@ -46,7 +45,7 @@ export type Spec = RecordSummary & {
   storiesCoverage: Coverage;
 };
 export type Checklist =
-  | { state: 'missing' | 'unreadable' }
+  | { state: 'missing' | 'unreadable' | 'deferred' }
   | { state: 'empty' | 'recorded'; checked: number; total: number };
 export type Effort = RecordSummary & {
   kind: 'effort';

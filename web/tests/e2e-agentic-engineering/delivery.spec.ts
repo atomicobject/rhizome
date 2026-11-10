@@ -15,13 +15,17 @@ import {
 
 for (const colorScheme of ["light", "dark"] as const) {
   test.describe(colorScheme, () => {
-    test.use({ colorScheme });
+    test.use({ colorScheme, viewport: { width: 1440, height: 1000 } });
     test("Delivery mounts its home with every factual group", async ({ page }, info) => {
       await page.goto("/notes");
       await openGroup(page, "Delivery");
 
       for (const name of groups)
-        await expect(content(page).getByRole("link", { name: new RegExp(name) })).toBeVisible();
+        await expect(
+          content(page)
+            .getByRole("navigation", { name: "Delivery workflow" })
+            .getByRole("link", { name: new RegExp(name) }),
+        ).toBeVisible();
       await expect(content(page).getByRole("link", { name: /Current contracts/ })).toBeVisible();
       await expect(content(page).getByRole("link", { name: /Record review/ })).toBeVisible();
       await expect(content(page).getByText(/overlap/i)).toBeVisible();
@@ -69,6 +73,56 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(content(page).getByRole("button", { name: /copy/i })).toBeDisabled();
     });
 
+    test("effort stage selection loads exact scope and refuses incomplete authority", async ({
+      page,
+    }, info) => {
+      const f = content(page);
+
+      for (const [value, title, route] of [
+        ["planned", "Plan harbor boarding", "classify"],
+        ["active", "Active all checked", "implement"],
+        ["history", "Complete with unselected ready story", "finish"],
+      ]) {
+        await page.goto(stage(value));
+        await f.getByRole("checkbox", { name: `Select ${title}`, exact: true }).check();
+        await expect(
+          f.getByRole("button", { name: "Copy workflow prompt", exact: true }),
+        ).toBeEnabled();
+        await expect(f.getByRole("textbox", { name: /prompt/i })).toHaveValue(new RegExp(route));
+      }
+
+      await page.goto(stage("active"));
+      await f
+        .getByRole("checkbox", { name: "Select Harbor legacy workspace", exact: true })
+        .check();
+      await expect(f.getByText(/Some selected scope is incomplete/)).toBeVisible();
+      await expect(
+        f.getByRole("button", { name: "Copy workflow prompt", exact: true }),
+      ).toBeDisabled();
+      await capture(page, info, "selection-incomplete");
+    });
+
+    test("clipboard failure preserves the selected prompt for manual copy", async ({
+      page,
+    }, info) => {
+      await page.addInitScript(() =>
+        Object.defineProperty(navigator, "clipboard", {
+          value: {
+            writeText: async () => {
+              throw new Error("synthetic clipboard denial");
+            },
+          },
+        }),
+      );
+      await page.goto(stage("ready"));
+      const f = content(page);
+      await f.getByRole("checkbox", { name: /US1.*Reserve a seat/ }).check();
+      await f.getByRole("button", { name: "Copy workflow prompt", exact: true }).click();
+      await expect(f.getByText(/Could not copy/)).toBeVisible();
+      await expect(f.getByRole("textbox", { name: /prompt/i })).toHaveValue(/SPEC-9001-US1/);
+      await capture(page, info, "clipboard-error");
+    });
+
     test("spec opens inline criteria and preserves direct link, Back and tabs", async ({
       page,
       context,
@@ -79,7 +133,23 @@ for (const colorScheme of ["light", "dark"] as const) {
       ).toBeVisible();
       await expect(content(page).getByText(/harbor confirmation ends here/)).toBeVisible();
       await expect(content(page).getByText(/nested example is detail/)).toBeVisible();
+      await content(page)
+        .getByText(/harbor confirmation ends here/)
+        .scrollIntoViewIfNeeded();
       await capture(page, info, "spec-expanded");
+      await content(page)
+        .getByRole("button", { name: "Load effort relationships", exact: true })
+        .click();
+      await expect(
+        content(page)
+          .getByText(/Governing-specs metadata:/)
+          .first(),
+      ).toBeVisible();
+      await expect(
+        content(page)
+          .getByText(/Stories In Scope \(Frozen\):/)
+          .first(),
+      ).toBeVisible();
       const direct = page.url();
       await page.reload();
       await expect(content(page).getByText(/harbor confirmation ends here/)).toBeVisible();
@@ -91,6 +161,10 @@ for (const colorScheme of ["light", "dark"] as const) {
         .getByRole("link", { name: /Ready stories/ })
         .first()
         .click();
+      await expect(page).toHaveURL(/stage=ready/);
+      await expect(
+        content(page).getByRole("heading", { name: "Ready stories", exact: true, level: 1 }),
+      ).toBeVisible();
       await page.goBack();
       await expect(
         content(page).getByRole("heading", { name: specTitle, exact: true }),
@@ -111,7 +185,9 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(f.getByText(/Story A repeated occurrence/)).toBeVisible();
       await expect(f.getByText(/Unresolved authored scope/)).toBeVisible();
       await expect(f.getByText(/snapshot/i).first()).toBeVisible();
-      await expect(f.getByText(/No approver recorded/i)).toBeVisible();
+      await expect(
+        f.getByText(/Absence of metadata does not establish absence of authorization/),
+      ).toBeVisible();
       await capture(page, info, "workspace-provenance");
     });
 
@@ -131,6 +207,26 @@ for (const colorScheme of ["light", "dark"] as const) {
       await capture(page, info, "inline-effort");
     });
 
+    test("legacy workspace keeps unknown authority and opens its safe HTML plan", async ({
+      page,
+    }, info) => {
+      await page.goto(record(workspace("legacy", "02")));
+      const f = content(page);
+      await expect(
+        f.getByRole("heading", { name: "Harbor legacy workspace", exact: true }),
+      ).toBeVisible();
+      await expect(f.getByText(/Membership unknown/)).toBeVisible();
+      await capture(page, info, "legacy-workspace");
+      await f.getByRole("button", { name: /Open implementation plan:/ }).click();
+
+      const plan = page.frameLocator(
+        'iframe[title="Interactive HTML note: docs/efforts/harbor-legacy/plan.html"]',
+      );
+
+      await expect(plan.getByText(/Inspect selected sources before implementation/)).toBeVisible();
+      await capture(page, info, "html-plan");
+    });
+
     test("panel Find navigates by identifier and records actual visits", async ({ page }, info) => {
       await page.goto(home);
       const panel = page.frameLocator("iframe.panel-frame[data-shown]");
@@ -141,13 +237,22 @@ for (const colorScheme of ["light", "dark"] as const) {
         content(page).getByRole("heading", { name: specTitle, exact: true }),
       ).toBeVisible();
       await expect(panel.getByRole("list", { name: /Recent/i })).toContainText(specTitle);
+      await page
+        .getByRole("button", { name: "Fill the sidebar with Delivery", exact: true })
+        .click();
+      await panel.getByRole("list", { name: /Recent/i }).scrollIntoViewIfNeeded();
       await capture(page, info, "panel-find-recent");
+      await page.reload();
+      await expect(panel.getByRole("list", { name: /Recent/i })).toContainText(specTitle);
     });
 
     for (const width of [768, 390]) {
       test(`long criteria reflow at ${width}px with keyboard controls`, async ({ page }, info) => {
         await page.setViewportSize({ width, height: 900 });
         await page.goto(record(specPath));
+
+        if (width < 480)
+          await page.getByRole("button", { name: "Hide sidebar", exact: true }).click();
         const disclosure = content(page).getByRole("button", { name: /US1.*Reserve a seat/i });
         await disclosure.focus();
         await expect(disclosure).toBeFocused();

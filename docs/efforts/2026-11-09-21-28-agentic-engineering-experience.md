@@ -88,7 +88,9 @@ A complete accurate Agentic Engineering starter experience for humans and agents
 
 ## Actual Delivered
 
-Specification, architecture selection, independent plan review and its P1 correction, live identifier allocation and story-locator verification are complete. Product implementation and final acceptance remain pending.
+The complete starter-owned Delivery experience is implemented: home and five-group workflow map, seven factual work lists, selected prompts, inline spec criteria, both effort forms' resume briefs, contextual Find and Recent, first-day and incomplete-data states, themes and narrow layouts. Source-link pagination/count, explicit workspace frozen-scope selection, canonical ref navigation, source-aware Markdown links and provider-aware HTML commit reads preserve authored evidence.
+
+All eight stories are backported as satisfied. Local `make check` and `make verify` pass, including 158 native, 90 Knowledge and 54 Delivery browser cases. Fresh/update/eject verification passes. [Installed UI proof](2026-11-09-agentic-engineering-experience/evidence/ui-proof.md) and [integration evidence](2026-11-09-agentic-engineering-experience/evidence/integration-notes.md) retain the results and limitations. Current-head CI, manual Greptile review and the ready open PR remain in progress.
 
 ## Execution Notes
 
@@ -99,17 +101,24 @@ Specification, architecture selection, independent plan review and its P1 correc
 - 2026-11-10T02:38:18Z [validation] The story-acceptance-pack CLI attempt ended with publish-current-projection context cancellation. Exact story targets remain verified through node-link and typed docs validation. Recipe execution must be proven against installed fixtures; no successful pack result is claimed.
 - 2026-11-10T02:38:18Z [decision] Starting isolated implementation lanes from the committed contract. Registration IDs and stage parameters are fixed in the foundation contract.
 
+- 2026-11-10T04:33:44Z [validation] The 48-case installed suite passed before final presentation refinements. Expanded acceptance passed 50 cases and failed two HTML-plan text assertions because the expected fixture wording was wrong; that assertion is corrected without retries or timeout changes. The final 52-case run is in progress.
+- 2026-11-10T04:33:44Z [review] Root inspected all 44 screenshots from the expanded run at original size and identified final loading, source-link, scope-message, criterion-formatting and phone-sidebar proof refinements. Those changes are implemented and await the final accepted captures.
+- 2026-11-10T04:33:44Z [decision] Comment review removed six redundant blocks. Root accepted the remaining three test-comment deletions and used local names for selector-generation agreement and untrusted fixture build tags, preserving their behavior.
+
+- 2026-11-10T06:11:02Z [validation] Final make check and make verify passed: 2,169 web unit tests, 158 native browser cases, 90 Knowledge cases and 54 installed Delivery cases. Fresh/update/eject and init --check passed. All 47 accepted captures were inspected; 23 are committed with their manifest. No retry, timeout or skip was added.
+- 2026-11-10T06:11:02Z [review] Integrated Sol-loop approved in three rounds; the diagnosed native preference fixture correction received a separate approved causal review. The HTML cache correction has cached/uncached red-before-green HTTP proof. Eight SPEC-0137 story states are backported to satisfied. External PR readiness remains active.
+
 ## Deviations
 
 The initial seven-stage comp becomes five factual primary views plus separate Current contracts and Record review. This is an authorized accuracy refinement that avoids inventing readiness, acceptance, or reconciliation. P1 added explicit frozen-scope source selection for HTML workspaces as a necessary dependency. Existing records are not rewritten. No implementation scope is deferred.
 
 ## Closure Checklist
 
-- [ ] Implemented foundation and independent technical review pass.
-- [ ] All eight stories and Requirements are verified in the installed interface.
-- [ ] Required local gates, documentation validation and frozen-scope checks pass.
+- [x] Implemented foundation and independent technical review pass.
+- [x] All eight stories and Requirements are verified in the installed interface.
+- [x] Required local gates, documentation validation and frozen-scope checks pass.
 - [ ] Independent implementation review and Greptile 5/5 cover final behavior.
-- [ ] Specs, owning docs, changelog, actual outcomes and deviations are reconciled.
+- [x] Specs, owning docs, changelog, actual outcomes and deviations are reconciled.
 - [ ] PR URL, current head, passing CI and open unmerged state are recorded.
 
 ## Compounding Follow-ups
@@ -118,4 +127,4 @@ Record recurring friction with its evidence. Fresh-worktree authoring needed OS/
 
 ## Status
 
-Active. Specification and plan review are complete. Next work is the foundation implementation and independent foundation review, then the installed UI and full readiness proof. No product behavior or ready PR is claimed.
+Active. Implementation, local verification, independent reviews and installed UI proof are complete. Current-head CI, manual Greptile 5/5 review and the ready open unmerged PR remain required.

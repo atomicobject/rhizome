@@ -27,6 +27,9 @@ Entry points: `query.BuildExecutableSchema`, `query.Prepare` / `PrepareWithVaria
 
 ## Design constraints
 
+- Serialized canonical node refs in `node(ref:)` and `nodes(refs:)` resolve through the shared node resolver before path classification. JSON path values do not become literal filenames; stale structural selectors remain errors.
+
+
 **Native RECORD reads (SPEC-0133).** RECORD types implement Node without Section or fabricated levels. Summary roots use indexed source presence/value rows and preserve empty strings and repeated occurrences. Rich content, child collections, workspace and locators use the scoped prepared host. `workspace.source` and `bodies.source` expose native source-value JSON with representation, media type and source provenance; web adapters keep it out of Markdown and heading projections. `LocalGraphEdge.occurrences` exposes authored reference occurrence/member evidence. Every workspace/body capability overlay calls the existing `ApplySourceOwnership`.
 
 RECORD reference fields (`@references`, including text-typed AO fields) publish `workspace.fields[].links` from their bound occurrences' indexed outcomes, with the same owner/field/position keying as Markdown relation fields; unresolved, ambiguous, and wildcard values stay unresolved rather than falling back to note resolution.

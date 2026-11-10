@@ -6,7 +6,6 @@ export type { LiveNode, FieldState, LiveSpec, LiveStory, LiveCriterion, LiveEffo
 
 const api: ReadAPI = { graphql, readNodes, generation: responseGeneration, roots: typedRootCoverage, markdownChecklist };
 
-/** Committed reads share the kit's query client and vault freshness invalidation. */
 export function useDeliveryPortfolio(options: { enabled?: boolean; review?: boolean } = {}) {
   const active = useViewActive();
   const query = useQuery({

@@ -92,6 +92,7 @@ test('inventory pages summaries without whole-vault prose and discloses missing 
   assert.equal(result.portfolio.efforts.length, 201);
   assert.equal(result.coverage.complete, true);
   assert.equal(result.reviewEvidence, 'deferred');
+  assert.equal(result.portfolio.efforts[0].checklist.state, 'deferred');
   assert.ok(h.calls.every(call => !call.query?.includes(' content ')));
   const broken = harness([], new Map(), (data, vars, facts) => facts.set(data, { generation: '7' }));
   assert.equal((await broken.read.portfolio()).coverage.complete, false);
@@ -182,18 +183,22 @@ test('API hydration consumes the canonical public ref and keeps the returned ref
 test('workspace checklist uses the exact log independently of unknown frozen authority', async () => {
   const logRef = ref('work-log.md', 'EffortMaterial');
   const closureRef = ref('work-log.md', 'NarrativeSection', 'closure');
+  const statusRef = ref('work-log.md', 'NarrativeSection', 'status');
   const own = node(ref('entry.html', 'EffortWorkspace'), [field('status', [], ['active']),
     { ...field('frozenScope'), present: false },
     field('workLog', [], ['work-log.md'], [{ value: 'work-log.md', resolved: true, ref: logRef }])], 'html');
-  const log = node(logRef, [field('closureChecklist', [closureRef])]);
+  const log = node(logRef, [field('closureChecklist', [closureRef]), field('statusSection', [statusRef])]);
   const closure = { ...node(closureRef), content: '- [x] Verified\n- [x] Backported' };
-  const h = harness([own, log, closure]);
+  const status = { ...node(statusRef), content: 'Resume the exact approved plan.' };
+  const h = harness([own, log, closure, status]);
   let result = await h.read.record(own.ref);
   assert.deepEqual(result.record.checklist, { state: 'recorded', checked: 2, total: 2 });
   assert.equal(result.record.status, 'active');
   assert.equal(result.record.coverage.complete, true);
   assert.equal(result.coverage.complete, false);
   assert.equal(result.record.scope.state, 'unknown');
+  assert.equal(result.components.find(item => identity(item.ref) === identity(statusRef)).content, status.content);
+  assert.equal(new Set(result.components.map(item => identity(item.ref))).size, result.components.length);
   const closureField = log.workspace.fields[0];
   closureField.present = false;
   closureField.sectionNodes = [];

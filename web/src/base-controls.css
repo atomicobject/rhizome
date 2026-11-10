@@ -171,9 +171,7 @@
   pointer-events: none;
 }
 
-/* Narrow windows (not a supported layout) keep the bar inside the viewport:
-   the section tabs drop to their own scrolling row. */
-@media (max-width: 760px) {
+@media (max-width: 980px) {
   .app-shell__nav {
     grid-template-columns: auto auto minmax(0, 1fr) auto;
     height: auto;

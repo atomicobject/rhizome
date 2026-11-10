@@ -2,17 +2,34 @@ import type { LiveNode } from "./data.tsx";
 import { useDeliveryPortfolio } from "./data.tsx";
 import { ReadState } from "./presentation.tsx";
 import { useEffect, useState } from "react";
-import { Section, useViewLocation, usePageNavigation } from "@rhizome/kit";
+import { Section, useViewLocation, usePageNavigation, getViewInvocation } from "@rhizome/kit";
 import { groups, identity } from "./lib/index.ts";
 import type { RecordSummary } from "./lib/index.ts";
 import { CoverageNotice, Ready, RecordLink, StageLink, WorkflowMap } from "./presentation.tsx";
 import type { PortfolioProps } from "./presentation.tsx";
 
+function recentStorageKey() {
+  const { vaultKey, view } = getViewInvocation();
+  return JSON.stringify(["agentic-engineering", "recent", vaultKey, view.experienceKey ?? view.id]);
+}
+
+function storedVisits(key: string): string[] {
+  try {
+    const value: unknown = JSON.parse(sessionStorage.getItem(key) ?? "[]");
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string").slice(0, 12)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 export function DeliveryPanel({ portfolio, status }: PortfolioProps) {
   const location = useViewLocation();
   const nav = usePageNavigation();
   const [find, setFind] = useState("");
-  const [recent, setRecent] = useState<RecordSummary[]>([]);
+  const [storageKey] = useState(recentStorageKey);
+  const [visits, setVisits] = useState(() => storedVisits(storageKey));
   const records = [...portfolio.specs, ...portfolio.efforts];
   const context = location.context;
   const current =
@@ -22,10 +39,18 @@ export function DeliveryPanel({ portfolio, status }: PortfolioProps) {
   const currentKey = current ? identity(current.ref) : null;
   useEffect(() => {
     if (current)
-      setRecent((previous) =>
-        [current, ...previous.filter((record) => identity(record.ref) !== currentKey)].slice(0, 12),
+      setVisits((previous) =>
+        [currentKey!, ...previous.filter((key) => key !== currentKey)].slice(0, 12),
       );
   }, [currentKey]);
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(visits));
+    } catch {
+      // Keep visits in this panel when browser storage is unavailable.
+    }
+  }, [storageKey, visits]);
+  const recent = visits.flatMap((key) => records.filter((record) => identity(record.ref) === key));
   function searchable(record: RecordSummary & { source?: LiveNode }) {
     const identifiers =
       record.source?.workspace?.fields
@@ -51,16 +76,6 @@ export function DeliveryPanel({ portfolio, status }: PortfolioProps) {
         >
           Delivery home
         </button>
-        <WorkflowMap portfolio={portfolio} compact />
-        <nav aria-label="Supporting delivery views">
-          {groups
-            .filter((group) => !group.primary)
-            .map((group) => (
-              <p key={group.stage}>
-                <StageLink stage={group.stage}>{group.title}</StageLink>
-              </p>
-            ))}
-        </nav>
         <CoverageNotice portfolio={portfolio} />
         <label>
           Find a spec or effort
@@ -81,7 +96,17 @@ export function DeliveryPanel({ portfolio, status }: PortfolioProps) {
             {!matches.length && <p className="ae-note">No matches in the loaded inventory.</p>}
           </Section>
         )}
-        <Section title="Recent" caption="Records visited while this panel is open.">
+        <WorkflowMap portfolio={portfolio} subject={current?.ref} compact />
+        <nav aria-label="Supporting delivery views">
+          {groups
+            .filter((group) => !group.primary)
+            .map((group) => (
+              <p key={group.stage}>
+                <StageLink stage={group.stage}>{group.title}</StageLink>
+              </p>
+            ))}
+        </nav>
+        <Section title="Recent" caption="Up to 12 visits in this repository and window.">
           <ul aria-label="Recent">
             {recent.map((record) => (
               <li key={identity(record.ref)}>
@@ -90,6 +115,11 @@ export function DeliveryPanel({ portfolio, status }: PortfolioProps) {
             ))}
           </ul>
           {!recent.length && <p className="ae-note">Open a spec or effort to start this list.</p>}
+          {visits.length > recent.length && (
+            <p className="ae-note">
+              {visits.length - recent.length} recent visits are not in the loaded inventory.
+            </p>
+          )}
         </Section>
         <Section title="Native collections">
           <p>
@@ -121,11 +151,11 @@ export function DeliveryPanel({ portfolio, status }: PortfolioProps) {
 export default function Page() {
   const query = useDeliveryPortfolio();
   return (
-    <>
+    <div className="ae-panel-state">
       <ReadState query={query} />
       {query.data && (
         <DeliveryPanel portfolio={query.data.portfolio} status={{ status: "ready" }} />
       )}
-    </>
+    </div>
   );
 }

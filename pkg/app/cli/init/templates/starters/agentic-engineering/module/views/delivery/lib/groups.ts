@@ -58,7 +58,6 @@ function observations(input: Portfolio): Row[] {
   return rows;
 }
 
-/** One registry owns membership, count units, labels, and activity orientation. */
 export const groups: readonly Group[] = [
   { stage: 'shaping', title: 'Shaping specs', activity: 'Shape', primary: true, unit: 'specs',
     rule: 'Proposed specs and active specs with at least one draft story.',
@@ -111,7 +110,7 @@ export function groupResult(stage: string, input: Portfolio) {
       : stage === 'review' ? specFactsKnown && storyFactsKnown && effortFactsKnown : effortFactsKnown;
   return { state: 'records' as const, group, rows, count: rows.length,
     complete: factsKnown && inventoryComplete(reads) && (stage !== 'review' ||
-      completed.every(effort => effort.scope.state === 'known') && active.every(effort => effort.checklist.state !== 'unreadable')),
+      completed.every(effort => effort.scope.state === 'known') && active.every(effort => effort.checklist.state !== 'unreadable' && effort.checklist.state !== 'deferred')),
     parentSpecCount: stage === 'ready' ? new Set(rows.flatMap(row =>
       row.kind === 'story' ? [identity(row.parent.ref)] : [])).size : null };
 }

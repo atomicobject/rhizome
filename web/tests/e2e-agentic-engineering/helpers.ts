@@ -2,7 +2,9 @@ import { appendFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { expect, type Page, type TestInfo } from "@playwright/test";
 
-export { customFrame as content, openGroup } from "../e2e/groupViewHelpers";
+export { openGroup } from "../e2e/groupViewHelpers";
+
+export const content = (page: Page) => page.frameLocator("iframe.experience-frame[data-shown]");
 
 export const home = "/notes/group/Delivery";
 
@@ -51,9 +53,26 @@ export async function capture(page: Page, info: TestInfo, scenario: string) {
 }
 
 export async function noOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
+  const overflow = await page.evaluate(() =>
+    [...document.querySelectorAll("body *")]
+      .filter((element) => {
+        const bounds = element.getBoundingClientRect();
+
+        return bounds.width > 0 && bounds.right > window.innerWidth + 1;
+      })
+      .slice(0, 8)
+      .map((element) => ({
+        tag: element.tagName,
+        class: element.className,
+        width: element.getBoundingClientRect().width,
+        right: element.getBoundingClientRect().right,
+      })),
   );
+
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    JSON.stringify(overflow),
+  ).toBe(true);
 
   for (const frame of page.frames().filter((entry) => entry.parentFrame())) {
     expect(

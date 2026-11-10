@@ -140,7 +140,7 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     ? frozenScope({ form: 'EffortWorkspace', selector: { state: 'unreadable', authored: [], material: null, coverage: absent('Frozen scope deferred') } })
     : frozenScope({ form: 'EffortNote', inline: null })): LiveEffort {
     return { ...summary(node, read), source: node, kind: 'effort', form: node.resolvedType === 'EffortWorkspace' ? 'EffortWorkspace' : 'EffortNote',
-      status: status(node, 'status', effortStates), checklist: { state: 'unreadable' }, scope };
+      status: status(node, 'status', effortStates), checklist: { state: 'deferred' }, scope };
   }
   async function portfolio(review = false): Promise<PortfolioRead> {
     const specRead = await inventory('specLike');
@@ -211,7 +211,8 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
       node, record: null, components: [], selectedTargets: [], governing: empty, entryMentions: empty,
       workLogSnapshot: null, coverage: ownCoverage };
     const componentRefs = node.workspace?.fields.flatMap(item => [...(item.sectionNodes ?? []),
-      ...(item.links ?? []).flatMap(link => link.ref ? [link.ref] : [])]) ?? [];
+      ...(['implementationPlan', 'workLog', 'frozenScope', 'materials'].includes(item.name)
+        ? (item.links ?? []).flatMap(link => link.ref ? [link.ref] : []) : [])]) ?? [];
     const components = componentRefs.length ? await hydrate(componentRefs, true) : { nodes: [], coverage: ownCoverage };
     const selectorField = field(node, 'frozenScope');
     const selectedLinks = selectorField?.links ?? [];
@@ -248,7 +249,14 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     const logRefs = (logField?.links ?? []).flatMap(link => link.resolved && link.ref ? [link.ref] : []);
     const logRead = node.resolvedType === 'EffortWorkspace' && logRefs.length === 1 ? await hydrate(logRefs, true) : null;
     const log = logRead?.nodes[0];
-    const workLogSnapshot = log && logRead ? await material(log, { ...logRead.coverage, sourceRevision: revision(log) }) : null;
+    const workLogSnapshot = log && logRead
+      ? selectedNode && identity(selectedNode.ref) === identity(log.ref)
+        && revision(selectedNode) === revision(log)
+        && components.coverage.graphGeneration === logRead.coverage.graphGeneration
+        ? selector.material
+        : await material(log, { ...logRead.coverage, sourceRevision: revision(log) }) : null;
+    const logSectionRefs = log?.workspace?.fields.flatMap(item => item.name === 'closureChecklist' ? [] : item.sectionNodes ?? []) ?? [];
+    const logSections = logSectionRefs.length ? await hydrate(logSectionRefs, true) : { nodes: [], coverage: ownCoverage };
     const checklistRead = node.resolvedType === 'EffortNote'
       ? await checklist(node, ownCoverage)
       : log && logRead ? await checklist(log, combine([ownCoverage, logRead.coverage], revision(log)))
@@ -262,8 +270,10 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
       scope.reasons = [...scope.reasons, 'Selected target hydration incomplete or changed generation'];
     }
     const totalCoverage = combine([ownCoverage, components.coverage, scope.coverage, entryMentions.coverage, targets.coverage,
-      checklistRead.coverage], revision(node));
-    return { node, record: result, components: [...components.nodes, ...checklistRead.nodes], selectedTargets: targets.nodes, governing, entryMentions,
+      checklistRead.coverage, logSections.coverage], revision(node));
+    const uniqueComponents = [...new Map([...components.nodes, ...(log ? [log] : []), ...logSections.nodes,
+      ...checklistRead.nodes].map(item => [identity(item.ref), item])).values()];
+    return { node, record: result, components: uniqueComponents, selectedTargets: targets.nodes, governing, entryMentions,
       workLogSnapshot, coverage: totalCoverage };
   }
   async function selectedEfforts(targets: readonly Ref[]) {

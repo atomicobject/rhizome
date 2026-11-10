@@ -255,3 +255,123 @@
 .ae-read-state p {
   margin: 4px 0;
 }
+
+body:has(.ae-panel) {
+  background: var(--chrome-bg);
+  color: var(--chrome-text);
+}
+body:has(.ae-panel) .ae-read-state > .ae-note {
+  display: none;
+}
+.ae-panel .ae-link {
+  color: var(--chrome-text);
+}
+.ae-map-compact .ae-activity {
+  border-top: 1px solid var(--chrome-muted);
+}
+.ae-stage[data-subject] {
+  border-color: var(--text);
+}
+.ae-this-record {
+  display: block;
+  font-size: 11px;
+  margin-top: 3px;
+}
+.ae-record-workflow .ae-map {
+  grid-template-columns: 2fr 2fr 1fr;
+  gap: 12px;
+  margin: 12px 0 18px;
+}
+.ae-record-workflow .ae-stage {
+  padding: 6px;
+  font-size: 12px;
+}
+@media (max-width: 480px) {
+  .ae-record-workflow .ae-map {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ae-home-work > div > h2 {
+  margin-bottom: 2px;
+  font-size: 16px;
+}
+.ae-home-work section + section {
+  margin-top: 24px;
+}
+.ae-support {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 36px;
+  border-top: 1px solid var(--border);
+  margin-top: 28px;
+}
+.ae-brief {
+  margin-top: 0;
+}
+.ae-brief section + section {
+  margin-top: 24px;
+}
+.ae-occurrences {
+  padding-left: 20px;
+}
+.ae-occurrences > li {
+  padding: 12px 0 18px;
+  border-bottom: 1px solid var(--border);
+}
+.ae-page .ae-prompt textarea {
+  font: 12px/1.6 var(--font-mono);
+}
+
+.ae-panel h2,
+.ae-panel .ae-stage .ae-link {
+  color: var(--chrome-text);
+}
+.ae-panel label {
+  display: block;
+  margin: 12px 0;
+}
+
+body:has(.ae-panel) .ae-refresh {
+  display: none;
+}
+.ae-prose ul {
+  list-style: disc;
+  padding-left: 22px;
+}
+.ae-prose ol,
+.ae-criteria {
+  list-style: decimal;
+  padding-left: 24px;
+}
+.ae-prose p {
+  margin: 8px 0;
+}
+.ae-prose pre {
+  padding: 10px;
+  background: var(--sunk);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.ae-prose a {
+  color: var(--link);
+  text-decoration: underline;
+}
+.ae-prose ul.contains-task-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.ae-criteria {
+  list-style: none;
+  padding-left: 0;
+}
+body:has(.ae-panel-state) {
+  background: var(--chrome-bg);
+}
+.ae-panel-state {
+  --text: var(--chrome-text);
+  --text-muted: var(--chrome-muted);
+  --text-faint: var(--chrome-muted);
+  color: var(--chrome-text);
+}

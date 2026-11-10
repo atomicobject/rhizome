@@ -1,5 +1,6 @@
 import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { isJsonObject, isString } from "../../src/api/parse";
 import { expect, type APIRequestContext, type Page, test } from "./fixtures";
 import { chooseView, openViewOptions, rowsChoice } from "./workspaceView";
 
@@ -18,6 +19,35 @@ async function vaultFile(request: APIRequestContext, ...parts: string[]) {
 async function save(file: string, text: string) {
   await writeFile(`${file}.tmp`, text);
   await rename(`${file}.tmp`, file);
+}
+
+async function saveMooringSummary(request: APIRequestContext, summary: string) {
+  const created = await request.post("/api/v1/edit-sessions", {
+    data: {
+      ops: [
+        {
+          kind: "setField",
+          path: "notes/type-views/guides/mooring-knots.md",
+          field: "summary",
+          value: summary,
+        },
+      ],
+    },
+  });
+
+  expect(created.ok(), await created.text()).toBe(true);
+  const session: unknown = await created.json();
+
+  if (!isJsonObject(session) || !isString(session.sessionId))
+    throw new Error("Expected edit session");
+
+  const saved = await request.post(`/api/v1/edit-sessions/${session.sessionId}/commit`, {
+    data: {},
+  });
+
+  expect(saved.ok(), await saved.text()).toBe(true);
+  const outcome: unknown = await saved.json();
+  expect(isJsonObject(outcome) && outcome.outcome === "committed").toBe(true);
 }
 
 async function preferenceWrite(page: Page, action: () => Promise<void>) {
@@ -60,11 +90,13 @@ test("table and cards keep explicit collapse through query changes, content save
   await search.fill("");
   await expect(howto).toHaveAttribute("aria-expanded", "false");
 
-  const file = await vaultFile(request, "notes/type-views/guides/mooring-knots.md");
-  const original = await readFile(file, "utf8");
+  const original = "Tie the four knots every deckhand uses.";
 
   try {
-    await save(file, original.replace("every deckhand uses", "every deckhand remembers"));
+    await saveMooringSummary(
+      request,
+      original.replace("every deckhand uses", "every deckhand remembers"),
+    );
     await chooseView(page, "Cards");
     await expect(page.locator(".configured-card", { hasText: "Mooring knots" })).toBeVisible();
     const cardsGroup = page.getByRole("button", { name: "Howto 2", exact: true });
@@ -80,7 +112,7 @@ test("table and cards keep explicit collapse through query changes, content save
       "every deckhand remembers",
     );
   } finally {
-    await save(file, original);
+    await saveMooringSummary(request, original);
   }
 });
 

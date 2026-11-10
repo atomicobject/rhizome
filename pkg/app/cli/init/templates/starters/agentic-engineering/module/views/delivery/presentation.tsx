@@ -14,7 +14,9 @@ import type { SectionStatus } from "@rhizome/kit";
 import { groups, groupResult, identity } from "./lib/index.ts";
 import type {
   Coverage,
+  Effort,
   Portfolio,
+  Ref,
   RecordSummary,
   Spec,
   Story,
@@ -25,6 +27,23 @@ import type {
 import "./delivery.css";
 
 export type PortfolioProps = { portfolio: Portfolio; status: SectionStatus };
+
+export function subjectPortfolio(record: Spec | Effort): Portfolio {
+  return {
+    specs: record.kind === "spec" ? [record] : [],
+    efforts: record.kind === "effort" ? [record] : [],
+    specCoverage: record.coverage,
+    effortCoverage: record.coverage,
+  };
+}
+
+export function RecordWorkflow({ record }: { record: Spec | Effort }) {
+  return (
+    <div className="ae-record-workflow">
+      <WorkflowMap portfolio={subjectPortfolio(record)} subject={record.ref} showCounts={false} />
+    </div>
+  );
+}
 
 export function Ready({ status }: { status: SectionStatus }) {
   const mark = useMarkReady();
@@ -65,13 +84,23 @@ export function StageLink({ stage, children }: { stage: Stage; children: ReactNo
   );
 }
 
+export function unit(count: number, plural: "specs" | "stories" | "efforts" | "observations") {
+  return count === 1
+    ? { specs: "spec", stories: "story", efforts: "effort", observations: "observation" }[plural]
+    : plural;
+}
+
 export function WorkflowMap({
   portfolio,
   current,
+  subject,
+  showCounts = true,
   compact = false,
 }: {
   portfolio: Portfolio;
   current?: Stage;
+  subject?: Ref;
+  showCounts?: boolean;
   compact?: boolean;
 }) {
   return (
@@ -85,20 +114,33 @@ export function WorkflowMap({
               .map((group) => {
                 const result = groupResult(group.stage, portfolio);
                 if (result.state !== "records") return null;
+                const contains =
+                  subject &&
+                  result.rows.some(
+                    (row) =>
+                      identity(row.record.ref) === identity(subject) ||
+                      (row.kind === "story" && identity(row.parent.ref) === identity(subject)),
+                  );
                 return (
                   <div
                     key={group.stage}
                     className="ae-stage"
                     aria-current={current === group.stage ? "page" : undefined}
+                    data-subject={contains || undefined}
                   >
                     <StageLink stage={group.stage}>
-                      <span className="ae-number">
-                        {result.complete ? "" : "at least "}
-                        {result.count}
-                      </span>{" "}
-                      {group.unit}
-                      <br />
+                      {showCounts && (
+                        <>
+                          <span className="ae-number">
+                            {result.complete ? "" : "at least "}
+                            {result.count}
+                          </span>{" "}
+                          {unit(result.count, group.unit)}
+                          <br />{" "}
+                        </>
+                      )}
                       {group.title}
+                      {contains && <span className="ae-this-record">This record</span>}
                     </StageLink>
                   </div>
                 );
@@ -135,7 +177,9 @@ export function RowFacts({ row }: { row: Row }) {
     <Facts note={record.status ?? "Status unavailable"}>
       {row.kind === "spec" && (
         <Fact value={row.record.stories.length}>
-          {row.record.storiesCoverage.complete ? "stories" : "loaded stories"}
+          {row.record.storiesCoverage.complete
+            ? unit(row.record.stories.length, "stories")
+            : "loaded stories"}
         </Fact>
       )}
       {row.kind === "story" && (
@@ -146,7 +190,11 @@ export function RowFacts({ row }: { row: Row }) {
               : "Active parent contract"}
           </Fact>
           <Fact value={row.record.criteria.length}>
-            {row.record.criteriaCoverage.complete ? "criteria" : "loaded criteria"}
+            {row.record.criteriaCoverage.complete
+              ? row.record.criteria.length === 1
+                ? "criterion"
+                : "criteria"
+              : "loaded criteria"}
           </Fact>
         </>
       )}
@@ -154,7 +202,9 @@ export function RowFacts({ row }: { row: Row }) {
         <Fact>
           {row.record.checklist.state === "recorded" || row.record.checklist.state === "empty"
             ? `${row.record.checklist.checked} of ${row.record.checklist.total} checklist items checked`
-            : `Checklist ${row.record.checklist.state}`}
+            : row.record.checklist.state === "deferred"
+              ? "Open brief for checklist evidence"
+              : `Checklist ${row.record.checklist.state}`}
         </Fact>
       )}
       {row.kind === "review" && (
@@ -227,9 +277,7 @@ export function ReadState({
   }, [query.state, mark]);
   return (
     <div className="ae-read-state">
-      {query.state === "loading" && (
-        <Section title="Delivery" status={{ status: "loading" }} what="delivery records" />
-      )}
+      {query.state === "loading" && <p role="status">Loading delivery records…</p>}
       {query.error && (
         <p role="alert">
           Read failed. {query.error.message}{" "}
@@ -237,19 +285,27 @@ export function ReadState({
         </p>
       )}
       {query.retained && (
-        <p role="status">Showing retained committed data after a failed refresh.</p>
+        <p role="status">Showing previous saved records after a failed refresh.</p>
       )}
       {query.state === "partial" && (
-        <p role="status">Partial committed read. Missing evidence remains unavailable.</p>
+        <p role="status">
+          Some source evidence is unavailable.{" "}
+          <Button className="ae-refresh" onClick={() => query.refresh()}>
+            Refresh records
+          </Button>
+        </p>
       )}
       {query.data?.coverage.errors.map((error, index) => (
         <p role="status" key={index}>
           {error}
         </p>
       ))}
-      <p className="ae-note">
-        Committed records. Pending saved edits are not included in this brief.
-      </p>
+      <p className="ae-note">Saved records. Unsaved workspace edits are not included.</p>
+      {query.state === "ready" && (
+        <Button className="ae-refresh" onClick={() => query.refresh()}>
+          Refresh records
+        </Button>
+      )}
     </div>
   );
 }

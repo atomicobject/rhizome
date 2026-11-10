@@ -4,7 +4,7 @@ id: SPEC-0137
 aliases: [SPEC-0137]
 summary: "A complete source-grounded Delivery experience for shaping specifications, selecting work, resuming efforts, and inspecting delivery evidence."
 spec-status: active
-last-updated: 2026-11-09
+last-updated: 2026-11-10
 ---
 
 # Agentic Engineering delivery experience
@@ -33,7 +33,7 @@ Agent invocation, automatic approval or acceptance, lifecycle writes, a policy b
 
 - id:: ^SPEC-0137-US1
 - summary:: A designer or lead opens Delivery and understands what is recorded and where to act.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -49,7 +49,7 @@ Agent invocation, automatic approval or acceptance, lifecycle writes, a policy b
 
 - id:: ^SPEC-0137-US2
 - summary:: A lead selects work in a factual list and copies one prompt that preserves scope and authority.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -65,7 +65,7 @@ Agent invocation, automatic approval or acceptance, lifecycle writes, a policy b
 
 - id:: ^SPEC-0137-US3
 - summary:: A designer or developer opens a spec and reads the contract and its exact delivery relationships.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -79,7 +79,7 @@ Agent invocation, automatic approval or acceptance, lifecycle writes, a policy b
 
 - id:: ^SPEC-0137-US4
 - summary:: A developer or agent opens an effort and can determine scope, current evidence, and the next investigation.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -96,7 +96,7 @@ Agent invocation, automatic approval or acceptance, lifecycle writes, a policy b
 
 - id:: ^SPEC-0137-US5
 - summary:: A user keeps their place while moving among the workflow, contracts, and efforts.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -110,7 +110,7 @@ Agent invocation, automatic approval or acceptance, lifecycle writes, a policy b
 
 - id:: ^SPEC-0137-US6
 - summary:: A lead sees actionable recorded work separately from evidence that needs inspection.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -124,7 +124,7 @@ Agent invocation, automatic approval or acceptance, lifecycle writes, a policy b
 
 - id:: ^SPEC-0137-US7
 - summary:: Users can read and act accurately across supported themes, screen sizes, and read failures.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -139,7 +139,7 @@ Agent invocation, automatic approval or acceptance, lifecycle writes, a policy b
 
 - id:: ^SPEC-0137-US8
 - summary:: A repository receives a complete working experience through the supported starter lifecycle.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
@@ -162,7 +162,7 @@ MUST keep the workflow map visible across all five page families. It is an activ
 
 ## Open Questions
 
-No discretionary product decision is deferred. Independent specification and implementation-plan review passed after resolving the HTML frozen-scope boundary. The data/API foundation requires technical review before dependent integration. The source-link extension uses offset and occurrence count, with source revision and graph generation checked across pages.
+No discretionary product decision is deferred. Independent specification and implementation-plan review passed after resolving the HTML frozen-scope boundary. Implemented-foundation review and the three-round integrated review approved the implementation. The source-link extension uses offset and occurrence count, with source revision and graph generation checked across pages.
 
 ## Documentation plan
 

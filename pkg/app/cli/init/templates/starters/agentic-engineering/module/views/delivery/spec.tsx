@@ -1,18 +1,20 @@
-import type { LiveStory } from "./data.tsx";
-import { useDeliveryPortfolio, useDeliveryRecord } from "./data.tsx";
+import type { LiveSpec, LiveStory } from "./data.tsx";
+import { field } from "./reads.ts";
+import { EffortRelationships } from "./relationships.tsx";
+import { useDeliveryRecord } from "./data.tsx";
 import { useViewContext } from "@rhizome/kit";
 import { SourceContent, FieldEvidence } from "./evidence.tsx";
-import { ReadState, WorkflowMap } from "./presentation.tsx";
-import { useEffect, useRef } from "react";
+import { ReadState, RecordWorkflow } from "./presentation.tsx";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Fact, Facts, RecordPage, Section, usePageNavigation, useViewParams } from "@rhizome/kit";
 import type { SectionStatus } from "@rhizome/kit";
 import { identity } from "./lib/index.ts";
-import type { Spec, Story } from "./lib/index.ts";
+import type { Story } from "./lib/index.ts";
 import { Ready } from "./presentation.tsx";
 
 export type SpecProps = {
-  record: Spec | null;
+  record: LiveSpec | null;
   title: string;
   status: SectionStatus;
   narrative: ReactNode;
@@ -24,19 +26,20 @@ export function InlineStory({
   focus,
   children,
 }: {
-  story: Story;
+  story: LiveStory;
   focus: boolean;
   children?: ReactNode;
 }) {
   const details = useRef<HTMLDetailsElement>(null);
+  const [open, setOpen] = useState(focus);
   useEffect(() => {
     if (!focus || !details.current) return;
-    details.current.open = true;
+    setOpen(true);
     details.current.scrollIntoView({ block: "nearest" });
     details.current.querySelector("summary")?.focus();
   }, [focus]);
   return (
-    <details ref={details}>
+    <details ref={details} open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary tabIndex={0} role="button">
         <strong>{story.title || story.ref.fragment || "Untitled story"}</strong>{" "}
         <span className="ae-note">
@@ -45,9 +48,9 @@ export function InlineStory({
           {story.criteria.length} criteria
         </span>
       </summary>
-      {children}
+      {open && children}
       {!story.criteriaCoverage.complete && <p role="status">Criteria read is incomplete.</p>}
-      {!children && (
+      {open && !children && (
         <ol>
           {story.criteria.map((criterion) => (
             <li key={identity(criterion.ref)}>
@@ -56,16 +59,25 @@ export function InlineStory({
           ))}
         </ol>
       )}
-      {!story.criteria.length && <p className="ae-note">No criteria returned in this read.</p>}
+      {!story.criteria.length && (
+        <p className="ae-note">
+          {!story.criteriaCoverage.complete
+            ? "Criterion read unavailable."
+            : field(story.source, "acceptanceCriteria")?.present
+              ? "The recorded acceptance-criteria section contains no criterion nodes."
+              : "No acceptance-criteria section recorded."}
+        </p>
+      )}
     </details>
   );
 }
 
 export function SpecPage({ record, title, status, narrative, storyContent }: SpecProps) {
+  const stories: readonly LiveStory[] = record?.stories ?? [];
   const params = useViewParams();
   const nav = usePageNavigation();
   const storyParam = typeof params.story === "string" ? params.story : null;
-  const focused = record?.stories.find(
+  const focused = stories.find(
     (story) =>
       story.locator === storyParam ||
       identity(story.ref) === storyParam ||
@@ -88,14 +100,20 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
         }
         facts={
           <Facts note={record?.status ?? "Status unavailable"}>
+            <Fact>{record?.ref.typeName}</Fact>
+            <Fact>{record && field(record.source, "id")?.values?.[0]}</Fact>
             <Fact>{record?.locator ?? title}</Fact>
+            {record && field(record.source, "lastUpdated")?.values?.[0] && (
+              <Fact>Updated {field(record.source, "lastUpdated")?.values?.[0]}</Fact>
+            )}
           </Facts>
         }
       >
         {() =>
           record ? (
             <>
-              {narrative}
+              <p>{field(record.source, "summary")?.values?.[0]}</p>
+              <RecordWorkflow record={record} />
               <Section
                 title="What done means"
                 count={`${record.storiesCoverage.complete ? "" : "at least "}${record.stories.length} stories`}
@@ -109,15 +127,23 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
                     </button>
                   </p>
                 )}
-                {record.stories.map((story) => (
+                {stories.map((story) => (
                   <InlineStory key={identity(story.ref)} story={story} focus={story === focused}>
                     {storyContent?.(story)}
                   </InlineStory>
                 ))}
                 {!record.stories.length && (
-                  <p className="ae-note">No stories returned in this read.</p>
+                  <p className="ae-note">
+                    {!record.storiesCoverage.complete
+                      ? "Story read unavailable."
+                      : field(record.source, "userStories")?.present
+                        ? "The recorded user-stories section contains no stories."
+                        : "No user-stories section recorded."}
+                  </p>
                 )}
               </Section>
+              {narrative}
+              <EffortRelationships spec={record} />
             </>
           ) : (
             <p>This subject did not resolve to a supported spec.</p>
@@ -130,9 +156,9 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
 
 export default function Page() {
   const context = useViewContext();
+  const [sourceOpen, setSourceOpen] = useState(false);
   const query = useDeliveryRecord(context.kind === "node" ? context.ref : null);
   const record = query.data?.record;
-  const orientation = useDeliveryPortfolio({ enabled: !!record });
   if (!query.data)
     return (
       <main className="ae-page">
@@ -163,11 +189,13 @@ export default function Page() {
           status={{ status: "ready" }}
           narrative={
             <>
-              {orientation.data && <WorkflowMap portfolio={orientation.data.portfolio} />}
               <FieldEvidence node={query.data.node} />
-              <details>
+              <details
+                open={sourceOpen}
+                onToggle={(event) => setSourceOpen(event.currentTarget.open)}
+              >
                 <summary>Contract source</summary>
-                <SourceContent node={query.data.node} />
+                {sourceOpen && <SourceContent node={query.data.node} />}
               </details>
             </>
           }
@@ -176,7 +204,23 @@ export default function Page() {
             const source = stories.find(
               (item) => identity(item.ref) === identity(story.ref),
             )?.source;
-            return source ? <SourceContent node={source} /> : <p>Story source unavailable.</p>;
+            const selectedStory = stories.find(
+              (item) => identity(item.ref) === identity(story.ref),
+            );
+            return source && selectedStory ? (
+              <>
+                <p>{field(source, "summary")?.values?.[0]}</p>
+                <ol className="ae-criteria">
+                  {selectedStory.criteria.map((criterion) => (
+                    <li key={identity(criterion.ref)}>
+                      <SourceContent node={criterion.source} />
+                    </li>
+                  ))}
+                </ol>
+              </>
+            ) : (
+              <p>Story source unavailable.</p>
+            );
           }}
         />
       )}

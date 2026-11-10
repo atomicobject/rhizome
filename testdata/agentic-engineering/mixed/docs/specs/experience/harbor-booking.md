@@ -36,6 +36,7 @@ No live bookings.
   ```
 
   verification:: inspect the passenger confirmation
+  See [[docs/specs/active-5.md|Recorded departure contract]] and [relative plan](../../efforts/harbor-legacy/plan.html).
 - **A cancellation preserves the itinerary.** Returning from cancellation keeps the original service.
 
 ### US2 - Explain a service disruption before booking

@@ -1,9 +1,98 @@
-import { Markdown, usePageNavigation } from "@rhizome/kit";
+import { useMemo } from "react";
+import type { ComponentProps, ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Markdown,
+  usePageNavigation,
+  useViewActive,
+  convertWikilinks,
+  resolveRenderedLinkTarget,
+  getNodePreview,
+  noteHref,
+} from "@rhizome/kit";
 import type { LiveNode } from "./data.tsx";
+
+const preserveLinkURL = (url: string) => url;
+const noIndexedLinks = { links: [] };
+
+function SourceAnchor({
+  href,
+  children,
+  from,
+}: {
+  href?: string;
+  children?: ReactNode;
+  from: string;
+}) {
+  const target = resolveRenderedLinkTarget(href, noIndexedLinks);
+  const authoredTarget = href?.startsWith("rhizome://note/")
+    ? `[[${target}]]`
+    : `[target](${href})`;
+  const nav = usePageNavigation();
+  const active = useViewActive();
+  const query = useQuery({
+    queryKey: ["agentic-engineering", "source-link", from, authoredTarget],
+    queryFn: ({ signal }) => getNodePreview(authoredTarget, from, { signal }),
+    enabled: active && target !== null,
+    subscribed: active,
+    retry: false,
+  });
+  if (!target)
+    return (
+      <a href={href} target="_blank" rel="noreferrer">
+        {children}
+      </a>
+    );
+  if (query.isPending)
+    return (
+      <span>
+        {children} <span className="ae-note">(resolving link)</span>
+      </span>
+    );
+  if (query.error || !query.data || !query.data.fragmentResolved)
+    return (
+      <span>
+        {children}{" "}
+        <span className="ae-note" role="status">
+          (recorded link unavailable in this read: {target})
+        </span>
+      </span>
+    );
+  const destination = query.data.ref;
+  return (
+    <a
+      href={noteHref(destination)}
+      onClick={(event) => {
+        if (event.button !== 0 || event.altKey || event.shiftKey) return;
+        event.preventDefault();
+        nav.openNote(destination, { beside: event.metaKey || event.ctrlKey });
+      }}
+    >
+      {children}
+    </a>
+  );
+}
 
 export function SourceContent({ node }: { node: LiveNode }) {
   const nav = usePageNavigation();
-  if (node.format === "markdown") return <Markdown skipHtml>{node.content ?? ""}</Markdown>;
+  const components = useMemo<NonNullable<ComponentProps<typeof Markdown>["components"]>>(
+    () => ({
+      a: ({ href, children }) => (
+        <SourceAnchor href={href} from={node.ref.notePath}>
+          {children}
+        </SourceAnchor>
+      ),
+    }),
+    [node.ref.notePath],
+  );
+  if (node.format === "markdown" || node.sectionType)
+    return (
+      <div className="ae-prose">
+        <Markdown skipHtml components={components} urlTransform={preserveLinkURL}>
+          {convertWikilinks(node.content ?? "")}
+        </Markdown>
+      </div>
+    );
   return (
     <div>
       <p className="ae-note">
@@ -11,7 +100,11 @@ export function SourceContent({ node }: { node: LiveNode }) {
       </p>
       <button
         className="ae-link"
-        onClick={() => nav.openNode(node.ref, { view: "builtin:source" })}
+        onClick={() =>
+          nav.openNode(node.ref, {
+            view: node.format === "html" ? "builtin:read" : "builtin:source",
+          })
+        }
       >
         Open original source
       </button>
