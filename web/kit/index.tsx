@@ -2,31 +2,25 @@
 // the same whether the view is framed by the Notes workspace or opened at its
 // own URL as a standalone tool.
 import {
-  replaceEqualDeep,
   useMutation,
   useQueryClient,
   type UseQueryOptions,
   type MutateOptions,
 } from "@tanstack/react-query";
-import { useEffect, type ComponentProps, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
-import { executePublicView, queryPublicGraphQLOperation } from "../src/api/client";
+import { executePublicViewWithGeneration, queryPublicGraphQLOperation } from "../src/api/client";
 import type { JsonObject } from "../src/api/parse";
 import type { PublicGraphQLError } from "../src/api/publicGraphQLTypes";
+import { recordResponse, shareResponse } from "./coverage";
+import { frameGeneration } from "./generation";
 import type { OntologyEditOp, ViewExecuteRequest, ViewExecuteResponse } from "../src/api/types";
 import { remapCommittedEditOps } from "../src/components/editing/editSessionState";
-import {
-  workspaceViewHref,
-  nodeHref,
-  parseViewContext,
-  type OpenNodeOptions,
-  type ViewContextInput,
-  type ViewNodeRef,
-} from "../src/views/context";
-import { isViewParamValues, type ViewParamValue } from "../src/views/params";
+import { postPhase, reportPhasesToHost } from "./experienceFrame";
 import { startView, type ViewConfig, type ViewModule } from "./startView";
-import { getViewInvocation } from "./viewContext";
+import { postToHost } from "./navigation";
+import { useViewActive, useViewContext } from "./viewContext";
 
 export { Diagram } from "./Diagram";
 
@@ -38,11 +32,33 @@ export * from "./preferences";
 
 export * from "./actions";
 
+export { markReady, RETAINED_PAGES, useMarkReady } from "./experienceFrame";
+
+export { RecordPage, type RecordPageProps } from "./record-page";
+
+export { NODES_BATCH_MAX, readNodes, type ReadNodesResult, type UnresolvedRef } from "./read-nodes";
+
+export {
+  NodeLink,
+  NoteLink,
+  noteHref,
+  openCollection,
+  openIssues,
+  openNode,
+  openNote,
+  openSearch,
+  openView,
+  usePageNavigation,
+  type PageNavigation,
+} from "./navigation";
+
 export {
   getViewParams,
   setViewParams,
   subscribeViewParams,
+  useViewLocation,
   useViewParams,
+  type ViewLocation,
   type ViewParamDeclaration,
   type ViewParamKind,
   type ViewParams,
@@ -51,23 +67,19 @@ export {
 } from "./viewParams";
 
 import {
-  OPEN_COLLECTION_MESSAGE,
-  OPEN_ISSUES_MESSAGE,
-  OPEN_NODE_MESSAGE,
-  OPEN_VIEW_MESSAGE,
+  EXPERIENCE_FRAME_PARAM,
+  EXPERIENCE_FRAME_VALUE,
   OPEN_NOTE_MESSAGE,
-  OPEN_SEARCH_MESSAGE,
   VIEW_RENDERED_MESSAGE,
   type IssueScope,
-  type ViewMessage,
 } from "../src/lib/customViewMessages";
-import { buildNotesLocation, buildNotesPath } from "../src/components/notesRoute";
 import { useStagedQuery, type StagedSession } from "../src/staging/stagedQuery";
 import {
   commitOps,
   embedded,
   setFieldOp,
   useEditWriter,
+  type EditWriter,
   type FieldValue,
   type NodeTarget,
 } from "./editSession";
@@ -128,6 +140,8 @@ export type { ViewConfig, ViewModule } from "./startView";
 
 export { OPEN_NOTE_MESSAGE };
 
+export { truncation, typedRootCoverage, type Truncation, type TypedRootCoverage } from "./coverage";
+
 /** Run a read-only GraphQL query against the vault. Throws on GraphQL errors. */
 export function graphql<TData>(query: string, variables?: JsonObject): Promise<TData> {
   return readGraphQL<TData>(query, variables, null);
@@ -175,10 +189,16 @@ async function readGraphQL<TData>(
   signal?: AbortSignal,
   partial = false,
 ): Promise<TData> {
-  const result = await queryPublicGraphQLOperation<TData>(query, variables, undefined, {
-    editSession,
-    signal,
-  });
+  // An edit-session read is never cached by the server, but it still names
+  // its generation, so it follows the same rule.
+  const result = await frameGeneration.read(async () => {
+    const response = await queryPublicGraphQLOperation<TData>(query, variables, undefined, {
+      editSession,
+      signal,
+    });
+
+    return { data: response, generation: response.extensions?.generation };
+  }, signal);
 
   if (result.errors?.length && !(partial && insideRoots(result.data, result.errors))) {
     throw new Error(result.errors.map((error) => error.message).join("\n"));
@@ -188,6 +208,8 @@ async function readGraphQL<TData>(
 
   if (result.errors?.length && isWeakKey(result.data))
     toleratedErrors.set(result.data, result.errors);
+
+  recordResponse(result.data, result.extensions);
 
   return result.data;
 }
@@ -214,28 +236,28 @@ export function useGraphQL<TData>(
   },
 ) {
   const { session, readLifecycle } = useEditWriter();
+  const active = useViewActive();
   const { optimistic, partial = false, ...queryOptions } = options ?? {};
 
   const result = useStagedQuery<TData>({
     subject: ["graphql", query, variables ?? {}, ...(partial ? ["partial"] : [])],
     session,
     lifecycle: readLifecycle,
-    options: partial
-      ? {
-          // An equal response keeps the previous data object; carry the newer
-          // response's errors over to it.
-          structuralSharing: (previous, next) => {
-            const shared = replaceEqualDeep(previous, next);
+    options: {
+      // An equal response keeps the previous data object; carry the newer
+      // response's errors, coverage, and generation over to it.
+      structuralSharing: (previous, next) => {
+        const shared = shareResponse(previous, next);
 
-            if (shared !== next && isWeakKey(shared)) {
-              toleratedErrors.set(shared, partialErrorsOf(next));
-            }
+        if (partial && shared !== next && isWeakKey(shared))
+          toleratedErrors.set(shared, partialErrorsOf(next));
 
-            return shared;
-          },
-          ...queryOptions,
-        }
-      : queryOptions,
+        return shared;
+      },
+      ...queryOptions,
+      // A hidden page's reads stop listening, so nothing refetches them.
+      subscribed: active && queryOptions.subscribed !== false,
+    },
     queryFn: ({ signal, editSession }) =>
       readGraphQL<TData>(query, variables, editSession, signal, partial),
   });
@@ -276,21 +298,27 @@ export function useSetField(readSession?: StagedSession) {
   const queryClient = useQueryClient();
   const writer = useEditWriter();
 
-  const mutation = useMutation<void, Error, { input: SetFieldInput; ops: OntologyEditOp[] }>({
-    mutationFn: ({ ops }) => writer.write(ops),
-    onSettled: () => {
+  const mutation = useMutation<
+    void,
+    Error,
+    { input: SetFieldInput; ops: OntologyEditOp[]; writer: EditWriter }
+  >({
+    mutationFn: ({ ops, writer }) => writer.write(ops),
+    onSettled: (_data, _error, { writer }) => {
       if (writer.target === "immediate") void queryClient.invalidateQueries();
     },
   });
 
-  // Capture the reader's lineage when invoked, before an async mutation or a
-  // workspace queue can outlive that reader's retained display result.
+  // Capture the reader's lineage and the page's writer when invoked, before an
+  // async mutation or a workspace queue can outlive that reader's retained
+  // display result, or the page's panel moves to another subject.
   const capture = (input: SetFieldInput) => ({
     input,
     ops: remapCommittedEditOps(
       [setFieldOp(input.target, input.field, input.value)],
       readSession?.refLineage ?? [],
     ),
+    writer,
   });
 
   const callbacks = (options?: SetFieldOptions): Parameters<typeof mutation.mutate>[1] =>
@@ -315,7 +343,25 @@ export function useSetField(readSession?: StagedSession) {
 
 /** Execute an existing native view definition through Rhizome's shared row executor. */
 export function executeView(id: string, request: ViewExecuteRequest = {}) {
-  return executePublicView(id, request);
+  return readViewRows(id, request, null);
+}
+
+// View rows name their generation in a header and follow the same rule as GraphQL reads.
+async function readViewRows(
+  id: string,
+  request: ViewExecuteRequest,
+  editSession: StagedSession,
+  signal?: AbortSignal,
+) {
+  const { data, generation } = await frameGeneration.read(async () => {
+    const response = await executePublicViewWithGeneration(id, request, { signal, editSession });
+
+    return { data: response, generation: response.generation };
+  }, signal);
+
+  recordResponse(data, generation === undefined ? undefined : { generation });
+
+  return data;
 }
 
 /** Native rows with the same staged edit-session and query-cache behavior as GraphQL reads. */
@@ -327,16 +373,21 @@ export function useViewRows(
   },
 ) {
   const { session, readLifecycle } = useEditWriter();
+  const active = useViewActive();
   const { optimistic, ...queryOptions } = options ?? {};
-  const context = getViewInvocation().context;
+  const context = useViewContext();
   const subject = ["view-rows", id, context, request];
 
   const result = useStagedQuery<ViewExecuteResponse>({
     subject,
     session,
     lifecycle: readLifecycle,
-    options: queryOptions,
-    queryFn: ({ signal, editSession }) => executePublicView(id, request, { signal, editSession }),
+    options: {
+      structuralSharing: shareResponse,
+      ...queryOptions,
+      subscribed: active && queryOptions.subscribed !== false,
+    },
+    queryFn: ({ signal, editSession }) => readViewRows(id, request, editSession, signal),
   });
 
   return {
@@ -349,176 +400,6 @@ export function useViewRows(
   };
 }
 
-/** Open a canonical note or embedded node, optionally in a named presentation. */
-export function openNode(ref: ViewNodeRef, options: OpenNodeOptions = {}) {
-  if (embedded) {
-    const navigation = { ...options };
-
-    if (navigation.view === undefined) delete navigation.view;
-
-    window.parent.postMessage(
-      { type: OPEN_NODE_MESSAGE, ref, ...navigation },
-      window.location.origin,
-    );
-
-    return;
-  }
-
-  if (options.beside) window.open(nodeHref(ref, options), "_blank", "noopener");
-  else window.location.assign(nodeHref(ref, options));
-}
-
-/**
- * Open another registered view with an explicit subject, optionally setting
- * its declared params.
- */
-export function openView(
-  id: string,
-  context: ViewContextInput = { kind: "standalone" },
-  params?: Record<string, ViewParamValue>,
-) {
-  const parsedContext = parseViewContext(context);
-
-  if (!parsedContext) throw new Error("Invalid view context");
-
-  if (params !== undefined && !isViewParamValues(params)) throw new Error("Invalid view params");
-
-  if (embedded) {
-    window.parent.postMessage(
-      params
-        ? { type: OPEN_VIEW_MESSAGE, id, context: parsedContext, params }
-        : { type: OPEN_VIEW_MESSAGE, id, context: parsedContext },
-      window.location.origin,
-    );
-
-    return;
-  }
-
-  window.location.assign(workspaceViewHref(id, parsedContext, params));
-}
-
-const postToHost = (message: ViewMessage) =>
-  window.parent.postMessage(message, window.location.origin);
-
-/**
- * Open the issues panel, optionally scoped to a type, interface, or note path.
- * Without a scope, a view presenting a note opens that note's issues; a view
- * anywhere else, or a standalone page, opens every issue.
- */
-export function openIssues(scope?: IssueScope) {
-  if (embedded) {
-    postToHost(scope ? { type: OPEN_ISSUES_MESSAGE, scope } : { type: OPEN_ISSUES_MESSAGE });
-
-    return;
-  }
-
-  window.location.assign(buildNotesLocation({ selection: { kind: "issues" }, issueScope: scope }));
-}
-
-/** Open a type or interface collection in the workspace. */
-export function openCollection(name: string) {
-  if (embedded) {
-    postToHost({ type: OPEN_COLLECTION_MESSAGE, name });
-
-    return;
-  }
-
-  window.location.assign(buildNotesPath({ kind: "type", typeName: name }));
-}
-
-/**
- * Open a project search tab filtered to a vault folder, optionally with a
- * query. `folder: "/"` lists the notes at the vault root, which sit in no folder.
- */
-export function openSearch({ folder, query }: { folder: string; query?: string }) {
-  if (embedded) {
-    postToHost(
-      query ? { type: OPEN_SEARCH_MESSAGE, folder, query } : { type: OPEN_SEARCH_MESSAGE, folder },
-    );
-
-    return;
-  }
-
-  window.location.assign(
-    buildNotesLocation({ selection: { kind: "all" }, search: query ?? "", folder }),
-  );
-}
-
-export function noteHref(path: string) {
-  return `/notes?note=${encodeURIComponent(path)}`;
-}
-
-/** Open a note in the surrounding workspace, or navigate there when standalone. */
-export function openNote(path: string, options: { beside?: boolean } = {}) {
-  if (embedded) {
-    window.parent.postMessage(
-      { type: OPEN_NOTE_MESSAGE, path, beside: options.beside ?? false },
-      window.location.origin,
-    );
-
-    return;
-  }
-
-  if (options.beside) window.open(noteHref(path), "_blank", "noopener");
-  else window.location.assign(noteHref(path));
-}
-
-/** A link to a note that opens in the workspace when the view is embedded. */
-export function NoteLink({
-  path,
-  children,
-  className,
-  onClick,
-  ...props
-}: { path: string } & Omit<ComponentProps<"a">, "href">) {
-  return (
-    <a
-      {...props}
-      className={className ? `rz-note-link ${className}` : "rz-note-link"}
-      href={noteHref(path)}
-      onClick={(event) => {
-        onClick?.(event);
-
-        if (event.defaultPrevented || event.button !== 0 || event.shiftKey || event.altKey) return;
-        event.preventDefault();
-        openNote(path, { beside: event.metaKey || event.ctrlKey });
-      }}
-    >
-      {children ?? path}
-    </a>
-  );
-}
-
-/**
- * A link to a canonical note or embedded node, optionally in a named
- * presentation, styled like `NoteLink`. Cmd or Ctrl click opens it beside.
- */
-export function NodeLink({
-  node,
-  view,
-  children,
-  className,
-  onClick,
-  ...props
-}: { node: ViewNodeRef; view?: string } & Omit<ComponentProps<"a">, "href">) {
-  return (
-    <a
-      {...props}
-      className={className ? `rz-note-link ${className}` : "rz-note-link"}
-      href={nodeHref(node, { view })}
-      onClick={(event) => {
-        onClick?.(event);
-
-        if (event.defaultPrevented || event.button !== 0 || event.shiftKey || event.altKey) return;
-        event.preventDefault();
-        openNode(node, { view, beside: event.metaKey || event.ctrlKey });
-      }}
-    >
-      {children}
-    </a>
-  );
-}
-
 /**
  * Called by the shell that rzm serves at /views/<id>. Renders the entry module's
  * default export inside the kit's providers. A module without a default export
@@ -529,17 +410,31 @@ export async function mountView(load: () => Promise<ViewModule>, view: ViewConfi
 
   if (!container) throw new Error("mountView needs an element with id root");
 
+  const experience =
+    embedded &&
+    new URLSearchParams(window.location.search).get(EXPERIENCE_FRAME_PARAM) ===
+      EXPERIENCE_FRAME_VALUE;
+
   // A framing workspace keeps the view it shows until this one has drawn:
   // "starting" tells it to wait for the rendered message, not the page load.
-  document.documentElement.dataset.rhizomeView = "starting";
+  // An experience frame announces readiness and each page's paint instead.
+  if (!experience) document.documentElement.dataset.rhizomeView = "starting";
+
+  if (embedded) {
+    reportPhasesToHost();
+    postPhase("shell-start");
+  }
 
   await startView(load, view, {
     hosted: embedded,
-    render: (element) => createRoot(container).render(<FirstRender>{element}</FirstRender>),
+    experience,
+    render: (element) =>
+      createRoot(container).render(experience ? element : <FirstRender>{element}</FirstRender>),
     reload: () => window.location.reload(),
   });
+
   // A module that mounts itself has done so by now.
-  announceRendered();
+  if (!experience) announceRendered();
 }
 
 function announceRendered() {

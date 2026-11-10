@@ -22,6 +22,46 @@ func (r defaultSourceResolver) viewPlannerFor(noteType *ontoschema.NoteType) pus
 	return pushdown.Planner{Schema: r.opts.Schema, Resolver: pushdown.ViewResolver{NoteType: noteType}, LinkResolver: r.linkTargetResolver}
 }
 
+// viewRowFilterKeys are the row values every ontology view row carries
+// (fieldValue), plus the stale filter.
+var viewRowFilterKeys = map[string]bool{"title": true, "path": true, "notePath": true, "resolvedType": true, "updatedAt": true, "hasIssues": true, "tags": true, staleFilterField: true}
+
+// filterFieldError rejects an ontology view filter that would silently match
+// nothing, as GraphQL roots do (SPEC-0136 R8): a field no source type declares,
+// or a computed relation views cannot count. Row values, raw frontmatter. and
+// inline. keys, and counts of list relations stay filterable.
+func (r defaultSourceResolver) filterFieldError(view viewconfig.ViewDefinition, filters []viewconfig.FilterSpec) error {
+	typeNames := r.sourceTypeNames(view)
+	if len(typeNames) == 0 {
+		return nil
+	}
+	resolvers := make([]pushdown.Resolver, 0, len(typeNames))
+	for _, name := range typeNames {
+		resolvers = append(resolvers, pushdown.ViewResolver{NoteType: r.opts.Schema.Types[name]})
+	}
+	for _, filter := range filters {
+		field := strings.TrimSpace(filter.Field)
+		if field == "" || viewRowFilterKeys[field] || strings.HasPrefix(field, "frontmatter.") || strings.HasPrefix(field, "inline.") || countsRelation(field, resolvers) {
+			continue
+		}
+		if err := pushdown.FilterFieldError(field, resolvers...); err != nil {
+			return fmt.Errorf("%w: %v", ErrInvalidRequest, err)
+		}
+	}
+	return nil
+}
+
+func countsRelation(field string, resolvers []pushdown.Resolver) bool {
+	for _, resolver := range resolvers {
+		if _, schemaField, ok := resolver.Resolve(field); ok {
+			if _, counted := relationCountCapability(schemaField); counted {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func filterToPushdownInput(filter viewconfig.FilterSpec) pushdown.FilterInput {
 	return pushdown.FilterInput{Field: filter.Field, Op: filter.Op, Value: filter.Value, Values: filter.Values}
 }

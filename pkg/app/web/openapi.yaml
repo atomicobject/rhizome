@@ -847,7 +847,10 @@ paths:
       operationId: streamPublicEvents
       responses:
         "200":
-          description: Server-sent event stream of public invalidation envelopes
+          description: >-
+            Server-sent event stream of public invalidation envelopes. An
+            envelope for a change that can alter reads carries the opaque
+            index generation as a top-level `generation` string (SPEC-0136 R4).
           content:
             text/event-stream:
               schema:
@@ -1002,7 +1005,14 @@ paths:
               $ref: "#/components/schemas/OntologyQueryRequest"
       responses:
         "200":
-          description: Public GraphQL result
+          description: >-
+            Public GraphQL result. `extensions.generation` holds the opaque index
+            generation read before execution (SPEC-0136 R4).
+          headers:
+            Rhizome-Generation:
+              description: The opaque index generation the result was read at.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -1290,6 +1300,74 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/IndexInitializing"
+  /api/v1/views/{id}/invocation:
+    get:
+      operationId: getPublicViewInvocation
+      description: >-
+        The invocation a host posts to an experience frame or panel frame
+        (SPEC-0136 R2, R6), built with the same trust, mount, and context checks
+        as the view shell. A view mounted as a panel passes the mount check
+        exactly when the context's target resolves to that panel. The response
+        carries the index generation in the Rhizome-Generation header.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: context
+          required: false
+          description: The subject as JSON (ViewContext). Required for panel views; defaults to the view's own mount otherwise.
+          schema:
+            type: string
+        - in: query
+          name: hosted
+          required: false
+          description: "1 when the workbench already resolved a node context through its edit overlay."
+          schema:
+            type: string
+        - in: query
+          name: preferenceSlot
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The view's invocation for the context
+          headers:
+            Rhizome-Generation:
+              description: The opaque index generation the invocation was built at (SPEC-0136 R4).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViewInvocation"
+        "400":
+          description: Invalid context, or the view is not available for it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: The repository's views are not trusted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Custom view not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: The view's ontology is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/v1/views/{id}/save:
     post:
       operationId: savePublicView
@@ -1723,8 +1801,13 @@ components:
           $ref: "#/components/schemas/ViewPreferenceValues"
     StatusResponse:
       type: object
-      required: [vaultName, vaultPath, embeddings, codeIndex, validation, updatedAt, ready, indexState]
+      required: [vaultName, vaultPath, embeddings, codeIndex, validation, updatedAt, ready, indexState, generation]
       properties:
+        generation:
+          type: string
+          description: >-
+            The opaque index generation `epoch.writes.schema.views.validation.config`,
+            compared for equality only (SPEC-0136 R4).
         vaultName: { type: string }
         vaultPath: { type: string }
         indexPath: { type: string }
@@ -1871,7 +1954,9 @@ components:
           required: [available, count, issues, endpoints]
           properties:
             available: { type: boolean }
-            generation: { type: string }
+            generation:
+              type: string
+              description: The opaque index generation (SPEC-0136 R4), `epoch.writes.schema.views.validation.config`; compare for equality only. Before SPEC-0136 it was an RFC3339 timestamp.
             count: { type: integer }
             issues: { type: integer }
             endpoints:
@@ -1908,7 +1993,9 @@ components:
           required: [available]
           properties:
             available: { type: boolean }
-            generation: { type: string }
+            generation:
+              type: string
+              description: The opaque index generation (SPEC-0136 R4), `epoch.writes.schema.views.validation.config`; compare for equality only. Before SPEC-0136 it was an RFC3339 timestamp.
         providers:
           type: object
           required: [embeddings, codeIndex]
@@ -2627,6 +2714,10 @@ components:
             $ref: "#/components/schemas/NestedTypeCount"
         truncated: { type: boolean }
         needsIndex: { type: boolean }
+        titles:
+          type: object
+          description: Indexed note titles by note path, for notes whose title is known. Folder labels notes with them.
+          additionalProperties: { type: string }
     FolderLink:
       type: object
       required: [source, target, noteCode, other]
@@ -3989,7 +4080,7 @@ components:
         untypedLinksTo: { type: object, additionalProperties: { type: integer } }
     ViewTarget:
       type: object
-      required: [kind, name, choices, defaultChoiceId]
+      required: [kind, name, choices, defaultChoiceId, panel]
       properties:
         kind:
           type: string
@@ -4000,6 +4091,94 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ViewChoice"
+        panel:
+          $ref: "#/components/schemas/ViewPanel"
+    ViewPanel:
+      description: >-
+        The sidebar panel for this target, resolved by the server (SPEC-0136
+        R6); the browser never derives it, and the server always sends it on
+        every target. `view` names an experience's panel
+        view; `folder` is the built-in Folder panel; `owner` means use the
+        descriptor of the Note target for the node's notePath (an embedded or
+        section node), or Folder for a note; `none` shows no panel.
+      oneOf:
+        - $ref: "#/components/schemas/ViewPanelView"
+        - $ref: "#/components/schemas/ViewPanelFolder"
+        - $ref: "#/components/schemas/ViewPanelOwner"
+        - $ref: "#/components/schemas/ViewPanelNone"
+      discriminator:
+        propertyName: kind
+        mapping:
+          view: "#/components/schemas/ViewPanelView"
+          folder: "#/components/schemas/ViewPanelFolder"
+          owner: "#/components/schemas/ViewPanelOwner"
+          none: "#/components/schemas/ViewPanelNone"
+    ViewPanelView:
+      type: object
+      required: [kind, viewId, experienceKey]
+      properties:
+        kind: { type: string, enum: [view] }
+        viewId: { type: string }
+        experienceKey: { type: string }
+    ViewPanelFolder:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, enum: [folder] }
+    ViewPanelOwner:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, enum: [owner] }
+    ViewPanelNone:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, enum: [none] }
+    ViewContext:
+      type: object
+      required: [kind]
+      description: >-
+        The subject a view is invoked for. `view` names the standalone view
+        whose target a panel is shown for; it is valid only with the standalone
+        kind.
+      properties:
+        kind:
+          type: string
+          enum: [type, interface, group, node, standalone, workspace]
+        type: { type: string }
+        interface: { type: string }
+        group: { type: string }
+        view: { type: string }
+        ref:
+          $ref: "#/components/schemas/NodeRef"
+    ViewInvocation:
+      type: object
+      required: [view, context]
+      properties:
+        view:
+          type: object
+          required: [id, name, origin]
+          properties:
+            id: { type: string }
+            name: { type: string }
+            origin:
+              type: string
+              enum: [bundled, repository, generated]
+            experienceKey:
+              type: string
+              description: Set when the view renders as a page of an experience frame or is an experience's panel.
+        context:
+          $ref: "#/components/schemas/ViewContext"
+        configuration:
+          type: object
+          additionalProperties: true
+        params:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewParam"
+        vaultKey: { type: string }
+        preferenceSlot: { type: string }
     ViewChoice:
       type: object
       required: [id, name, renderer]
@@ -4014,6 +4193,13 @@ components:
           type: string
           enum: [table, card, kanban]
         custom: { type: boolean }
+        experienceKey:
+          type: string
+          description: >-
+            Opaque identity of the experience whose frame renders this choice
+            (SPEC-0136 R1). Absent for views outside experiences and for entries
+            that keep their own frame (HTML entries and modules without a
+            default export).
     ViewCatalogEntry:
       type: object
       required: [id, name, source, mount, defaults, variants, definition]
@@ -4040,6 +4226,9 @@ components:
         availableVariants:
           type: array
           items: { type: string }
+        experienceKey:
+          type: string
+          description: Opaque identity of the experience whose frame renders this view, as on ViewChoice.
         definition:
           $ref: "#/components/schemas/ViewDefinition"
         issues:
@@ -4111,7 +4300,12 @@ components:
       additionalProperties: true
       required: [kind]
       properties:
-        kind: { type: string }
+        kind:
+          type: string
+          description: >-
+            type, interface, standalone, workspace, group, node, or panel. A
+            panel mount (SPEC-0136 R6) is valid only for the view an
+            experience.yml names as its panel; it is never a view choice.
         type: { type: string }
         interface: { type: string }
         group: { type: string }

@@ -225,6 +225,8 @@ type NodeWorkspaceProjection {
   parentRef: NodeRef
   "Display title of parentRef, read from the index."
   parentTitle: String
+  "Resolved type of the note that holds the focused node, so a host finds that note's sidebar panel."
+  noteType: String
   fields: [NodeFieldState!]!
   collections: [NodeCollectionState!]!
   "Source-preserving structural nodes, capped at 200 per workspace selection."

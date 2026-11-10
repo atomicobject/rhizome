@@ -68,14 +68,14 @@ func TestLiveConfigurationReloadPublishesSafeChangesAndPreservesStateOnFailure(t
 	watcher.configuration = &captured
 	watcher.onConfigurationChanged = rt.publishOwnershipConfiguration
 	require.NoError(t, watcher.reloadOwnershipSelection())
-	require.False(t, rt.NotePathOwned("private/note.md"))
+	require.False(t, rt.NotePathOwned("private/note.md", nil))
 	require.NoError(t, os.WriteFile(path, []byte("budgetChars: 33333\nfileContext:\n  docPatterns: [GUIDE.md]\nnotes:\n  includes: [\"**/*.md\"]\n"), 0644))
 	require.NoError(t, watcher.reloadOwnershipSelection())
 	view := rt.Snapshot()
 	require.Equal(t, 33333, view.Configuration.BudgetChars)
 	require.Equal(t, []string{"GUIDE.md"}, view.Configuration.FileContext.DocPatterns)
 	require.Empty(t, view.VaultDefinition.Excludes)
-	require.True(t, rt.NotePathOwned("private/note.md"))
+	require.True(t, rt.NotePathOwned("private/note.md", nil))
 	// Search's actual cached reader and MCP budget consumer use the same new pair.
 	var notes []string
 	// Selection changes schedule a cache recrawl; read through the real adapter until it publishes.
@@ -93,7 +93,7 @@ func TestLiveConfigurationReloadPublishesSafeChangesAndPreservesStateOnFailure(t
 		require.Equal(t, 33333, unchanged.Configuration.BudgetChars)
 		require.Equal(t, []string{"GUIDE.md"}, unchanged.Configuration.FileContext.DocPatterns)
 		require.Empty(t, unchanged.VaultDefinition.Excludes)
-		require.True(t, rt.NotePathOwned("private/note.md"))
+		require.True(t, rt.NotePathOwned("private/note.md", nil))
 		require.True(t, service.AdmitsNotePath("private/note.md"))
 	}
 }

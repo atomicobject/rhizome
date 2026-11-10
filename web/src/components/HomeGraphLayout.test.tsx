@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import Sigma from "sigma";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GraphResponse, OntologySummaryResponse, OntologyTypeResponse } from "../api/types";
 import { installFakeWebGL } from "../test/fakeWebGL";
@@ -119,6 +119,14 @@ function layoutProps(
 
 describe("HomeGraphLayout", () => {
   let restoreWebGL: () => void;
+
+  // WHY: the layout lazy-loads GraphView. Its first import transforms the
+  // Sigma module graph, which on a loaded worker outlasts a findBy timeout and
+  // leaves "Loading graph…" on screen. Loading it here keeps module transform
+  // time out of the assertions.
+  beforeAll(async () => {
+    await import("./GraphView");
+  });
 
   beforeEach(() => {
     restoreWebGL = installFakeWebGL();

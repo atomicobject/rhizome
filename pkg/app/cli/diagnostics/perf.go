@@ -26,6 +26,8 @@ type PerfSummary struct {
 	Groups []PerfGroup  `json:"groups"`
 	Flags  []PerfFlag   `json:"flags"`
 	Web    []WebSummary `json:"web,omitempty"`
+	// ReadCache totals the server read-cache windows (SPEC-0136 R10).
+	ReadCache *ReadCacheSummary `json:"read_cache,omitempty"`
 }
 
 type PerfGroup struct {
@@ -91,6 +93,7 @@ type perfAggregator struct {
 	runtimeStarts []timedOperation
 	warnings      map[string]*perfWarning
 	web           *webAggregator
+	readCache     readCacheAggregator
 }
 
 type timedOperation struct {
@@ -114,6 +117,8 @@ func (a *perfAggregator) visit(event evidence.Event) {
 	switch {
 	case event.Name == webClientEvent:
 		a.web.visit(event)
+	case event.Name == readCacheEvent:
+		a.readCache.visit(event)
 	case strings.HasSuffix(event.Name, ".started") && event.OperationID != "":
 		if !lifetimeStart(event) {
 			a.started[event.OperationID] = perfStart{at: event.Time, process: event.ProcessID, name: event.Name, kind: event.Subsystem}
@@ -229,6 +234,7 @@ func (a *perfAggregator) summary(contiguous map[string]time.Time) PerfSummary {
 		out.Flags = append(out.Flags, warning.flag)
 	}
 	out.Web = a.web.summaries()
+	out.ReadCache = a.readCache.result()
 	out.Flags = append(out.Flags, a.web.flags()...)
 	sort.SliceStable(out.Flags, func(i, j int) bool { return out.Flags[i].FirstAt.Before(out.Flags[j].FirstAt) })
 	return out

@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readdirSync, readFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { check } from '../../templates/starters/ao-kb/module/scripts/check.mjs';
-import { globMatch, runCompilerCheck } from '../../templates/starters/ao-kb/module/scripts/lib/bindings-check.mjs';
+import { globMatch, ownedPatterns, runCompilerCheck } from '../../templates/starters/ao-kb/module/scripts/lib/bindings-check.mjs';
 
 // The compiler's report on a fresh install: dependencies present, no product selected yet.
 const unselected = () => ({ starterInstalled: true, bindingsReady: false, indexReady: false, status: 'missing',
@@ -226,6 +226,12 @@ test('ownership patterns match like the declaration', () => {
   assert.ok(!globMatch('**.md', 'assertions/note.md'), 'globstar is recursive only as a whole path segment');
 });
 
+test('ownership reads a CRLF declaration like an LF one', () => {
+  const lf = 'sources:\n  - owner: AO KB\n    reason: Managed by AO KB.\n    paths:\n      - assertions/**\n      - .kb/**\n';
+  assert.deepEqual(ownedPatterns(lf), ['assertions/**', '.kb/**']);
+  assert.deepEqual(ownedPatterns(lf.replace(/\n/g, '\r\n')), ownedPatterns(lf));
+});
+
 test('a missing compiler is an error, not a ready result', t => {
   const report = runCompilerCheck(fixture(t));
   assert.equal(report.bindingsReady, false);
@@ -253,4 +259,63 @@ test('local schema types whose query roots collide with the starter knowledge ty
   const module = named(fixture(t, { '.rhizome/modules/other/ontology/x.graphql': 'type Assertion @node(paths: ["a/*.md"]) { id: ID }\n' }), 'knowledge bindings');
   assert.equal(module.status, 'error');
   assert.equal(named(fixture(t, { '.rhizome/ontology/other.graphql': 'type hub { x: String }\n' }), 'knowledge bindings').status, 'ok');
+});
+
+test('legacy single-product KBs report knowledge supported and every model row not applicable', t => {
+  const reason = "Product-model bindings need AO schemaVersion 8; this KB records schemaVersion 5, so the model stage is not applicable. Upgrade the KB with AO's own migration to enable the model.";
+  const legacy = (indexReady) => () => ({ starterInstalled: true, bindingsReady: true, knowledgeReady: true, modelReady: false, indexReady, status: 'ready', dependencies: {},
+    bindings: { knowledge: { ready: true, status: 'ready' }, model: { ready: false, status: 'not applicable', reason } }, diagnostics: [] });
+  for (const version of [4, 5, 7]) {
+    const root = fixture(t, { '.kb/config/vault.md': `---\nschemaVersion: ${version}\nproductMode: single\n---\n` });
+    const row = named(root, 'schemaVersion', legacy(false));
+    assert.equal(row.status, 'ok', String(version));
+    assert.match(row.message, /legacy spelling adapter.*not applicable below schemaVersion 8.*AO's own migration/);
+  }
+  const root = fixture(t, { '.kb/config/vault.md': '---\nschemaVersion: 5\nproductMode: single\n---\n' });
+  for (const name of ['model compiler dependencies', 'model bindings', 'model source ownership']) {
+    const row = named(root, name, legacy(false));
+    assert.equal(row.status, 'not applicable', name);
+    assert.equal(row.message, reason, name);
+  }
+  assert.equal(named(root, 'model index', legacy(false)).status, 'pending');
+  assert.equal(named(root, 'model index', legacy(true)).status, 'ok');
+  assert.equal(named(root, 'knowledge admission', legacy(true)).status, 'ok');
+  const report = check(root, { runCompiler: legacy(true) });
+  assert.equal(report.bindingsReady, true);
+  assert.equal(report.modelReady, false);
+  assert.equal(report.bindings.model.status, 'not applicable');
+  for (const version of [3, 9]) assert.equal(named(fixture(t, { '.kb/config/vault.md': `---\nschemaVersion: ${version}\nproductMode: single\n---\n` }), 'schemaVersion').status, 'unsupported', String(version));
+  const product = named(fixture(t, { '.kb/config/vault.md': '---\nschemaVersion: 5\nproductMode: multi-nested\n---\n' }), 'schemaVersion');
+  assert.equal(product.status, 'unsupported');
+  assert.match(product.message, /legacy product-mode accounts are not supported.*AO's own migration/);
+});
+
+test('curation documents beyond the conflict registry need the .kb/curation/*.md include', t => {
+  const broad = 'notes:\n  includes: ["**/*.md", ".kb/curation/_conflicts.md"]\n';
+  const docs = { '.kb/curation/_conflicts.md': '# Conflicts\n', '.kb/curation/review-log.md': '# Log\n' };
+  const missing = named(fixture(t, { ...docs, '.rhizome/config.yml': broad }), 'note includes');
+  assert.equal(missing.status, 'warning');
+  assert.match(missing.message, /Add the include \.kb\/curation\/\*\.md/);
+  assert.match(missing.message, /curation registries and reports/);
+  const covered = 'notes:\n  includes: ["**/*.md", ".kb/curation/*.md"]\n';
+  assert.equal(named(fixture(t, { ...docs, '.rhizome/config.yml': covered }), 'note includes').status, 'ok');
+  assert.equal(named(fixture(t, { '.kb/curation/report.md': '# Report\n', '.rhizome/config.yml': covered }), 'note includes').status, 'ok');
+});
+
+test('selected product curation needs a literal hidden-path include', t => {
+  const root = fixture(t);
+  cpSync(new URL('../../../../../../testdata/ao-kb-product/account/', import.meta.url), root, { recursive: true });
+  const write = (path, text) => { mkdirSync(join(root, path, '..'), { recursive: true }); writeFileSync(join(root, path), text); };
+  write('.rhizome/modules/ao-kb/bindings/selection.json', JSON.stringify({ formatVersion: 1, product: 'alpha' }));
+  write('products/alpha/.kb/curation/report.md', '# Synthetic product review\n');
+  write('products/beta/.kb/curation/report.md', '# Unselected review\n');
+  const config = 'notes:\n  includes: ["**/*.md", ".kb/curation/*.md"';
+  write('.rhizome/config.yml', config + ']\n');
+  const missing = named(root, 'note includes');
+  assert.equal(missing.status, 'warning');
+  assert.match(missing.message, /products\/alpha\/\.kb\/curation\/\*\.md/);
+  write('.rhizome/config.yml', config + ', "products/alpha/.kb/curation/*.md"]\n');
+  assert.equal(named(root, 'note includes').status, 'ok');
+  write('.rhizome/config.yml', 'notes:\n  includes: ["**/*.md", ".kb/**", "products/alpha/.kb/**"]\n');
+  assert.equal(named(root, 'note includes').status, 'ok', 'literal hidden-root includes still cover curation');
 });

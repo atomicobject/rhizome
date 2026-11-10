@@ -30,6 +30,9 @@ type Snapshot struct {
 	Semantic        CapabilityState
 	Code            CapabilityState
 	Leader          bool
+	// ConfigGeneration changes whenever the runtime publishes a reloaded
+	// .rhizome/config.yml or ignore configuration (SPEC-0136 R4).
+	ConfigGeneration string
 
 	WatchHub          *watchhub.Hub
 	NoteReader        obsidian.NoteReader

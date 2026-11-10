@@ -4,9 +4,11 @@ import type { relationships } from "./lib/knowledge.ts";
 
 type Graph = ReturnType<typeof relationships>;
 
-export function LinkedText({ text, graph }: { text: string; graph: Graph }) {
-  return inlineText(text, graph.resolve).map((part, i) => {
+/** Without `graph` (still loading), a link shows as its plain label, never as unresolved. */
+export function LinkedText({ text, graph }: { text: string; graph?: Graph }) {
+  return inlineText(text, (t) => graph?.resolve(t)).map((part, i) => {
     if (part.kind === "text") return part.text;
+    if (!graph) return <span key={i}>{part.label}</span>;
     const record = part.kind === "link" && graph.all.find((r) => r.path === part.path);
     return record ? (
       <NodeLink key={i} node={record.ref}>
@@ -24,7 +26,7 @@ export function LinkedText({ text, graph }: { text: string; graph: Graph }) {
   });
 }
 
-export function ClaimProse({ text, graph }: { text: string; graph: Graph }) {
+export function ClaimProse({ text, graph }: { text: string; graph?: Graph }) {
   return (
     <div className="ak-claim">
       {paragraphs(text).map((paragraph, i) => (

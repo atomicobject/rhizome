@@ -18,8 +18,9 @@ const maxClientDiagnosticsBodyBytes = 32 << 10
 
 // Bounds well above what the client produces, so the event stays small.
 const (
-	maxClientRegions    = 32
-	maxClientErrorNames = 32
+	maxClientRegions     = 32
+	maxClientErrorNames  = 32
+	maxClientExperiences = 32
 )
 
 var (
@@ -27,23 +28,45 @@ var (
 	clientBuildPattern     = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 	clientRegionPattern    = regexp.MustCompile(`^[a-z][a-z0-9-]{0,47}$`)
 	clientErrorNamePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.$]{0,63}$`)
-	clientSurfaces         = map[string]bool{"desktop": true, "browser": true}
-	clientRouteKinds       = map[string]bool{"notes": true, "ontology": true, "explorer": true, "agent": true, "graphql": true, "other": true}
+	// An experience is named by a hash of its key, never the key (a folder path).
+	clientExperiencePattern = regexp.MustCompile(`^[a-f0-9]{8,32}$`)
+	clientExperiencePhases  = map[string]bool{"shell-start": true, "module-loaded": true, "first-render": true, "data-ready": true, "location-painted": true}
+	clientSurfaces          = map[string]bool{"desktop": true, "browser": true}
+	clientRouteKinds        = map[string]bool{"notes": true, "ontology": true, "explorer": true, "agent": true, "graphql": true, "other": true}
 )
 
 // clientBatch is the browser's diagnostics window (SPEC-0116 "Web UI
 // evidence"). Counts are unsigned so negative values fail decoding.
 type clientBatch struct {
-	Session     string                  `json:"session"`
-	Build       string                  `json:"build"`
-	Surface     string                  `json:"surface"`
-	Route       string                  `json:"route"`
-	WindowStart int64                   `json:"window_start"`
-	WindowEnd   int64                   `json:"window_end"`
-	Regions     map[string]clientRegion `json:"regions"`
-	Frames      clientFrames            `json:"frames"`
-	Refresh     clientRefresh           `json:"refresh"`
-	Stability   clientStability         `json:"stability"`
+	Session     string                      `json:"session"`
+	Build       string                      `json:"build"`
+	Surface     string                      `json:"surface"`
+	Route       string                      `json:"route"`
+	WindowStart int64                       `json:"window_start"`
+	WindowEnd   int64                       `json:"window_end"`
+	Regions     map[string]clientRegion     `json:"regions"`
+	Frames      clientFrames                `json:"frames"`
+	Refresh     clientRefresh               `json:"refresh"`
+	Experiences map[string]clientExperience `json:"experiences"`
+	Stability   clientStability             `json:"stability"`
+}
+
+// clientExperience is the "Experience frames" measurement for one experience
+// in one window (SPEC-0136 R10). PagesRetained is the most pages its frame
+// held at once; phase times are p50 and p95 over the window's samples.
+type clientExperience struct {
+	FramesCreated   uint64                 `json:"frames_created"`
+	LocationsReused uint64                 `json:"locations_reused"`
+	PagesRetained   uint64                 `json:"pages_retained"`
+	Resumes         uint64                 `json:"resumes"`
+	Evictions       uint64                 `json:"evictions"`
+	Phases          map[string]clientPhase `json:"phases"`
+}
+
+type clientPhase struct {
+	Count uint64  `json:"count"`
+	P50Ms float64 `json:"p50_ms"`
+	P95Ms float64 `json:"p95_ms"`
 }
 
 type clientRegion struct {
@@ -104,11 +127,12 @@ func (s *Server) handleClientDiagnostics(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	metrics, err := json.Marshal(struct {
-		Regions   map[string]clientRegion `json:"regions,omitempty"`
-		Frames    clientFrames            `json:"frames"`
-		Refresh   clientRefresh           `json:"refresh"`
-		Stability clientStability         `json:"stability"`
-	}{batch.Regions, batch.Frames, batch.Refresh, batch.Stability})
+		Regions     map[string]clientRegion     `json:"regions,omitempty"`
+		Frames      clientFrames                `json:"frames"`
+		Refresh     clientRefresh               `json:"refresh"`
+		Experiences map[string]clientExperience `json:"experiences,omitempty"`
+		Stability   clientStability             `json:"stability"`
+	}{batch.Regions, batch.Frames, batch.Refresh, batch.Experiences, batch.Stability})
 	if err != nil {
 		writePublicError(w, http.StatusInternalServerError, PublicErrorInternal, err)
 		return
@@ -142,6 +166,21 @@ func (b clientBatch) validate() error {
 		return errors.New("too many render regions")
 	case len(b.Stability.Errors) > maxClientErrorNames || len(b.Stability.Rejections) > maxClientErrorNames:
 		return errors.New("too many error names")
+	case len(b.Experiences) > maxClientExperiences:
+		return errors.New("too many experiences")
+	}
+	for hash, experience := range b.Experiences {
+		if !clientExperiencePattern.MatchString(hash) {
+			return errors.New("experience is not an experience hash")
+		}
+		for phase, stats := range experience.Phases {
+			if !clientExperiencePhases[phase] {
+				return errors.New("experience phase is not a known phase")
+			}
+			if !validDurations(stats.P50Ms, stats.P95Ms) {
+				return errors.New("experience phase durations must be non-negative")
+			}
+		}
 	}
 	for name, region := range b.Regions {
 		if !clientRegionPattern.MatchString(name) {

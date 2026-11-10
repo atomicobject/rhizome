@@ -5,6 +5,7 @@ import (
 	"fmt"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/sourceownership"
+	"slices"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/diag"
@@ -68,7 +69,33 @@ func Execute(ctx context.Context, deps Deps, schema *ontoschema.Schema, prepared
 		}
 		result.Extensions["warnings"] = exec.warnings
 	}
+	if len(exec.truncated) > 0 {
+		if result.Extensions == nil {
+			result.Extensions = map[string]any{}
+		}
+		result.Extensions["truncated"] = exec.truncated
+	}
 	return result
+}
+
+// truncatedRead reports a capped read that dropped results: nodes(refs:),
+// search, and neighborhood. Declared relation lists without first stay
+// uncapped and never appear here.
+type truncatedRead struct {
+	Path     []string `json:"path"`
+	Returned int      `json:"returned"`
+	Limit    int      `json:"limit"`
+}
+
+// addTruncation records the first capped occurrence at each response path;
+// paths omit list indices, so one entry stands for every record there.
+func (e *executor) addTruncation(path []string, returned, limit int) {
+	for _, existing := range e.truncated {
+		if slices.Equal(existing.Path, path) {
+			return
+		}
+	}
+	e.truncated = append(e.truncated, truncatedRead{Path: cloneStrings(path), Returned: returned, Limit: limit})
 }
 
 // ExecutePrepared dispatches ordinary GraphQL reads and schema introspection
@@ -91,6 +118,7 @@ type executor struct {
 	fragments      ast.FragmentDefinitionList
 	errors         []Error
 	warnings       []Warning
+	truncated      []truncatedRead
 	sectionsByPath map[string][]*ontology.SectionNode
 	notePathCache  *obsidian.NotePathCache
 
@@ -307,6 +335,7 @@ func (e *executor) resolveNodeBatchSelectionSet(ctx context.Context, field *ast.
 	refs := stringListValue(args["refs"])
 	if len(refs) > first {
 		refs = refs[:first]
+		e.addTruncation(path, first, first)
 	}
 	pathsList := make([]string, 0, len(refs))
 	for _, input := range refs {

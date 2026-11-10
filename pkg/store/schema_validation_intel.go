@@ -59,6 +59,7 @@ func (s *Store) validateIntelSchemaTx(ctx context.Context, tx *sql.Tx) error {
 		"graph_doc_edges":                        {"src_path", "dst_path", "confidence", "confidence_score", "source_location", "link_text"},
 		"graph_anchor_scores":                    {"anchor_id", "pagerank", "updated_at"},
 		"graph_web_revision":                     {"id", "incarnation", "revision"},
+		"write_generation":                       {"id", "value"},
 		"ontology_note_assessments":              {"note_path", "declared_type", "resolved_type", "assessment_json", "has_issues", "type_ambiguous", "schema_hash", "updated_at"},
 		"ontology_note_state":                    {"note_path", "input_fingerprint", "schema_hash", "resolved_type", "updated_at"},
 		"ontology_note_types":                    {"note_path", "type_name", "schema_hash", "updated_at"},

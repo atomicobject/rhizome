@@ -19,6 +19,7 @@ import (
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	validationcatalog "github.com/atomicobject/rhizome/pkg/validate/catalog"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/atomicobject/rhizome/pkg/viewscript"
 )
 
 // RunViews validates repo-tracked configured view definitions.
@@ -52,6 +53,7 @@ func RunViews(ctx context.Context, runCtx RunContext) CheckResult {
 			opts.QueryRecipeRowPaths[recipe.ID] = recipe.OutputContract.RowPath
 		}
 	}
+	opts.ScanDefaultExport = viewscript.HasDefaultExport
 	validation := viewconfig.Validate(views, opts)
 	found := append(loadIssues, validation.Issues...)
 	found = append(found, customViewScriptIssues(runCtx.VaultPath, validation.Views, execSchema)...)

@@ -67,6 +67,13 @@ func CompileSelector(input SelectorInput) (Selector, error) {
 }
 
 func (s Selector) Select(raw paths.RelPath) (Selection, error) {
+	return s.SelectCached(raw, nil)
+}
+
+// SelectCached is Select sharing one read request's symlink resolutions, so a
+// read that selects many paths resolves each directory once. Write admission
+// and discovery use Select, which resolves fresh.
+func (s Selector) SelectCached(raw paths.RelPath, links *paths.SymlinkCache) (Selection, error) {
 	path, err := paths.CleanRelPath(raw.String())
 	if err != nil || path == "" || path != raw {
 		return Selection{}, fmt.Errorf("ownership selector path must be canonical and vault-relative: %q", raw)
@@ -81,7 +88,7 @@ func (s Selector) Select(raw paths.RelPath) (Selection, error) {
 	if initial.Owner == notediscovery.Ignored {
 		return Selection{Path: initial.Path, Owner: initial.Owner, Eligible: true}, nil
 	}
-	absPath, err := s.vaultPaths.Abs(path)
+	absPath, err := s.vaultPaths.AbsCached(path, links)
 	if err != nil || absPath == "" {
 		return Selection{}, fmt.Errorf("resolve ownership selector path %q: %w", path, err)
 	}
@@ -90,7 +97,9 @@ func (s Selector) Select(raw paths.RelPath) (Selection, error) {
 		return Selection{}, err
 	}
 	language := codeanchor.Lang("")
-	if s.language != nil && inCodeRoots(paths.NormalizeAbsPathForCompare(absPath.String()), s.codeRoots) {
+	// AbsCached already resolved symlinks; resolving its result again returns the
+	// same path, so compare its normalized spelling directly.
+	if s.language != nil && inCodeRoots(filepath.ToSlash(filepath.Clean(absPath.String())), s.codeRoots) {
 		language = codeanchor.Lang(strings.TrimSpace(string(s.language(paths.CodePathRef{Rel: codePath, Abs: absPath}))))
 	}
 	decision, err := s.plan.Classify(path, language != "")

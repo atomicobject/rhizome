@@ -21,7 +21,7 @@ Consulted when running verification and when deciding what is safe to run withou
 
 ## Safe to run without asking
 
-For a fresh checkout, run `mise install` for the pinned Go, Node, and credential scanner, then `cd web && npm ci && npx playwright install chromium`. Return to the repository root and run `make verify`. Enable commit checks with `make hooks-setup` before committing. The combined command builds the CLI used by runtime fixtures and orders the gates, while preserving parallel checks inside `check-full`. Do not run another build or verification command in the same checkout concurrently: E2E rebuilds the assets that Go embeds.
+For a fresh checkout, run `mise install` for the pinned Go, Node, and credential scanner, then `cd web && npm ci && npx playwright install chromium webkit`. Return to the repository root and run `make verify`. Enable commit checks with `make hooks-setup` before committing. The combined command builds the CLI used by runtime fixtures and orders the gates, while preserving parallel checks inside `check-full`. Do not run another build or verification command in the same checkout concurrently: E2E rebuilds the assets that Go embeds.
 
 Every command above is local, uses disposable fixtures, and touches no production system. Run them, fix failures caused by the requested change, and rerun the affected gate without asking at each step. `make cut-release`, anything that pushes, and anything that publishes to GitHub, S3, or Homebrew are not on this list.
 

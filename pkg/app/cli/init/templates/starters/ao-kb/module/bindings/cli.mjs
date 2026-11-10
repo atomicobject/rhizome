@@ -5,7 +5,8 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {mkdir, realpath, rm} from 'node:fs/promises';
 import {refresh, check, atomic} from './publish.mjs';
-import {json, readJSON, run, adapter, indexSignature} from './runtime.mjs';
+import {json, readJSON, run, adapter} from './runtime.mjs';
+import {indexSignature} from './knowledge.mjs';
 import {verifyIndex} from './verify-index.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
@@ -31,8 +32,10 @@ try {
     const selection = {formatVersion: 1, accountRoot: '.', product: values.single ? null : values.product ?? previous?.product ?? null,
       toolkit: values.toolkit ? await realpath(values.toolkit) : previous?.toolkit ?? null};
     const manifest = await refresh({root, directory, selection});
-    process.stdout.write(json({starterInstalled: true, bindingsReady: true, knowledgeReady: true, modelReady: true,
-      bindings: {knowledge: {ready: true, status: 'ready'}, model: {ready: true, status: 'ready'}}, indexReady: false, manifest}));
+    // Report the state the check computes, never an assumed one.
+    const report = await check({root, directory});
+    process.stdout.write(json({...report, manifest}));
+    if (!report.bindingsReady) process.exitCode = 1;
   } else if (command === 'check') {
     const report = await check({root, directory});
     process.stdout.write(json(report));
@@ -43,18 +46,23 @@ try {
     try {
       const before = await check({root, directory});
       if (!before.bindingsReady) throw new Error('ao_bindings_stale: refresh bindings before indexing');
+      // Below schemaVersion 8 the model is not applicable: no model export or model-record verification.
+      const model = before.bindings.model.status !== 'not applicable';
       const manifest = await readJSON(path.join(directory, 'manifest.json'));
       const knowledge = await readJSON(path.join(directory, 'knowledge-manifest.json'));
       const selected = await readJSON(path.join(directory, 'selection.json'));
-      const signature = await indexSignature(root, await adapter(root, directory, selected, {offline: true}));
+      const signed = async () => indexSignature(root, model ? await adapter(root, directory, selected, {offline: true}) : null, selected.product);
+      const signature = await signed();
       run(process.env.RZM || 'rzm', ['index'], {cwd: root, timeout: 0});
-      await verifyIndex(root, await adapter(root, directory, selected, {offline: true}));
+      if (model) await verifyIndex(root, await adapter(root, directory, selected, {offline: true}));
       const after = await check({root, directory});
       const current = await readJSON(path.join(directory, 'manifest.json'));
       const currentKnowledge = await readJSON(path.join(directory, 'knowledge-manifest.json'));
-      const sourceSignature = await indexSignature(root, await adapter(root, directory, selected, {offline: true}));
-      if (!after.bindingsReady || current.fingerprint !== manifest.fingerprint || currentKnowledge.fingerprint !== knowledge.fingerprint || signature !== sourceSignature) throw new Error('ao_index_inputs_changed: index inputs changed while indexing; run rzm ao-kb refresh-bindings, then node .rhizome/modules/ao-kb/bindings/cli.mjs index. No index receipt was issued');
-      await atomic(path.join(directory, 'index-receipt.json'), json({formatVersion: 1, fingerprint: manifest.fingerprint, knowledgeFingerprint: knowledge.fingerprint, sdlHash: manifest.sdlHash, sourceSignature}));
+      const sourceSignature = await signed();
+      if (!after.bindingsReady || current?.fingerprint !== manifest?.fingerprint || currentKnowledge.fingerprint !== knowledge.fingerprint || signature !== sourceSignature) throw new Error('ao_index_inputs_changed: index inputs changed while indexing; run rzm ao-kb refresh-bindings, then node .rhizome/modules/ao-kb/bindings/cli.mjs index. No index receipt was issued');
+      await atomic(path.join(directory, 'index-receipt.json'), json(model
+        ? {formatVersion: 1, fingerprint: manifest.fingerprint, knowledgeFingerprint: knowledge.fingerprint, sdlHash: manifest.sdlHash, sourceSignature}
+        : {formatVersion: 1, model: 'not applicable', knowledgeFingerprint: knowledge.fingerprint, sourceSignature}));
       process.stdout.write(json({...after, indexReady: true}));
     } finally { await rm(lock, {recursive: true, force: true}); }
   }

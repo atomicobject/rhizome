@@ -59,8 +59,13 @@ func TestWatchHub_EmitsEventForNestedFile(t *testing.T) {
 		t.Fatalf("mkdir nested: %v", err)
 	}
 
+	// kqueue/inotify, not FSEvents: fseventsd is shared by every process and
+	// under parallel load delays file events past any deadline (measured
+	// 15 s, or not within 60 s). The FSEvents translation of a nested event is
+	// covered deterministically in backend_darwin_test.go.
 	hub, err := NewHub(root, Options{
-		Debounce: 10 * time.Millisecond,
+		Debounce:      10 * time.Millisecond,
+		ForceFSNotify: true,
 	})
 	if err != nil {
 		t.Fatalf("NewHub: %v", err)

@@ -1,8 +1,8 @@
 import {mkdir, readFile, rm} from 'node:fs/promises';
 import path from 'node:path';
-import {json, readJSON, hash, fingerprint, adapter, validateSDL, dependencies, indexSignature} from './runtime.mjs';
+import {json, readJSON, hash, fingerprint, adapter, validateSDL, dependencies} from './runtime.mjs';
 import {render} from './render.mjs';
-import {knowledge, ownership} from './knowledge.mjs';
+import {knowledge, ownership, indexSignature, schemaVersion, notApplicable, MODEL_SCHEMA} from './knowledge.mjs';
 import {atomic, failure, manifestPath, publishSet} from './generation.mjs';
 export {atomic} from './generation.mjs';
 
@@ -31,8 +31,11 @@ export async function refresh({root, directory, selection, exportModel = adapter
     const verify = await knowledge(root, directory, selection);
     if (verify.fingerprint !== scoped.fingerprint) throw new Error('ao_input_changed: knowledge configuration changed during compilation');
     await publishSet(directory, 'knowledge', {'../ontology/ao-knowledge.generated.graphql': scoped.sdl, 'selection.json': json(selection)},
-      {formatVersion: 1, status: 'ready', context: scoped.context, artifactPhases: scoped.artifactPhases, fingerprint: scoped.fingerprint, inputs: scoped.inputs, sdlHash: hash(scoped.sdl), diagnostics: []}, renameFile);
+      {formatVersion: 1, status: 'ready', context: scoped.context, artifactPhases: scoped.artifactPhases, fingerprint: scoped.fingerprint, inputs: scoped.inputs, sdlHash: hash(scoped.sdl), diagnostics: scoped.notes}, renameFile);
     stage = 'model';
+    // Below schemaVersion 8 the model exporter never runs; any previous model generation is withdrawn.
+    if (scoped.schemaVersion < MODEL_SCHEMA) return await publishSet(directory, 'model', {},
+      {formatVersion: 1, compilerVersion: '1', status: 'not applicable', reason: notApplicable(scoped.schemaVersion), context: scoped.context, diagnostics: []}, renameFile);
     const ir = await exportModel(root, directory, selection);
     await ownership(root, ir.sources.map(s => s.path));
     const snapshot = await fingerprint(root, directory, ir, selection);
@@ -71,8 +74,15 @@ function state(diagnostics) {
   if (codes.includes('ao_selection_required')) return 'selection required';
   return codes.length && codes.every(code => STALE.has(code)) ? 'stale' : 'error';
 }
+async function vaultSchema(root) {
+  try { return schemaVersion(await readFile(path.join(root, '.kb/config/vault.md'), 'utf8')); }
+  catch (error) { if (error.code === 'ENOENT') return MODEL_SCHEMA; throw error; }
+}
 export async function check({root, directory, exportModel = adapter, checkDependencies = dependencies}) {
-  const prerequisites = await checkDependencies();
+  const version = await vaultSchema(root);
+  // Below schemaVersion 8 the model is not applicable: no model dependency is required or looked up.
+  const legacy = version < MODEL_SCHEMA;
+  const prerequisites = legacy ? {} : await checkDependencies();
   const result = {starterInstalled: true, bindingsReady: false, knowledgeReady: false, modelReady: false, indexReady: false,
     bindings: {knowledge: {ready: false, status: 'missing'}, model: {ready: false, status: 'missing'}}, dependencies: prerequisites, diagnostics: [],
     next: 'rzm ao-kb refresh-bindings --product <slug> (or --single true); node .rhizome/modules/ao-kb/bindings/cli.mjs index'};
@@ -90,7 +100,12 @@ export async function check({root, directory, exportModel = adapter, checkDepend
     result.bindings.knowledge.status = 'incomplete';
     result.diagnostics.push(...(error.diagnostics || [{code: error.message.split(':')[0], severity: 'error', message: error.message}]));
   }
-  try {
+  if (legacy) {
+    result.bindings.model = {ready: false, status: 'not applicable', reason: notApplicable(version)};
+    const receipt = await readJSON(path.join(directory, 'index-receipt.json'));
+    result.indexReady = result.knowledgeReady && receipt?.knowledgeFingerprint === knowledgeManifest?.fingerprint &&
+      receipt?.sourceSignature === await indexSignature(root, null, selection?.product);
+  } else try {
     if (!selection) throw new Error('ao_selection_required: run rzm ao-kb refresh-bindings --product <slug> (or --single true)');
     if (Object.values(prerequisites).some(p => !p.ready)) throw new Error('ao_dependency_missing: install the reported dependencies');
     const ir = await exportModel(root, directory, selection, {offline: true});
@@ -108,13 +123,13 @@ export async function check({root, directory, exportModel = adapter, checkDepend
     result.bindings.model = {ready: true, status: 'ready'};
     result.diagnostics.push(...manifest.diagnostics);
     const receipt = await readJSON(path.join(directory, 'index-receipt.json'));
-    result.indexReady = result.knowledgeReady && receipt?.knowledgeFingerprint === knowledgeManifest?.fingerprint && receipt?.fingerprint === manifest.fingerprint && receipt?.sdlHash === manifest.sdlHash && receipt?.sourceSignature === await indexSignature(root, ir);
+    result.indexReady = result.knowledgeReady && receipt?.knowledgeFingerprint === knowledgeManifest?.fingerprint && receipt?.fingerprint === manifest.fingerprint && receipt?.sdlHash === manifest.sdlHash && receipt?.sourceSignature === await indexSignature(root, ir, selection.product);
   } catch (error) {
     const diagnostics = error.diagnostics || [{code: error.message.split(':')[0], severity: 'error', message: error.message}];
     result.bindings.model.status = error.diagnostics?.some(d => d.severity === 'error') ? 'incomplete' : state(diagnostics);
     result.diagnostics.push(...diagnostics);
   }
-  result.bindingsReady = result.knowledgeReady && result.modelReady;
+  result.bindingsReady = result.knowledgeReady && (result.modelReady || result.bindings.model.status === 'not applicable');
   result.status = result.bindingsReady ? 'ready' : state(result.diagnostics);
   if (result.bindingsReady && !result.indexReady) result.next = 'node .rhizome/modules/ao-kb/bindings/cli.mjs index';
   return result;

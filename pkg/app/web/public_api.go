@@ -349,7 +349,7 @@ func (s *Server) publicCapabilities(ctx context.Context) (PublicCapabilitiesResp
 	} else if len(viewCatalog.Issues) > 0 {
 		degraded = append(degraded, "views have issues")
 	}
-	generation := publicGeneration(status.UpdatedAt)
+	generation := status.Generation
 	validationGeneration := ""
 	if status.Validation.Generation > 0 {
 		validationGeneration = fmt.Sprintf("%d", status.Validation.Generation)
@@ -469,6 +469,7 @@ func (s *Server) publicCapabilities(ctx context.Context) (PublicCapabilitiesResp
 				"/api/v1/views",
 				"/api/v1/views/{id}",
 				"/api/v1/views/{id}/execute",
+				"/api/v1/views/{id}/invocation",
 			},
 		},
 		Validation: PublicValidationInfo{
@@ -637,13 +638,6 @@ func hashString(value string) string {
 	}
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])
-}
-
-func publicGeneration(at time.Time) string {
-	if at.IsZero() {
-		return ""
-	}
-	return at.UTC().Format(time.RFC3339Nano)
 }
 
 func writePublicError(w http.ResponseWriter, status int, code string, err error) {

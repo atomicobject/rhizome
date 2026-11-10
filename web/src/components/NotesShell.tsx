@@ -20,6 +20,12 @@ import { flushEditors } from "./editing/editorFlush";
 import { useFocusRegions } from "./focusManagement";
 import { clearPersistedEditorDrafts, editCommitSucceeded } from "./editing/editSessionState";
 import { NotesLeftRail } from "./NotesLeftRail";
+import {
+  ExperienceFrameLayer,
+  ExperienceTabContext,
+  newExperienceFrames,
+} from "./ExperienceFrameLayer";
+import { activePanel } from "./activePanel";
 import { sameNoteTabContext, type NoteTabContext } from "./noteTabContext";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { NoteTab } from "./NoteTab";
@@ -56,6 +62,7 @@ import {
 import { useOntologyEditSession } from "./useOntologyEditSession";
 import type { OpenNodeOptions, ViewContext } from "../views/context";
 import { withViewParams, type ViewParamValue } from "../views/params";
+import type { OpenSearchRequest } from "../views/viewBridge";
 import { useValidationScopeSummaries, validationScopeKey } from "./useValidationScopeSummaries";
 import { validationHealth } from "./validation/validationPresentation";
 
@@ -445,8 +452,8 @@ export function NotesShell({ active = true }: { active?: boolean }) {
   );
 
   const openSearch = useCallback(
-    ({ folder, query }: { folder: string; query?: string }) =>
-      tabs.openSearch(query ?? "", { folder }),
+    ({ folder, query }: OpenSearchRequest) =>
+      tabs.openSearch(query ?? "", folder === undefined ? {} : { folder }),
     [tabs.openSearch],
   );
 
@@ -734,6 +741,47 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     [homeSelection, summaryQuery.data],
   );
 
+  const openTabIds = useMemo(() => new Set(tabs.tabs.map((tab) => tab.id)), [tabs.tabs]);
+
+  const activeWorkspace = activeContext?.workspace;
+
+  const sidebarPanel = useMemo(
+    () =>
+      activePanel({
+        tab: tabs.activeTab,
+        catalog: viewCatalogQuery.data,
+        homeSelection,
+        homeType: homeSelectedType,
+        summary,
+        workspace: activeWorkspace,
+      }),
+    [
+      activeWorkspace,
+      homeSelectedType,
+      homeSelection,
+      summary,
+      tabs.activeTab,
+      viewCatalogQuery.data,
+    ],
+  );
+
+  // The workbench's experience frames and the sidebar's panel frames share
+  // one store, so a suspended panel counts toward the window's K.
+  const [experienceFrames] = useState(newExperienceFrames);
+
+  const panelServices = useMemo(
+    () => ({
+      onOpenNote: openTab,
+      onOpenNode: openNode,
+      onOpenView: openView,
+      onOpenSearch: openSearch,
+      onStageOps: stageOps,
+      onOpenIssues: selectIssues,
+      onSelectCollection: selectCollection,
+    }),
+    [openNode, openSearch, openTab, openView, selectCollection, selectIssues, stageOps],
+  );
+
   const viewEditSession = useMemo(
     () => ({
       session: editSession.session,
@@ -842,6 +890,10 @@ export function NotesShell({ active = true }: { active?: boolean }) {
             recentActive={recentActive}
             onOpenRecent={openRecent}
             onOpenConfiguredView={openConfiguredView}
+            activePanel={sidebarPanel}
+            vaultKey={editSession.vaultKey}
+            frames={experienceFrames}
+            panelServices={panelServices}
           />
         </DiagnosticRegion>
       </WorkbenchSidebar>
@@ -923,114 +975,136 @@ export function NotesShell({ active = true }: { active?: boolean }) {
               hidden={searchActive}
               inert={searchActive ? true : undefined}
             >
-              <section
-                id="panel-home"
-                role="tabpanel"
-                aria-labelledby="tab-home"
-                className={`notes-shell__panel${tabs.activeId === "home" ? " is-active" : ""}`}
-                inert={tabs.activeId === "home" ? undefined : true}
+              <ExperienceFrameLayer
+                frames={experienceFrames}
+                session={editSession.session}
+                readLifecycle={editSession.readLifecycle}
+                openTabIds={openTabIds}
+                vaultKey={editSession.vaultKey}
               >
-                {renderHomeTab("home", homeSelection, homeSelectedType, homeLocation)}
-              </section>
-              {tabs.tabs.flatMap((tab) =>
-                tab.kind === "collection"
-                  ? [
-                      <section
-                        key={tab.id}
-                        id={`panel-${tab.id}`}
-                        role="tabpanel"
-                        aria-labelledby={`tab-${tab.id}`}
-                        className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
-                        inert={tabs.activeId === tab.id ? undefined : true}
-                      >
-                        {renderHomeTab(
-                          tab.id,
-                          COLLECTION_SELECTIONS[tab.collection],
-                          tab.collection === "issues" ? PSEUDO_TYPE_ISSUES : PSEUDO_TYPE_MODIFIED,
-                          locationForCollection(tab),
-                        )}
-                      </section>,
-                    ]
-                  : [],
-              )}
-              {tabs.tabs.flatMap((tab) =>
-                tab.kind === "view"
-                  ? [
-                      <section
-                        key={tab.id}
-                        id={`panel-${tab.id}`}
-                        role="tabpanel"
-                        aria-labelledby={`tab-${tab.id}`}
-                        className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
-                        inert={tabs.activeId === tab.id ? undefined : true}
-                      >
-                        <ViewTab
-                          tab={tab}
-                          active={noteSurfacesActive && tabs.activeId === tab.id}
-                          editSession={viewEditSession}
-                          onOpenNote={openTab}
-                          onOpenNode={openNode}
-                          onOpenView={openView}
-                          onOpenSearch={openSearch}
-                          onStageOps={stageOps}
-                          onOpenIssues={selectIssues}
-                          onSelectCollection={selectCollection}
-                          onTitle={tabs.setTitle}
-                        />
-                      </section>,
-                    ]
-                  : [],
-              )}
-              {tabs.tabs.flatMap((tab) =>
-                tab.kind === "note"
-                  ? [
-                      <section
-                        key={tab.id}
-                        id={`panel-${tab.id}`}
-                        role="tabpanel"
-                        aria-labelledby={`tab-${tab.id}`}
-                        className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
-                        inert={tabs.activeId === tab.id ? undefined : true}
-                      >
-                        <DiagnosticRegion name="note-view">
-                          <NoteTab
-                            tab={tab}
-                            views={viewCatalogQuery.data}
-                            onPresentation={tabs.setPresentation}
-                            onOpenNode={openNode}
-                            onOpenView={openView}
-                            onOpenSearch={openSearch}
-                            active={noteSurfacesActive && tabs.activeId === tab.id}
-                            bodyResident={tabs.activeId === tab.id || residentNoteTabs.has(tab.id)}
-                            anchor={
-                              tabs.activeId === tab.id &&
-                              location.note !== null &&
-                              normalizeNotePath(location.note) === tab.path
-                                ? location.fragment
-                                : null
-                            }
-                            editSession={editSession.session}
-                            readLifecycle={editSession.readLifecycle}
-                            savedWorkspaces={editSession.savedWorkspaces}
-                            editing={editSession.editing}
-                            onOpen={openTab}
-                            onTitle={tabs.setTitle}
-                            onFocusedTarget={tabs.setFocusedTarget}
-                            registerContext={registerTabContext}
-                            onStageOps={stageOps}
-                            vaultKey={editSession.vaultKey}
-                            validationIssueCount={
-                              tab.path === activeNotePath ? activeValidationIssueCount : undefined
-                            }
-                            validationHealth={activeValidationHealth}
-                            onSelectIssues={selectIssues}
-                            onSelectCollection={selectCollection}
-                          />
-                        </DiagnosticRegion>
-                      </section>,
-                    ]
-                  : [],
-              )}
+                <section
+                  id="panel-home"
+                  role="tabpanel"
+                  aria-labelledby="tab-home"
+                  className={`notes-shell__panel${tabs.activeId === "home" ? " is-active" : ""}`}
+                  inert={tabs.activeId === "home" ? undefined : true}
+                >
+                  <ExperienceTabContext value="home">
+                    {renderHomeTab("home", homeSelection, homeSelectedType, homeLocation)}
+                  </ExperienceTabContext>
+                </section>
+                {tabs.tabs.flatMap((tab) =>
+                  tab.kind === "collection"
+                    ? [
+                        <section
+                          key={tab.id}
+                          id={`panel-${tab.id}`}
+                          role="tabpanel"
+                          aria-labelledby={`tab-${tab.id}`}
+                          className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
+                          inert={tabs.activeId === tab.id ? undefined : true}
+                        >
+                          <ExperienceTabContext value={tab.id}>
+                            {renderHomeTab(
+                              tab.id,
+                              COLLECTION_SELECTIONS[tab.collection],
+                              tab.collection === "issues"
+                                ? PSEUDO_TYPE_ISSUES
+                                : PSEUDO_TYPE_MODIFIED,
+                              locationForCollection(tab),
+                            )}
+                          </ExperienceTabContext>
+                        </section>,
+                      ]
+                    : [],
+                )}
+                {tabs.tabs.flatMap((tab) =>
+                  tab.kind === "view"
+                    ? [
+                        <section
+                          key={tab.id}
+                          id={`panel-${tab.id}`}
+                          role="tabpanel"
+                          aria-labelledby={`tab-${tab.id}`}
+                          className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
+                          inert={tabs.activeId === tab.id ? undefined : true}
+                        >
+                          <ExperienceTabContext value={tab.id}>
+                            <ViewTab
+                              tab={tab}
+                              active={noteSurfacesActive && tabs.activeId === tab.id}
+                              editSession={viewEditSession}
+                              onOpenNote={openTab}
+                              onOpenNode={openNode}
+                              onOpenView={openView}
+                              onOpenSearch={openSearch}
+                              onStageOps={stageOps}
+                              onOpenIssues={selectIssues}
+                              onSelectCollection={selectCollection}
+                              onTitle={tabs.setTitle}
+                            />
+                          </ExperienceTabContext>
+                        </section>,
+                      ]
+                    : [],
+                )}
+                {tabs.tabs.flatMap((tab) =>
+                  tab.kind === "note"
+                    ? [
+                        <section
+                          key={tab.id}
+                          id={`panel-${tab.id}`}
+                          role="tabpanel"
+                          aria-labelledby={`tab-${tab.id}`}
+                          className={`notes-shell__panel${tabs.activeId === tab.id ? " is-active" : ""}`}
+                          inert={tabs.activeId === tab.id ? undefined : true}
+                        >
+                          <DiagnosticRegion name="note-view">
+                            <ExperienceTabContext value={tab.id}>
+                              <NoteTab
+                                tab={tab}
+                                views={viewCatalogQuery.data}
+                                onPresentation={tabs.setPresentation}
+                                onOpenNode={openNode}
+                                onOpenView={openView}
+                                onOpenSearch={openSearch}
+                                active={noteSurfacesActive && tabs.activeId === tab.id}
+                                bodyResident={
+                                  tabs.activeId === tab.id || residentNoteTabs.has(tab.id)
+                                }
+                                anchor={
+                                  tabs.activeId === tab.id &&
+                                  location.note !== null &&
+                                  normalizeNotePath(location.note) === tab.path
+                                    ? location.fragment
+                                    : null
+                                }
+                                editSession={editSession.session}
+                                readLifecycle={editSession.readLifecycle}
+                                savedWorkspaces={editSession.savedWorkspaces}
+                                editing={editSession.editing}
+                                onOpen={openTab}
+                                onTitle={tabs.setTitle}
+                                onFocusedTarget={tabs.setFocusedTarget}
+                                registerContext={registerTabContext}
+                                onStageOps={stageOps}
+                                vaultKey={editSession.vaultKey}
+                                validationIssueCount={
+                                  tab.path === activeNotePath
+                                    ? activeValidationIssueCount
+                                    : undefined
+                                }
+                                validationHealth={activeValidationHealth}
+                                onSelectIssues={selectIssues}
+                                onSelectCollection={selectCollection}
+                              />
+                            </ExperienceTabContext>
+                          </DiagnosticRegion>
+                        </section>,
+                      ]
+                    : [],
+                )}
+              </ExperienceFrameLayer>
               <NotesRightRail
                 active={noteSurfacesActive}
                 context={activeContext}

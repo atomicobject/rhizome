@@ -24,6 +24,8 @@ type Artifact @node(paths: ["artifacts/**/*.md"], propertyCase: AS_DEFINED) @dis
   products: [String!] @field(source: "products") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """Assertions named in supported_by. Slug references bind; logical IDs need the same indexer resolution fix as extraction."""
   supportedBy: [Assertion!] @link(source: "supported_by", includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  """Raw recorded support values (`supported_by`, else the legacy `supportingAssertions`); an explicitly empty `supported_by` counts as recorded. Readers resolve them by AO ID, then unique file name, and keep the rest unresolved."""
+  supportValues: [String!] @field(sources: ["supported_by", "supportingAssertions"]) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """Additional outgoing assertion references not already represented by supportedBy. Combine both fields for all referenced assertions; ambient edges exclude structural pairs."""
   additionalAssertionReferences: [Assertion!] @neighbors(direction: OUTBOUND, type: "Assertion")
   """Outgoing artifact body references to Concept records, with their authored direction."""
@@ -38,6 +40,8 @@ type Artifact @node(paths: ["artifacts/**/*.md"], propertyCase: AS_DEFINED) @dis
 type ConflictRegistry @node(paths: [".kb/curation/_conflicts.md"], propertyCase: AS_DEFINED) @display(group: "Knowledge") {
   """Registry sections preserve AO's grouping (for example Active and Settled)."""
   groups: [ConflictGroup!] @contains(level: H2) @policy(reason: "AO KB owns this authored structure.")
+  """The authored `updatedAt`. The generated updatedAt record fact is a file modification time, not a curation date."""
+  recordedUpdatedAt: String @field(source: "updatedAt") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
 }
 
 """An authored conflict registry group."""

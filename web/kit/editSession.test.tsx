@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { OntologyEditOp } from "../src/api/types";
+import type { OntologyEditOp, OntologyEditSessionResponse } from "../src/api/types";
 import {
   EDIT_SESSION_HELLO_MESSAGE,
   EDIT_SESSION_MESSAGE,
@@ -71,5 +71,54 @@ describe("connectWorkspaceHost", () => {
     await vi.advanceTimersByTimeAsync(1_000);
     await outcome;
     expect(types()).toEqual([EDIT_SESSION_HELLO_MESSAGE, EDIT_SESSION_HELLO_MESSAGE]);
+  });
+
+  it("stamps a page's stage with its navigation and surfaces the host's refusal of a stale one", async () => {
+    const { parent, sent, answer } = fakeParent();
+    const host = connectWorkspaceHost(parent);
+    answer({ type: EDIT_SESSION_MESSAGE, session: null });
+    const staged = host.stage([op], { tabId: "tab-1", navigationId: "n-1" });
+
+    await vi.waitFor(() =>
+      expect(sent.mock.calls.map(([message]) => message)).toContainEqual({
+        type: STAGE_OPS_MESSAGE,
+        requestId: "stage-1",
+        ops: [op],
+        tabId: "tab-1",
+        navigationId: "n-1",
+      }),
+    );
+    answer({ type: STAGE_RESULT_MESSAGE, requestId: "stage-1", error: "page navigated away" });
+    await expect(staged).rejects.toThrow("page navigated away");
+  });
+});
+
+describe("an edit session the host sends again", () => {
+  const session: OntologyEditSessionResponse = {
+    sessionId: "s-1",
+    revision: 2,
+    status: "dirty",
+    hasUncommittedChanges: true,
+    createdAt: "2026-11-09T00:00:00Z",
+    updatedAt: "2026-11-09T00:00:00Z",
+    ops: [op],
+  };
+
+  it("changes nothing when it is identical, as after a resume", () => {
+    const { parent, answer } = fakeParent();
+    const host = connectWorkspaceHost(parent);
+    const listener = vi.fn();
+    host.subscribe(listener);
+
+    answer({ type: EDIT_SESSION_MESSAGE, session });
+    const first = host.state();
+    answer({ type: EDIT_SESSION_MESSAGE, session: { ...session, ops: [op] } });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(host.state()).toBe(first);
+
+    answer({ type: EDIT_SESSION_MESSAGE, session: { ...session, revision: 3 } });
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(host.state().session?.revision).toBe(3);
   });
 });

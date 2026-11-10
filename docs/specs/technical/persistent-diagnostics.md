@@ -4,7 +4,7 @@ id: SPEC-0116
 aliases: [SPEC-0116, Persistent diagnostics]
 summary: "Bounded local diagnostic events and operation reports, useful indexing, runtime, code-mode, and web UI measurements, and an offline reader that summarizes performance and flags instability for humans and agents."
 spec-status: active
-last-updated: 2026-10-31
+last-updated: 2026-11-09
 ---
 
 # Persistent diagnostics
@@ -84,6 +84,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
   - **Frame stalls.** Gaps between `requestAnimationFrame` callbacks while the page is visible: counts of gaps over 50 ms and over 200 ms, the total stalled time, and the longest gap. This works in WebKit, which lacks the Long Tasks and Long Animation Frames APIs.
   - **Background refresh churn.** From the single invalidation point, `VaultInvalidationBridge`: refresh cycles, queries refetched, refetches whose data was structurally unchanged, the commits per render region in the second after each refresh, and the refreshes judged as churn. A refresh is churn when regions committed in its second and every refetch it started returned unchanged data. The browser decides this per refresh once that second has passed and its refetches have resolved, so a batch boundary cannot split the evidence. A refresh that starts inside an earlier one's second joins it and is judged with it, and a refresh with a failed, replaced, or still-outstanding refetch after ten seconds is not judged.
   - **Stability.** Event stream reconnects, uncaught errors, and unhandled promise rejections, counted by error name only.
+  - **Experience frames.** Per experience per window, identified by a hash of the experience identity and never its path: p50 and p95 of each startup phase the kit marks (shell start, module loaded, first render, data ready from `markReady`, location painted), and counts of frames created, locations reused, pages retained, resumes, and evictions ([[experiences|SPEC-0136]] R10). The frame layer and the panel slot are fixed render regions.
 - Batches MUST NOT contain note titles, paths, URLs beyond a fixed route kind, query text, error messages, or stack traces.
 - The runtime MUST accept batches on a browser-facing `POST` route that applies the existing loopback-host and same-origin checks. It MUST bound the body size, validate the schema and identifier patterns, reject unknown fields, and record each accepted batch through the process recorder as one `web.client` event: identity and window in attributes, measurements (including per-region data) in `metrics`. When persistence is disabled, the route MUST accept and discard batches.
 - Production web builds use React's profiling build (`react-dom/profiling`), which costs about 4.5% scripting time with no regions mounted. Render regions mount only when the page is loaded with `window.__RHIZOME_RENDER_PROFILING__` set, or in a development build, and the choice holds for the page load. Mounted regions cost about 47 to 51% scripting time on a 1,500-row table view. Rhizome Dev always sets the flag; release desktop builds set it only when the desktop setting is on, which defaults to off and applies to windows opened afterward. Plain browsers do not set it. Drew chose this on 2026-10-25 after the first measurement ruled out always-on regions.
@@ -100,6 +101,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 - `rzm diagnostics perf` MUST summarize a time window, defaulting to the last 24 hours, from terminal events, in human and JSON forms. Every reported operation also emits a terminal event, so events cover both reported and event-only work. It MUST share the existing reader bounds and coverage disclosure, and say when the window is only partly covered.
 - It MUST group operations by kind and name (command path, HTTP route, MCP tool, code-mode operation, indexing job kind), reporting count, error and cancellation counts, median and maximum duration, and queue and lock waits where present. It MUST report a 95th percentile only for groups with at least 20 samples, and always show the sample count.
 - It MUST summarize web UI evidence per render region and surface: commits, render time, frame stalls, refresh churn, and stability counts.
+- It MUST report the server read cache (SPEC-0136 R4, R10) from `web.read_cache` events: hits, misses, joined concurrent requests, bypasses, bytes, execution time, and verification mismatches per query hash. Each event covers one minute and identifies queries only by hash, at most 64 per window with the rest counted as `other`; events are recorded whenever diagnostics persistence is on. `RZM_READ_CACHE_VERIFY` (0, off, to 1) sets the fraction of hits re-executed and compared.
 - It MUST flag these anomalies with the supporting operation or event identifiers:
   - more than three runtime starts for the vault within 60 seconds, timed by their start events;
   - started operations with no terminal record that are older than the newest evidence from their process, excluding runtime lifetimes and event-stream requests, which finish only when they stop. The flag applies only to starts at or after the point from which the reader read that process's events contiguously; starts before a skipped range or near malformed records are not flagged, because their terminal may be in the unread bytes;
@@ -121,3 +123,7 @@ The 2026-10-25 revision makes that evidence useful for performance and stability
 
 - Should `perf` cover a full seven-day window? Reader byte caps limit how much event history it can examine. If agents need week-scale trends, periodic summary reports written by the runtime are the proposed answer, not a database.
 - Should the runtime spawn storm seen on 2026-10-25 add an anomaly flag beyond the runtime start burst? Its fix landed in #41; the `intel_fts` warning was a false report, fixed in #43.
+
+## Change record
+
+2026-11-09: Web diagnostics gain the "Experience frames" measurement and the frame-layer and panel regions; `rzm diagnostics perf` gains read-cache statistics ([[experiences|SPEC-0136]] R10). Accepted deviations from SPEC-0136: node events carry no generation, hit verification is the `RZM_READ_CACHE_VERIFY` environment setting, and cache statistics are recorded as hashes and counts whenever diagnostics persistence is on.

@@ -50,19 +50,23 @@ type Catalog struct {
 	Issues  []viewconfig.Issue `json:"issues,omitempty"`
 }
 type CatalogEntry struct {
-	Configuration     map[string]any            `json:"configuration,omitempty"`
-	ID                string                    `json:"id"`
-	Name              string                    `json:"name"`
-	Description       string                    `json:"description,omitempty"`
-	Generated         bool                      `json:"generated,omitempty"`
-	Origin            viewconfig.Origin         `json:"origin"`
-	Source            viewconfig.SourceSpec     `json:"source"`
-	Mount             viewconfig.MountSpec      `json:"mount"`
-	Defaults          viewconfig.DefaultsSpec   `json:"defaults"`
-	Variants          viewconfig.VariantSet     `json:"variants"`
-	AvailableVariants []string                  `json:"availableVariants"`
-	Definition        viewconfig.ViewDefinition `json:"definition"`
-	Issues            []viewconfig.Issue        `json:"issues,omitempty"`
+	Configuration     map[string]any          `json:"configuration,omitempty"`
+	ID                string                  `json:"id"`
+	Name              string                  `json:"name"`
+	Description       string                  `json:"description,omitempty"`
+	Generated         bool                    `json:"generated,omitempty"`
+	Origin            viewconfig.Origin       `json:"origin"`
+	Source            viewconfig.SourceSpec   `json:"source"`
+	Mount             viewconfig.MountSpec    `json:"mount"`
+	Defaults          viewconfig.DefaultsSpec `json:"defaults"`
+	Variants          viewconfig.VariantSet   `json:"variants"`
+	AvailableVariants []string                `json:"availableVariants"`
+	// ExperienceKey names the experience whose frame renders this view
+	// (SPEC-0136 R1); empty outside experiences and for views that keep
+	// their own frame.
+	ExperienceKey string                    `json:"experienceKey,omitempty"`
+	Definition    viewconfig.ViewDefinition `json:"definition"`
+	Issues        []viewconfig.Issue        `json:"issues,omitempty"`
 }
 type ExecuteRequest struct {
 	Variant      string                  `json:"variant,omitempty"`
@@ -185,6 +189,13 @@ type ExecuteResponse struct {
 	DefinitionFingerprint string                `json:"definitionFingerprint"`
 	SourceFingerprint     string                `json:"sourceFingerprint"`
 	ExecutionFingerprint  string                `json:"executionFingerprint"`
+	// ClockDependent says the answer depends on the server clock (a stale
+	// count or stale filter), so the read cache never stores it.
+	ClockDependent bool `json:"-"`
+	// CallerDependent says an effective filter binds a runtime value such as
+	// the current user, which no generation component covers, so the read
+	// cache never stores it.
+	CallerDependent bool `json:"-"`
 }
 type ExecutionState struct {
 	Variant      string                  `json:"variant,omitempty"`

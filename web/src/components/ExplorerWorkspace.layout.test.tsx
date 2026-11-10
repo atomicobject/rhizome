@@ -1,7 +1,7 @@
 import { folderOverview } from "../test/folderOverview";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import Sigma from "sigma";
-import { it, vi } from "vitest";
+import { beforeAll, it, vi } from "vitest";
 import { expect } from "vitest";
 import type { GraphResponse } from "../api/types";
 import { withFakeFetch, deferredReply } from "../test/fakeFetch";
@@ -10,6 +10,14 @@ import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { ExplorerWorkspace } from "./ExplorerWorkspace";
 
 const http = withFakeFetch();
+
+// WHY: the workspace lazy-loads its panes. The first import transforms their
+// whole module graph, which on a loaded worker outlasts the first waitFor and
+// leaves "Preparing graph workspace…" on screen. Loading them here keeps module
+// transform time out of the layout assertions (as ExplorerWorkspace.test.tsx).
+beforeAll(async () => {
+  await Promise.all([import("./FilePanel"), import("./GraphView")]);
+});
 
 const graphWith = (...ids: string[]): GraphResponse => ({
   nodes: ids.map((id) => ({ id, kind: "code", path: id, label: id })),
@@ -86,6 +94,9 @@ it("preserves root folder positions across an uncached file visit", async () => 
     });
     await waitFor(async () => expect(await positions()).toEqual(before));
   } finally {
+    // Unmount before removing the fake WebGL, or a still-mounted renderer
+    // remounts against the bare stub and buries the real failure.
+    cleanup();
     vi.restoreAllMocks();
     restore();
     window.history.replaceState({}, "", "/explorer");

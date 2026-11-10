@@ -116,3 +116,24 @@ func TestStaleFilterMatchesTheRowsStatsCountAsStale(t *testing.T) {
 	})
 	require.ErrorIs(t, err, ErrInvalidRequest)
 }
+
+// SPEC-0136 R4: a stale count depends on the server clock, so the read cache
+// must not store the execution; a lifecycle without an active stage, or none,
+// counts nothing stale and does not depend on it.
+func TestExecutionsSayWhetherTheyDependOnTheClock(t *testing.T) {
+	service, _ := newTypeViewsService(t, map[string]string{
+		"tasks/a.md":    "---\nstatus: doing\n---\n# A\n",
+		"projects/p.md": "---\nstatus: live\n---\n# P\n",
+		"meetings/m.md": "---\nheld: 2026-08-14\n---\n# M\n",
+	})
+	clock := func(id string, req ExecuteRequest) bool {
+		t.Helper()
+		resp, err := service.Execute(context.Background(), id, req)
+		require.NoError(t, err)
+		return resp.ClockDependent
+	}
+	require.True(t, clock(viewconfig.GeneratedTypeID("Task"), ExecuteRequest{}), "Task's statistics count stale rows")
+	require.False(t, clock(viewconfig.GeneratedTypeID("Project"), ExecuteRequest{}), "no Project status is active")
+	require.False(t, clock(viewconfig.GeneratedTypeID("Project"), ExecuteRequest{Variant: "table", Filters: []viewconfig.FilterSpec{{Field: "stale", Op: "eq", Value: "true"}}}))
+	require.False(t, clock(viewconfig.GeneratedInterfaceID("Event"), ExecuteRequest{}), "Event has no lifecycle")
+}

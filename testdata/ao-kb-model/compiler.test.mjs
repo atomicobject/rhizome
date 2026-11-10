@@ -140,10 +140,12 @@ test('the check names the actual model state instead of calling every failure st
   const pinned = async () => { throw new Error('ao_toolkit_pin: manifest siteEngine.version is not the supported baseline'); };
   report = await check({...options, exportModel: pinned, checkDependencies: deps});
   assert.equal(report.status, 'error');
-  // An unsupported schema is an error even though the same edit also stales the model.
+  // A legacy product-mode account is unsupported; its model stage is not applicable, never stale.
   await writeFile(path.join(options.root, '.kb/config/vault.md'), '---\nschemaVersion: 7\nproductMode: multi-nested\nproducts: [alpha, beta]\n---\n');
   report = await check({...options, checkDependencies: deps});
-  assert.ok(report.diagnostics.some(d => d.code === 'ao_bindings_stale'));
+  assert.ok(report.diagnostics.some(d => d.code === 'ao_schema_unsupported' && /AO's own migration/.test(d.message)));
+  assert.equal(report.bindings.model.status, 'not applicable');
+  assert.equal(report.bindingsReady, false);
   assert.equal(report.status, 'error');
 });
 
@@ -296,11 +298,11 @@ test('product preflight and checked admission match AO registry and folder selec
 test('an authored edit expires the index receipt without expiring bindings', async t => {
   const options = await fixture(t);
   await refresh(options);
-  const {indexSignature} = await import('../../pkg/app/cli/init/templates/starters/ao-kb/module/bindings/runtime.mjs');
+  const {indexSignature} = await import('../../pkg/app/cli/init/templates/starters/ao-kb/module/bindings/knowledge.mjs');
   const manifest = await readJSON(path.join(options.directory, 'manifest.json'));
   const receipt = {fingerprint: manifest.fingerprint, sdlHash: manifest.sdlHash,
     knowledgeFingerprint: (await readJSON(path.join(options.directory, 'knowledge-manifest.json'))).fingerprint,
-    sourceSignature: await indexSignature(options.root, await options.exportModel())};
+    sourceSignature: await indexSignature(options.root, await options.exportModel(), 'alpha')};
   await writeFile(path.join(options.directory, 'index-receipt.json'), JSON.stringify(receipt));
   assert.equal((await check({...options, checkDependencies: deps})).indexReady, true);
   const source = path.join(options.root, 'products/alpha/artifacts/_assets/_model/lane.yaml');
@@ -369,16 +371,16 @@ test('missing Rhizome keeps knowledge readiness separate from model prerequisite
 test('ordinary knowledge edits stay ready while a new artifact phase requires admission refresh', async t => {
   const options = await fixture(t);
   await refresh(options);
-  const {indexSignature} = await import('../../pkg/app/cli/init/templates/starters/ao-kb/module/bindings/runtime.mjs');
+  const {indexSignature} = await import('../../pkg/app/cli/init/templates/starters/ao-kb/module/bindings/knowledge.mjs');
   const model = await readJSON(path.join(options.directory, 'manifest.json'));
   const scope = await readJSON(path.join(options.directory, 'knowledge-manifest.json'));
-  const receipt = {fingerprint: model.fingerprint, knowledgeFingerprint: scope.fingerprint, sdlHash: model.sdlHash, sourceSignature: await indexSignature(options.root, await options.exportModel())};
+  const receipt = {fingerprint: model.fingerprint, knowledgeFingerprint: scope.fingerprint, sdlHash: model.sdlHash, sourceSignature: await indexSignature(options.root, await options.exportModel(), 'alpha')};
   await writeFile(path.join(options.directory, 'index-receipt.json'), JSON.stringify(receipt));
   assert.equal((await check({...options, checkDependencies: deps})).indexReady, true);
   const note = path.join(options.root, 'assertions/shared.md');
   await writeFile(note, (await readFile(note, 'utf8')) + '\nOrdinary authored evidence edit.\n');
   assert.equal((await check({...options, checkDependencies: deps})).bindingsReady, true);
-  receipt.sourceSignature = await indexSignature(options.root, await options.exportModel());
+  receipt.sourceSignature = await indexSignature(options.root, await options.exportModel(), 'alpha');
   await writeFile(path.join(options.directory, 'index-receipt.json'), JSON.stringify(receipt));
   assert.equal((await check({...options, checkDependencies: deps})).indexReady, true);
   await mkdir(path.join(options.root, 'artifacts/01_define/alpha'), {recursive: true});

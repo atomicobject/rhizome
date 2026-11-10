@@ -7,6 +7,7 @@ import {
   legacyStoredTabsForVault,
   parseStoredTabs,
   serializeTabs,
+  storedHomeForVault,
   storedTabsForVault,
 } from "./noteTabStorage";
 import {
@@ -58,6 +59,8 @@ export type NoteTab = {
   nodeId?: string | null;
   nodeKind?: string | null;
   structural?: string | null;
+  /** The shown view's param values, restored when the tab is shown again (SPEC-0135 R6a). */
+  viewParams?: string | null;
 };
 
 export type SearchTab = {
@@ -73,6 +76,7 @@ export type ViewTab = {
   kind: "view";
   viewId: string;
   title: string;
+  viewParams?: string | null;
 };
 
 export type Tab = HomeTab | CollectionTab | NoteTab | SearchTab | ViewTab;
@@ -112,7 +116,7 @@ export type NoteTabsApi = {
   tabs: Tab[];
   activeId: string;
   activeTab: Tab;
-  homeLocation: Pick<NotesLocation, "selection" | "presentation">;
+  homeLocation: Pick<NotesLocation, "selection" | "presentation" | "viewParams">;
   open: (
     target: string,
     opts?: {
@@ -367,7 +371,11 @@ function openSearchInto(...args: Parameters<typeof addSearchTab>): OpenIntoResul
 }
 
 function viewLocation(tab: ViewTab): string {
-  return buildNotesLocation({ selection: { kind: "all" }, view: tab.viewId });
+  return buildNotesLocation({
+    selection: { kind: "all" },
+    view: tab.viewId,
+    viewParams: tab.viewParams,
+  });
 }
 
 function noteIndex(tabs: Tab[], path: string, ref?: NodeRef): number {
@@ -485,6 +493,7 @@ function tabLocation(tab: Tab, selection: NotesLocation["selection"]): string {
         nodeId: tab.nodeId,
         nodeKind: tab.nodeKind,
         structural: tab.structural,
+        viewParams: tab.viewParams,
       });
     case "search":
       return buildNotesLocation({
@@ -562,7 +571,11 @@ function sameTabs(left: Tab[], right: Tab[]): boolean {
     }
 
     if (isViewTab(tab) && isViewTab(other)) {
-      return tab.viewId === other.viewId && tab.title === other.title;
+      return (
+        tab.viewId === other.viewId &&
+        tab.title === other.title &&
+        (tab.viewParams ?? null) === (other.viewParams ?? null)
+      );
     }
 
     if (isSearchTab(tab) && isSearchTab(other)) {
@@ -584,6 +597,7 @@ function sameTabs(left: Tab[], right: Tab[]): boolean {
       tab.query === other.query &&
       tab.fragment === other.fragment &&
       tab.presentation === other.presentation &&
+      (tab.viewParams ?? null) === (other.viewParams ?? null) &&
       tab.nodeId === other.nodeId &&
       tab.nodeKind === other.nodeKind &&
       tab.structural === other.structural
@@ -807,7 +821,10 @@ function withTarget(
 function withPresentation(
   tabs: Tab[],
   tabID: string,
-  value: Pick<NoteTab, "nodeRef" | "presentation" | "nodeId" | "nodeKind" | "structural">,
+  value: Pick<
+    NoteTab,
+    "nodeRef" | "presentation" | "nodeId" | "nodeKind" | "structural" | "viewParams"
+  >,
 ): Tab[] {
   return tabs.map((tab) =>
     tab.kind === "note" && tab.id === tabID
@@ -824,6 +841,7 @@ function withPresentation(
           nodeId: value.nodeId ?? value.nodeRef?.nodeId ?? null,
           nodeKind: value.nodeKind ?? value.nodeRef?.kind ?? null,
           structural: value.structural ?? value.nodeRef?.structuralFingerprint,
+          viewParams: value.viewParams === undefined ? tab.viewParams : value.viewParams,
         }
       : tab,
   );
@@ -855,12 +873,13 @@ export function useNoteTabs(
   const [tabs, setTabs] = useState<Tab[]>(() => tabsForLocation(location, changesAvailable));
   const tabsRef = useRef(tabs);
 
-  const homeLocationRef = useRef<Pick<NotesLocation, "selection" | "presentation">>(
+  const homeLocationRef = useRef<Pick<NotesLocation, "selection" | "presentation" | "viewParams">>(
     collectionForSelection(location.selection) || location.view
       ? { selection: { kind: "all" } }
       : {
           selection: location.selection,
           presentation: location.note ? null : location.presentation,
+          viewParams: location.note || location.search != null ? null : location.viewParams,
         },
   );
 
@@ -882,6 +901,10 @@ export function useNoteTabs(
     homeLocationRef.current = {
       selection: location.selection,
       presentation: location.note ? homeLocationRef.current?.presentation : location.presentation,
+      viewParams:
+        location.note || location.search != null
+          ? homeLocationRef.current?.viewParams
+          : location.viewParams,
     };
   }
 
@@ -967,6 +990,37 @@ export function useNoteTabs(
       }
     } catch {
       // Keep tabs already read if the optional migration write or cleanup fails.
+    }
+
+    // Home's own location (its subject, view, and params) comes back with the
+    // tabs when the URL shows another tab.
+    if (
+      location.note ||
+      location.search != null ||
+      location.view ||
+      collectionForSelection(location.selection)
+    ) {
+      try {
+        const raw = window.sessionStorage.getItem(storedHomeForVault(vaultName));
+        const home = raw ? new URL(raw, window.location.origin) : null;
+
+        const stored = home ? parseNotesLocation(home.pathname, home.search, home.hash) : null;
+
+        if (
+          stored &&
+          !stored.note &&
+          stored.search == null &&
+          !stored.view &&
+          !collectionForSelection(stored.selection)
+        )
+          homeLocationRef.current = {
+            selection: stored.selection,
+            presentation: stored.presentation,
+            viewParams: stored.viewParams,
+          };
+      } catch {
+        // Session storage is optional and can be unavailable in private contexts.
+      }
     }
 
     const nextTabs =
@@ -1061,10 +1115,14 @@ export function useNoteTabs(
 
     try {
       window.sessionStorage.setItem(storedTabsForVault(vaultName), serializeTabs(tabs));
+      window.sessionStorage.setItem(
+        storedHomeForVault(vaultName),
+        buildNotesLocation(homeLocationRef.current),
+      );
     } catch {
       // Session storage is optional and can be unavailable in private contexts.
     }
-  }, [hydratedVault, tabs, vaultName]);
+  }, [hydratedVault, location, tabs, vaultName]);
 
   // A page that unloads before the scroll debounce fires still stores the
   // latest position; React may not commit again before the page goes away.
@@ -1124,6 +1182,7 @@ export function useNoteTabs(
       {
         ...location,
         presentation: location.presentation ?? null,
+        viewParams: location.viewParams ?? null,
         nodeRef: location.nodeKind
           ? {
               notePath: location.note,
@@ -1146,6 +1205,7 @@ export function useNoteTabs(
     location.nodeId,
     location.nodeKind,
     location.structural,
+    location.viewParams,
   ]);
 
   // Going back to Home (All notes, a type, or a group) closes the page it replaces.
@@ -1165,9 +1225,16 @@ export function useNoteTabs(
   useEffect(() => {
     if (!location.view) return;
     const result = openViewInto(tabsRef.current, location.view);
+    const viewParams = location.viewParams ?? null;
 
-    if (!sameTabs(result.tabs, tabsRef.current)) commitTabs(result.tabs);
-  }, [commitTabs, location.view]);
+    const next = result.tabs.map((tab) =>
+      tab.id === result.activeId && isViewTab(tab) && (tab.viewParams ?? null) !== viewParams
+        ? { ...tab, viewParams }
+        : tab,
+    );
+
+    if (!sameTabs(next, tabsRef.current)) commitTabs(next);
+  }, [commitTabs, location.view, location.viewParams]);
 
   useEffect(() => {
     if (location.search == null) return;
@@ -1530,6 +1597,7 @@ export function useNoteTabs(
             nodeId: current.nodeId,
             nodeKind: current.nodeKind,
             structural: current.structural,
+            viewParams: current.viewParams,
           }),
           true,
         );

@@ -8,3 +8,5 @@ mount:
   kind: node
   type: Source
   default: true
+params:
+  - { name: assertion, kind: string }

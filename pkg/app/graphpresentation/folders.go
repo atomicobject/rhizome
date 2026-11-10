@@ -12,6 +12,8 @@ type FolderOverview struct {
 	NestedTypes []NestedTypeCount `json:"nestedTypes"`
 	Truncated   bool              `json:"truncated"`
 	NeedsIndex  bool              `json:"needsIndex,omitempty"`
+	// Titles holds indexed note titles by note path; the handler adds them.
+	Titles map[string]string `json:"titles,omitempty"`
 }
 
 type FolderLink struct {

@@ -1,0 +1,242 @@
+/* The Knowledge site's charts (SPEC-0135 R4, R8): one tab stop each, arrow keys inside, the
+   tooltip on hover and focus, kind colours from the --kind-* tokens, and lines in --link. */
+/* Charts: one tab stop, arrow keys inside, tooltip on hover and focus */
+.ak-chart {
+  position: relative;
+}
+.ak-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.ak-map-scoped svg {
+  overflow: hidden;
+}
+.ak-tip {
+  position: absolute;
+  z-index: 5;
+  transform: translate(-50%, calc(-100% - 8px));
+  max-width: 320px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-line;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.2);
+}
+.ak-mark {
+  cursor: pointer;
+}
+/* The mark's own ring is its focus ring; the page outline would draw a box around it. */
+.ak-chart .ak-mark:focus-visible {
+  outline: none;
+}
+.ak-hit {
+  fill: transparent;
+}
+.ak-focus-ring {
+  display: none;
+  fill: none;
+  stroke: var(--focus-ring);
+}
+.ak-mark:focus-visible .ak-focus-ring {
+  display: block;
+}
+.ak-ring {
+  fill: none;
+  stroke: var(--text);
+}
+.ak-edge {
+  stroke: var(--link);
+  transition: opacity 0.15s;
+}
+.ak-edge.ak-faint {
+  stroke: var(--kind-other);
+  opacity: 0.35;
+}
+[data-hover] .ak-edge:not(.ak-lit) {
+  opacity: 0.12;
+}
+[data-hover] .ak-edge.ak-lit {
+  stroke-width: 2.25;
+}
+.ak-node-solid {
+  fill: var(--kind-other);
+}
+.ak-node-hollow {
+  fill: var(--surface);
+  stroke: var(--kind-other);
+  stroke-width: 1.5;
+}
+.ak-node-faint {
+  fill: var(--kind-other);
+  opacity: 0.28;
+}
+.ak-dim {
+  opacity: 0.2;
+  transition: opacity 0.15s;
+}
+.ak-labels text {
+  font: 500 13px var(--font-sans);
+  fill: var(--text);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.ak-overmap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+@container knowledge (min-width: 1080px) {
+  .ak-overmap {
+    grid-template-columns: minmax(0, 760px) minmax(240px, 1fr);
+  }
+}
+.ak-concept-list {
+  max-height: 440px;
+  overflow: auto;
+  border-top: 1px solid var(--border-faint);
+}
+.ak-concept-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-faint);
+  font-size: 14px;
+}
+.ak-concept-head {
+  font: 500 13px / 1.35 var(--font-sans);
+  color: var(--text-muted);
+}
+.ak-concept-row > :last-child {
+  flex: none;
+  color: var(--text-muted);
+}
+
+/* Sources by date and the strip */
+.ak-grid {
+  stroke: var(--border-faint);
+}
+.ak-baseline {
+  stroke: var(--border);
+}
+.ak-tick {
+  font: 500 13px var(--font-sans);
+  fill: var(--text-faint);
+}
+.ak-row-label {
+  font: 500 13px var(--font-sans);
+  fill: var(--text-muted);
+}
+.ak-break rect {
+  fill: var(--surface-sunk);
+}
+.ak-mark-recorded {
+  stroke: var(--surface);
+  stroke-width: 1;
+}
+.ak-mark-file {
+  fill: var(--surface);
+  stroke-width: 1.75;
+}
+.ak-context {
+  fill: var(--kind-other);
+  opacity: 0.45;
+}
+
+/* Matrix: ARIA grid with ink numerals on capped tints */
+.ak-matrix-wrap {
+  position: relative;
+  overflow-x: auto;
+  padding: 4px;
+}
+.ak-matrix {
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 14px;
+}
+.ak-matrix th {
+  padding: 4px 2px;
+  font: 500 13px / 1.3 var(--font-sans);
+  color: var(--text-muted);
+  text-align: center;
+  vertical-align: bottom;
+}
+.ak-matrix .ak-group-head {
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+  border-bottom: 3px solid;
+  padding-bottom: 3px;
+}
+.ak-matrix .ak-row-head {
+  text-align: left;
+}
+.ak-total {
+  display: block;
+  color: var(--text-faint);
+  font-weight: 400;
+}
+.ak-matrix tbody th {
+  min-width: 150px;
+  max-width: 220px;
+  padding: 0 12px 0 4px;
+  text-align: left;
+  vertical-align: middle;
+  color: var(--text);
+  font: 500 14px / 1.25 var(--font-sans);
+  border-radius: 4px;
+}
+.ak-matrix td {
+  min-width: 38px;
+  height: 28px;
+  padding: 0;
+  border-radius: 4px;
+  text-align: center;
+}
+.ak-matrix td a {
+  display: block;
+  line-height: 28px;
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: none;
+}
+.ak-matrix [role="gridcell"]:hover,
+.ak-matrix [role="rowheader"]:hover {
+  outline: 1px solid var(--text-faint);
+  outline-offset: -1px;
+}
+.ak-matrix [role="gridcell"]:focus-visible,
+.ak-matrix [role="rowheader"]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -1px;
+}
+.ak-matrix .ak-stored {
+  border-left: 10px solid var(--surface);
+  color: var(--text);
+}
+.ak-matrix th.ak-stored {
+  min-width: 110px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ak-edge,
+  .ak-dim {
+    transition: none;
+  }
+}
+/* On narrow frames the matrix scrolls sideways; concept names stay in view. */
+.ak-matrix tbody th,
+.ak-matrix .ak-row-head {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+}

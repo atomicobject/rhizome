@@ -9,46 +9,30 @@ import type {
   ViewCatalogEntry,
 } from "../api/types";
 import {
-  EDIT_SESSION_HELLO_MESSAGE,
   EDIT_SESSION_MESSAGE,
-  OPEN_COLLECTION_MESSAGE,
-  OPEN_ISSUES_MESSAGE,
-  OPEN_NOTE_MESSAGE,
-  OPEN_NODE_MESSAGE,
-  OPEN_SEARCH_MESSAGE,
-  OPEN_VIEW_MESSAGE,
-  PARAMS_CHANGED_MESSAGE,
-  STAGE_OPS_MESSAGE,
-  STAGE_RESULT_MESSAGE,
   VAULT_EVENT_MESSAGE,
   VIEW_PARAMS_MESSAGE,
-  VIEW_RENDERED_MESSAGE,
   type HostMessage,
-  type IssueScope,
 } from "../lib/customViewMessages";
 import { subscribeVaultEvents } from "../query/vaultEvents";
-import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
-import { NOTES_ROOT_PATH, isPseudoType } from "./notesRoute";
+import { useLocationSnapshot } from "./locationStore";
+import { NOTES_ROOT_PATH } from "./notesRoute";
 import type { OpenMode } from "./useNoteTabs";
 
+import { customViewHref, type OpenNodeOptions, type ViewContext } from "../views/context";
 import {
-  customViewHref,
-  parseViewContext,
-  parseViewNodeRef,
-  type OpenNodeOptions,
-  type ViewContext,
-} from "../views/context";
-import {
-  applyViewParamsPatch,
-  isViewParamValues,
   readViewParams,
   viewParamsIdentity,
-  viewParamsPatchError,
   withViewParams,
-  type ViewParamDeclaration,
-  type ViewParamsPatch,
   type ViewParamValue,
 } from "../views/params";
+import {
+  isServiceRequest,
+  pushViewParams,
+  runServiceRequest,
+  viewRequest,
+  type OpenSearchRequest,
+} from "../views/viewBridge";
 
 type Props = {
   context?: ViewContext;
@@ -63,176 +47,11 @@ type Props = {
   onStageOps: (ops: OntologyEditOp[]) => Promise<void>;
   onOpenIssues?: (scope?: ValidationScope) => void;
   onSelectCollection?: (name: string) => void;
-  onOpenSearch?: (search: { folder: string; query?: string }) => void;
+  onOpenSearch?: (search: OpenSearchRequest) => void;
 };
-
-type ViewRequest =
-  | { kind: "open-node"; ref: NodeRef; options: OpenNodeOptions }
-  | {
-      kind: "open-view";
-      id: string;
-      context: ViewContext;
-      params?: Record<string, ViewParamValue>;
-    }
-  | { kind: "params"; patch: ViewParamsPatch }
-  | { kind: "open-note"; path: string; mode: OpenMode }
-  | { kind: "hello" }
-  | { kind: "rendered" }
-  | { kind: "stage"; requestId: string; ops: OntologyEditOp[] }
-  | { kind: "open-issues"; scope?: IssueScope }
-  | { kind: "open-collection"; name: string }
-  | { kind: "open-search"; search: { folder: string; query?: string } };
-
-/* oxlint-disable anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters -- These helpers validate values at the postMessage trust boundary. */
-function issueScope(value: unknown): IssueScope | null {
-  if (typeof value !== "object" || value === null) return null;
-
-  if (!("kind" in value) || !("key" in value)) return null;
-
-  if (value.kind !== "type" && value.kind !== "interface" && value.kind !== "note") return null;
-
-  if (typeof value.key !== "string" || !value.key.trim()) return null;
-
-  return { kind: value.kind, key: value.key };
-}
-
-function rejectViewRequest(type: unknown, reason: string): null {
-  console.warn(
-    `[Rhizome custom view] Rejected ${typeof type === "string" ? type : "<missing or invalid type>"}`,
-    reason,
-  );
-
-  return null;
-}
-
-function viewRequest(data: unknown, params: readonly ViewParamDeclaration[]): ViewRequest | null {
-  if (typeof data !== "object" || data === null || !("type" in data))
-    return rejectViewRequest(undefined, "Expected a message object with a type");
-
-  const reject = (reason: string) => rejectViewRequest(data.type, reason);
-
-  if (data.type === EDIT_SESSION_HELLO_MESSAGE) return { kind: "hello" };
-
-  if (data.type === VIEW_RENDERED_MESSAGE) return { kind: "rendered" };
-
-  if (data.type === OPEN_NOTE_MESSAGE) {
-    if (!("path" in data) || typeof data.path !== "string" || data.path === "")
-      return reject("Invalid path: expected a nonempty string");
-    const beside = "beside" in data && data.beside === true;
-
-    return { kind: "open-note", path: data.path, mode: beside ? "beside" : "activate" };
-  }
-
-  if (data.type === OPEN_NODE_MESSAGE) {
-    const ref = parseViewNodeRef("ref" in data ? data.ref : undefined);
-
-    if (!ref)
-      return reject("Invalid ref: expected nonblank notePath/kind and valid optional fields");
-
-    if ("view" in data && typeof data.view !== "string")
-      return reject("Invalid view: expected a string");
-
-    return {
-      kind: "open-node",
-      ref,
-      options: {
-        view: "view" in data && typeof data.view === "string" ? data.view : undefined,
-        beside: "beside" in data && data.beside === true,
-      },
-    };
-  }
-
-  if (data.type === OPEN_VIEW_MESSAGE) {
-    if (!("id" in data) || typeof data.id !== "string" || !data.id)
-      return reject("Invalid id: expected a nonempty string");
-
-    const context = parseViewContext("context" in data ? data.context : undefined);
-
-    if (!context)
-      return reject("Invalid context: expected a concrete view subject with a valid ref for nodes");
-
-    if (!("params" in data) || data.params === undefined)
-      return { kind: "open-view", id: data.id, context };
-
-    if (!isViewParamValues(data.params))
-      return reject("Invalid params: expected string, integer, or boolean values");
-
-    return { kind: "open-view", id: data.id, context, params: data.params };
-  }
-
-  if (data.type === PARAMS_CHANGED_MESSAGE) {
-    const patch = "params" in data ? data.params : undefined;
-    const error = viewParamsPatchError(params, patch);
-
-    // SAFETY: viewParamsPatchError accepted every key and value.
-    return error
-      ? reject(`Invalid params: ${error}`)
-      : { kind: "params", patch: patch as ViewParamsPatch };
-  }
-
-  if (data.type === STAGE_OPS_MESSAGE) {
-    if (!("requestId" in data) || typeof data.requestId !== "string")
-      return reject("Invalid requestId: expected a string");
-
-    // The server validates each op; the host only checks the envelope.
-    if (!("ops" in data) || !Array.isArray(data.ops) || data.ops.length === 0)
-      return reject("Invalid ops: expected a nonempty array");
-
-    if (!data.ops.every((op) => typeof op === "object" && op !== null))
-      return reject("Invalid ops: expected objects");
-
-    return { kind: "stage", requestId: data.requestId, ops: data.ops };
-  }
-
-  if (data.type === OPEN_ISSUES_MESSAGE) {
-    if (!("scope" in data) || data.scope === undefined) return { kind: "open-issues" };
-    const scope = issueScope(data.scope);
-
-    return scope
-      ? { kind: "open-issues", scope }
-      : reject("Invalid scope: expected type/interface/note and a nonblank key");
-  }
-
-  if (data.type === OPEN_COLLECTION_MESSAGE) {
-    if (!("name" in data) || typeof data.name !== "string" || !data.name.trim())
-      return reject("Invalid name: expected a nonblank collection name");
-
-    if (isPseudoType(data.name)) return reject("Invalid name: reserved collection name");
-
-    return { kind: "open-collection", name: data.name };
-  }
-
-  if (data.type === OPEN_SEARCH_MESSAGE) {
-    if (!("folder" in data) || typeof data.folder !== "string" || !data.folder.trim())
-      return reject("Invalid folder: expected a nonblank string");
-
-    if (!("query" in data) || data.query === undefined)
-      return { kind: "open-search", search: { folder: data.folder } };
-
-    if (typeof data.query !== "string") return reject("Invalid query: expected a string");
-
-    return { kind: "open-search", search: { folder: data.folder, query: data.query } };
-  }
-
-  return reject("Unsupported message type");
-}
-/* oxlint-enable anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters */
 
 const isNotesPath = (pathname: string) =>
   pathname === NOTES_ROOT_PATH || pathname.startsWith(`${NOTES_ROOT_PATH}/`);
-
-// A params change from the frame becomes a workspace history entry; the
-// location change then remounts the frame or updates it in place.
-function pushViewParams(params: readonly ViewParamDeclaration[], patch: ViewParamsPatch) {
-  const url = new URL(window.location.href);
-  applyViewParamsPatch(params, url.searchParams, patch);
-  const next = `${url.pathname}${url.search}${url.hash}`;
-
-  if (next === `${window.location.pathname}${window.location.search}${window.location.hash}`)
-    return;
-  window.history.pushState({}, "", next);
-  notifyLocationChange();
-}
 
 /** The longest a loading view stays hidden behind the one it replaces. */
 const SWAP_LIMIT_MS = 1000;
@@ -329,18 +148,14 @@ export function CustomViewFrame({
   sessionRef.current = { session, readLifecycle };
 
   useEffect(() => {
-    const reply = (target: Window, message: HostMessage) => {
-      if (mountedViews().includes(target)) target.postMessage(message, window.location.origin);
-    };
-
-    const stage = async (target: Window, requestId: string, ops: OntologyEditOp[]) => {
-      try {
-        await onStageOps(ops);
-        reply(target, { type: STAGE_RESULT_MESSAGE, requestId });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to stage edits";
-        reply(target, { type: STAGE_RESULT_MESSAGE, requestId, error: message });
-      }
+    const services = {
+      onOpenNote,
+      onOpenNode,
+      onOpenView,
+      onStageOps,
+      onOpenIssues,
+      onSelectCollection,
+      onOpenSearch,
     };
 
     const onMessage = (event: MessageEvent) => {
@@ -350,34 +165,21 @@ export function CustomViewFrame({
       if (!source) return;
       const request = viewRequest(event.data, declarations);
 
-      if (request?.kind === "rendered" && source === frameRef.current?.contentWindow) {
+      if (!request) return;
+
+      if (request.kind === "rendered" && source === frameRef.current?.contentWindow) {
         const frame = currentRef.current;
         afterPaint(source, () => revealRef.current(frame));
       }
 
-      if (request?.kind === "open-note") onOpenNote(request.path, request.mode);
-
-      if (request?.kind === "open-node") onOpenNode?.(request.ref, request.options);
-
-      // Params are passed only when the view sent them.
-      if (request?.kind === "open-view" && request.params)
-        onOpenView?.(request.id, request.context, request.params);
-      else if (request?.kind === "open-view") onOpenView?.(request.id, request.context);
-
       // Only the newest frame's params match the declarations.
-      if (request?.kind === "params" && source === frameRef.current?.contentWindow)
+      if (request.kind === "params" && source === frameRef.current?.contentWindow)
         pushViewParams(declarations, request.patch);
 
-      if (request?.kind === "hello")
-        reply(source, { type: EDIT_SESSION_MESSAGE, ...sessionRef.current });
-
-      if (request?.kind === "stage") void stage(source, request.requestId, request.ops);
-
-      if (request?.kind === "open-issues") onOpenIssues?.(request.scope);
-
-      if (request?.kind === "open-collection") onSelectCollection?.(request.name);
-
-      if (request?.kind === "open-search") onOpenSearch?.(request.search);
+      if (isServiceRequest(request))
+        runServiceRequest(request, { ...services, ...sessionRef.current }, (message) => {
+          if (mountedViews().includes(source)) source.postMessage(message, window.location.origin);
+        });
     };
 
     window.addEventListener("message", onMessage);

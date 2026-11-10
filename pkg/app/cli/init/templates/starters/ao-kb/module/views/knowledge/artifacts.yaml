@@ -1,0 +1,12 @@
+apiVersion: rhizome.view.v1
+id: ao-kb.artifacts
+name: Artifacts
+source:
+  kind: custom
+  entry: artifacts.tsx
+mount:
+  kind: group
+  group: Knowledge
+  order: 34
+params:
+  - { name: recordFolder, kind: string }

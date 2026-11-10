@@ -1,0 +1,466 @@
+// An experience frame (SPEC-0136 R2, R3): one long-lived document that renders
+// an experience's pages, one per workbench tab. The host moves it between
+// pages with location messages; the frame keeps recently shown pages mounted
+// but hidden, so returning to a tab shows it as it was.
+import {
+  Activity,
+  Suspense,
+  use,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
+
+import { isPlainObject, isString } from "../src/api/parse";
+import {
+  CLOSE_PAGE_MESSAGE,
+  FRAME_READY_MESSAGE,
+  LOCATION_ACCEPTED_MESSAGE,
+  LOCATION_MESSAGE,
+  LOCATION_RENDERED_MESSAGE,
+  PANEL_TAB_ID,
+  PHASE_MESSAGE,
+  RESUME_MESSAGE,
+  SUSPEND_MESSAGE,
+  type ExperiencePhase,
+  type ViewMessage,
+} from "../src/lib/customViewMessages";
+import { isViewParamValues, readViewParams, viewParamsIdentity } from "../src/views/params";
+import { frameGeneration, type FrameGeneration } from "./generation";
+import {
+  PageActiveContext,
+  PageBindingContext,
+  activePageBinding,
+  pageStamp,
+  setActivePageBinding,
+  usePageBinding,
+  type PageBinding,
+} from "./pageBinding";
+import type { ViewConfig, ViewModule } from "./startView";
+import { parseViewInvocation } from "./viewContext";
+import { ViewErrorBoundary } from "./viewRoot";
+
+/**
+ * P: how many hidden pages a frame keeps mounted; the least recently shown beyond it are dropped.
+ * Measured on 2026-11-09 under SPEC-0136 R3's 150 MB budget (Chromium through Playwright, the
+ * largest real AO KB): each retained assertion page adds under 1 MB of JS heap once pages share
+ * their frame's data, and a frame with all eight retained holds 34 MB over the shell, most of
+ * it the whole-KB reads every page shares. The window total is bounded by K (RETAINED_FRAMES).
+ */
+export const RETAINED_PAGES = 8;
+
+type Page = {
+  tabId: string;
+  /** View, context, and identity params; the panel's page is keyed by view only. */
+  key: string;
+  binding: PageBinding;
+  view: ViewConfig;
+  load: () => Promise<ViewModule>;
+  /** Scroll offset saved when the page was hidden. */
+  scroll: number;
+  /** When the page was last shown, for retention order. */
+  shownAt: number;
+  /** Advances with every location for the page, so each gets a rendered message. */
+  serial: number;
+};
+
+// A location message before its fields are checked; structured clone keeps undefined fields.
+type LocationFields = {
+  tabId?: unknown;
+  navigationId?: unknown;
+  invocation?: unknown;
+  params?: unknown;
+  generation?: unknown;
+};
+
+type FrameState = { pages: readonly Page[]; activeTabId: string | null; suspended: boolean };
+
+export type ExperienceFrame = ReturnType<typeof createExperienceFrame>;
+
+const now = () => performance.timeOrigin + performance.now();
+
+// Never a tail call (see customViewMessages.ts): WebKit would name the host as the sender.
+const post = (message: ViewMessage) => {
+  window.parent.postMessage(message, window.location.origin);
+};
+
+// Phase marks go to a framing workspace only.
+let reportPhases = false;
+
+/** Send phase marks to the host from now on; the kit calls it when the workspace frames the page. */
+export function reportPhasesToHost() {
+  reportPhases = true;
+}
+
+export function postPhase(phase: ExperiencePhase, binding: PageBinding | null = null) {
+  if (reportPhases) post({ type: PHASE_MESSAGE, phase, at: now(), ...pageStamp(binding) });
+}
+
+const readied = new Set<string>();
+
+function markPageReady(binding: PageBinding | null) {
+  const key = binding ? `${binding.tabId}\n${binding.navigationId}` : "";
+
+  if (readied.has(key)) return;
+  readied.add(key);
+  postPhase("data-ready", binding);
+}
+
+/**
+ * Call when the page's required reads have resolved. Telemetry uses it as the
+ * page's data-ready mark; only the first call per navigation counts. In an
+ * experience frame it marks the page on screen; components use `useMarkReady`
+ * to mark their own page.
+ */
+export function markReady() {
+  markPageReady(activePageBinding());
+}
+
+/** `markReady` bound to the page this component renders in, for async work that can finish while it is hidden. */
+export function useMarkReady() {
+  const binding = usePageBinding();
+
+  return useCallback(() => markPageReady(binding), [binding]);
+}
+
+// React's `use` reads a promise that carries `status` synchronously. A page renders only once
+// its module settled: suspending on a loading module committed an empty fallback, and React
+// then held the page's first commit, and so its first reads, until 300 ms after that fallback
+// (its Suspense reveal throttle) on every new frame (SPEC-0136 R10).
+type TrackedModule = Promise<ViewModule> & {
+  status?: "fulfilled" | "rejected";
+  value?: ViewModule;
+  reason?: Error;
+};
+
+function track(module: Promise<ViewModule>, settled: () => void) {
+  const tracked: TrackedModule = module;
+
+  module.then(
+    (value) => {
+      Object.assign(tracked, { status: "fulfilled", value });
+      settled();
+    },
+    (reason: Error) => {
+      Object.assign(tracked, { status: "rejected", reason });
+      settled();
+    },
+  );
+
+  return module;
+}
+
+const isSettled = (module: TrackedModule) => module.status !== undefined;
+
+// `use` needs the same promise on every render, so a failure is made once.
+function failing(error: Error) {
+  const failure: TrackedModule = Promise.reject(error);
+  failure.catch(() => undefined);
+  Object.assign(failure, { status: "rejected", reason: error });
+
+  return () => failure;
+}
+
+const scrollOffset = () => (document.scrollingElement ?? document.documentElement).scrollTop;
+
+type FrameOptions = {
+  /** The view the shell loaded, and its loader, so its first page imports nothing twice. */
+  shellView: ViewConfig;
+  shellLoad: () => Promise<ViewModule>;
+  loadFailureDetail: (error: Error, check: string | undefined) => Promise<string>;
+  generation?: FrameGeneration;
+  /** How an entry URL becomes a module; tests pass their own. */
+  importModule?: (entry: string) => Promise<ViewModule>;
+};
+
+const importEntry = (entry: string): Promise<ViewModule> => import(/* @vite-ignore */ entry);
+
+export function createExperienceFrame(options: FrameOptions) {
+  reportPhasesToHost();
+  const generation = options.generation ?? frameGeneration;
+  const importModule = options.importModule ?? importEntry;
+  const modules = new Map<string, Promise<ViewModule>>();
+  const listeners = new Set<() => void>();
+  let state: FrameState = { pages: [], activeTabId: null, suspended: false };
+  let clock = 0;
+
+  const publish = (next: FrameState) => {
+    state = next;
+    const active = next.pages.find((page) => page.tabId === next.activeTabId);
+    setActivePageBinding(active?.binding ?? null);
+
+    for (const listener of listeners) listener();
+  };
+
+  const loader = (view: ViewConfig, entry: string | undefined, check: string | undefined) => {
+    const key = view.id === options.shellView.id ? `shell:${view.id}` : entry;
+
+    if (!key) return failing(new Error(`${view.name} has no module entry`));
+
+    return () => {
+      let module = modules.get(key);
+
+      if (!module) {
+        const load = key === `shell:${view.id}` ? options.shellLoad : () => importModule(key);
+
+        module = track(
+          load().catch(async (cause: unknown) => {
+            const error = cause instanceof Error ? cause : new Error(String(cause));
+
+            throw new Error(await options.loadFailureDetail(error, check));
+          }),
+          () => publish({ ...state }),
+        );
+        modules.set(key, module);
+      }
+
+      return module;
+    };
+  };
+
+  // Save the scroll of the page leaving the screen; it is still the one shown.
+  const leaving = (pages: readonly Page[]) =>
+    pages.map((page) =>
+      page.tabId === state.activeTabId && !state.suspended
+        ? { ...page, scroll: scrollOffset() }
+        : page,
+    );
+
+  const retain = (pages: Page[], activeTabId: string) => {
+    const hidden = pages
+      .filter((page) => page.tabId !== activeTabId)
+      .sort((a, b) => b.shownAt - a.shownAt)
+      .slice(0, RETAINED_PAGES);
+
+    return pages.filter((page) => page.tabId === activeTabId || hidden.includes(page));
+  };
+
+  const locate = (message: LocationFields) => {
+    const { tabId, navigationId } = message;
+
+    if (!isString(tabId) || !isString(navigationId)) return;
+    post({ type: LOCATION_ACCEPTED_MESSAGE, tabId, navigationId });
+
+    // Only a frame without a generation takes one from a location: the host's
+    // cached invocation can trail what this frame has already applied.
+    if (isString(message.generation) && generation.current() === undefined)
+      generation.set(message.generation);
+
+    const raw = isPlainObject(message.invocation) ? message.invocation : {};
+    const existing = state.pages.find((each) => each.tabId === tabId);
+    let page: Page;
+
+    try {
+      const invocation = parseViewInvocation(raw);
+      const declarations = invocation.params ?? [];
+      const query = new URLSearchParams();
+
+      if (isViewParamValues(message.params)) {
+        for (const [name, value] of Object.entries(message.params)) query.set(name, String(value));
+      }
+
+      const params = readViewParams(declarations, query);
+
+      const key =
+        tabId === PANEL_TAB_ID
+          ? invocation.view.id
+          : JSON.stringify([
+              invocation.view.id,
+              invocation.context,
+              viewParamsIdentity(declarations, params),
+            ]);
+
+      const binding = { tabId, navigationId, invocation, params };
+      const view: ViewConfig = { ...invocation.view };
+
+      page =
+        existing?.key === key
+          ? { ...existing, binding, serial: existing.serial + 1 }
+          : {
+              tabId,
+              key,
+              binding,
+              view,
+              load: loader(
+                view,
+                isString(raw.entry) ? raw.entry : undefined,
+                isString(raw.check) ? raw.check : undefined,
+              ),
+              scroll: 0,
+              shownAt: 0,
+              serial: 0,
+            };
+    } catch (error) {
+      const view = { id: "", name: "This view" };
+
+      page = {
+        tabId,
+        key: navigationId,
+        binding: {
+          tabId,
+          navigationId,
+          invocation: { view, context: { kind: "standalone" } },
+          params: {},
+        },
+        view,
+        load: failing(error instanceof Error ? error : new Error(String(error))),
+        scroll: 0,
+        shownAt: 0,
+        serial: 0,
+      };
+    }
+
+    // A location shows its tab, so it also ends a suspension.
+    const showing = state.activeTabId !== tabId || state.suspended;
+
+    // A shown or replaced page restores its own scroll; a new one starts at the top.
+    if (showing || page.key !== existing?.key) {
+      clock += 1;
+      page = { ...page, shownAt: clock };
+    }
+
+    const others = leaving(state.pages).filter((each) => each.tabId !== tabId);
+    publish({ pages: retain([...others, page], tabId), activeTabId: tabId, suspended: false });
+
+    // Each navigation gets its module-loaded mark; a module already loaded marks it at once.
+    const { binding } = page;
+    page.load().then(
+      () => postPhase("module-loaded", binding),
+      () => undefined,
+    );
+
+    // A page shown again refetches only what is behind the generation.
+    if (showing) generation.schedule();
+  };
+
+  const onMessage = ({ origin, source, data }: MessageEvent) => {
+    if (origin !== window.location.origin || source !== window.parent || !isPlainObject(data))
+      return;
+
+    if (data.type === LOCATION_MESSAGE) locate(data);
+
+    if (data.type === SUSPEND_MESSAGE && !state.suspended)
+      publish({ ...state, pages: leaving(state.pages), suspended: true });
+
+    if (data.type === RESUME_MESSAGE && state.suspended) {
+      if (isString(data.generation)) generation.set(data.generation);
+      publish({ ...state, suspended: false });
+      generation.schedule();
+    }
+
+    if (data.type === CLOSE_PAGE_MESSAGE && isString(data.tabId)) {
+      const pages = state.pages.filter((page) => page.tabId !== data.tabId);
+      const activeTabId = state.activeTabId === data.tabId ? null : state.activeTabId;
+      publish({ ...state, pages, activeTabId });
+    }
+  };
+
+  window.addEventListener("message", onMessage);
+  // The host posts the first location only after this, so none is lost.
+  post({ type: FRAME_READY_MESSAGE });
+
+  const rendered = new Set<string>();
+
+  return {
+    state: () => state,
+    /** True the first time a navigation renders, for its first-render mark. */
+    firstRender: (binding: PageBinding) => {
+      const key = `${binding.tabId}\n${binding.navigationId}`;
+      const first = !rendered.has(key);
+      rendered.add(key);
+
+      return first;
+    },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+
+      return () => listeners.delete(listener);
+    },
+    stop: () => {
+      window.removeEventListener("message", onMessage);
+      setActivePageBinding(null);
+    },
+  };
+}
+
+// Posts the paint signal once the page commits, whether it shows the view or
+// its error: it sits beside the error boundary, inside the page's Suspense, so
+// it commits with either and never with a page still loading.
+function Painted({ page, visible }: { page: Page; visible: boolean }) {
+  const { binding } = page;
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const frame = requestAnimationFrame(() =>
+      post({
+        type: LOCATION_RENDERED_MESSAGE,
+        tabId: binding.tabId,
+        navigationId: binding.navigationId,
+        at: now(),
+      }),
+    );
+
+    return () => cancelAnimationFrame(frame);
+    // One rendered message per location.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, page.serial]);
+
+  return null;
+}
+
+function PageView({ frame, page }: { frame: ExperienceFrame; page: Page }) {
+  const module = use(page.load());
+  const { binding } = page;
+
+  useEffect(() => {
+    if (frame.firstRender(binding)) postPhase("first-render", binding);
+  }, [frame, binding]);
+
+  const View = module.default;
+
+  if (!View) throw new Error(`${page.view.name} has no default export`);
+
+  return (
+    <View
+      view={page.view}
+      context={binding.invocation.context}
+      configuration={binding.invocation.configuration}
+    />
+  );
+}
+
+/** Renders a frame's pages: the active one visible, the retained ones hidden. */
+export function ExperiencePages({ frame }: { frame: ExperienceFrame }): ReactNode {
+  const state = useSyncExternalStore(frame.subscribe, frame.state);
+  const active = state.pages.find((page) => page.tabId === state.activeTabId);
+
+  // Restore the shown page's scroll once its content is back on screen.
+  useLayoutEffect(() => {
+    if (active && !state.suspended) window.scrollTo(0, active.scroll);
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [active?.tabId, active?.shownAt, state.suspended]);
+
+  return state.pages.map((page) => {
+    // Rendered once its module settled (see track); the frame publishes then.
+    if (!isSettled(page.load())) return null;
+    const visible = !state.suspended && page.tabId === state.activeTabId;
+
+    return (
+      <Activity key={page.tabId} mode={visible ? "visible" : "hidden"}>
+        <PageBindingContext value={page.binding}>
+          <PageActiveContext value={visible}>
+            <Suspense key={page.key} fallback={null}>
+              <ViewErrorBoundary>
+                <PageView frame={frame} page={page} />
+              </ViewErrorBoundary>
+              <Painted page={page} visible={visible} />
+            </Suspense>
+          </PageActiveContext>
+        </PageBindingContext>
+      </Activity>
+    );
+  });
+}

@@ -23,6 +23,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	schemadoc "github.com/atomicobject/rhizome/pkg/ontology/schemadoc"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
@@ -82,6 +83,9 @@ func TestServerFixtureEndpoints(t *testing.T) {
 	require.NotEmpty(t, graph.Edges)
 	var folders graphpresentation.FolderOverview
 	getJSON(t, httpSrv.URL+"/api/v1/graphs/folders", &folders)
+	// Folder labels notes by their indexed titles; the rest is the graph's projection.
+	require.Equal(t, "Task Flow", folders.Titles["notes/task-flow.md"])
+	folders.Titles = nil
 	require.Equal(t, graphpresentation.ProjectFolderOverview(graph), folders)
 }
 
@@ -1184,6 +1188,7 @@ fragment TypeRef on __Type {
 	require.True(t, capabilities.Views.Available)
 	require.GreaterOrEqual(t, capabilities.Views.Count, 1)
 	require.Contains(t, capabilities.Views.Endpoints, "/api/v1/views/{id}/execute")
+	require.Contains(t, capabilities.Views.Endpoints, "/api/v1/views/{id}/invocation")
 	require.Equal(t, "/api/v1/events", capabilities.Events.Endpoint)
 	require.Equal(t, "/api/v1/nodes/events", capabilities.Events.NodeEndpoint)
 	require.Contains(t, capabilities.Events.Heartbeat, "heartbeat")
@@ -3670,7 +3675,7 @@ func TestPublicGraphQLNodeRemainsAvailableWhileTheCompleteIndexGateIsClosed(t *t
 	require.Equal(t, "Demo plan summary", node["frontmatter"].(map[string]any)["summary"])
 	require.Equal(t, []any{"startup"}, node["tags"])
 
-	srv.cfg.NotePathOwned = func(string) bool { return true }
+	srv.cfg.NotePathOwned = func(string, *paths.SymlinkCache) bool { return true }
 	missingBody := bytes.NewBufferString(`{"query":"query { node(ref: \"specs/100-demo/not-yet-published.md\") { path title } }"}`)
 	missingReq := newApplicationRequest(http.MethodPost, "/api/v1/graphql", missingBody)
 	missingReq.Header.Set("Content-Type", "application/json")

@@ -60,7 +60,13 @@ export const ViewTab = memo(function ViewTab({
       variant: isConfiguredViewVariant(variant) ? variant : undefined,
     };
 
-    return { kind: "standalone", name: tab.viewId, choices: [choice], defaultChoiceId: choice.id };
+    return {
+      kind: "standalone",
+      name: tab.viewId,
+      choices: [choice],
+      defaultChoiceId: choice.id,
+      panel: { kind: "none" },
+    };
   }, [entry, tab.title, tab.viewId]);
 
   const selected = useViewSelection({

@@ -29,3 +29,4 @@
 - **Eject**: `Service.Eject` copies a bundled view's whole folder (the unit views share components in) into `.rhizome/views/<folder>/` through `os.Root`, leaving out tests and fixtures as the kit build does, writes nothing when any destination exists, and refuses an id a repository view already defines.
 
 Nested frontmatter path fields use catalog rows or current preview mappings for display, rank and relation labels. They expose canonical field keys and read-only capabilities; edit sessions enforce the write boundary.
+- **Experiences** ([[experiences|SPEC-0136]]): catalog entries and custom choices carry `experienceKey` when their view renders in an experience frame, and every target carries `panel` from `viewconfig.PanelResolver` over the usable, non-hidden, non-generated entries. `Service.Panel` resolves one target the same way without the catalog's count reads, for the invocation route's panel mount check.

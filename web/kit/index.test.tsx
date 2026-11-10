@@ -339,6 +339,7 @@ it("asks the hosting workspace to open issues, collections, and folder searches"
   kit.openIssues();
   kit.openCollection("Spec");
   kit.openSearch({ folder: "Notes" });
+  kit.openSearch({ query: "plan" });
 
   expect(sent.mock.calls).toEqual([
     [
@@ -348,6 +349,8 @@ it("asks the hosting workspace to open issues, collections, and folder searches"
     [{ type: OPEN_ISSUES_MESSAGE }, window.location.origin],
     [{ type: OPEN_COLLECTION_MESSAGE, name: "Spec" }, window.location.origin],
     [{ type: OPEN_SEARCH_MESSAGE, folder: "Notes" }, window.location.origin],
+    // Without a folder the search covers the whole vault.
+    [{ type: OPEN_SEARCH_MESSAGE, query: "plan" }, window.location.origin],
   ]);
 });
 
@@ -433,6 +436,57 @@ it("keeps data returned beside GraphQL errors only when asked to", async () => {
   await waitFor(() => expect(result.current.partial.partialErrors).toEqual([]));
   expect(result.current.partial.data).toBe(shown);
   await waitFor(() => expect(result.current.empty.error?.message).toBe(missing[0].message));
+});
+
+it("exposes typed-root coverage by the data object it arrived with", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+
+  vi.resetModules();
+
+  const { graphql, typedRootCoverage, useGraphQL } = await import("./index");
+
+  const query = "query Claims { assertion(first: 2) { path } }";
+
+  const coverage = (status: string, hasMore: boolean | null) => ({
+    typedRoots: {
+      assertion: {
+        requestedFirst: 2,
+        returnedCount: 2,
+        offset: 0,
+        hasMore,
+        nextOffset: hasMore ? 2 : null,
+        status,
+      },
+    },
+  });
+
+  const data = { assertion: [{ path: "a.md" }, { path: "b.md" }] };
+
+  let reply = { data, extensions: coverage("capped", true) };
+  http.on("POST", "/api/v1/graphql", () => jsonReply(reply));
+
+  const read = await graphql<object>(query);
+  expect(typedRootCoverage(read)?.assertion.status).toBe("capped");
+  expect(typedRootCoverage({ assertion: [] })).toBeUndefined();
+
+  const { result } = renderHook(() => useGraphQL<object>(query), { wrapper });
+  await waitFor(() => expect(result.current.data).toEqual(data));
+  // The return shape is unchanged; coverage is read from the data on screen.
+  expect(Object.keys(result.current)).not.toContain("coverage");
+  expect(typedRootCoverage(result.current.data)?.assertion.status).toBe("capped");
+
+  // An equal response keeps the data object, which then carries the newer coverage.
+  const shown = result.current.data;
+  reply = { data, extensions: coverage("complete", false) };
+  await act(() => client.invalidateQueries());
+  await waitFor(() =>
+    expect(typedRootCoverage(result.current.data)?.assertion.status).toBe("complete"),
+  );
+  expect(result.current.data).toBe(shown);
 });
 
 it("counts a frame as hosted only when its parent is the same origin", async () => {

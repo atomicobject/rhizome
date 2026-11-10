@@ -13,18 +13,21 @@ export const BINDING_MANIFESTS = {
 };
 export type BindingFreshness =
   | { state: "ready" }
-  | { state: "stale" | "error" | "unknown"; notice: string };
+  | { state: "stale" | "error" | "unknown" | "not applicable"; notice: string };
 const CHECK = "Run rzm ao-kb check for the cause.";
 const NOTICES = {
   stale: `Product model bindings are stale: the last refresh did not publish, so model records come from the previous generation. ${CHECK}`,
   error: `Product model bindings are incomplete: the last refresh failed. ${CHECK}`,
   unknown: `Product model binding status could not be read, so model records may not be current. ${CHECK}`,
+  "not applicable":
+    "Product model bindings are not applicable below schemaVersion 8, so no model records are shown. Knowledge reads without them; AO's own migration upgrades the KB.",
 };
 /** The compiler's published status (SPEC-0133 F5). Views never infer freshness and never
  * present a generation as current unless both manifests say ready. */
 export async function readBindingFreshness(
   readText: ReadText = readVaultText,
 ): Promise<BindingFreshness> {
+  let model: unknown;
   for (const path of [BINDING_MANIFESTS.model, BINDING_MANIFESTS.knowledge]) {
     let status: unknown;
     try {
@@ -32,11 +35,16 @@ export async function readBindingFreshness(
     } catch {
       status = undefined;
     }
-    if (status === "ready") continue;
+    if (path === BINDING_MANIFESTS.model) model = status;
+    // Below schemaVersion 8 refresh records the model stage as not applicable (SPEC-0135 R2b).
+    if (status === "ready" || (status === "not applicable" && path === BINDING_MANIFESTS.model))
+      continue;
     const state = status === "stale" || status === "error" ? status : "unknown";
     return { state, notice: NOTICES[state] };
   }
-  return { state: "ready" };
+  return model === "not applicable"
+    ? { state: "not applicable", notice: NOTICES["not applicable"] }
+    : { state: "ready" };
 }
 
 /** A native RECORD source value (`workspace.source.value`), in authored order. */
@@ -81,7 +89,15 @@ export function typeSpec(response: unknown, name: string): TypeSpec {
       const ref = f.annotations?.references;
       const path = f.annotations?.field?.path ?? f.sourcePath;
       return ref && typeof path === "string"
-        ? [{ name: f.name, path, to: ref.to ?? [], values: ref.values ?? "ELEMENTS", edge: ref.edge }]
+        ? [
+            {
+              name: f.name,
+              path,
+              to: ref.to ?? [],
+              values: ref.values ?? "ELEMENTS",
+              edge: ref.edge,
+            },
+          ]
         : [];
     }),
   };

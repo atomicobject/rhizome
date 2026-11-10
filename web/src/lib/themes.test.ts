@@ -176,6 +176,16 @@ describe.each(THEMES.map((option) => option.id))("%s theme", (id) => {
       ).toBeGreaterThanOrEqual(AA);
     });
 
+    // --chrome-link marks lines and highlights on the chrome, never text (SPEC-0136 R6).
+    it(`keeps chrome link marks at 4.25:1 on every chrome background (${label})`, () => {
+      for (const ground of ["--chrome-bg", "--chrome-top"]) {
+        expect(
+          contrast(pick(tokens, "--chrome-link", side), pick(tokens, ground, side)),
+          `chrome link on ${ground}`,
+        ).toBeGreaterThanOrEqual(4.25);
+      }
+    });
+
     it(`keeps faint text at AA on the selection tint (${label})`, () => {
       const selection =
         side === 0

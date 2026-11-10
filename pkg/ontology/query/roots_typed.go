@@ -105,9 +105,16 @@ func (e *executor) validateLinkRootFilters(ctx context.Context, typeName string,
 		fields = iface.ByName
 	}
 	filters, _ := raw.([]any)
+	resolvers := e.rootFilterResolvers(typeName)
 	for _, item := range filters {
 		filter, _ := item.(map[string]any)
-		field := fields[strings.TrimSpace(stringValue(filter["field"]))]
+		name := strings.TrimSpace(stringValue(filter["field"]))
+		if name != "" && name != "title" && name != "ref" {
+			if err := pushdown.FilterFieldError(name, resolvers...); err != nil {
+				return fmt.Errorf("%s: %w", typeName, err)
+			}
+		}
+		field := fields[name]
 		if field == nil || field.Kind != ontoschema.FieldKindLink {
 			continue
 		}
@@ -136,6 +143,19 @@ func (e *executor) validateLinkRootFilters(ctx context.Context, typeName string,
 		}
 	}
 	return nil
+}
+
+// rootFilterResolvers resolves a root's filter keys against the type, or
+// against every concrete implementor of an interface root.
+func (e *executor) rootFilterResolvers(typeName string) []pushdown.Resolver {
+	if e.schema.Interfaces[typeName] == nil {
+		return []pushdown.Resolver{pushdown.SchemaResolver{NoteType: e.schema.Types[typeName]}}
+	}
+	var resolvers []pushdown.Resolver
+	for _, name := range e.possibleConcreteTypes(typeName) {
+		resolvers = append(resolvers, pushdown.SchemaResolver{NoteType: e.schema.Types[name]})
+	}
+	return resolvers
 }
 
 func (e *executor) indexedRootTypedNotes(ctx context.Context, typeName string, args map[string]any) (rootPage[*noteRecord], error) {

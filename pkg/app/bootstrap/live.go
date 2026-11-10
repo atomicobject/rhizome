@@ -58,6 +58,9 @@ type LiveRuntime struct {
 	// ownershipConfigMu serializes ownership selection reloads with the
 	// snapshot used to start leader work.
 	ownershipConfigMu sync.Mutex
+	// configGeneration is the index generation's config component; guarded
+	// by ownershipConfigMu so a snapshot never pairs it with another config.
+	configGeneration configGeneration
 
 	// Context and options
 	ctx                 context.Context
@@ -65,6 +68,7 @@ type LiveRuntime struct {
 	debug               bool
 	skipCacheWarmup     bool
 	disableWatchHub     bool
+	forceFSNotify       bool
 	disableLeaderWork   bool
 	requirements        RuntimeRequirements
 	readOnlyCodeIndex   bool
@@ -224,6 +228,7 @@ type LiveOptions struct {
 	OnElected              func() error        // owner-only startup barrier; see below
 	SkipCacheWarmup        bool                // skip background note-cache warmup for one-shot CLI callers
 	DisableWatchHub        bool                // skip watchhub for one-shot CLI callers
+	ForceFSNotify          bool                // watch with kqueue/inotify; tests avoid the shared macOS fseventsd daemon
 	DisableLeaderWork      bool                // skip leader election, watchers, and background work
 	Requirements           RuntimeRequirements // requested runtime capabilities (zero value = full runtime)
 	ReadOnlyCodeIndex      bool                // query the existing validated index
@@ -275,6 +280,7 @@ func NewLiveRuntime(ctx context.Context, opts LiveOptions) (*LiveRuntime, error)
 		debug:                  opts.Debug,
 		skipCacheWarmup:        opts.SkipCacheWarmup,
 		disableWatchHub:        opts.DisableWatchHub,
+		forceFSNotify:          opts.ForceFSNotify,
 		disableLeaderWork:      opts.DisableLeaderWork,
 		requirements:           opts.Requirements,
 		readOnlyCodeIndex:      opts.ReadOnlyCodeIndex,
@@ -303,6 +309,7 @@ func NewLiveRuntime(ctx context.Context, opts LiveOptions) (*LiveRuntime, error)
 	rt.VaultPath = vaultDef.BasePath()
 	rt.liveHealth = newLiveHealthTracker(rt.VaultPath)
 	rt.resolvedConfig.Store(&resolved)
+	rt.configGeneration.advance(rt.VaultPath)
 	rt.LocalCfg = resolved.Local
 
 	// Elect the vault's runtime owner before returning so `rzm serve` can

@@ -1,0 +1,185 @@
+import { describe, expect, it } from "vitest";
+
+import { nodeWorkspaceFromPublicGraphQL } from "../api/nodeWorkspaceAdapter";
+import type { NodeWorkspace, ViewCatalog, ViewPanel, ViewTarget } from "../api/types";
+import { activePanel } from "./activePanel";
+import type { Tab } from "./useNoteTabs";
+
+const target = (kind: ViewTarget["kind"], name: string, panel: ViewPanel): ViewTarget => ({
+  kind,
+  name,
+  panel,
+  choices: [],
+  defaultChoiceId: "",
+});
+
+const kb: ViewPanel = { kind: "view", viewId: "kb.panel", experienceKey: "exp_kb" };
+
+const catalog: ViewCatalog = {
+  views: [],
+  targets: [
+    target("node", "Assertion", kb),
+    target("node", "Spec", { kind: "owner" }),
+    target("node", "Criterion", { kind: "owner" }),
+    target("group", "Knowledge", kb),
+    target("standalone", "kb.home", kb),
+    target("workspace", "", { kind: "none" }),
+  ],
+};
+
+const workspace = (kind: string, resolvedType: string, noteType: string): NodeWorkspace =>
+  // SAFETY: activePanel reads only the node descriptor.
+  ({
+    node: {
+      ref: { notePath: "a.md", kind },
+      resolvedType,
+      noteType,
+      notePath: "a.md",
+      locator: kind,
+    },
+  }) as NodeWorkspace;
+
+const note: Tab = { id: "note:a.md", kind: "note", path: "a.md", dirty: false };
+
+const resolve = (tab: Tab, nodeWorkspace?: NodeWorkspace) =>
+  activePanel({
+    tab,
+    catalog,
+    homeSelection: { kind: "all" },
+    homeType: null,
+    summary: null,
+    workspace: nodeWorkspace,
+  });
+
+describe("activePanel", () => {
+  it("shows the server's panel for a note's type, with the node as its context", () => {
+    expect(resolve(note, workspace("NOTE", "Assertion", "Assertion"))).toEqual({
+      context: {
+        kind: "node",
+        type: "Assertion",
+        ref: { notePath: "a.md", kind: "NOTE" },
+      },
+      panel: kb,
+    });
+  });
+
+  it("follows an owner descriptor to the owning note's panel, or Folder for a note", () => {
+    expect(resolve(note, workspace("EMBEDDED", "Criterion", "Assertion"))?.panel).toEqual(kb);
+    expect(resolve(note, workspace("NOTE", "Spec", "Spec"))?.panel).toEqual({ kind: "folder" });
+    expect(resolve(note, workspace("EMBEDDED", "Criterion", "Spec"))?.panel).toEqual({
+      kind: "folder",
+    });
+    expect(resolve(note, workspace("NOTE", "Untargeted", ""))?.panel).toEqual({ kind: "folder" });
+  });
+
+  it("finds an embedded node's owning note panel from the workspace the read path adapts", () => {
+    const read = nodeWorkspaceFromPublicGraphQL(
+      {
+        node: {
+          ref: { ref: "a.md#^c1", kind: "EMBEDDED", notePath: "a.md", nodeId: "c1" },
+          nodeId: "c1",
+          nodeKind: "EMBEDDED",
+          resolvedType: "Criterion",
+          path: "a.md",
+          title: "Criterion one",
+          locator: {
+            sourceLocator: "a.md#^c1",
+            status: "linkable",
+            exists: true,
+            requiresFix: false,
+          },
+          workspace: {
+            noteType: "Assertion",
+            fields: [],
+            collections: [],
+            bodies: [],
+            relationGroups: [],
+            structure: [],
+            capabilities: {
+              canEdit: true,
+              canEditFields: true,
+              canEditCollections: true,
+              canNavigateChildren: true,
+              canSubscribe: true,
+            },
+            status: {
+              dirty: false,
+              validation: { issueCount: 0 },
+              freshness: {},
+              session: {},
+              hasWarnings: false,
+            },
+            version: "",
+            loaded: { rendered: true, assessment: false, structure: false, relations: false },
+          },
+        },
+      },
+      "a.md#^c1",
+    );
+
+    expect(resolve(note, read)?.panel).toEqual(kb);
+  });
+
+  it("names a standalone view in its context and shows no panel for search", () => {
+    expect(resolve({ id: "view:kb.home", kind: "view", viewId: "kb.home", title: "" })).toEqual({
+      context: { kind: "standalone", view: "kb.home" },
+      panel: kb,
+    });
+    expect(
+      resolve({
+        id: "search-tab:1",
+        kind: "search",
+        query: "x",
+        filters: { scope: "all", noteType: null, folder: null },
+        scrollTop: 0,
+      })?.panel,
+    ).toEqual({ kind: "none" });
+  });
+
+  it("gives a standalone page of an experience the panel the catalog resolves for it", () => {
+    const own: ViewPanel = { kind: "view", viewId: "site.panel", experienceKey: "exp_site" };
+
+    const withSite: ViewCatalog = {
+      ...catalog,
+      targets: [...(catalog.targets ?? []), target("standalone", "site.about", own)],
+    };
+
+    expect(
+      activePanel({
+        tab: { id: "view:site.about", kind: "view", viewId: "site.about", title: "About" },
+        catalog: withSite,
+        homeSelection: { kind: "all" },
+        homeType: null,
+        summary: null,
+        workspace: null,
+      }),
+    ).toEqual({ context: { kind: "standalone", view: "site.about" }, panel: own });
+  });
+
+  it("waits for the note's node and the catalog", () => {
+    expect(resolve(note)).toBeNull();
+    expect(
+      activePanel({
+        tab: note,
+        catalog: undefined,
+        homeSelection: { kind: "all" },
+        homeType: null,
+        summary: null,
+        workspace: workspace("NOTE", "Assertion", "Assertion"),
+      }),
+    ).toBeNull();
+  });
+
+  it("uses the home tab's group", () => {
+    expect(
+      activePanel({
+        tab: { id: "home", kind: "home" },
+        catalog,
+        homeSelection: { kind: "group", group: "Knowledge" },
+        homeType: null,
+        summary: null,
+        workspace: null,
+      }),
+    ).toEqual({ context: { kind: "group", group: "Knowledge" }, panel: kb });
+  });
+});

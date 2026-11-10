@@ -16,6 +16,8 @@ type ViewTarget struct {
 	Name            string               `json:"name"`
 	Choices         []ViewChoice         `json:"choices"`
 	DefaultChoiceID string               `json:"defaultChoiceId"`
+	// Panel is the sidebar panel the target shows (SPEC-0136 R6).
+	Panel viewconfig.Panel `json:"panel"`
 }
 
 type ViewChoice struct {
@@ -27,6 +29,8 @@ type ViewChoice struct {
 	// Custom marks choices from authored views beyond the subject's standard
 	// presentations (built-ins plus the generated or replacing native view).
 	Custom bool `json:"custom,omitempty"`
+	// ExperienceKey is the choice's view's experience frame, as on its entry.
+	ExperienceKey string `json:"experienceKey,omitempty"`
 }
 
 func viewChoiceID(viewID, variant string) string {
@@ -34,6 +38,8 @@ func viewChoiceID(viewID, variant string) string {
 	return "view:" + string(encoded)
 }
 
+// resolveTargets lists targets and their choices from entries' visible views;
+// hidden entries count only toward each target's panel.
 func resolveTargets(schema *ontoschema.Schema, entries []CatalogEntry) []ViewTarget {
 	targets := map[string]ViewTarget{}
 	add := func(kind viewconfig.MountKind, name string) {
@@ -59,7 +65,11 @@ func resolveTargets(schema *ontoschema.Schema, entries []CatalogEntry) []ViewTar
 		}
 	}
 	for _, entry := range entries {
-		if entry.Mount.Hidden || hasBlockingIssues(entry.Issues) {
+		// A hidden standalone page of an experience still gets a target, with
+		// no choices, so a tab that opens it can read its experience's panel
+		// (SPEC-0136 R6).
+		experiencePage := entry.Mount.Kind == viewconfig.MountKindStandalone && entry.ExperienceKey != ""
+		if hasBlockingIssues(entry.Issues) || (entry.Mount.Hidden && !experiencePage) {
 			continue
 		}
 		switch entry.Mount.Kind {
@@ -75,13 +85,16 @@ func resolveTargets(schema *ontoschema.Schema, entries []CatalogEntry) []ViewTar
 	}
 	tree := viewconfig.DisplayTree(schema)
 	listed := tree.Listed()
+	panels := panelResolver(schema, entries)
 	out := make([]ViewTarget, 0, len(targets))
 	for _, target := range targets {
 		shape := targetShape{listed: listed[target.Name]}
 		if target.Kind == viewconfig.MountKindGroup && schema != nil {
 			shape.roots, shape.linked = len(tree.Roots[target.Name]), groupLinked(schema, tree, target.Name)
 		}
-		out = append(out, resolveTarget(target, entries, shape))
+		resolved := resolveTarget(target, entries, shape)
+		resolved.Panel = panels.Resolve(target.Kind, target.Name)
+		out = append(out, resolved)
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Kind != out[j].Kind {
@@ -90,6 +103,17 @@ func resolveTargets(schema *ontoschema.Schema, entries []CatalogEntry) []ViewTar
 		return out[i].Name < out[j].Name
 	})
 	return out
+}
+
+// panelResolver indexes the experiences of the usable catalog entries.
+func panelResolver(schema *ontoschema.Schema, entries []CatalogEntry) *viewconfig.PanelResolver {
+	var defs []viewconfig.ViewDefinition
+	for _, entry := range entries {
+		if !entry.Generated && !hasBlockingIssues(entry.Issues) {
+			defs = append(defs, entry.Definition)
+		}
+	}
+	return viewconfig.NewPanelResolver(schema, defs)
 }
 
 // Bundled group views (SPEC-0111). Their ids keep these rules after a
@@ -411,7 +435,7 @@ func RailLess(left, right string) bool {
 // ones with the view name.
 func entryChoices(entry CatalogEntry, custom bool) []ViewChoice {
 	if entry.Source.Kind == viewconfig.SourceKindCustom {
-		return []ViewChoice{{ID: viewChoiceID(entry.ID, "custom"), Name: entry.Name, Renderer: "custom", ViewID: entry.ID, Custom: custom}}
+		return []ViewChoice{{ID: viewChoiceID(entry.ID, "custom"), Name: entry.Name, Renderer: "custom", ViewID: entry.ID, Custom: custom, ExperienceKey: entry.ExperienceKey}}
 	}
 	var out []ViewChoice
 	for _, layout := range layoutLabels {

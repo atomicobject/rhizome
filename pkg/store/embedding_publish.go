@@ -20,7 +20,7 @@ func (s *Store) UpsertEmbeddings(ctx context.Context, embeddings map[string]embe
 	if len(embeddings) == 0 {
 		return nil
 	}
-	return s.withWriteTx(ctx, func(tx *sql.Tx) error {
+	return s.withEmbeddingWriteTx(ctx, func(tx *sql.Tx) error {
 		now := time.Now().Unix()
 		const batchSize = 50
 		chunkIDs := make([]string, 0, len(embeddings))

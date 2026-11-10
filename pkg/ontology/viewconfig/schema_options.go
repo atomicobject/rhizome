@@ -14,6 +14,7 @@ func SchemaValidateOptions(schema *ontoschema.Schema) ValidateOptions {
 		return opts
 	}
 	opts.CheckReferences = true
+	opts.Schema = schema
 	opts.GroupNames = DisplayGroups(schema)
 	opts.TypeNames = make(map[string]struct{}, len(schema.Types))
 	opts.NodeTypeNames = make(map[string]struct{}, len(schema.Types))

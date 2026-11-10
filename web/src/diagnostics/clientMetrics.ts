@@ -2,8 +2,35 @@
 // module state, never React state, so measuring cannot cause a render. A batch
 // carries counts, durations, and fixed identifiers only: no titles, paths,
 // URLs, query text, error messages, or stacks.
+import type { ExperienceStats } from "./experienceMetrics";
 
-export type RegionName = "app-shell" | "sidebar" | "view-table" | "note-view";
+declare global {
+  interface Window {
+    /** Set by Rhizome Desktop when render timing is on (always in Rhizome Dev). */
+    __RHIZOME_RENDER_PROFILING__?: boolean;
+  }
+}
+
+/**
+ * SPEC-0116's profiling opt-in: a development build, or a page loaded with
+ * render profiling on. Render regions and the experience frames measurement
+ * record only under it.
+ */
+export const renderProfiling = () =>
+  import.meta.env.DEV || window.__RHIZOME_RENDER_PROFILING__ === true;
+
+export type RegionName =
+  | "app-shell"
+  | "sidebar"
+  | "view-table"
+  | "note-view"
+  | "experience-frames"
+  | "sidebar-panel";
+
+/** The fixed regions SPEC-0136 R10 names: the host frame layer and the Notes sidebar's panel slot. */
+export const FRAME_LAYER_REGION = "experience-frames" satisfies RegionName;
+
+export const PANEL_SLOT_REGION = "sidebar-panel" satisfies RegionName;
 
 export type RouteKind = "notes" | "ontology" | "explorer" | "agent" | "graphql" | "other";
 
@@ -30,6 +57,8 @@ export type ClientBatch = {
   regions: Partial<Record<RegionName, RegionStats>>;
   frames: { over_50ms: number; over_200ms: number; stalled_ms: number; longest_ms: number };
   refresh: { cycles: number; refetched: number; unchanged: number; churned: number };
+  /** The "Experience frames" measurement, by experience hash. */
+  experiences: Record<string, ExperienceStats>;
   stability: {
     reconnects: number;
     errors: Record<string, number>;
@@ -231,12 +260,10 @@ const round = (ms: number) => Math.round(ms * 100) / 100;
  * Closes the current window and starts the next. Returns null when every
  * measurement in the closed window is zero, which is never sent.
  */
-export function takeBatch(identity: {
-  session: string;
-  build: string;
-  surface: Surface;
-  route: RouteKind;
-}): ClientBatch | null {
+export function takeBatch(
+  identity: { session: string; build: string; surface: Surface; route: RouteKind },
+  experiences: Record<string, ExperienceStats> = {},
+): ClientBatch | null {
   const windowEnd = Date.now();
   const closed = { regions, frames, refresh, stability, windowStart };
 
@@ -254,7 +281,8 @@ export function takeBatch(identity: {
     closed.refresh.churned === 0 &&
     closed.stability.reconnects === 0 &&
     closed.stability.errors.size === 0 &&
-    closed.stability.rejections.size === 0;
+    closed.stability.rejections.size === 0 &&
+    Object.keys(experiences).length === 0;
 
   if (empty) return null;
 
@@ -280,6 +308,7 @@ export function takeBatch(identity: {
       longest_ms: round(closed.frames.longest_ms),
     },
     refresh: closed.refresh,
+    experiences,
     stability: {
       reconnects: closed.stability.reconnects,
       errors: Object.fromEntries(closed.stability.errors),

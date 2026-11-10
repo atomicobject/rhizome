@@ -7,3 +7,9 @@ extend type Source @admit(matches: ["sources/alpha","sources AND NOT sources/alp
 extend type Concept @admit(matches: ["concepts/alpha","concepts AND NOT concepts/alpha AND NOT concepts/beta AND (products:\"alpha\" OR products:\"*\" OR NOT has:products)"])
 
 extend type Artifact @admit(matches: ["artifacts/alpha","artifacts/01_define/alpha","artifacts AND NOT artifacts/alpha AND NOT artifacts/beta AND NOT artifacts/01_define/alpha AND NOT artifacts/01_define/beta AND (products:\"alpha\" OR products:\"*\" OR NOT has:products)"])
+
+extend type MapOfContent @admit(matches: ["_moc.md","MOCs","products/alpha"])
+
+extend type Submission @admit(matches: ["_improvements AND has:status AND NOT _improvements/_archive AND NOT _improvements/_pending-attachments","products/alpha/_improvements AND has:status AND NOT products/alpha/_improvements/_archive AND NOT products/alpha/_improvements/_pending-attachments"])
+
+extend type CurationDocument @admit(matches: [".kb/curation","products/alpha"])

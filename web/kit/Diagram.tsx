@@ -11,7 +11,7 @@ import {
 } from "react";
 import { renderDiagram } from "../src/components/markdown/mermaid";
 import type { ViewNodeRef } from "../src/views/context";
-import { openNode } from "./index";
+import { usePageNavigation } from "./navigation";
 
 const XY_CHART = /^\s*(?:---[\s\S]*?---\s*)?(?:%%\{[\s\S]*?\}%%\s*)?xychart/;
 
@@ -34,6 +34,7 @@ export function Diagram(props: {
   const [state, setState] = useState<DiagramState>({ kind: "loading" });
   const reported = useRef({ warnings: new Set<string>(), errors: new Set<string>() });
   const container = useRef<HTMLDivElement>(null);
+  const { openNode } = usePageNavigation();
   const markup = useMemo(() => ({ __html: state.kind === "ready" ? state.svg : "" }), [state]);
   const entries = Object.entries(links ?? {}).sort(([a], [b]) => a.localeCompare(b));
 

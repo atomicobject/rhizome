@@ -25,6 +25,7 @@ import {
   EDIT_SESSION_MESSAGE,
   STAGE_OPS_MESSAGE,
   STAGE_RESULT_MESSAGE,
+  type PageStamp,
   type ViewMessage,
 } from "../src/lib/customViewMessages";
 import {
@@ -34,6 +35,7 @@ import {
   forgetCommittedStagedReads,
   type StagedSession,
 } from "../src/staging/stagedQuery";
+import { pageStamp, usePageBinding } from "./pageBinding";
 
 export type EditMode = "workspace" | "immediate";
 
@@ -116,7 +118,8 @@ const NO_HOST: HostState = {
 export type WorkspaceHost = {
   state: () => HostState;
   subscribe: (listener: () => void) => () => void;
-  stage: (ops: OntologyEditOp[]) => Promise<void>;
+  /** Stage ops; `stamp` names the page, so the host rejects a stale one with an error. */
+  stage: (ops: OntologyEditOp[], stamp?: PageStamp) => Promise<void>;
 };
 
 /**
@@ -130,23 +133,32 @@ export function connectWorkspaceHost(parent: Window, answerTimeoutMs = 5_000): W
   const listeners = new Set<() => void>();
   const waiting = new Set<() => void>();
   const pending = new Map<string, { resolve: () => void; reject: (error: Error) => void }>();
-  const post = (message: ViewMessage) => parent.postMessage(message, window.location.origin);
+
+  // Never a tail call (see customViewMessages.ts): WebKit would name the host as the sender.
+  const post = (message: ViewMessage) => {
+    parent.postMessage(message, window.location.origin);
+  };
 
   window.addEventListener("message", (event) => {
     if (event.origin !== window.location.origin || event.source !== parent) return;
     const { data } = event;
 
     if (data?.type === EDIT_SESSION_MESSAGE) {
-      state = {
-        answered: true,
-        session: data.session ?? null,
-        readLifecycle: data.readLifecycle ?? INITIAL_EDIT_READ_LIFECYCLE,
-      };
+      const session: StagedSession = data.session ?? null;
+      const readLifecycle: EditReadLifecycle = data.readLifecycle ?? INITIAL_EDIT_READ_LIFECYCLE;
+
+      // A host re-sends the session on resume; an identical one changes nothing.
+      const same =
+        state.answered &&
+        editSessionFingerprint(session) === editSessionFingerprint(state.session) &&
+        readLifecycle.revision === state.readLifecycle.revision;
+
+      if (!same) state = { answered: true, session, readLifecycle };
 
       for (const resolve of waiting) resolve();
       waiting.clear();
 
-      for (const listener of listeners) listener();
+      if (!same) for (const listener of listeners) listener();
     }
 
     if (data?.type === STAGE_RESULT_MESSAGE) {
@@ -189,14 +201,14 @@ export function connectWorkspaceHost(parent: Window, answerTimeoutMs = 5_000): W
 
       return () => listeners.delete(listener);
     },
-    stage: async (ops) => {
+    stage: async (ops, stamp = {}) => {
       await answered();
 
       return new Promise((resolve, reject) => {
         requests += 1;
         const requestId = `stage-${requests}`;
         pending.set(requestId, { resolve, reject });
-        post({ type: STAGE_OPS_MESSAGE, requestId, ops });
+        post({ type: STAGE_OPS_MESSAGE, requestId, ops, ...stamp });
       });
     },
   };
@@ -246,6 +258,7 @@ export function EditSession({ mode, children }: { mode: EditMode; children: Reac
 
 export function useEditWriter(): EditWriter {
   const mode = useContext(EditModeContext);
+  const page = usePageBinding();
   const queryClient = useQueryClient();
   const connection = mode === "workspace" && embedded ? workspaceHost() : null;
 
@@ -272,6 +285,8 @@ export function useEditWriter(): EditWriter {
 
   const state = useSyncExternalStore(subscribe, connection?.state ?? noHostState);
 
+  // A write captures the navigation it was made in; the host refuses it,
+  // with an error, if that page has since moved on.
   return useMemo<EditWriter>(
     () =>
       connection
@@ -279,9 +294,9 @@ export function useEditWriter(): EditWriter {
             target: "workspace",
             session: state.session,
             readLifecycle: state.readLifecycle,
-            write: connection.stage,
+            write: (ops) => connection.stage(ops, pageStamp(page)),
           }
         : IMMEDIATE,
-    [connection, state],
+    [connection, state, page],
   );
 }

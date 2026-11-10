@@ -1,9 +1,102 @@
-import { Count, Section, StatusMark, sectionStatus, setViewParams } from "@rhizome/kit";
-import { COVERAGE, filterAssertions, name } from "./lib/knowledge.ts";
+import type { MouseEvent } from "react";
+import {
+  Count,
+  Section,
+  SectionBody,
+  StatusMark,
+  sectionStatus,
+  usePageNavigation,
+  useViewParams,
+  workspaceViewHref,
+} from "@rhizome/kit";
+import { COVERAGE, claimText, name } from "./lib/knowledge.ts";
 import type { Assertion, Knowledge } from "./lib/knowledge.ts";
 import type { Edge } from "./lib/relations.ts";
+import { GAPS, assertionFilter, gap } from "./lib/site.ts";
+import type { OAssertion, Site } from "./lib/site.ts";
+import { NO_KIND, STORED_LABEL, breakdown } from "./lib/kinds.ts";
 import { useCoverage } from "./data.tsx";
 import { DateValue, Empty, Filters, Page, Record, StatusBadges, useFilters } from "./parts.tsx";
+import { GROUP, useSite } from "./site/data.tsx";
+
+/** US4: one line of counts for the rows shown. Each raw kind and stored-confidence count sets
+ * its param and keeps the list's other filters, so the list it opens has that count. */
+function Breakdown({ rows }: { rows: OAssertion[] }) {
+  const { setViewParams } = usePageNavigation();
+  const params = useViewParams();
+  const b = breakdown(rows);
+  if (!rows.length) return null;
+  const link = (patch: Record<string, string>) => ({
+    href: workspaceViewHref("ao-kb.assertions", GROUP, { ...params, ...patch }),
+    onClick: (e: MouseEvent) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+      e.preventDefault();
+      setViewParams(patch);
+    },
+  });
+  return (
+    <p className="ak-breakdown">
+      {b.groups.map((g) => (
+        <span key={g.id} className="ak-breakdown-group">
+          <i
+            className="ak-swatch"
+            style={{ background: `var(--kind-${g.id})` }}
+            aria-hidden="true"
+          />
+          <b>
+            {g.label} {g.count.toLocaleString("en-US")}
+          </b>
+          :{" "}
+          {g.kinds.map((k, i) => (
+            <span key={k.kind ?? ""}>
+              {i > 0 && ", "}
+              {k.kind ? (
+                <a className="ak-breakdown-link" {...link({ assertionKind: k.kind })}>
+                  {k.kind} {k.count.toLocaleString("en-US")}
+                </a>
+              ) : (
+                `${NO_KIND} ${k.count}`
+              )}
+            </span>
+          ))}
+        </span>
+      ))}
+      <span className="ak-breakdown-group">
+        <b>Stored confidence</b>:{" "}
+        {b.confidence.map((c, i) => (
+          <span key={c.value}>
+            {i > 0 && ", "}
+            {c.count ? (
+              <a className="ak-breakdown-link" {...link({ confidence: c.value })}>
+                {c.value} {c.count.toLocaleString("en-US")}
+              </a>
+            ) : (
+              `${c.value} 0`
+            )}
+          </span>
+        ))}
+      </span>
+    </p>
+  );
+}
+
+/** What the R2a params other than find and concept narrow the list to. */
+function ParamNote({ site }: { site: Site }) {
+  const f = useFilters();
+  const g = f.gap ? gap(site, f.gap) : undefined;
+  const parts = [
+    f.assertionKind && `kind ${f.assertionKind}`,
+    f.confidence &&
+      (f.confidence === "hypothesis,guess"
+        ? STORED_LABEL
+        : `stored confidence ${f.confidence.split(",").join(" or ")}`),
+    f.gap &&
+      (g && GAPS.find((d) => d.id === f.gap)?.list === "assertions"
+        ? `${g.label}: ${g.rule}`
+        : `no assertion gap is named ${f.gap}`),
+  ].filter(Boolean);
+  return parts.length ? <p className="ak-filter-note">Showing {parts.join(" · ")}</p> : null;
+}
 
 const columns = [
   ["title", "Assertion"],
@@ -15,9 +108,10 @@ const columns = [
   ["priority", "Priority"],
   ["horizon", "Horizon"],
 ];
-function Table({ data, edges }: { data: Knowledge; edges: Edge[] }) {
+function Table({ data, edges, site }: { data: Knowledge; edges: Edge[]; site: Site }) {
   const filters = useFilters(),
-    citations = useCoverage(data);
+    citations = useCoverage(data),
+    { setViewParams } = usePageNavigation();
   const [key, direction] = filters.sort.split("-");
   const value = (a: Assertion) => {
     switch (key) {
@@ -39,14 +133,29 @@ function Table({ data, edges }: { data: Knowledge; edges: Edge[] }) {
         return name(a);
     }
   };
-  const rows = filterAssertions(data.assertion, filters.find, filters.concept).sort(
-    (a, b) =>
-      String(value(a)).localeCompare(String(value(b))) * (direction === "desc" ? -1 : 1) ||
-      a.path.localeCompare(b.path),
-  );
+  // The site library's filter, so a matrix cell, a breakdown count, and a gap agree with this list.
+  const match = assertionFilter(site, filters),
+    text = filters.find.toLocaleLowerCase().trim();
+  const of = (a: Assertion) => site.byPath.get(a.path) as OAssertion | undefined;
+  const rows = data.assertion
+    .filter((a) => {
+      const o = of(a);
+      return (
+        !!o &&
+        match(o) &&
+        (!text || `${name(a)} ${a.aoId ?? ""} ${claimText(a)}`.toLocaleLowerCase().includes(text))
+      );
+    })
+    .sort(
+      (a, b) =>
+        String(value(a)).localeCompare(String(value(b))) * (direction === "desc" ? -1 : 1) ||
+        a.path.localeCompare(b.path),
+    );
   return (
     <>
       <Filters data={data} />
+      <ParamNote site={site} />
+      <Breakdown rows={rows.map(of).filter((o): o is OAssertion => !!o)} />
       <Section
         title="Assertions"
         count={rows.length}
@@ -94,7 +203,17 @@ function Table({ data, edges }: { data: Knowledge; edges: Edge[] }) {
                         <Record record={a} />
                         <StatusBadges a={a} edges={edges} />
                         <span className="ak-meta">
-                          {a.concepts.map(name).join(" · ") || "No concepts recorded"}
+                          {(site.conceptsOf.get(a.path) ?? [])
+                            .map((c) =>
+                              name(
+                                data.concept.find((v) => v.path === c) ?? {
+                                  path: c,
+                                  title: c,
+                                  ref: { notePath: c, kind: "NOTE" },
+                                },
+                              ),
+                            )
+                            .join(" · ") || "In no concept"}
                         </span>
                       </td>
                       <td role="cell" data-label="Kind">
@@ -140,5 +259,14 @@ function Table({ data, edges }: { data: Knowledge; edges: Edge[] }) {
   );
 }
 export default function Assertions() {
-  return <Page>{({ data, graph }) => <Table data={data} edges={graph?.edges || []} />}</Page>;
+  const { query, site } = useSite();
+  return (
+    <Page>
+      {({ data, graph }) => (
+        <SectionBody status={sectionStatus(query)} what="kinds and membership">
+          {() => site && <Table data={data} edges={graph?.edges || []} site={site} />}
+        </SectionBody>
+      )}
+    </Page>
+  );
 }

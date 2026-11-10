@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/atomicobject/rhizome/internal/testkit"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"io"
 	"net/http"
@@ -531,10 +532,12 @@ func newViewerTestServer(root, template string) *Server {
 	}
 	return &Server{
 		cfg: Config{
-			VaultPath:                 root,
-			VaultDef:                  vaultDef,
-			NoteMetadata:              indexer,
-			NotePathOwned:             func(path string) bool { return path == "prototype.html" || path == "reports/prototype.html" },
+			VaultPath:    root,
+			VaultDef:     vaultDef,
+			NoteMetadata: indexer,
+			NotePathOwned: func(path string, _ *paths.SymlinkCache) bool {
+				return path == "prototype.html" || path == "reports/prototype.html"
+			},
 			HTMLContentOriginTemplate: template,
 		},
 		runtime:     &Runtime{},

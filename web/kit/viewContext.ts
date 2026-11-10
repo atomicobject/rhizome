@@ -1,7 +1,9 @@
 import { isJsonObject, isString, type JsonObject } from "../src/api/parse";
 import { isViewContext, type ViewContext, type ViewInvocation } from "../src/views/context";
 import { parseViewParamDeclarations, type ViewParamDeclaration } from "../src/views/params";
+import { activePageBinding, PageActiveContext, usePageBinding } from "./pageBinding";
 import type { ViewOrigin } from "./types";
+import { useContext } from "react";
 
 export { customViewHref, nodeHref, workspaceViewHref } from "../src/views/context";
 
@@ -15,17 +17,33 @@ export type {
 } from "../src/views/context";
 
 export type KitViewInvocation = ViewInvocation & {
-  view: ViewInvocation["view"] & { origin?: ViewOrigin };
+  /** `experienceKey` is set when the view renders as a page of an experience frame or is its panel. */
+  view: ViewInvocation["view"] & { origin?: ViewOrigin; experienceKey?: string };
   /** The definition's declared params; read their values with `useViewParams`. */
   params?: ViewParamDeclaration[];
 };
 
-/** Validated context and authored configuration supplied by the server, for HTML and TSX. */
+/**
+ * Validated context and authored configuration supplied by the server, for
+ * HTML and TSX. In an experience frame it is the invocation of the page on
+ * screen; hooks read their own page's.
+ */
 export function getViewInvocation(): KitViewInvocation {
+  return activePageBinding()?.invocation ?? getShellInvocation();
+}
+
+/** The invocation the server wrote into this document. */
+export function getShellInvocation(): KitViewInvocation {
   const data = document.getElementById("rhizome-view-invocation")?.textContent ?? "";
 
-  // The invocation is immutable for the page's lifetime, so parse it once.
-  if (cached?.data !== data) cached = { data, invocation: parseInvocation(data) };
+  // The invocation is immutable for the document's lifetime, so parse it once.
+  if (cached?.data !== data)
+    cached = {
+      data,
+      invocation: data
+        ? parseViewInvocation(JSON.parse(data))
+        : { view: { id: "", name: "" }, context: { kind: "standalone" } },
+    };
 
   return cached.invocation;
 }
@@ -38,11 +56,9 @@ function isViewOrigin(value: unknown): value is ViewOrigin {
   return ORIGINS.some((origin) => origin === value);
 }
 
-function parseInvocation(data: string): KitViewInvocation {
-  if (!data) return { view: { id: "", name: "" }, context: { kind: "standalone" } };
-
-  const value: unknown = JSON.parse(data);
-
+/** Validate an invocation from the server, as written into the shell or posted with a location. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the parser at the document and message boundary.
+export function parseViewInvocation(value: unknown): KitViewInvocation {
   if (
     !isJsonObject(value) ||
     !isJsonObject(value.view) ||
@@ -61,6 +77,10 @@ function parseInvocation(data: string): KitViewInvocation {
     throw new Error("Invalid view origin");
   }
 
+  if (value.view.experienceKey !== undefined && !isString(value.view.experienceKey)) {
+    throw new Error("Invalid experience key");
+  }
+
   if (
     (value.vaultKey !== undefined && !isString(value.vaultKey)) ||
     (value.preferenceSlot !== undefined && !isString(value.preferenceSlot))
@@ -73,6 +93,9 @@ function parseInvocation(data: string): KitViewInvocation {
     context: value.context,
     configuration: value.configuration,
   };
+
+  if (value.view.experienceKey !== undefined)
+    invocation.view.experienceKey = value.view.experienceKey;
 
   if (value.vaultKey !== undefined) invocation.vaultKey = value.vaultKey;
 
@@ -91,7 +114,23 @@ export function getViewConfiguration(): JsonObject | undefined {
   return getViewInvocation().configuration;
 }
 
-// A context change remounts the frame; it is immutable for the page's lifetime.
+/** The subject of the page this component renders in. */
 export function useViewContext(): ViewContext {
-  return getViewContext();
+  return usePageBinding()?.invocation.context ?? getShellInvocation().context;
+}
+
+/** The authored configuration of the page this component renders in. */
+export function useViewConfiguration(): JsonObject | undefined {
+  const binding = usePageBinding();
+
+  return binding ? binding.invocation.configuration : getShellInvocation().configuration;
+}
+
+/**
+ * False while this page is hidden or its frame is suspended (SPEC-0136 R3).
+ * Kit queries and action polling pause on their own; stop your own timers,
+ * intervals, and animations while it is false.
+ */
+export function useViewActive(): boolean {
+  return useContext(PageActiveContext);
 }

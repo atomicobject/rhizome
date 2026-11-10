@@ -1,6 +1,6 @@
 import { noteTabID } from "./noteTabIdentity";
 import { isNodeRef, isFiniteNumber, isJsonObject, isString } from "../api/parse";
-import { normalizeNotePath } from "./notesRoute";
+import { boundedViewParams, normalizeNotePath } from "./notesRoute";
 import { normalizeSearchFilters, searchTabIdentity } from "./searchState";
 import type { NodeRef } from "../api/types";
 import type { NoteTab, SearchTab, Tab, ViewTab } from "./useNoteTabs";
@@ -28,11 +28,17 @@ type StoredTabs = {
     folder?: string | null;
     scrollTop?: number;
     viewId?: string;
+    viewParams?: string;
   }>;
 };
 
 export function storedTabsForVault(vaultName: string): string {
   return `rhizome:notes:tabs:v${STORAGE_VERSION}:${vaultName}`;
+}
+
+/** Home's own location, kept while another tab is on screen. */
+export function storedHomeForVault(vaultName: string): string {
+  return `rhizome:notes:home:v1:${vaultName}`;
 }
 
 export function legacyStoredTabsForVault(vaultName: string): string {
@@ -61,13 +67,23 @@ export function serializeTabs(tabs: Tab[]): string {
 
         if (tab.nodeKind) storedTab.nodeKind = tab.nodeKind;
         storedTab.structural = tab.structural;
+
+        if (tab.viewParams) storedTab.viewParams = tab.viewParams;
         storedTab.kind = "note";
 
         return [storedTab];
       }
 
       if (tab.kind === "view") {
-        return [{ kind: "view" as const, viewId: tab.viewId, title: tab.title }];
+        const stored: StoredTabs["tabs"][number] = {
+          kind: "view",
+          viewId: tab.viewId,
+          title: tab.title,
+        };
+
+        if (tab.viewParams) stored.viewParams = tab.viewParams;
+
+        return [stored];
       }
 
       if (tab.kind === "search") {
@@ -121,12 +137,18 @@ export function parseStoredTabs(raw: string | null): Array<NoteTab | SearchTab |
     if (value.kind === "view") {
       if (!isString(value.viewId) || !value.viewId || viewIDs.has(value.viewId)) continue;
       viewIDs.add(value.viewId);
-      tabs.push({
+
+      const tab: ViewTab = {
         id: `view:${value.viewId}`,
         kind: "view",
         viewId: value.viewId,
         title: isString(value.title) && value.title ? value.title : value.viewId,
-      });
+      };
+
+      const viewParams = boundedViewParams(isString(value.viewParams) ? value.viewParams : null);
+
+      if (viewParams) tab.viewParams = viewParams;
+      tabs.push(tab);
       continue;
     }
 
@@ -201,6 +223,10 @@ export function parseStoredTabs(raw: string | null): Array<NoteTab | SearchTab |
     if (isString(value.nodeKind)) tab.nodeKind = value.nodeKind;
 
     if (isString(value.structural)) tab.structural = value.structural;
+
+    const viewParams = boundedViewParams(isString(value.viewParams) ? value.viewParams : null);
+
+    if (viewParams) tab.viewParams = viewParams;
     tabs.push(tab);
     paths.add(id);
   }

@@ -4,6 +4,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type NoteTab, type Tab, useNoteTabs } from "./useNoteTabs";
+import { notifyLocationChange } from "./locationStore";
 import type { ViewCatalogEntry } from "../api/types";
 
 type ChangesAvailabilityProps = { changesAvailable: boolean | null };
@@ -193,6 +194,61 @@ describe("useNoteTabs", () => {
     act(() => restored.result.current.close("note:a.md"));
     expect(window.location.search).toBe("?view=planning.backlog");
     expect(restored.result.current.activeId).toBe("view:planning.backlog");
+  });
+
+  it("restores each tab's view params on activation, after a close, and from stored tabs", () => {
+    window.history.replaceState({}, "", "/notes?sort=title");
+    const { result, unmount } = renderHook(() => useNoteTabs("vault-a"));
+
+    act(() => result.current.open("a.md"));
+    act(() => {
+      window.history.pushState({}, "", "/notes?note=a.md&concept=c1&assertionKind=fact");
+      notifyLocationChange();
+    });
+    act(() => result.current.openView({ id: "kb.list" }));
+    act(() => {
+      window.history.pushState({}, "", "/notes?view=kb.list&page=2");
+      notifyLocationChange();
+    });
+    act(() => result.current.open("b.md"));
+    expect(window.location.search).toBe("?note=b.md");
+
+    act(() => result.current.activate("note:a.md"));
+    expect(window.location.search).toBe("?note=a.md&concept=c1&assertionKind=fact");
+    act(() => result.current.activate("view:kb.list"));
+    expect(window.location.search).toBe("?view=kb.list&page=2");
+
+    // Closing the active tab shows the one before it with its params.
+    act(() => result.current.activate("note:b.md"));
+    act(() => result.current.close("note:b.md"));
+    expect(window.location.search).toBe("?note=a.md&concept=c1&assertionKind=fact");
+    unmount();
+
+    const restored = renderHook(() => useNoteTabs("vault-a"));
+    act(() => restored.result.current.activate("view:kb.list"));
+    expect(window.location.search).toBe("?view=kb.list&page=2");
+    act(() => restored.result.current.activate("note:a.md"));
+    expect(window.location.search).toBe("?note=a.md&concept=c1&assertionKind=fact");
+    // Home is its own location; going back to it closes the page tab.
+    act(() => restored.result.current.activate("home"));
+    expect(window.location.search).toBe("?sort=title");
+  });
+
+  it("keeps view params out of the route's own keys and bounded", () => {
+    const tabs = parseStoredTabs(
+      JSON.stringify({
+        v: 3,
+        tabs: [
+          { path: "a.md", viewParams: "note=b.md&concept=c1" },
+          { kind: "view", viewId: "kb.list", viewParams: `q=${"x".repeat(3000)}` },
+        ],
+      }),
+    );
+
+    expect(tabs).toEqual([
+      { ...note("a.md"), viewParams: "concept=c1" },
+      { id: "view:kb.list", kind: "view", viewId: "kb.list", title: "kb.list" },
+    ]);
   });
 
   it("opens one view tab per view id, activates it, and closes back to Home", () => {

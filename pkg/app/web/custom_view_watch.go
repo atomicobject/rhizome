@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
@@ -25,6 +26,9 @@ type viewFolderWatch struct {
 	listeners int
 	// stop cancels the poller and returns once it has exited.
 	stop func()
+	// stamp is the poller's latest stamp of every views folder while it
+	// runs, nil otherwise; the index generation's views component reads it.
+	stamp atomic.Pointer[string]
 }
 
 const viewFolderPollInterval = time.Second
@@ -56,6 +60,8 @@ func (s *Server) watchViewFolders() (release func()) {
 			if w.listeners == 0 {
 				w.stop()
 				w.stop = nil
+				// Without a poller, the generation stamps view folders itself.
+				w.stamp.Store(nil)
 			}
 		})
 	}
@@ -66,6 +72,7 @@ func (s *Server) watchViewFolders() (release func()) {
 // returned channel closes when polling has stopped.
 func (s *Server) pollViewFolders(ctx context.Context, interval time.Duration) <-chan struct{} {
 	whole, folders := s.viewFolderStamps("")
+	s.viewWatch.stamp.Store(&whole)
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -85,6 +92,11 @@ func (s *Server) announceViewFolderChanges(ctx context.Context, interval time.Du
 		}
 		var next map[string]string
 		whole, next = s.viewFolderStamps(whole)
+		// Publish the stamp before announcing, so an event's generation
+		// carries the change it announces. Readers keep the pointer, so
+		// publish a copy, never the loop variable the next tick reassigns.
+		published := whole
+		s.viewWatch.stamp.Store(&published)
 		if next == nil {
 			continue
 		}
@@ -104,22 +116,17 @@ func (s *Server) announceViewFolderChanges(ctx context.Context, interval time.Du
 
 // viewFolderStamps returns a stamp of every views folder, flat and module,
 // and, only when it differs from previous, the stamp of every custom view's
-// definition folder keyed as views.changed names it. Definitions are read only
-// after something changed.
+// definition folder and experience folder keyed as views.changed names it.
+// Definitions are read only after something changed.
 func (s *Server) viewFolderStamps(previous string) (string, map[string]string) {
-	roots, _ := assetroots.Roots(s.cfg.VaultPath, assetroots.Views)
 	opened := map[string]*os.Root{}
-	var whole strings.Builder
-	for _, r := range roots {
-		root, err := viewRoot{module: r.Module}.open(s.cfg.VaultPath)
-		if err != nil {
-			continue
+	defer func() {
+		for _, root := range opened {
+			_ = root.Close()
 		}
-		defer root.Close()
-		opened[r.Module] = root
-		fmt.Fprintf(&whole, "%s=%s\n", r.Rel, customViewFolderStamp(root.FS(), "."))
-	}
-	if whole.String() == previous {
+	}()
+	whole := s.viewRootsStamp(opened)
+	if whole == previous {
 		return previous, nil
 	}
 	defs, _ := viewconfig.LoadDefaultSource(s.cfg.VaultPath)
@@ -134,10 +141,40 @@ func (s *Server) viewFolderStamps(previous string) (string, map[string]string) {
 		if err != nil {
 			continue
 		}
-		folder := filepath.ToSlash(rel)
-		if key := v.folderKey(folder); folders[key] == "" {
-			folders[key] = customViewFolderStamp(root.FS(), folder)
+		stamped := []string{filepath.ToSlash(rel)}
+		// An experience's folder holds its experience.yml, which may sit above
+		// every definition folder.
+		if def.Experience != nil {
+			stamped = append(stamped, def.Experience.Folder)
+		}
+		for _, folder := range stamped {
+			if key := v.folderKey(folder); folders[key] == "" {
+				folders[key] = customViewFolderStamp(root.FS(), folder)
+			}
 		}
 	}
-	return whole.String(), folders
+	return whole, folders
+}
+
+// viewRootsStamp stamps every views folder, flat and module, keeping each
+// opened root in opened (keyed by module) when opened is not nil.
+func (s *Server) viewRootsStamp(opened map[string]*os.Root) string {
+	roots, _ := assetroots.Roots(s.cfg.VaultPath, assetroots.Views)
+	var whole strings.Builder
+	for _, r := range roots {
+		root, err := viewRoot{module: r.Module}.open(s.cfg.VaultPath)
+		if err != nil {
+			continue
+		}
+		fmt.Fprintf(&whole, "%s=%s\n", r.Rel, customViewFolderStamp(root.FS(), "."))
+		if opened != nil {
+			if previous := opened[r.Module]; previous != nil {
+				_ = previous.Close()
+			}
+			opened[r.Module] = root
+		} else {
+			_ = root.Close()
+		}
+	}
+	return whole.String()
 }

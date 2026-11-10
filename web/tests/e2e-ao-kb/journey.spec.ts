@@ -3,7 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 const workspace = (presentation: string) =>
   `/notes/group/Knowledge?presentation=ao-kb.${presentation}`;
 
-const frame = (page: Page) => page.frameLocator("iframe");
+// The content's frame, not the sidebar panel's.
+const frame = (page: Page) => page.frameLocator("iframe:not(.panel-frame)");
 
 async function assertion(page: Page, slug: string) {
   await page.goto(
@@ -322,6 +323,8 @@ test("claim prose, registry links, review defaults, and incoming impact stay rea
     /note=assertions%2Freminders-twenty-four-hours.md/,
   );
   await expect(winner).not.toContainText("[[");
+  // A read still in flight when the test ends would throw into the next test from route.fetch.
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
 test("saved band counts exclude claims absent from the snapshot", async ({ page }) => {

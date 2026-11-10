@@ -1,0 +1,202 @@
+/* The Knowledge panel (SPEC-0135 US7) on the sidebar's chrome surface: rows like the sidebar's
+   (14px, muted chrome text, a --chrome-raised hover, a 2px --chrome-text focus ring inset),
+   13/500 structural labels, 13px tabular counts. --chrome-link marks only the locator's
+   highlighted concepts and lines, never text (SPEC-0136 R6). */
+html:has(.akp-panel),
+body:has(.akp-panel) {
+  background: var(--chrome-bg);
+}
+.akp-panel {
+  display: grid;
+  gap: 8px;
+  padding: 4px 8px 12px;
+  color: var(--chrome-muted);
+  font-size: var(--fs-base, 14px);
+  line-height: 1.35;
+}
+.akp-title {
+  margin: 0;
+  padding: 0 8px;
+  color: var(--chrome-text);
+  font: 600 var(--fs-base, 14px) / 1.3 var(--font-sans);
+  overflow-wrap: anywhere;
+}
+.akp-head,
+.akp-group > summary {
+  margin: 0;
+  padding: 0 8px;
+  color: var(--chrome-muted);
+  font: var(--label-structure, 500 13px / 1.35 var(--font-sans));
+}
+.akp-section {
+  display: grid;
+  gap: 2px;
+}
+.akp-list {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.akp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-md, 6px);
+  background: transparent;
+  color: var(--chrome-muted);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.12s var(--ease, ease);
+}
+.akp-row:hover {
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
+}
+.akp-row[aria-current="page"] {
+  background: var(--chrome-pill);
+  color: var(--chrome-pill-text);
+  font-weight: 600;
+}
+.akp-panel :focus-visible {
+  outline: 2px solid var(--chrome-text);
+  outline-offset: -2px;
+}
+.akp-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.akp-count,
+.akp-aside {
+  flex: none;
+  font-size: var(--fs-sm, 13px);
+  font-variant-numeric: tabular-nums;
+}
+.akp-row[aria-current="page"] .akp-aside {
+  color: inherit;
+}
+.akp-note {
+  margin: 0;
+  padding: 2px 8px;
+  font-size: var(--fs-sm, 13px);
+}
+.akp-find {
+  display: grid;
+  gap: 2px;
+}
+.akp-find form {
+  padding: 0 0 2px;
+}
+.akp-panel .akp-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-md, 6px);
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
+  font: 400 var(--fs-sm, 13px) / 1 var(--font-sans);
+}
+.akp-panel .akp-input::placeholder {
+  /* As the top bar's search: 20% chrome text into muted clears 4.5:1 on the raised field. */
+  color: color-mix(in srgb, var(--chrome-text) 20%, var(--chrome-muted));
+}
+.akp-panel .akp-input:hover {
+  background: var(--chrome-active);
+}
+/* The engine's clear button is an off-palette blue; Escape still clears the field. */
+.akp-panel .akp-input::-webkit-search-cancel-button {
+  appearance: none;
+}
+.akp-group > summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  border-radius: var(--r-md, 6px);
+  cursor: pointer;
+  list-style: none;
+}
+.akp-group > summary::-webkit-details-marker {
+  display: none;
+}
+.akp-caret {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.12s var(--ease, ease);
+}
+.akp-group[open] .akp-caret {
+  transform: rotate(90deg);
+}
+.akp-group > summary:hover {
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
+}
+.akp-group > .akp-list .akp-row {
+  padding-left: 28px;
+}
+.akp-map {
+  display: block;
+  width: calc(100% - 16px);
+  max-height: 150px;
+  margin: 2px 8px 4px;
+}
+.akp-edge {
+  stroke: var(--chrome-muted);
+  stroke-opacity: 0.3;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.akp-edge.akp-on {
+  stroke: var(--chrome-link);
+  stroke-opacity: 1;
+  stroke-width: 1.5;
+}
+.akp-node {
+  fill: var(--chrome-muted);
+  fill-opacity: 0.3;
+}
+.akp-node.akp-on {
+  fill: var(--chrome-link);
+  fill-opacity: 1;
+}
+.akp-node.akp-hollow {
+  fill: none;
+  stroke: var(--chrome-muted);
+  stroke-opacity: 0.45;
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+}
+.akp-node.akp-hollow.akp-on {
+  stroke: var(--chrome-link);
+  stroke-opacity: 1;
+}
+.akp-ring {
+  fill: none;
+  stroke: var(--chrome-text);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+@media (prefers-reduced-motion: reduce) {
+  .akp-row,
+  .akp-caret {
+    transition: none;
+  }
+}

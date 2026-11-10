@@ -1,0 +1,9 @@
+apiVersion: rhizome.view.v1
+id: e2e.views.other-evidence
+name: Evidence map
+source:
+  kind: custom
+  entry: context.html
+mount:
+  kind: node
+  type: ViewDemoOther

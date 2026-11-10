@@ -97,7 +97,12 @@ export type Source = RecordLink & {
   extractedAssertionIds: string[];
   workspace: { capabilities: { readOnlyReason?: string } };
 };
-export type Concept = RecordLink & { relatedConceptsSection?: { relatedConcepts: RecordLink[] } };
+export type Concept = RecordLink & {
+  relatedConceptsSection?: { relatedConcepts: RecordLink[] };
+  /** Concept-side membership (SPEC-0135 R2): assertions the concept links, and that link it. */
+  linkedAssertions: { path: string }[];
+  linkingAssertions: { path: string }[];
+};
 export type Artifact = RecordLink & {
   graphSyncedAt?: string | null;
   status?: string | null;
@@ -118,7 +123,6 @@ export type Knowledge = {
   artifact: Artifact[];
   conflictRegistry: { groups: { entries: Conflict[] }[] }[];
 };
-export const CEILING = 500;
 export const name = (r: RecordLink) => r.headline || r.name || r.title;
 export const claimText = (a: Assertion) =>
   noteBody(a.content)
@@ -155,8 +159,7 @@ export function citations(a: Assertion, sources: Source[]): Citation[] {
   );
   const rows = (a.sourcesSection?.citations ?? []).map((c, i) => {
     const raw = c.recordedLink ?? "";
-    const key =
-      c.sources.length === 1 ? c.sources[0].path : undefined;
+    const key = c.sources.length === 1 ? c.sources[0].path : undefined;
     return { raw, source: sources.find((s) => s.path === key), slot: i + 1, origin: false };
   });
   if (!a.provenanceSource)
@@ -204,7 +207,27 @@ export function coverage(c: Citation | undefined, passage: PassageResult | undef
       return "Unresolved source/locator";
   }
 }
+/** A small, stable query-key part for a data object. TanStack hashes keys as JSON, so a key
+ * holding the evidence read itself stores a multi-megabyte hash string per query (12 MB per
+ * retained assertion page on the largest real KB). Equal objects keep equal keys; new data
+ * gets a new key. */
+const objectKeys = new WeakMap<object, number>();
+let nextObjectKey = 0;
+export function objectKey(value: object) {
+  let key = objectKeys.get(value);
+  if (key === undefined) objectKeys.set(value, (key = ++nextObjectKey));
+  return key;
+}
+// One graph per data object: every page in an experience frame shares the query's data object,
+// so they share its graph instead of each retaining a copy (measured on the largest real KB:
+// about 17 MB per retained assertion page before this).
+const graphs = new WeakMap<Knowledge, ReturnType<typeof buildRelationships>>();
 export function relationships(data: Knowledge) {
+  let graph = graphs.get(data);
+  if (!graph) graphs.set(data, (graph = buildRelationships(data)));
+  return graph;
+}
+function buildRelationships(data: Knowledge) {
   const all = [...data.assertion, ...data.source, ...data.concept, ...data.artifact];
   const resolve = makeResolver(all.map((r) => ({ key: r.path, aoId: r.aoId, notePath: r.path })));
   const declarations: Declaration[] = [];
@@ -264,9 +287,21 @@ export function dateNumber(value?: string | null) {
     ? n
     : NaN;
 }
+// Superseded targets per edge list, so a list of every assertion checks each in constant time
+// instead of scanning every edge per row (127 ms per render of the largest real KB's list).
+const superseded = new WeakMap<Edge[], Set<string>>();
+function supersededTargets(edges: Edge[]) {
+  let targets = superseded.get(edges);
+  if (!targets)
+    superseded.set(
+      edges,
+      (targets = new Set(edges.filter((e) => e.rel === "supersedes").map((e) => e.to))),
+    );
+  return targets;
+}
 export function badges(a: Assertion, edges: Edge[], today: string) {
   return [
-    edges.some((e) => e.rel === "supersedes" && e.to === a.path) ? "Superseded" : "",
+    supersededTargets(edges).has(a.path) ? "Superseded" : "",
     dateNumber(a.validUntil) < dateNumber(today) ? "Expired" : "",
   ].filter(Boolean);
 }
@@ -410,11 +445,17 @@ export function observations(data: Knowledge, today: string): Record<string, Obs
   }
   return groups;
 }
-export function filterAssertions(rows: Assertion[], find: string, concept: string) {
+/** `conceptsOf` is the shared membership (`membership()` in `site.ts`): a link in either direction (D1). */
+export function filterAssertions(
+  rows: Assertion[],
+  find: string,
+  concept: string,
+  conceptsOf: Map<string, string[]>,
+) {
   const text = find.toLocaleLowerCase().trim();
   return rows.filter(
     (a) =>
-      (!concept || a.concepts.some((c) => c.path === concept)) &&
+      (!concept || !!conceptsOf.get(a.path)?.includes(concept)) &&
       (!text || `${name(a)} ${a.aoId ?? ""} ${claimText(a)}`.toLocaleLowerCase().includes(text)),
   );
 }

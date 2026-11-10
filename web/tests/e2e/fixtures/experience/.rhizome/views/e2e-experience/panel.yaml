@@ -1,0 +1,8 @@
+apiVersion: rhizome.view.v1
+id: e2e.experience.panel
+name: Claims
+source:
+  kind: custom
+  entry: panel.tsx
+mount:
+  kind: panel

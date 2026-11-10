@@ -6,7 +6,7 @@ aliases:
   - Rhizome modules
 summary: "A module is a folder under .rhizome/modules/<name>/ that groups the ontology, query recipes, views, tasks, and scripts one capability ships. Every starter installs as one module; repository-owned files in the flat .rhizome folders keep working. One asset locator gives every loader both layouts, rzm init migrates installed starter files, and rzm <module> <command> runs a module's recipes from the command line."
 spec-status: proposed
-last-updated: 2026-11-01
+last-updated: 2026-11-09
 ---
 
 # Rhizome modules
@@ -42,7 +42,7 @@ This is slice 0 of the compounding-workspace plan: later work adds actions, whic
 - Actions. They arrive in a later spec and live only inside modules.
 - Moving skills, skill overlays, managed `AGENTS.md`/`CLAUDE.md` blocks, documents a starter installs into the repository, or hook declarations. Harnesses discover skills only in their own folders, installed documents are notes, and hooks are declared by the binary's registry.
 - Grouping a module's views under one sidebar heading. It comes with the compounding workspace.
-- A module manifest. The folder name is the module's name.
+- A module manifest. The folder name is the module's name. A views folder, flat or in a module, may hold an `experience.yml` that declares an experience ([[experiences|SPEC-0136]] R1); it describes that folder's views, not the module.
 - Code-indexing module scripts. `.rhizome/` stays excluded from the code index.
 - Migrating repository-owned files from the flat folders into modules.
 
@@ -134,3 +134,7 @@ None.
 ## Documentation Plan
 
 - Update the init template, ontology, graphql-query, validate, and CLI subsystem notes, [[scheduled-tasks|SPEC-0127]] for qualified task ids, [[init-template-architecture|SPEC-0039]] for module installation, the custom-views skill, the starters README, the compounding starter guide and skill, and `CHANGELOG.md`.
+
+## Change record
+
+2026-11-09: Views folders may hold an `experience.yml` ([[experiences|SPEC-0136]] R1); a module still has no manifest.

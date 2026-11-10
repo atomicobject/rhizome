@@ -15,7 +15,7 @@ test("an AO-owned Markdown note offers no Edit and says why", async ({ page }) =
 
 test("a model record's node path starts on the presentation's left edge", async ({ page }) => {
   await page.goto("/notes/group/Knowledge?presentation=ao-kb.assertions&find=Patients+book");
-  const frame = page.frameLocator("iframe");
+  const frame = page.frameLocator("iframe:not(.panel-frame)");
   await frame.getByRole("link", { name: "Patients book their own slots", exact: true }).click();
   await frame
     .getByRole("region", { name: "Cited by", exact: true })
@@ -88,7 +88,7 @@ test("at 728px the note controls wrap and the knowledge tables stack instead of 
 
   for (const presentation of ["ao-kb.assertions", "ao-kb.concepts"]) {
     await page.goto(`/notes/group/Knowledge?presentation=${presentation}`);
-    const wrap = page.frameLocator("iframe").locator(".ak-table-wrap");
+    const wrap = page.frameLocator("iframe:not(.panel-frame)").locator(".ak-table-wrap");
 
     await expect(wrap).toBeVisible();
     expect(await wrap.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);

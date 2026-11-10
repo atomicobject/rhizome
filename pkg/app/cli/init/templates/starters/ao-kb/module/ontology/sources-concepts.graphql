@@ -8,8 +8,10 @@ type Source @node(matches: ["sources AND NOT sources/_raw"], propertyCase: AS_DE
   headline: String @field(source: "headline") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored abstract; absent and unknown values are preserved without inferred defaults."""
   abstract: String @field(source: "abstract") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  """AO KB authored kind; absent and unknown values are preserved without inferred defaults."""
-  kind: String @field(source: "kind") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  """AO KB authored source kind, read from the legacy `format` key when `kind` is absent."""
+  kind: String @field(sources: ["kind", "format"]) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  """The source's recorded date as authored (`sourceDate`, then `meetingDate`, then `date`). Readers treat only an ISO calendar date, optionally with a time, as a date; any other value is an unreadable recorded date. Never a file-name, ingestion, or modification date."""
+  recordedDate: String @field(sources: ["sourceDate", "meetingDate", "date"]) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored sourceKind; absent and unknown values are preserved without inferred defaults."""
   sourceKind: String @field(source: "sourceKind") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored status; absent and unknown values are preserved without inferred defaults."""
@@ -36,6 +38,8 @@ type Source @node(matches: ["sources AND NOT sources/_raw"], propertyCase: AS_DE
   speakerRole: String @field(source: "speaker_role") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored extracted_by; absent and unknown values are preserved without inferred defaults."""
   extractedBy: String @field(source: "extracted_by") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  """Assertions whose notes link this source, anywhere in the note. Candidates for citations; the Sources section decides. Declared, so an omitted `first` returns every row."""
+  linkingAssertions: [Assertion!] @neighbors(direction: INBOUND, type: "Assertion")
 }
 
 """AO KB concept membership comes from authored links, never an inferred primary-concept assignment."""
@@ -62,6 +66,10 @@ type Concept @node(paths: ["concepts/**/*.md"], propertyCase: AS_DEFINED) @displ
   products: [String!] @field(source: "products") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """Only ## Related Concepts; the section's relatedConcepts field excludes incidental links in other sections."""
   relatedConceptsSection: RelatedConcepts @contains(level: H2, heading: "Related Concepts") @policy(reason: "AO KB owns this authored structure.")
+  """Assertions this concept's note links. Membership is the union with linkingAssertions (SPEC-0135 D1)."""
+  linkedAssertions: [Assertion!] @neighbors(direction: OUTBOUND, type: "Assertion")
+  """Assertions whose notes link this concept."""
+  linkingAssertions: [Assertion!] @neighbors(direction: INBOUND, type: "Assertion")
 }
 
 """A concept's explicit ## Related Concepts section; these links are relatedness, not support."""

@@ -17,6 +17,7 @@ import {
   Record,
   today,
   useFilters,
+  useMembership,
 } from "./parts.tsx";
 
 /** One model file's sync observation: the file names its affected rows, never a first row. */
@@ -61,6 +62,7 @@ function ModelFile({ group, unknown }: { group: ModelSync; unknown?: boolean }) 
 }
 function AttentionBody({ data }: { data: Knowledge }) {
   const filters = useFilters(),
+    membership = useMembership(data),
     saved = useSavedAnalysis(),
     bindings = useModelBindings(),
     ready = !!bindings.data?.ready,
@@ -69,7 +71,9 @@ function AttentionBody({ data }: { data: Knowledge }) {
     ? modelObservations(index.data.files, index.data.records, index.data.specs, data.assertion)
     : undefined;
   const allowed = new Set(
-    filterAssertions(data.assertion, filters.find, filters.concept).map((a) => a.path),
+    filterAssertions(data.assertion, filters.find, filters.concept, membership.conceptsOf).map(
+      (a) => a.path,
+    ),
   );
   const groups = observations(data, today());
   for (const d of model?.dangling ?? [])

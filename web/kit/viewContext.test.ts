@@ -1,3 +1,4 @@
+import { renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -21,7 +22,7 @@ it("reads the same canonical invocation in HTML and TSX without URL overrides", 
   document.head.append(script);
 
   expect(getViewContext()).toEqual({ kind: "group", group: "Delivery" });
-  expect(useViewContext()).toEqual(getViewContext());
+  expect(renderHook(useViewContext).result.current).toEqual(getViewContext());
   expect(getViewConfiguration()).toEqual({ limit: 12 });
   expect(getViewInvocation().view).toEqual({ id: "delivery", name: "Delivery", origin: "bundled" });
   script.textContent = JSON.stringify({
@@ -41,7 +42,7 @@ it("reads a workspace invocation and rejects a workspace context with a subject"
   });
   document.head.append(script);
 
-  expect(useViewContext()).toEqual({ kind: "workspace" });
+  expect(renderHook(useViewContext).result.current).toEqual({ kind: "workspace" });
   script.textContent = JSON.stringify({
     view: { id: "workspace.overview", name: "Overview" },
     context: { kind: "workspace", group: "Delivery" },

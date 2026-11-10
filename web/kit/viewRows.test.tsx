@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { deferredReply, jsonReply, withFakeFetch } from "../src/test/fakeFetch";
 import { INITIAL_EDIT_READ_LIFECYCLE } from "../src/staging/stagedQuery";
@@ -177,4 +177,73 @@ it("holds native rows through save and cancels obsolete reads before adopting ca
   expect(result.current.displaySession).toBeNull();
   unmount();
   client.clear();
+});
+
+describe("view rows across a generation change", () => {
+  // Each execution waits for the test to answer it at a generation.
+  async function kitWithRows() {
+    const replies: Array<(generation: string) => void> = [];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) =>
+            replies.push((generation) =>
+              resolve(
+                new Response(JSON.stringify({ rows: [{ nodeId: "story", title: generation }] }), {
+                  status: 200,
+                  headers: { "Content-Type": "application/json", "Rhizome-Generation": generation },
+                }),
+              ),
+            ),
+          ),
+      ),
+    );
+    vi.resetModules();
+    const kit = await import("./index");
+    const { frameGeneration } = await import("./generation");
+    const { responseGeneration } = await import("./coverage");
+
+    return { kit, frameGeneration, responseGeneration, replies };
+  }
+
+  it("drops imperative rows read before an event that arrived while they were out", async () => {
+    const { kit, frameGeneration, responseGeneration, replies } = await kitWithRows();
+    const rows = kit.executeView("native.stories");
+    await vi.waitFor(() => expect(replies).toHaveLength(1));
+
+    frameGeneration.set("G1");
+    replies[0]("G0");
+    await vi.waitFor(() => expect(replies).toHaveLength(2));
+    replies[1]("G1");
+
+    const result = await rows;
+    expect(result.rows[0]?.title).toBe("G1");
+    expect(responseGeneration(result)).toBe("G1");
+    frameGeneration.stop();
+  });
+
+  it("drops hook rows read before an event that arrived while they were out", async () => {
+    const { kit, frameGeneration, responseGeneration, replies } = await kitWithRows();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    const { result, unmount } = renderHook(() => kit.useViewRows("native.stories"), { wrapper });
+    await vi.waitFor(() => expect(replies).toHaveLength(1));
+
+    frameGeneration.set("G1");
+    replies[0]("G0");
+    await vi.waitFor(() => expect(replies).toHaveLength(2));
+    replies[1]("G1");
+
+    await waitFor(() => expect(result.current.data?.rows[0]?.title).toBe("G1"));
+    expect(responseGeneration(result.current.data)).toBe("G1");
+    unmount();
+    client.clear();
+    frameGeneration.stop();
+  });
 });

@@ -515,6 +515,7 @@ params:
   - {name: size, kind: float}
   - {name: count, kind: int, default: "3"}
   - {name: half, kind: int, default: 1.5}
+  - {name: frame, kind: string}
 `), "views/workspace.yaml")
 	require.Empty(t, issues)
 
@@ -531,7 +532,9 @@ params:
 	requireIssueField(t, result.Issues, "invalid_view_param", "params[7].kind")
 	requireIssueField(t, result.Issues, "invalid_view_param", "params[8].default")
 	requireIssueField(t, result.Issues, "invalid_view_param", "params[9].default")
-	require.Len(t, result.Issues, 6)
+	// frame=experience is the shell flag that starts an experience frame.
+	requireIssueField(t, result.Issues, "invalid_view_param", "params[10].name")
+	require.Len(t, result.Issues, 7)
 
 	encoded, err := json.Marshal(result.Views[0])
 	require.NoError(t, err)

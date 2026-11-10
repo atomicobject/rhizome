@@ -176,6 +176,7 @@ function descriptorFromPublicNode(node: PublicNode): NodeDescriptor {
       ? nodeRefFromPublicRef(node.workspace.parentRef)
       : undefined,
     parentTitle: node.workspace?.parentTitle || undefined,
+    noteType: node.workspace?.noteType || undefined,
   };
 }
 

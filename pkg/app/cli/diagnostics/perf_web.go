@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"sort"
 	"strings"
@@ -30,6 +31,47 @@ type WebSummary struct {
 	Errors     map[string]uint64 `json:"errors,omitempty"`
 	Rejections map[string]uint64 `json:"rejections,omitempty"`
 	Regions    []WebRegion       `json:"regions,omitempty"`
+	// Experiences is the "Experience frames" measurement (SPEC-0136 R10).
+	Experiences []WebExperience `json:"experiences,omitempty"`
+}
+
+// experiencePhases is the order the kit and host mark startup phases in.
+var experiencePhases = []string{"shell-start", "module-loaded", "first-render", "data-ready", "location-painted"}
+
+// WebExperience totals one experience, named by its hash, across windows.
+// PagesRetained is the most pages its frame held at once.
+type WebExperience struct {
+	Hash            string               `json:"hash"`
+	Windows         int                  `json:"windows"`
+	FramesCreated   uint64               `json:"frames_created"`
+	LocationsReused uint64               `json:"locations_reused"`
+	PagesRetained   uint64               `json:"pages_retained"`
+	Resumes         uint64               `json:"resumes"`
+	Evictions       uint64               `json:"evictions"`
+	Phases          []WebExperiencePhase `json:"phases,omitempty"`
+}
+
+// WebExperiencePhase merges window percentiles, which cannot be merged
+// exactly: P50Ms is the sample-weighted mean of window medians and P95MaxMs
+// the worst window's p95.
+type WebExperiencePhase struct {
+	Phase    string  `json:"phase"`
+	Samples  uint64  `json:"samples"`
+	P50Ms    float64 `json:"p50_ms"`
+	P95MaxMs float64 `json:"p95_max_ms"`
+}
+
+type webExperienceBatch struct {
+	FramesCreated   uint64 `json:"frames_created"`
+	LocationsReused uint64 `json:"locations_reused"`
+	PagesRetained   uint64 `json:"pages_retained"`
+	Resumes         uint64 `json:"resumes"`
+	Evictions       uint64 `json:"evictions"`
+	Phases          map[string]struct {
+		Count uint64  `json:"count"`
+		P50Ms float64 `json:"p50_ms"`
+		P95Ms float64 `json:"p95_ms"`
+	} `json:"phases"`
 }
 
 type WebFrames struct {
@@ -58,10 +100,11 @@ type WebRegion struct {
 
 // webBatchMetrics mirrors the metrics object pkg/app/web records for a batch.
 type webBatchMetrics struct {
-	Regions   map[string]WebRegion `json:"regions"`
-	Frames    WebFrames            `json:"frames"`
-	Refresh   WebRefresh           `json:"refresh"`
-	Stability struct {
+	Regions     map[string]WebRegion          `json:"regions"`
+	Frames      WebFrames                     `json:"frames"`
+	Refresh     WebRefresh                    `json:"refresh"`
+	Experiences map[string]webExperienceBatch `json:"experiences"`
+	Stability   struct {
 		Reconnects uint64            `json:"reconnects"`
 		Errors     map[string]uint64 `json:"errors"`
 		Rejections map[string]uint64 `json:"rejections"`
@@ -69,9 +112,12 @@ type webBatchMetrics struct {
 }
 
 type webSurface struct {
-	summary  WebSummary
-	sessions map[string]bool
-	regions  map[string]*WebRegion
+	summary     WebSummary
+	sessions    map[string]bool
+	regions     map[string]*WebRegion
+	experiences map[string]*WebExperience
+	// Per experience and phase: samples, then the sample-weighted p50 sum.
+	phases map[[2]string]*WebExperiencePhase
 }
 
 type webAggregator struct {
@@ -96,7 +142,8 @@ func (w *webAggregator) visit(event evidence.Event) {
 	surface := w.surfaces[name]
 	if surface == nil {
 		surface = &webSurface{summary: WebSummary{Surface: name, Errors: map[string]uint64{}, Rejections: map[string]uint64{}},
-			sessions: map[string]bool{}, regions: map[string]*WebRegion{}}
+			sessions: map[string]bool{}, regions: map[string]*WebRegion{},
+			experiences: map[string]*WebExperience{}, phases: map[[2]string]*WebExperiencePhase{}}
 		w.surfaces[name] = surface
 	}
 	s := &surface.summary
@@ -129,6 +176,30 @@ func (w *webAggregator) visit(event evidence.Event) {
 		total.ActualTotalMs += region.ActualTotalMs
 		total.ActualMaxMs = max(total.ActualMaxMs, region.ActualMaxMs)
 		total.CommitsAfterRefresh += region.CommitsAfterRefresh
+	}
+	for hash, experience := range batch.Experiences {
+		total := surface.experiences[hash]
+		if total == nil {
+			total = &WebExperience{Hash: hash}
+			surface.experiences[hash] = total
+		}
+		total.Windows++
+		total.FramesCreated += experience.FramesCreated
+		total.LocationsReused += experience.LocationsReused
+		total.PagesRetained = max(total.PagesRetained, experience.PagesRetained)
+		total.Resumes += experience.Resumes
+		total.Evictions += experience.Evictions
+		for phase, stats := range experience.Phases {
+			key := [2]string{hash, phase}
+			merged := surface.phases[key]
+			if merged == nil {
+				merged = &WebExperiencePhase{Phase: phase}
+				surface.phases[key] = merged
+			}
+			merged.Samples += stats.Count
+			merged.P50Ms += stats.P50Ms * float64(stats.Count)
+			merged.P95MaxMs = max(merged.P95MaxMs, stats.P95Ms)
+		}
 	}
 	if batch.Frames.Over200ms > 0 {
 		w.note(&w.stalls, event, batch.Frames.Over200ms)
@@ -169,6 +240,19 @@ func (w *webAggregator) summaries() []WebSummary {
 			summary.Regions = append(summary.Regions, *region)
 		}
 		sort.Slice(summary.Regions, func(i, j int) bool { return summary.Regions[i].ActualTotalMs > summary.Regions[j].ActualTotalMs })
+		for _, hash := range slices.Sorted(maps.Keys(surface.experiences)) {
+			experience := *surface.experiences[hash]
+			for _, phase := range experiencePhases {
+				merged := surface.phases[[2]string{hash, phase}]
+				if merged == nil || merged.Samples == 0 {
+					continue
+				}
+				out := *merged
+				out.P50Ms = math.Round(out.P50Ms/float64(out.Samples)*100) / 100
+				experience.Phases = append(experience.Phases, out)
+			}
+			summary.Experiences = append(summary.Experiences, experience)
+		}
 		out = append(out, summary)
 	}
 	return out
@@ -199,6 +283,13 @@ func writeWebText(b *strings.Builder, summaries []WebSummary) {
 		for _, region := range s.Regions {
 			fmt.Fprintf(b, "  region %s: mount=%d update=%d nested=%d render total=%s max=%s after-refresh=%d\n",
 				region.Name, region.Mount, region.Update, region.NestedUpdate, msDuration(region.ActualTotalMs), msDuration(region.ActualMaxMs), region.CommitsAfterRefresh)
+		}
+		for _, e := range s.Experiences {
+			fmt.Fprintf(b, "  experience %s: windows=%d frames created=%d locations reused=%d pages retained<=%d resumes=%d evictions=%d\n",
+				e.Hash, e.Windows, e.FramesCreated, e.LocationsReused, e.PagesRetained, e.Resumes, e.Evictions)
+			for _, phase := range e.Phases {
+				fmt.Fprintf(b, "    %s: samples=%d p50=%s p95<=%s\n", phase.Phase, phase.Samples, msDuration(phase.P50Ms), msDuration(phase.P95MaxMs))
+			}
 		}
 		for _, counts := range []struct {
 			label  string

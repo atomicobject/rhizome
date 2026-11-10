@@ -13,8 +13,10 @@ type Assertion @node(paths: ["assertions/**/*.md"], propertyCase: KEBAB) @displa
   headline: String @field(source: "headline") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored abstract; absent and unknown values are preserved without inferred defaults."""
   abstract: String @field(source: "abstract") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  """AO KB authored kind; absent and unknown values are preserved without inferred defaults."""
-  kind: String @field(source: "kind") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  """AO KB authored kind, read from the legacy `assertionKind` key when `kind` is absent (SPEC-0135 R2). The raw value is preserved."""
+  kind: String @field(sources: ["kind", "assertionKind"]) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  """The legacy `assertionKind` key alone, so a reader can report a record whose two kind keys disagree."""
+  legacyKind: String @field(source: "assertionKind") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored confidence; absent and unknown values are preserved without inferred defaults."""
   confidence: String @field(source: "confidence") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored attestation; absent and unknown values are preserved without inferred defaults."""
@@ -55,8 +57,8 @@ type Assertion @node(paths: ["assertions/**/*.md"], propertyCase: KEBAB) @displa
   products: [String!] @field(source: "products") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored extracted_by; absent and unknown values are preserved without inferred defaults."""
   extractedBy: String @field(source: "extracted_by") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  """AO KB authored speaker; absent and unknown values are preserved without inferred defaults."""
-  speaker: String @field(source: "speaker") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  """AO KB authored speaker, read from the legacy `attestedBy` key when `speaker` is absent. The legacy `origin` key is not a role and is not read."""
+  speaker: String @field(sources: ["speaker", "attestedBy"]) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """AO KB authored speaker_role; absent and unknown values are preserved without inferred defaults."""
   speakerRole: String @field(source: "speaker_role") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
   """Raw AO demo-feedback kind:id references; these are not claim-to-claim edges."""

@@ -81,3 +81,17 @@ func customEntryReadable(entryFS fs.FS, folder, entry string) bool {
 	info, err := root.Stat(filepath.FromSlash(entry))
 	return err == nil && info.Mode().IsRegular()
 }
+
+// readEntry reads a custom view's entry the way customEntryReadable checks it.
+func readEntry(entryFS fs.FS, def ViewDefinition) ([]byte, error) {
+	folder := filepath.Dir(def.Source.Path)
+	if entryFS != nil {
+		return fs.ReadFile(entryFS, path.Join(filepath.ToSlash(folder), def.SourceSpec.Entry))
+	}
+	root, err := os.OpenRoot(folder)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	return root.ReadFile(filepath.FromSlash(def.SourceSpec.Entry))
+}

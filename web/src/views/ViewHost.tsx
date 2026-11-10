@@ -10,11 +10,13 @@ import type {
 import type { OpenMode } from "../components/useNoteTabs";
 import type { EditReadLifecycle } from "../staging/stagedQuery";
 import { CustomViewFrame } from "../components/CustomViewFrame";
+import { ExperiencePlaceholder, useExperienceLayer } from "../components/ExperienceFrameLayer";
 import { ViewPreferencesStatus } from "../components/ViewPreferencesStatus";
 import type { ViewPreferenceScope } from "../viewPreferences/types";
 import { NativeCollectionView } from "./NativeCollectionView";
 import type { OpenNodeOptions, ViewContext, ViewModuleProps } from "./context";
 import type { ViewParamValue } from "./params";
+import type { OpenSearchRequest } from "./viewBridge";
 
 export type ViewServices = {
   session: OntologyEditSessionResponse | null;
@@ -28,7 +30,7 @@ export type ViewServices = {
   onOpenView?: (id: string, context: ViewContext, params?: Record<string, ViewParamValue>) => void;
   onStageOps: (ops: OntologyEditOp[]) => Promise<void>;
   onOpenIssues?: (scope?: ValidationScope) => void;
-  onOpenSearch?: (search: { folder: string; query?: string }) => void;
+  onOpenSearch?: (search: OpenSearchRequest) => void;
 };
 
 export type ViewRuntimeProps = ViewModuleProps & {
@@ -100,12 +102,32 @@ export function ViewHost(
   },
 ) {
   const { choice, definition, context, active, services, renderers } = props;
+  const layer = useExperienceLayer();
 
   if (choice.renderer === "custom") {
     if (!definition)
       return <p role="alert">This view is unavailable. Choose another view to continue.</p>;
+    const experienceKey = choice.experienceKey ?? definition.experienceKey;
 
-    return active ? (
+    if (!active) return null;
+
+    // An experience's page renders in its experience's long-lived frame.
+    if (experienceKey && layer)
+      return (
+        <>
+          <PreferencesBar {...props} />
+          <ExperiencePlaceholder
+            layer={layer}
+            experienceKey={experienceKey}
+            view={definition}
+            context={context}
+            preferenceSlot={props.preferenceSlot}
+            services={services}
+          />
+        </>
+      );
+
+    return (
       <>
         <PreferencesBar {...props} />
         <CustomViewFrame
@@ -123,7 +145,7 @@ export function ViewHost(
           onOpenSearch={services.onOpenSearch}
         />
       </>
-    ) : null;
+    );
   }
 
   if (choice.renderer === "table" || choice.renderer === "card" || choice.renderer === "kanban") {

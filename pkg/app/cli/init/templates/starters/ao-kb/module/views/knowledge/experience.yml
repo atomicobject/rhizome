@@ -1,0 +1,5 @@
+title: Knowledge
+group: Knowledge
+types: [Assertion, Concept, Source, Artifact, MapOfContent, Submission, CurationDocument, ConflictRegistry]
+panel: ao-kb.panel
+tailwind: false

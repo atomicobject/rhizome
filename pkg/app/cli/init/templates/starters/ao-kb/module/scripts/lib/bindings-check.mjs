@@ -25,6 +25,8 @@ export function runCompilerCheck(root) {
 
 /** Read the policy's block sources and scalar path lists; uncertain YAML certifies no ownership. */
 export function ownedPatterns(text) {
+  // A Windows checkout (core.autocrlf) or editor can write CRLF; `$` would not match before `\r`.
+  text = text?.replace(/\r\n/g, '\n');
   if ((text?.match(/^sources:[ \t]*$/gm) || []).length !== 1) return [];
   let ownerIndent;
   for (const line of text.split('\n')) {
@@ -100,6 +102,22 @@ export function bindingRows(root, report) {
   const detail = (report.diagnostics ?? []).filter(d => d.severity === 'error').map(d => d.message || d.code).join(' ');
   // The compiler's state names what failed; a missing dependency or duplicate IDs is never reported as stale.
   const dependency = report.status === 'dependency missing' || codes.includes('ao_dependency_missing');
+  const knowledgeRow = () => add('knowledge admission', report.knowledgeReady ? 'ok' : 'pending', report.knowledgeReady
+    ? 'The generated knowledge admission matches the persisted product selection.'
+    : `Knowledge typing is unscoped or stale until setup completes. ${SELECT}`, `${MODULE}/ontology/ao-knowledge.generated.graphql`);
+
+  // Below schemaVersion 8 the model stage does not run, so no model row reports a dependency, readiness, or ownership.
+  const model = report.bindings?.model;
+  if (model?.status === 'not applicable') {
+    for (const [name, path] of [['model compiler dependencies', `${MODULE}/bindings`], ['model bindings', `${MODULE}/bindings/manifest.json`], ['model source ownership', OWNERSHIP]]) {
+      add(name, 'not applicable', model.reason, path);
+    }
+    add('model index', report.indexReady ? 'ok' : 'pending', report.indexReady
+      ? 'A knowledge index receipt matches the knowledge bindings and the site sources.'
+      : 'No knowledge index receipt for the current bindings and site sources; `node .rhizome/modules/ao-kb/bindings/cli.mjs index` indexes and writes one.', `${MODULE}/bindings/index-receipt.json`);
+    knowledgeRow();
+    return rows;
+  }
 
   const deps = Object.entries(report.dependencies ?? {});
   if (deps.length) {
@@ -129,9 +147,7 @@ export function bindingRows(root, report) {
     ? 'A verified index receipt matches these bindings.'
     : 'No verified index receipt for the current bindings; `node .rhizome/modules/ao-kb/bindings/cli.mjs index` indexes and writes one.', `${MODULE}/bindings/index-receipt.json`);
 
-  add('knowledge admission', report.knowledgeReady ? 'ok' : 'pending', report.knowledgeReady
-    ? 'The generated knowledge admission matches the persisted product selection.'
-    : `Knowledge typing is unscoped or stale until setup completes. ${SELECT}`, `${MODULE}/ontology/ao-knowledge.generated.graphql`);
+  knowledgeRow();
 
   const manifest = JSON.parse(read(root, bindingsPath) ?? 'null');
   if (!manifest?.sources && !manifest?.knowledgeSources) {

@@ -17,9 +17,32 @@ export type PublicNodeRef = {
   typeName?: string | null;
 };
 
+/** How completely one generated typed root was read, as `extensions.typedRoots[alias]`. */
+export type PublicTypedRootCoverage = {
+  requestedFirst: number;
+  returnedCount: number;
+  offset: number;
+  hasMore: boolean | null;
+  nextOffset: number | null;
+  /** `complete`, `capped`, `unknown_page_bound`, or `unknown_candidate_bound`. */
+  status: string;
+};
+
+/** A capped read (`nodes(refs:)`, `search`, `neighborhood`) that stopped at its limit, as `extensions.truncated[]`. */
+export type PublicTruncation = { path: string[]; returned: number; limit: number };
+
+/** What the server says about a GraphQL response beside its data (SPEC-0135 R2c, SPEC-0136 R4 and R8). */
+export type PublicGraphQLExtensions = {
+  typedRoots?: Record<string, PublicTypedRootCoverage>;
+  truncated?: PublicTruncation[];
+  /** The opaque index generation read before execution; compare for equality only. */
+  generation?: string;
+} & JsonObject;
+
 export type PublicGraphQLResult<TData> = {
   data?: TData;
   errors?: PublicGraphQLError[];
+  extensions?: PublicGraphQLExtensions;
 };
 
 type PublicNodeLocator = {
@@ -220,6 +243,7 @@ export type PublicNodeWorkspaceProjection = {
   source?: unknown;
   parentRef?: PublicNodeRef | null;
   parentTitle?: string | null;
+  noteType?: string | null;
   sourceLinks?: Array<{
     target: string;
     authoredTarget?: string | null;

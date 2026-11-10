@@ -30,6 +30,10 @@ func catalogEntries(defs []viewconfig.ViewDefinition, issues []viewconfig.Issue,
 		if def.Generated {
 			entryIssues = nil
 		}
+		experienceKey := ""
+		if def.Experience != nil && def.ExperiencePage {
+			experienceKey = def.Experience.Key()
+		}
 		out = append(out, CatalogEntry{
 			Configuration:     def.Configuration,
 			ID:                def.ID,
@@ -42,6 +46,7 @@ func catalogEntries(defs []viewconfig.ViewDefinition, issues []viewconfig.Issue,
 			Defaults:          def.Defaults,
 			Variants:          def.Variants,
 			AvailableVariants: availableVariants(def),
+			ExperienceKey:     experienceKey,
 			Definition:        def,
 			Issues:            entryIssues,
 		})

@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { graphql, useGraphQL } from "@rhizome/kit";
+import { graphql, typedRootCoverage, useGraphQL } from "@rhizome/kit";
 import {
-  CEILING,
   citations,
   coverage,
   origin,
+  objectKey,
   ownerKey,
   relationships,
   sourceText,
@@ -18,9 +18,10 @@ import type { FieldLink, ModelFile, ModelRecord, SourceValue, TypeSpec } from ".
 
 // Composite section-scoped citations and normalized AO relations need GraphQL;
 // a native collection row does not carry the origin-citation coverage contract.
-// The resolver reads at most 500 records per root. Hitting a ceiling is explicit.
+// Roots read up to the public maximum and report typed-root coverage; declared relation
+// fields pass no `first`, which returns every row (SPEC-0135 R2c).
 export const QUERY = `{
-  assertion(first: 500) {
+  assertion(first: 5000) {
     ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }
     path aoId title headline content kind confidence status attestation validFrom validUntil
     reviewedBy reviewedAt updatedAt priority horizon speaker speakerRole extractedBy
@@ -31,47 +32,45 @@ export const QUERY = `{
     workspace { capabilities { readOnlyReason } }
     sourcesSection { citations { recordedLink sources { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline } } }
     connectionsSection { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } content workspace { fields { name values } } }
-    concepts(first: 500) { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline name }
+    concepts { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline name }
   }
-  source(first: 500) {
+  source(first: 5000) {
     ref { notePath kind fragment nodeId typeName structuralFingerprint: structural }
     path aoId title name headline content frontmatter sourcePaths locatorScheme kind speakerRole ingestedAt extractedAssertionIds
     workspace { capabilities { readOnlyReason } }
   }
-  concept(first: 500) {
+  concept(first: 5000) {
     ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline name
-    relatedConceptsSection { relatedConcepts(first: 500) { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline name } }
+    linkedAssertions { path } linkingAssertions { path }
+    relatedConceptsSection { relatedConcepts { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline name } }
   }
-  artifact(first: 500) {
+  artifact(first: 5000) {
     ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline name status graphSyncedAt
     supportedBy { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline }
-    additionalAssertionReferences(first: 500) { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline }
-    conceptReferences(first: 500) { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline name }
-    sourceReferences(first: 500) { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline name }
-    artifactReferences(first: 500) { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline name }
+    additionalAssertionReferences { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline }
+    conceptReferences { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline name }
+    sourceReferences { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline name }
+    artifactReferences { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline name }
   }
-  conflictRegistry(first: 500) {
+  conflictRegistry(first: 5000) {
     groups { entries {
       ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path title
-      assertions(first: 500) { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline }
+      assertions { ref { notePath kind fragment nodeId typeName structuralFingerprint: structural } path aoId title headline }
       fields { label value }
     } }
   }
 }`;
 
+const ROOTS = ["assertion", "source", "concept", "artifact", "conflictRegistry"] as const;
 export function useKnowledge() {
   const query = useGraphQL<Knowledge>(QUERY);
   const graph = useMemo(() => (query.data ? relationships(query.data) : undefined), [query.data]);
-  const capped =
-    query.data &&
-    [
-      query.data.assertion,
-      query.data.source,
-      query.data.concept,
-      query.data.artifact,
-      query.data.conflictRegistry,
-    ].some((rows) => rows.length >= CEILING);
-  return { query, data: query.data, graph, capped };
+  // Roots whose typed-root coverage is not complete; unknown coverage is never complete.
+  const coverage = typedRootCoverage(query.data);
+  const incomplete = query.data
+    ? ROOTS.filter((root) => coverage?.[root]?.status !== "complete")
+    : [];
+  return { query, data: query.data, graph, capped: incomplete.length > 0, incomplete };
 }
 export function useSavedAnalysis() {
   return useQuery({ queryKey: ["ao-kb", "saved-analysis"], queryFn: () => readSavedAnalysis() });
@@ -79,7 +78,7 @@ export function useSavedAnalysis() {
 /** Origin-citation coverage for `rows` (every loaded claim by default). */
 export function useCoverage(data: Knowledge | undefined, rows = data?.assertion) {
   return useQuery({
-    queryKey: ["ao-kb", "origin-coverage", data, rows?.map((a) => a.path)],
+    queryKey: ["ao-kb", "origin-coverage", data && objectKey(data), rows?.map((a) => a.path)],
     enabled: !!data,
     queryFn: async () => {
       const results = await Promise.all(
@@ -98,7 +97,7 @@ export function useCoverage(data: Knowledge | undefined, rows = data?.assertion)
 export function useCitationPassages(a: Assertion, data: Knowledge) {
   const rows = citations(a, data.source);
   return useQuery({
-    queryKey: ["ao-kb", "citations", a.path, rows],
+    queryKey: ["ao-kb", "citations", a.path, objectKey(data)],
     queryFn: async () =>
       Promise.all(
         rows.map(async (c) => ({

@@ -1,12 +1,26 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { embedded, MoreToggle, Section, sectionStatus, useViewContext } from "@rhizome/kit";
+import {
+  embedded,
+  Fact,
+  Facts,
+  MoreToggle,
+  RecordPage,
+  Section,
+  SectionBody,
+  sectionStatus,
+  useViewContext,
+  useViewParams,
+} from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import { loadSourceDocument } from "./lib/source-document.ts";
-import { relationships, sourceText } from "./lib/knowledge.ts";
+import { objectKey, sourceText } from "./lib/knowledge.ts";
 import type { Knowledge, Source } from "./lib/knowledge.ts";
 import { splitLines } from "./lib/locators.ts";
-import { DateValue, Field, Page, Record, TraceLink } from "./parts.tsx";
+import { DateValue, Field, Record, TraceLink } from "./parts.tsx";
+import { useKnowledge } from "./data.tsx";
+import { useOwnRecord, useSite } from "./site/data.tsx";
+import { SourceNote, SourceScope, TargetBanner, WithTarget } from "./source-site.tsx";
 import { FileLink } from "./evidence.tsx";
 import { AOHandoff } from "./record-parts.tsx";
 
@@ -37,33 +51,15 @@ function SourceMargin({ rows }: { rows: Citer[] }) {
 
 function SourceRecord({ source: s, data }: { source: Source; data: Knowledge }) {
   const [read, setRead] = useState(false);
-  const graph = relationships(data);
   const doc = useQuery({
-    queryKey: ["ao-kb", "source-document", s, data],
+    queryKey: ["ao-kb", "source-document", s.path, objectKey(data)],
     enabled: read,
     queryFn: () => loadSourceDocument(s, data),
   });
   const paths = sourceText(s).paths;
-  const extraction = (s.extractedAssertionIds ?? []).map((id) => ({
-    id,
-    a: data.assertion.find((a) => a.path === graph.resolve(id)),
-  }));
   const unlocated = doc.data?.citers.filter((c) => c.passage.status !== "resolved") ?? [];
   return (
     <>
-      <header>
-        <div className="ak-record-head">
-          <h1>{s.name || s.headline || s.title}</h1>
-          <TraceLink record={s} />
-        </div>
-        <p className="ak-meta font-mono">
-          {s.path} · {s.aoId || "ID not recorded"}
-        </p>
-        {/* The reader shows the server's reason above the pane; a standalone page shows it here. */}
-        {!embedded && s.workspace.capabilities.readOnlyReason && (
-          <p className="ak-footnote">{s.workspace.capabilities.readOnlyReason}</p>
-        )}
-      </header>
       <Section title="Source facts">
         <dl className="ak-fields">
           <Field label="Kind">{s.kind}</Field>
@@ -200,50 +196,99 @@ function SourceRecord({ source: s, data }: { source: Source; data: Knowledge }) 
           )
         )}
       </Section>
-      <Section
-        title="Extraction history"
-        count={extraction.length}
-        caption="AO's extractedAssertionIds. Extraction is never shown as support."
-        empty={extraction.length ? undefined : "None recorded"}
-      >
-        <ul className="ak-list">
-          {extraction.map(({ id, a }) => (
-            <li key={id}>
-              {a ? (
-                <>
-                  <Record record={a} />
-                  <span className="ak-meta">
-                    {graph.edges.some(
-                      (e) => e.from === a.path && e.to === s.path && e.rel === "cites",
-                    )
-                      ? "Also cites this source"
-                      : "Does not cite this source"}
-                  </span>
-                </>
-              ) : (
-                <span className="text-risk">Unresolved or ambiguous assertion ID: {id}</span>
-              )}
-            </li>
-          ))}
-        </ul>
-      </Section>
       <AOHandoff />
     </>
   );
 }
+type Own = Source;
+const OWN_FIELDS =
+  "... on Source { content aoId name headline kind workspace { capabilities { readOnlyReason } } }";
+const BASIS = { recorded: "Recorded date", file: "Date in file name", none: "No recorded date" };
+
 export default function SourcePage() {
   const context = useViewContext();
+  const params = useViewParams();
+  const path = context.kind === "node" ? context.ref.notePath : "";
+  const target = typeof params.assertion === "string" ? params.assertion : "";
+  const own = useOwnRecord<Own>(path, OWN_FIELDS);
+  const state = useKnowledge();
+  const { query, site } = useSite();
+  const o = own.data?.node;
+  const s = state.data?.source.find((v) => v.path === path);
+  const date = site?.dates.get(path);
   return (
-    <Page>
-      {({ data }) => {
-        const path = context.kind === "node" ? context.ref.notePath : "";
-        const source = data.source.find((s) => s.path === path);
-        return source ? (
-          <SourceRecord key={source.path} source={source} data={data} />
-        ) : (
-          <p>No record named {path || "this source"} here</p>
-        );
-      }}
-    </Page>
+    <main className="ak-page">
+      <RecordPage
+        className="ak-record"
+        kind={<span className="ak-chip">Source</span>}
+        title={o ? o.name || o.headline || o.title : path.split("/").pop()?.replace(/\.md$/, "")}
+        actions={o && <TraceLink record={o} />}
+        facts={
+          o && (
+            <Facts
+              note={
+                <span className="font-mono">
+                  {o.path} · {o.aoId || "ID not recorded"}
+                </span>
+              }
+            >
+              {date && (
+                <Fact>
+                  {date.date ?? "No date"} · {BASIS[date.basis]}
+                  {date.unreadable ? "; unreadable recorded date" : ""}
+                </Fact>
+              )}
+              <Fact>Source kind: {o.kind ?? "not recorded"}</Fact>
+            </Facts>
+          )
+        }
+        status={sectionStatus(own)}
+        what="this source"
+        partial={
+          state.capped
+            ? `Incomplete: not every ${state.incomplete.join(", ")} record was read, so citing claims may be missing.`
+            : undefined
+        }
+      >
+        {() =>
+          o ? (
+            <>
+              {!embedded && o.workspace?.capabilities.readOnlyReason && (
+                <p className="ak-footnote">{o.workspace.capabilities.readOnlyReason}</p>
+              )}
+              {target && state.data ? (
+                <WithTarget source={path} assertion={target} data={state.data}>
+                  {(t) => (
+                    <>
+                      <TargetBanner target={t} />
+                      <SourceNote content={o.content ?? ""} site={site} target={t} />
+                    </>
+                  )}
+                </WithTarget>
+              ) : (
+                <SourceNote content={o.content ?? ""} site={site} />
+              )}
+              <SectionBody status={sectionStatus(query)} what="where it sits in the KB">
+                {() => site && <SourceScope site={site} path={path} />}
+              </SectionBody>
+              <SectionBody
+                status={sectionStatus(state.query)}
+                what="the source's text and citations"
+              >
+                {() =>
+                  s && state.data ? (
+                    <SourceRecord key={s.path} source={s} data={state.data} />
+                  ) : (
+                    <p>No record named {path} in the knowledge read</p>
+                  )
+                }
+              </SectionBody>
+            </>
+          ) : (
+            <p>No record named {path || "this source"} here</p>
+          )
+        }
+      </RecordPage>
+    </main>
   );
 }

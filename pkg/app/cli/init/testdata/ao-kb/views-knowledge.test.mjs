@@ -7,6 +7,7 @@ import {
   coverage,
   conflictPair,
   filterAssertions,
+  objectKey,
   observations,
   physicalSourceLine,
   relationships,
@@ -143,6 +144,19 @@ test("typed raw dangling declarations are visible without parsing unknown Connec
   assert.equal(relationships(data([a])).edges.length, 0);
 });
 
+test("pages reading the same data object share one relationship graph", () => {
+  const shared = data([assertion("a")]);
+  assert.equal(relationships(shared), relationships(shared));
+  assert.notEqual(relationships(shared), relationships(data([assertion("a")])));
+});
+
+test("query keys name a data object by a small stable key, never by its contents", () => {
+  const shared = data([assertion("a")]);
+  assert.equal(objectKey(shared), objectKey(shared));
+  assert.notEqual(objectKey(shared), objectKey(data([assertion("a")])));
+  assert.equal(typeof objectKey(shared), "number");
+});
+
 test("exact registry Assertions field determines the pair, retaining other recorded fields", () => {
   const c = {
     fields: [
@@ -193,10 +207,11 @@ test("sync observations use authored timestamps and missing or incomparable mean
   assert.equal(groups["Sync date unknown"].length, 1);
 });
 
-test("membership filters include every authored concept link", () => {
-  const a = assertion("a", { concepts: [record("concepts/one.md"), record("concepts/two.md")] });
-  assert.deepEqual(filterAssertions([a], "", "concepts/two.md"), [a]);
-  assert.deepEqual(filterAssertions([a], "does not match", ""), []);
+test("the concept filter uses shared membership, so a link from the concept side counts", () => {
+  const a = assertion("a"), b = assertion("b");
+  const conceptsOf = new Map([["a", ["concepts/one.md", "concepts/two.md"]], ["b", []]]);
+  assert.deepEqual(filterAssertions([a, b], "", "concepts/two.md", conceptsOf), [a]);
+  assert.deepEqual(filterAssertions([a, b], "does not match", "", conceptsOf), []);
 });
 
 test("source paths retain blank slots; selected raw file passage is marked only in its own file", async () => {

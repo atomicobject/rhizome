@@ -27,6 +27,7 @@ func writePerf(out io.Writer, summary PerfSummary) error {
 		b.WriteByte('\n')
 	}
 	writeWebText(&b, summary.Web)
+	writeReadCacheText(&b, summary.ReadCache)
 	if len(summary.Groups) == 0 {
 		b.WriteString("No timed operations in the examined evidence.\n")
 	} else {

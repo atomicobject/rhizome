@@ -59,7 +59,7 @@ func TestCustomViewShellAndTransform(t *testing.T) {
 
 	shell := getCustomView(srv, "/views/poc.board")
 	body := shell.Body.String()
-	for _, want := range []string{"<title>Board &lt;1&gt;</title>", `src="/kit/v1/boot.js"`, `import("/views/_files/poc/board.tsx")`, `"stamp":"/views/_stamp/poc"`} {
+	for _, want := range []string{"<title>Board &lt;1&gt;</title>", `src="/kit/v1/`, `import("/views/_files/poc/board.tsx")`, `"stamp":"/views/_stamp/poc"`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("shell missing %q:\n%s", want, body)
 		}

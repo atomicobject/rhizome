@@ -144,8 +144,9 @@
   content: none;
 }
 
-/* The controls row is only as wide as the column: the path gives way, never
-   the controls. */
+/* The controls row is one line as wide as the column: the path gives way
+   first, down to its minimum, then the view switcher moves choices into
+   "More". Every other control keeps its width. */
 .notes-shell
   .ontology-pane__controls
   > :not(.ontology-pane__toolbar-path, .ontology-pane__controls-spacer) {
@@ -153,12 +154,14 @@
   white-space: nowrap;
 }
 
-/* Once the path is down to its minimum, the controls wrap onto a second line
-   instead of being cut off. The path's zero basis keeps it from wrapping a
-   control early, and it takes the free width itself, so the spacer stands down. */
+.notes-shell .ontology-pane__controls > .view-selector {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* The path's zero basis lets it give way before the switcher does, and it
+   takes the free width itself, so the spacer stands down. */
 .notes-shell .ontology-pane__controls:has(> .ontology-pane__toolbar-path) {
-  flex-wrap: wrap;
-  row-gap: var(--sp-1);
   height: auto;
   padding-block: var(--sp-2);
 }

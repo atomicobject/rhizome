@@ -101,7 +101,14 @@ func (s *Store) withWrite(ctx context.Context, fn func(ctx context.Context, db *
 	mu.Lock()
 	wait := time.Since(waitStart)
 	holdStart := time.Now()
+	beginWrite()
 	err := fn(ctx, s.db)
+	// fn may have committed before failing, so the counter moves either way,
+	// and a cancelled caller must not leave its commits unwitnessed.
+	if bumpErr := bumpWriteGeneration(context.WithoutCancel(ctx), s.db); err == nil {
+		err = bumpErr
+	}
+	endWrite()
 	hold := time.Since(holdStart)
 	mu.Unlock()
 	s.writeInfo.record(wait, hold)
@@ -110,12 +117,37 @@ func (s *Store) withWrite(ctx context.Context, fn func(ctx context.Context, db *
 }
 
 func (s *Store) withWriteTx(ctx context.Context, fn func(tx *sql.Tx) error) error {
+	return s.writeTx(ctx, true, fn)
+}
+
+// withEmbeddingWriteTx is withWriteTx for writes that change only embedding
+// vectors, their cache, and their bookkeeping. No cacheable read depends on
+// them (semantic and search reads are never cached, SPEC-0136 R4), so they
+// leave the index generation alone and an embedding pass does not make every
+// open page refetch. A cached read that starts depending on embedding tables
+// or embedding state must stop these writers from using it.
+func (s *Store) withEmbeddingWriteTx(ctx context.Context, fn func(tx *sql.Tx) error) error {
+	return s.writeTx(ctx, false, fn)
+}
+
+func (s *Store) writeTx(ctx context.Context, witnessed bool, fn func(tx *sql.Tx) error) error {
 	mu := s.writeLock()
 	waitStart := time.Now()
 	mu.Lock()
 	wait := time.Since(waitStart)
 	holdStart := time.Now()
-	err := sqliteutil.ExecTxWithRetry(ctx, s.db, fn)
+	if witnessed {
+		beginWrite()
+	}
+	err := sqliteutil.ExecTxWithRetry(ctx, s.db, func(tx *sql.Tx) error {
+		if err := fn(tx); err != nil || !witnessed {
+			return err
+		}
+		return bumpWriteGeneration(ctx, tx)
+	})
+	if witnessed {
+		endWrite()
+	}
 	hold := time.Since(holdStart)
 	mu.Unlock()
 	s.writeInfo.record(wait, hold)

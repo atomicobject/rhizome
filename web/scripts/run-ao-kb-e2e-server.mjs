@@ -1,7 +1,11 @@
-// Serves a disposable copy of the synthetic AO KB fixture with the ao-kb starter
-// installed, for the AO KB journey specs (playwright.ao-kb.config.ts). It installs
-// the starter through ordinary `rzm init`, exactly as the setup skill does, adds the
-// conflict registry include, indexes, and serves.
+// Serves a disposable copy of a synthetic AO KB fixture with the ao-kb starter
+// installed, for the AO KB specs (playwright.ao-kb.config.ts). It installs the
+// starter through ordinary `rzm init`, exactly as the setup skill does, adds the
+// includes the setup skill names, refreshes bindings, indexes, and serves.
+//
+// The fixture is the first argument, relative to the repository root
+// (default testdata/ao-kb/booking). Below AO schemaVersion 8, as in
+// testdata/ao-kb-legacy, the knowledge-only route needs no model intermediate.
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -21,7 +25,11 @@ if (!repoRoot || !port) {
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "rhizome-ao-kb-e2e-"));
 
-const vault = path.join(scratch, "booking");
+const fixture = process.argv[2] || "testdata/ao-kb/booking";
+
+const legacy = path.basename(fixture) === "ao-kb-legacy";
+
+const vault = path.join(scratch, path.basename(fixture));
 
 const rzm = path.join(scratch, "rzm");
 
@@ -36,7 +44,7 @@ process.on("exit", () => {
   fs.rmSync(scratch, { recursive: true, force: true });
 });
 
-fs.cpSync(path.join(repoRoot, "testdata", "ao-kb", "booking"), vault, { recursive: true });
+fs.cpSync(path.join(repoRoot, fixture), vault, { recursive: true });
 
 const goEnv = {
   GOCACHE: process.env.GOCACHE || path.join(repoRoot, ".gocache"),
@@ -84,27 +92,35 @@ run(
 // Discovery skips hidden directories unless an include names the path (the setup skill's step).
 const config = path.join(vault, ".rhizome", "config.yml");
 
-const intermediate = JSON.parse(
-  fs.readFileSync(path.join(repoRoot, "testdata/ao-kb/model-intermediate.json"), "utf8"),
-);
+const intermediate = legacy
+  ? undefined
+  : JSON.parse(
+      fs.readFileSync(path.join(repoRoot, "testdata/ao-kb/model-intermediate.json"), "utf8"),
+    );
 
-const includes = [
-  "**/*.md",
-  ".kb/curation/_conflicts.md",
-  ...new Set(intermediate.sources.map((source) => source.path)),
-];
+// A legacy KB keeps curation documents beside the conflict registry (SPEC-0135 R2).
+const includes = legacy
+  ? ["**/*.md", ".kb/curation/*.md"]
+  : [
+      "**/*.md",
+      ".kb/curation/_conflicts.md",
+      ...new Set(intermediate.sources.map((source) => source.path)),
+    ];
 
 fs.appendFileSync(config, `\nnotes:\n  includes: ${JSON.stringify(includes)}\n`);
 
 process.env.RZM = rzm;
 
-// CI uses the checked AO intermediate, with the production renderer and publisher.
-await refresh({
+const refreshOptions = {
   root: fs.realpathSync(vault),
   directory: path.join(vault, ".rhizome/modules/ao-kb/bindings"),
   selection: { formatVersion: 1, accountRoot: ".", product: null, toolkit: null },
-  exportModel: async () => structuredClone(intermediate),
-});
+};
+
+// CI uses the checked AO intermediate, with the production renderer and publisher.
+if (intermediate) refreshOptions.exportModel = async () => structuredClone(intermediate);
+
+await refresh(refreshOptions);
 
 run(rzm, ["index", "--vault", vault]);
 

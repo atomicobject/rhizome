@@ -50,6 +50,8 @@ export type NotesLocation = {
   searchTabID?: string | null;
   issueScope?: ValidationScope | null;
   issueKey?: string | null;
+  /** The shown view's param values: every query key the route does not own (SPEC-0135 R6a). */
+  viewParams?: string | null;
 };
 
 export type NotesLocationSelection = NotesRouteSelection | { kind: "type"; typeName: string };
@@ -72,7 +74,45 @@ export type NotesLocationOptions = {
   searchTabID?: string | null;
   issueScope?: ValidationScope | null;
   issueKey?: string | null;
+  viewParams?: string | null;
 };
+
+/** The query keys the Notes route owns; every other key is a view param. */
+const ROUTE_KEYS = new Set([
+  "note",
+  "noteQuery",
+  "view",
+  "presentation",
+  "nodeId",
+  "kind",
+  "structural",
+  "issueScopeKind",
+  "issueScopeKey",
+  "issue",
+  "search",
+  "scope",
+  "noteType",
+  "folder",
+  "searchTab",
+]);
+
+/** How much of a tab's view params a tab keeps, like its other stored state. */
+const VIEW_PARAMS_LIMIT = { keys: 32, length: 2048 };
+
+/** View params as a tab keeps them: route keys removed, bounded, empty as null. */
+export function boundedViewParams(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const kept = new URLSearchParams();
+
+  for (const [key, entry] of new URLSearchParams(value)) {
+    if (ROUTE_KEYS.has(key) || kept.size >= VIEW_PARAMS_LIMIT.keys) continue;
+    kept.append(key, entry);
+  }
+
+  const query = kept.toString();
+
+  return query && query.length <= VIEW_PARAMS_LIMIT.length ? query : null;
+}
 
 export function parseNotesRoute(pathname: string): NotesRouteSelection {
   if (!pathname.startsWith(NOTES_ROOT_PATH)) {
@@ -146,6 +186,10 @@ export function parseNotesLocation(pathname: string, search: string, hash: strin
 
   if (params.has("presentation")) location.presentation = params.get("presentation");
 
+  const viewParams = boundedViewParams(search);
+
+  if (viewParams) location.viewParams = viewParams;
+
   if (note && params.has("nodeId")) location.nodeId = params.get("nodeId");
 
   if (note && params.has("kind")) location.nodeKind = params.get("kind");
@@ -205,6 +249,7 @@ export function buildNotesLocation({
   searchTabID,
   issueScope,
   issueKey,
+  viewParams,
 }: NotesLocationOptions): string {
   const params = new URLSearchParams();
 
@@ -252,6 +297,9 @@ export function buildNotesLocation({
     // and out of its own routing query parameters.
     params.set("noteQuery", query);
   }
+
+  for (const [key, value] of new URLSearchParams(boundedViewParams(viewParams) ?? ""))
+    params.append(key, value);
 
   const queryString = params.toString();
   const suffix = queryString ? `?${queryString}` : "";

@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -10,7 +11,7 @@ import {
 import type { ViewChoice, ViewTarget } from "../api/types";
 import { usePopoverDismiss } from "../components/focusManagement";
 
-const MENU = "menu";
+const MORE = "more";
 
 /** Moves focus among `items` for the arrow keys named, Home, and End. */
 function moveFocus(event: KeyboardEvent, items: HTMLElement[], back: string, forward: string) {
@@ -51,6 +52,107 @@ function CustomViewIcon() {
   );
 }
 
+function Chevron() {
+  return (
+    <svg
+      className="view-selector__chevron"
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4.5 6.5 8 10l3.5-3.5" />
+    </svg>
+  );
+}
+
+/**
+ * How many of the choices, `widths` wide in visual order, fit inline in
+ * `available`. When some do not, the trigger takes room after the inline ones:
+ * `selectedMore` wide when it names the selected choice (at `selected`), else
+ * `more` wide.
+ */
+function inlineCount(
+  widths: number[],
+  { gap, available, more, selectedMore, selected }: Record<string, number>,
+) {
+  // Half a pixel absorbs rounding in widths that sum to the space exactly.
+  const room = available + 0.5;
+  let used = -gap;
+  const ends = widths.map((width) => (used += gap + width));
+
+  if ((ends.at(-1) ?? 0) <= room) return widths.length;
+
+  for (let count = widths.length - 1; count > 0; count--) {
+    if (ends[count - 1] + gap + (selected >= count ? selectedMore : more) <= room) return count;
+  }
+
+  return 0;
+}
+
+const px = (value: string) => Number.parseFloat(value) || 0;
+
+const width = (element: Element | null) => element?.getBoundingClientRect().width ?? 0;
+
+/** An element's width with its horizontal margins. */
+function outerWidth(element: HTMLElement | null) {
+  if (!element) return 0;
+  const style = getComputedStyle(element);
+
+  return width(element) + px(style.marginLeft) + px(style.marginRight);
+}
+
+/**
+ * The width the switcher may take. In a flex row it is the row's content
+ * width less what the row's other items cannot give up: a flexible item with a
+ * declared minimum (the note bar's path) gives up everything above it, a
+ * growing one gives up all of it, and any other item keeps its width. None of
+ * this depends on what the switcher shows, so it never measures itself into
+ * the menu.
+ */
+function roomFor(root: HTMLElement) {
+  const row = root.parentElement;
+  const style = row && getComputedStyle(row);
+
+  if (!row || !style?.display.endsWith("flex") || style.flexDirection.startsWith("column"))
+    return width(root);
+
+  const items = [...row.children].filter((item) => {
+    const itemStyle = getComputedStyle(item);
+
+    return itemStyle.display !== "none" && !["absolute", "fixed"].includes(itemStyle.position);
+  });
+
+  const kept = items.reduce((sum, item) => {
+    if (item === root) return sum;
+    const itemStyle = getComputedStyle(item);
+    const grows = px(itemStyle.flexGrow) > 0;
+    const flexible = grows || px(itemStyle.flexShrink) > 0;
+
+    const least =
+      flexible && itemStyle.minWidth.endsWith("px")
+        ? px(itemStyle.minWidth)
+        : grows
+          ? 0
+          : width(item);
+
+    return sum + least + px(itemStyle.marginLeft) + px(itemStyle.marginRight);
+  }, 0);
+
+  return (
+    width(row) -
+    px(style.paddingLeft) -
+    px(style.paddingRight) -
+    px(style.borderLeftWidth) -
+    px(style.borderRightWidth) -
+    px(style.columnGap) * (items.length - 1) -
+    kept
+  );
+}
+
 /** Persistence state of the remembered selection, from `useViewSelection`. */
 export type ViewSelectionStatus = {
   pending: boolean;
@@ -59,10 +161,11 @@ export type ViewSelectionStatus = {
 };
 
 /**
- * Switches a workspace between its views: standard presentations as segments,
- * one custom view as a segment of its own, and several behind a menu. The
- * default view says so in its tooltip and, in the menu, with a quiet label;
- * tabs carry no unexplained marks.
+ * Switches a workspace between its views: custom choices first, then standard
+ * ones, as many inline as the measured width holds, and the rest behind
+ * "More". The selected view is always visible, inline or named on the
+ * trigger. The default view says so in its tooltip and, in the menu, with a
+ * quiet label; tabs carry no unexplained marks.
  */
 export function ViewSelector({
   target,
@@ -80,15 +183,102 @@ export function ViewSelector({
 }) {
   // Fixed placement escapes toolbars that clip their overflow.
   const [menuPlace, setMenuPlace] = useState<{ top: number; right: number } | null>(null);
-  const open = menuPlace !== null;
   const [focusKey, setFocusKey] = useState<string | null>(null);
+  const [fit, setFit] = useState(Number.POSITIVE_INFINITY);
   const rootRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const rulerRef = useRef<HTMLDivElement>(null);
+  const trailingRef = useRef<HTMLSpanElement>(null);
+  const statusRef = useRef<HTMLSpanElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const refocus = useRef(false);
+  const measureRef = useRef(() => {});
   const menuId = useId();
   const defaultNoteId = useId();
   const close = useCallback(() => setMenuPlace(null), []);
+
+  const { choices, defaultChoiceId } = target;
+  const switcher = choices.length > 1;
+
+  // Rank by the custom flag, not the renderer: bundled standard views render as custom.
+  const ordered = [
+    ...choices.filter((choice) => choice.custom),
+    ...choices.filter((choice) => !choice.custom),
+  ];
+
+  const count = Math.min(fit, ordered.length);
+  const inline = ordered.slice(0, count);
+  const overflow = ordered.slice(count);
+  const open = menuPlace !== null && overflow.length > 0;
   usePopoverDismiss(open, rootRef, close);
+
+  measureRef.current = () => {
+    const ruler = rulerRef.current;
+
+    if (!rootRef.current || !ruler) return;
+    const style = getComputedStyle(ruler);
+    const [more, selectedMore, ...widths] = [...ruler.children].map(width);
+
+    const next = inlineCount(widths, {
+      gap: px(style.columnGap),
+      available:
+        roomFor(rootRef.current) -
+        outerWidth(trailingRef.current) -
+        outerWidth(statusRef.current) -
+        px(style.paddingLeft) -
+        px(style.paddingRight) -
+        px(style.borderLeftWidth) -
+        px(style.borderRightWidth),
+      more,
+      selectedMore,
+      selected: ordered.findIndex((choice) => choice.id === selectedId),
+    });
+
+    if (next === count) return;
+    // Removing the focused choice drops focus; the next render restores it.
+    refocus.current = rootRef.current.contains(document.activeElement);
+    setFit(next);
+  };
+
+  useLayoutEffect(() => {
+    if (refocus.current) {
+      refocus.current = false;
+
+      if (!rootRef.current?.contains(document.activeElement))
+        toolbarRef.current?.querySelector<HTMLElement>(':scope > [tabindex="0"]')?.focus();
+    }
+
+    measureRef.current();
+  });
+
+  // Re-measure when the row, an item in it, the choices' widths, or the
+  // trailing controls change size, and when the row gains or loses an item.
+  useEffect(() => {
+    const row = rootRef.current?.parentElement;
+    const resizes = new ResizeObserver(() => measureRef.current());
+
+    const observe = () => {
+      resizes.disconnect();
+
+      for (const element of [row, ...(row?.children ?? []), rulerRef.current, trailingRef.current])
+        if (element) resizes.observe(element);
+    };
+
+    const mutations = new MutationObserver(() => {
+      observe();
+      measureRef.current();
+    });
+
+    observe();
+
+    if (row) mutations.observe(row, { childList: true });
+
+    return () => {
+      resizes.disconnect();
+      mutations.disconnect();
+    };
+  }, [switcher, Boolean(trailing), Boolean(status?.error)]);
 
   useEffect(() => {
     if (!open) return;
@@ -100,31 +290,31 @@ export function ViewSelector({
     (items.find((item) => item.getAttribute("aria-checked") === "true") ?? items[0])?.focus();
   }, [open]);
 
-  const { choices, defaultChoiceId } = target;
-
   // One choice needs no switcher, but its controls (Reset to shared) remain.
-  if (choices.length < 2)
+  if (!switcher)
     return trailing ? (
       <div className="view-selector">
         <span className="view-selector__trailing">{trailing}</span>
       </div>
     ) : null;
 
-  const custom = choices.filter((choice) => choice.custom);
-  const useMenu = custom.length > 1;
-  const segments = useMenu ? choices.filter((choice) => !choice.custom) : choices;
-  const selectedInMenu = useMenu ? custom.find((choice) => choice.id === selectedId) : undefined;
-  const keys = [...segments.map((choice) => choice.id), ...(useMenu ? [MENU] : [])];
+  const selected = ordered.find((choice) => choice.id === selectedId);
+  const selectedInMenu = overflow.find((choice) => choice.id === selectedId);
+  const iconColumn = overflow.some((choice) => choice.custom);
+  const keys = [...inline.map((choice) => choice.id), ...(overflow.length ? [MORE] : [])];
 
-  // One Tab stop: the segment last focused, else the selected one.
-  const tabStop =
-    focusKey && keys.includes(focusKey)
-      ? focusKey
-      : selectedInMenu
-        ? MENU
-        : keys.includes(selectedId ?? "")
-          ? selectedId
-          : keys[0];
+  const stopFor = (id: string | null) =>
+    id === null
+      ? null
+      : keys.includes(id)
+        ? id
+        : overflow.some((choice) => choice.id === id)
+          ? MORE
+          : null;
+
+  // One Tab stop: the segment last focused, else the selected one; a choice
+  // that moved into the menu hands it to the trigger.
+  const tabStop = stopFor(focusKey) ?? stopFor(selectedId) ?? keys[0];
 
   const defaultProps = (choice: ViewChoice) =>
     choice.id === defaultChoiceId
@@ -135,6 +325,13 @@ export function ViewSelector({
     <>
       {choice.custom && <CustomViewIcon />}
       <span className="view-selector__label">{choice.name}</span>
+    </>
+  );
+
+  const triggerContent = (choice: ViewChoice | undefined) => (
+    <>
+      {choice ? content(choice) : <span className="view-selector__label">More</span>}
+      <Chevron />
     </>
   );
 
@@ -159,6 +356,7 @@ export function ViewSelector({
   return (
     <div className="view-selector" ref={rootRef}>
       <div
+        ref={toolbarRef}
         className="view-tabs"
         role="toolbar"
         aria-label="Workspace view"
@@ -167,7 +365,7 @@ export function ViewSelector({
           moveFocus(event, buttons, "ArrowLeft", "ArrowRight");
         }}
       >
-        {segments.map((choice) => (
+        {inline.map((choice) => (
           <button
             key={choice.id}
             type="button"
@@ -180,7 +378,7 @@ export function ViewSelector({
             {content(choice)}
           </button>
         ))}
-        {useMenu && (
+        {overflow.length > 0 && (
           <button
             ref={triggerRef}
             type="button"
@@ -189,47 +387,49 @@ export function ViewSelector({
             aria-haspopup="menu"
             aria-expanded={open}
             aria-controls={open ? menuId : undefined}
-            tabIndex={tabStop === MENU ? 0 : -1}
-            onFocus={() => setFocusKey(MENU)}
+            tabIndex={tabStop === MORE ? 0 : -1}
+            onFocus={() => setFocusKey(MORE)}
             onClick={() => (open ? close() : openMenu())}
             onKeyDown={(event) => {
               if (event.key !== "ArrowDown") return;
               event.preventDefault();
               openMenu();
             }}
-            {...(selectedInMenu ? defaultProps(selectedInMenu) : { title: "Custom views" })}
+            {...(selectedInMenu ? defaultProps(selectedInMenu) : { title: "More views" })}
           >
-            {selectedInMenu ? (
-              content(selectedInMenu)
-            ) : (
-              <>
-                <CustomViewIcon />
-                <span className="view-selector__label">Views</span>
-              </>
-            )}
-            <svg
-              className="view-selector__chevron"
-              viewBox="0 0 16 16"
-              aria-hidden="true"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M4.5 6.5 8 10l3.5-3.5" />
-            </svg>
+            {triggerContent(selectedInMenu)}
           </button>
         )}
       </div>
-      {menuPlace && (
+      {/* Every choice and both trigger labels at their natural widths, to measure what fits. */}
+      <div className="view-selector__ruler" aria-hidden="true" inert>
+        <div ref={rulerRef} className="view-tabs">
+          <button type="button" tabIndex={-1}>
+            {triggerContent(undefined)}
+          </button>
+          <button type="button" tabIndex={-1} aria-pressed={selected !== undefined}>
+            {triggerContent(selected)}
+          </button>
+          {ordered.map((choice) => (
+            <button
+              key={choice.id}
+              type="button"
+              tabIndex={-1}
+              aria-pressed={choice.id === selectedId}
+            >
+              {content(choice)}
+            </button>
+          ))}
+        </div>
+      </div>
+      {open && (
         <div
           ref={menuRef}
           id={menuId}
           className="view-selector__menu"
           style={menuPlace}
           role="menu"
-          aria-label="Custom views"
+          aria-label="More views"
           onKeyDown={(event) => {
             const items = [
               ...event.currentTarget.querySelectorAll<HTMLElement>("[role=menuitemradio]"),
@@ -238,7 +438,7 @@ export function ViewSelector({
             moveFocus(event, items, "ArrowUp", "ArrowDown");
           }}
         >
-          {custom.map((choice) => (
+          {overflow.map((choice) => (
             <button
               key={choice.id}
               type="button"
@@ -260,7 +460,9 @@ export function ViewSelector({
               >
                 <path d="m3.5 8.5 3 3 6-7" />
               </svg>
-              <span className="view-selector__label">{choice.name}</span>
+              {/* Labels share one column when custom and standard choices mix. */}
+              {!choice.custom && iconColumn && <span className="view-selector__icon" />}
+              {content(choice)}
               {choice.id === defaultChoiceId && (
                 <span className="view-selector__default" aria-hidden="true">
                   Default
@@ -271,14 +473,18 @@ export function ViewSelector({
         </div>
       )}
       {status?.error && (
-        <span className="view-preferences view-preferences--error" role="alert">
+        <span ref={statusRef} className="view-preferences view-preferences--error" role="alert">
           {status.pending ? "View choice not saved." : "Saved view choice could not load."}
           <button type="button" onClick={() => void status.retry().catch(() => {})}>
             Retry
           </button>
         </span>
       )}
-      {trailing && <span className="view-selector__trailing">{trailing}</span>}
+      {trailing && (
+        <span ref={trailingRef} className="view-selector__trailing">
+          {trailing}
+        </span>
+      )}
       <span id={defaultNoteId} hidden>
         Default view
       </span>

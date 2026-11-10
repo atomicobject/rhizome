@@ -48,6 +48,27 @@ func (p Planner) Plan(ctx context.Context, filters []FilterInput, sorts []SortIn
 	return plan
 }
 
+// FilterFieldError rejects a filter field that no resolver knows, or that
+// names a computed @neighbors or @reverse relation, which no read stores to
+// filter on. Either would otherwise match nothing and report complete.
+func FilterFieldError(key string, resolvers ...Resolver) error {
+	known := false
+	for _, resolver := range resolvers {
+		_, field, ok := resolver.Resolve(key)
+		if !ok {
+			continue
+		}
+		if field != nil && (field.Kind == ontoschema.FieldKindNeighbor || field.Kind == ontoschema.FieldKindReverse) {
+			return fmt.Errorf("filter field %q is a computed @neighbors or @reverse relation, which filters cannot evaluate", key)
+		}
+		known = true
+	}
+	if !known {
+		return fmt.Errorf("unknown filter field %q", key)
+	}
+	return nil
+}
+
 // BuildPredicate constructs an OntologyFieldPredicate. Returns (_, false, _)
 // when the field/op cannot be pushed. Link-typed fields will use the
 // configured LinkResolver when present; otherwise the raw target path from

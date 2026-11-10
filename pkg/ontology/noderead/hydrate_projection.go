@@ -151,10 +151,7 @@ func (s *Scope) embeddedRecordsFromProjectionNoOverlay(ctx context.Context, refs
 
 func (s *Scope) nodeRecordFromProjectionLocked(ctx context.Context, projection *ontology.NodeProjection) NodeRecord {
 	_ = ctx
-	title := projection.Ref.String()
-	if workspace := ontology.BuildNodeWorkspaceFromProjectionWithSchema(s.service.Schema, projection); workspace != nil {
-		title = workspace.Node.Title
-	}
+	title := ontology.NodeTitle(projection)
 	content := ""
 	if projection.Snapshot != nil && projection.Ref.StartByte >= 0 && projection.Ref.EndByte > projection.Ref.StartByte && projection.Ref.EndByte <= len(projection.Snapshot.Content) {
 		content = strings.TrimSpace(projection.Snapshot.Content[projection.Ref.StartByte:projection.Ref.EndByte])

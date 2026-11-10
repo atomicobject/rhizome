@@ -8,6 +8,8 @@ import (
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
+	"github.com/atomicobject/rhizome/pkg/viewscript"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -35,15 +37,23 @@ func New(opts ServiceOptions) *Service {
 // Catalog lists views and the targets they serve. Generated workflow views
 // open as a Board when their open work fits one (SPEC-0112), and the targets'
 // default choices read the same decision.
+// Hidden views stay out of the list and the targets' choices but take part
+// in panel resolution, as validation counts them (SPEC-0136 R6).
 func (s *Service) Catalog(ctx context.Context) (Catalog, error) {
-	catalog, err := s.catalog(ctx, false)
+	catalog, err := s.catalog(ctx, true)
 	if err != nil {
 		return Catalog{}, err
 	}
-	for i := range catalog.Views {
-		catalog.Views[i].Defaults.Variant = s.generatedDefaultVariant(ctx, catalog.Views[i])
+	all := catalog.Views
+	catalog.Views = make([]CatalogEntry, 0, len(all))
+	for i := range all {
+		if all[i].Mount.Hidden {
+			continue
+		}
+		all[i].Defaults.Variant = s.generatedDefaultVariant(ctx, all[i])
+		catalog.Views = append(catalog.Views, all[i])
 	}
-	catalog.Targets = resolveTargets(s.opts.Schema, catalog.Views)
+	catalog.Targets = resolveTargets(s.opts.Schema, all)
 	return catalog, nil
 }
 
@@ -72,6 +82,16 @@ func (s *Service) catalog(ctx context.Context, includeHidden bool) (Catalog, err
 	issues = append(issues, bundledIssues...)
 	entries := catalogEntries(all, issues, includeHidden)
 	return Catalog{Views: entries, Issues: issues}, nil
+}
+
+// Panel resolves the sidebar panel for one target, as Catalog reports it on
+// that target, without the catalog's count reads.
+func (s *Service) Panel(ctx context.Context, kind viewconfig.MountKind, name string) (viewconfig.Panel, error) {
+	catalog, err := s.catalog(ctx, true)
+	if err != nil {
+		return viewconfig.Panel{}, err
+	}
+	return panelResolver(s.opts.Schema, catalog.Views).Resolve(kind, name), nil
 }
 
 // View returns one catalog entry, with the same default variant the catalog
@@ -179,6 +199,8 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 		stats = executionStats(s.opts.Schema, def, *profile, filtered, capabilities, counted, time.Now())
 		stats.Truncated = plan.SourceCompleteness == SourceBounded
 	}
+	clock := clockDependent(profile, constraints.Filters, capabilities)
+	caller := slices.ContainsFunc(state.Filters, func(filter viewconfig.FilterSpec) bool { return strings.TrimSpace(filter.ValueFrom) != "" })
 	sortRows(filtered, constraints.Sort, capabilities)
 	groupedRows, allGroups := groupRows(filtered, group, capabilities, entry.Generated)
 	pageRows, pageInfo := paginateRows(groupedRows, state.Page)
@@ -248,7 +270,7 @@ func (s *Service) Execute(ctx context.Context, id string, req ExecuteRequest) (E
 	if capabilities == nil {
 		capabilities = []FieldCapability{}
 	}
-	return ExecuteResponse{View: entry, Variant: variant, State: state, Capabilities: capabilities, Columns: columns, Rows: pageRows, Groups: groups, Card: card, Board: board, PageInfo: pageInfo, Profile: profile, Stats: stats, Warnings: warnings, ConstraintPlan: source.ConstraintPlan, PushedConstraints: source.PushedConstraints, ResidualConstraints: source.ResidualConstraints, Plan: plan, DefinitionFingerprint: defFP, SourceFingerprint: sourceFP, ExecutionFingerprint: execFP}, nil
+	return ExecuteResponse{View: entry, Variant: variant, State: state, Capabilities: capabilities, Columns: columns, Rows: pageRows, Groups: groups, Card: card, Board: board, PageInfo: pageInfo, Profile: profile, Stats: stats, Warnings: warnings, ConstraintPlan: source.ConstraintPlan, PushedConstraints: source.PushedConstraints, ResidualConstraints: source.ResidualConstraints, Plan: plan, DefinitionFingerprint: defFP, SourceFingerprint: sourceFP, ExecutionFingerprint: execFP, ClockDependent: clock, CallerDependent: caller}, nil
 }
 func (s *Service) FieldCandidates(ctx context.Context, id string, req FieldCandidatesRequest) (FieldCandidatesResponse, error) {
 	entry, err := s.entry(ctx, id)
@@ -330,6 +352,9 @@ func (s *Service) bundledDefinitions(repository []viewconfig.ViewDefinition, opt
 			continue
 		}
 		def.Origin = viewconfig.OriginBundled
+		if def.Experience != nil {
+			def.Experience.Bundled = true
+		}
 		out = append(out, def)
 	}
 	var kept []viewconfig.Issue
@@ -348,6 +373,7 @@ func (s *Service) loadDefinitions() ([]viewconfig.ViewDefinition, []viewconfig.I
 }
 func (s *Service) validateOptions() viewconfig.ValidateOptions {
 	opts := viewconfig.SchemaValidateOptions(s.opts.Schema)
+	opts.ScanDefaultExport = viewscript.HasDefaultExport
 	if s.opts.VaultPath != "" {
 		recipes, _ := s.opts.QueryRecipes.Catalog()
 		opts.QueryRecipeIDs = map[string]struct{}{}

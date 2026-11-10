@@ -1,6 +1,6 @@
 ---
 name: custom-views
-description: Build or fix Rhizome HTML/TSX views for type collections, display groups, individual nodes, or standalone tools. For declarative native layouts and defaults, use the Rhizome views reference.
+description: Build or fix Rhizome HTML/TSX views for type collections, display groups, individual nodes, or standalone tools, and experiences that run several views as one site with a sidebar panel. For declarative native layouts and defaults, use the Rhizome views reference.
 ---
 
 # Custom views
@@ -101,13 +101,17 @@ Place each chart beside the question it answers, in the lens, tab, or panel abou
 
 Read `references/example.md` for a standalone board with a shared component and staged write. The mounted example covers a specific group dashboard, parameterized node page, and HTML accessor.
 
+## An experience: pages that run as one site
+
+When several views make up one site, such as a group home, record pages, lists, and a sidebar panel, put an `experience.yml` in their folder. Rhizome then renders them in one long-lived frame per window that keeps each tab's page, and shows the experience's panel at the bottom of the Notes sidebar. Pages in an experience default-export their component, read their subject through hooks (`useViewContext`, `useViewParams`, `useViewLocation`) because hidden pages re-render with their own, and stop their own timers when `useViewActive()` is false. Read `references/experiences.md` before building or changing one, including ejecting a starter to extend its experience.
+
 ## A module view that runs actions
 
 A view that needs something only a script can do, such as building a prompt from private local state or dismissing a proposal, calls its module's actions. Read `references/module-example.md`: the compounding workspace is the worked example of a module with actions, a custom view using `useActionQuery`, `useActionCommand`, and `params`, and validating them.
 
 ## An HTML entry or a standalone tool
 
-Set `entry: index.html` to own the whole document. Put `<script src="/kit/v1/boot.js"></script>` in `<head>` before any module script. Launch contextual pages through `/views/<id>` or `customViewHref(id, context)` so registration/configuration/context reach the entry. Direct file URLs are also available for context-free tools. YAML files, dot-prefixed files and folders, and `node_modules` are never served. A built folder works the same way: point `entry` at its built HTML.
+Set `entry: index.html` to own the whole document. Put `<script src="/kit/v1/boot.js"></script>` in `<head>` before any module script. It loads the kit's precompiled stylesheet and Tailwind's runtime compiler; the view shell serves the same kit from a build-stamped path, which an authored page cannot know, so the unstamped path revalidates on each load instead. Launch contextual pages through `/views/<id>` or `customViewHref(id, context)` so registration/configuration/context reach the entry. Direct file URLs are also available for context-free tools. YAML files, dot-prefixed files and folders, and `node_modules` are never served. A built folder works the same way: point `entry` at its built HTML.
 
 ## Start from a bundled view
 

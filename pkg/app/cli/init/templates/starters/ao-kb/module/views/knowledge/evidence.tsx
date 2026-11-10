@@ -2,7 +2,7 @@ import { NodeLink, Section, sectionStatus } from "@rhizome/kit";
 import { useQuery } from "@tanstack/react-query";
 import { useCitationPassages } from "./data.tsx";
 import { readPassage } from "./lib/passage.ts";
-import { physicalSourceLine, sourceText } from "./lib/knowledge.ts";
+import { objectKey, physicalSourceLine, sourceText } from "./lib/knowledge.ts";
 import type { Assertion, Citation, Knowledge } from "./lib/knowledge.ts";
 import type { PassageResult } from "./lib/locators.ts";
 import { Record } from "./parts.tsx";
@@ -129,7 +129,7 @@ export function Passage({
 }
 function Corroboration({ a, data }: { a: Assertion; data: Knowledge }) {
   const query = useQuery({
-    queryKey: ["ao-kb", "corroboration", a.path, data],
+    queryKey: ["ao-kb", "corroboration", a.path, objectKey(data)],
     queryFn: async () => {
       const { relationships } = await import("./lib/knowledge.ts");
       return Promise.all(

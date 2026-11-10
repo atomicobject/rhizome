@@ -106,7 +106,7 @@ func TestLiveOwnershipReloadSelectionUpdatesWatchHubExcludes(t *testing.T) {
 	defer unsub()
 
 	require.NoError(t, w.reloadOwnershipSelection())
-	require.False(t, rt.NotePathOwned("private/note.md"))
+	require.False(t, rt.NotePathOwned("private/note.md", nil))
 	hub.EmitHintPaths([]string{"private/note.md"})
 	select {
 	case events := <-eventsCh:
@@ -116,7 +116,7 @@ func TestLiveOwnershipReloadSelectionUpdatesWatchHubExcludes(t *testing.T) {
 
 	require.NoError(t, os.WriteFile(configPath, []byte("notes:\n  includes: [\"**/*.md\"]\n"), 0o644))
 	require.NoError(t, w.reloadOwnershipSelection())
-	require.True(t, rt.NotePathOwned("private/note.md"))
+	require.True(t, rt.NotePathOwned("private/note.md", nil))
 	hub.EmitHintPaths([]string{"private/note.md"})
 	select {
 	case events := <-eventsCh:
@@ -523,10 +523,10 @@ func TestLiveRuntimeNotePathOwnedUsesCurrentSelectionPolicy(t *testing.T) {
 	codeCfg := testCodeConfig(root)
 	rt.codeCfg.Store(&codeCfg)
 
-	require.True(t, rt.NotePathOwned("notes/public/example.md"))
-	require.False(t, rt.NotePathOwned("notes/private/example.md"))
-	require.False(t, rt.NotePathOwned("outside/example.md"))
-	require.False(t, rt.NotePathOwned("../escape.md"))
+	require.True(t, rt.NotePathOwned("notes/public/example.md", nil))
+	require.False(t, rt.NotePathOwned("notes/private/example.md", nil))
+	require.False(t, rt.NotePathOwned("outside/example.md", nil))
+	require.False(t, rt.NotePathOwned("../escape.md", nil))
 }
 
 func TestLeaderOwnershipConfigurationKeepsCapturedSelectionUntilReload(t *testing.T) {
@@ -549,7 +549,7 @@ func TestLeaderOwnershipConfigurationKeepsCapturedSelectionUntilReload(t *testin
 	rt.codeCfg.Store(&codeCfg)
 	rt.cache.Store(cacheService)
 	rt.setNoteSelectionPolicy(policy)
-	require.False(t, rt.NotePathOwned("private/note.md"))
+	require.False(t, rt.NotePathOwned("private/note.md", nil))
 
 	// Leader initialization uses the same capture as its existing stores.
 	require.NoError(t, os.WriteFile(configPath, []byte("notes:\n  includes: [\"**/*.md\"]\n"), 0o644))
@@ -558,11 +558,11 @@ func TestLeaderOwnershipConfigurationKeepsCapturedSelectionUntilReload(t *testin
 	promotedDefinition, promotedCodeCfg := promoted.VaultDefinition, promoted.Configuration.Code
 	require.Equal(t, []string{"private/**"}, promotedDefinition.Excludes)
 	require.NotEmpty(t, promotedCodeCfg.IndexPath)
-	require.False(t, rt.NotePathOwned("private/note.md"))
+	require.False(t, rt.NotePathOwned("private/note.md", nil))
 	require.False(t, cacheService.AdmitsNotePath("private/note.md"))
 	w := &unifiedSemanticWatcher{vaultPath: root, vaultDef: definition, noteRuntime: runtime, cacheService: cacheService, onConfigurationChanged: rt.publishOwnershipConfiguration}
 	require.NoError(t, w.reloadOwnershipSelection())
-	require.True(t, rt.NotePathOwned("private/note.md"))
+	require.True(t, rt.NotePathOwned("private/note.md", nil))
 	require.True(t, cacheService.AdmitsNotePath("private/note.md"))
 }
 

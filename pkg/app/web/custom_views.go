@@ -443,7 +443,12 @@ func (s *Server) serveCustomViewShell(w http.ResponseWriter, r *http.Request, id
 	config, _ := json.Marshal(settings)
 	entryJSON, _ := json.Marshal(entryURL)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprintf(w, customViewShell, html.EscapeString(def.Name), customViewKitBoot, invocationScript(invocation), entryJSON, config)
+	// An experience that opts out of Tailwind skips loading its compiler (SPEC-0136 R5).
+	bootAttrs := ""
+	if def.Experience != nil && !def.Experience.UsesTailwind() {
+		bootAttrs = ` data-tailwind="false"`
+	}
+	_, _ = fmt.Fprintf(w, customViewShell, html.EscapeString(def.Name), s.kitBase()+"boot.js", bootAttrs, invocationScript(invocation), entryJSON, config)
 }
 
 func escapeURLPath(rel string) string {
@@ -468,8 +473,8 @@ const untrustedViewPage = `<!doctype html>
 </html>
 `
 
-// boot.js owns the import map, theme, and Tailwind compiler so an authored HTML
-// page gets the same environment from the same one script tag.
+// boot.js owns the import map, stylesheet, and Tailwind compiler so an authored
+// HTML page gets the same environment from the same one script tag.
 const customViewShell = `<!doctype html>
 <html lang="en">
 <head>
@@ -477,7 +482,7 @@ const customViewShell = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>%s</title>
-<script src="/%s"></script>
+<script src="%s"%s></script>
 </head>
 <body>
 <div id="root"></div>

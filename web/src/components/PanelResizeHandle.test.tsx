@@ -148,3 +148,59 @@ describe("panel resizing", () => {
     expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}").paneCollapsed).toBe(false);
   });
 });
+
+describe("a height handle", () => {
+  const RANGE = { min: 120, max: 600, initial: 240 };
+
+  function Bottom({ onResize }: { onResize: (height: number) => void }) {
+    const ref = useRef<HTMLDivElement>(null);
+
+    return (
+      <div ref={ref} data-testid="panel">
+        <PanelResizeHandle
+          axis="y"
+          label="Resize panel"
+          range={RANGE}
+          value={240}
+          edge="start"
+          cssVar="--panel-height"
+          target={ref}
+          onResize={onResize}
+        />
+      </div>
+    );
+  }
+
+  const handle = () => screen.getByRole("separator", { name: "Resize panel" });
+
+  it("is a horizontal separator that Up and Down resize in 16px steps", () => {
+    const onResize = vi.fn();
+    render(<Bottom onResize={onResize} />);
+
+    expect(handle()).toHaveAttribute("aria-orientation", "horizontal");
+    expect(handle()).toHaveAttribute("aria-valuenow", "240");
+    // The handle sits on the panel's top edge, so Up grows it.
+    fireEvent.keyDown(handle(), { key: "ArrowUp" });
+    expect(onResize).toHaveBeenLastCalledWith(256);
+    fireEvent.keyDown(handle(), { key: "ArrowDown" });
+    expect(onResize).toHaveBeenLastCalledWith(224);
+    fireEvent.keyDown(handle(), { key: "Home" });
+    expect(onResize).toHaveBeenLastCalledWith(120);
+    fireEvent.keyDown(handle(), { key: "End" });
+    expect(onResize).toHaveBeenLastCalledWith(600);
+    onResize.mockClear();
+    fireEvent.keyDown(handle(), { key: "ArrowRight" });
+    expect(onResize).not.toHaveBeenCalled();
+  });
+
+  it("drags on the vertical axis", () => {
+    const onResize = vi.fn();
+    render(<Bottom onResize={onResize} />);
+
+    fireEvent.pointerDown(handle(), { button: 0, clientY: 500, pointerId: 1 });
+    fireEvent.pointerMove(handle(), { clientY: 400, pointerId: 1 });
+    expect(screen.getByTestId("panel").style.getPropertyValue("--panel-height")).toBe("340px");
+    fireEvent.pointerUp(handle(), { pointerId: 1 });
+    expect(onResize).toHaveBeenCalledWith(340);
+  });
+});

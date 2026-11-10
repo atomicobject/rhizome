@@ -41,7 +41,13 @@ fs.appendFileSync(
 );
 
 // Each overlay adds notes, optional .rhizome files, and schema types.
-for (const overlay of ["unified-views", "group-views", "type-views", "structured-records"]) {
+for (const overlay of [
+  "unified-views",
+  "group-views",
+  "type-views",
+  "structured-records",
+  "experience",
+]) {
   const overlayRoot = path.join(repoRoot, "web", "tests", "e2e", "fixtures", overlay);
 
   for (const directory of ["notes", ".rhizome"]) {

@@ -244,6 +244,8 @@ id:: SPEC-1000.US1.AC1
 	require.Equal(t, NodeKindEmbedded, criterionWorkspace.Node.ParentRef.Kind)
 	require.Equal(t, "UserStory", criterionWorkspace.Node.ParentRef.TypeName)
 	require.Equal(t, "^spec-1000-us1", criterionWorkspace.Node.ParentRef.Fragment)
+	require.Equal(t, "ProductSpec", criterionWorkspace.Node.NoteType, "an embedded node names its owning note's type")
+	require.Equal(t, "ProductSpec", storyWorkspace.Node.NoteType)
 }
 
 func TestBuildNodeVersion_TracksWorkspaceOnlyFields(t *testing.T) {

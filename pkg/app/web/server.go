@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"net/http"
 
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
+	"github.com/atomicobject/rhizome/pkg/paths"
 
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
@@ -57,8 +59,9 @@ type Config struct {
 	// edit and repair journals and before it starts cache or index workers.
 	EditsRecovered bool
 	// NotePathOwned optionally supplies the live ownership selector. Serve
-	// provides it so config reloads govern durable exact-note reads.
-	NotePathOwned func(string) bool
+	// provides it so config reloads govern durable exact-note reads. A read
+	// request passes one links cache for all its paths; nil resolves fresh.
+	NotePathOwned func(path string, links *paths.SymlinkCache) bool
 	// HTMLContentOriginTemplate is the separately-originated viewer base URL.
 	// It must be an absolute HTTP(S) URL whose hostname contains {token}.
 	// Empty uses http://{token}.localhost:<application-port> for loopback requests.
@@ -110,6 +113,9 @@ type Server struct {
 	editSessionsMu      sync.RWMutex
 	editSessions        map[string]*ontologyEditSession
 	graphCache          *graphResponseCache
+	generation          indexGenerationState
+	reads               *readCache
+	refPaths            refPathMemo
 	nodeProjectionCache *nodeProjectionCache
 	noteMetadata        notemeta.Indexer
 	noteFormats         noteformat.Runtime
@@ -125,6 +131,8 @@ type Server struct {
 	watchHubUnsub       func()
 	htmlViewers         *htmlViewerRegistry
 	viewModules         viewModuleCache
+	kitBuildOnce        sync.Once
+	kitBuild            string
 	viewWatch           viewFolderWatch
 	tasksTestLaunch     func(vaultPath, file string) error
 	tasksLaunch         func(vaultPath, itemID string) error // nil starts `rzm tasks run`
@@ -226,6 +234,7 @@ func NewServer(ctx context.Context, cfg Config, assets fs.FS) (*Server, error) {
 		return nil, err
 	}
 	s.agentService = agentService
+	s.reads = s.newReadCache()
 	s.finder = finder.NewLive(s.loadFinderCatalog, finderRebuildDelay)
 	s.lastReady = status
 	if runtime != nil {
@@ -247,6 +256,9 @@ func (s *Server) Close() error {
 	}
 	if s.finder != nil {
 		s.finder.Close()
+	}
+	if s.reads != nil {
+		s.reads.Close()
 	}
 	var errs []string
 	for _, closeFn := range s.cleanup {
@@ -455,6 +467,11 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys http.FileSystem, fil
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
+	}
+	// ServeContent would ask the mime package, which on Windows reads the registry
+	// (.js can be application/javascript or text/plain); the fixed table wins.
+	if contentType := viewerMIMETypes[strings.ToLower(filepath.Ext(file))]; contentType != "" {
+		w.Header().Set("Content-Type", contentType)
 	}
 	http.ServeContent(w, r, stat.Name(), stat.ModTime(), f)
 }

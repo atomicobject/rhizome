@@ -4,7 +4,7 @@ id: SPEC-0110
 aliases: [SPEC-0110, Unified view contract]
 summary: "One registration, invocation context, configuration, lifecycle, and service contract for built-in and custom views mounted on type collections, display groups, and individual nodes."
 spec-status: active
-last-updated: 2026-11-04
+last-updated: 2026-11-09
 last-verified: 2026-11-04
 ---
 
@@ -44,18 +44,20 @@ This extends [[configured-view-engine-and-repo-config|SPEC-0058]] and [[custom-v
 
 #### Acceptance Criteria
 
-- A configured or custom view definition MAY declare `params: [{name, kind, default?, identity?}]`, where `kind` is `string`, `int`, or `bool` and `identity` defaults to false. Validation rejects a name outside `[A-Za-z][A-Za-z0-9_]*`, a name the workspace or `/views` URL already reads (`context`, `hosted`, `preferenceSlot`, `viewId`, `note`, `noteQuery`, `view`, `presentation`, `nodeId`, `kind`, `structural`, `search`, `scope`, `noteType`, `folder`, `searchTab`, `issueScopeKind`, `issueScopeKey`, `issue`), an unknown kind, a default of another kind, and a duplicate name.
+- A configured or custom view definition MAY declare `params: [{name, kind, default?, identity?}]`, where `kind` is `string`, `int`, or `bool` and `identity` defaults to false. Validation rejects a name outside `[A-Za-z][A-Za-z0-9_]*`, a name the workspace or `/views` URL already reads (`context`, `hosted`, `frame`, `preferenceSlot`, `viewId`, `note`, `noteQuery`, `view`, `presentation`, `nodeId`, `kind`, `structural`, `search`, `scope`, `noteType`, `folder`, `searchTab`, `issueScopeKind`, `issueScopeKey`, `issue`), an unknown kind, a default of another kind, and a duplicate name.
   verification:: viewconfig unit test.
 - Param values live on the view's URL query under each unprefixed name, in the workspace and on a standalone page. `useViewParams()` returns the declared params with defaults applied, reading each value as its kind; undeclared keys and values that do not parse are ignored.
   verification:: kit and host unit tests; browser run.
 - `openView(id, context, params?)` opens a view with those params on its URL.
   verification:: kit and host unit tests.
-- `setViewParams(patch)` sends `rhizome:params-changed` to the host, which pushes a workspace history entry. A UI param reaches the same frame as `rhizome:view-params` and `useViewParams()` updates; an identity param is part of the invocation, so the frame remounts. `null` returns a param to its default, which leaves the URL.
+- `setViewParams(patch)` sends `rhizome:params-changed` to the host, which pushes a workspace history entry. A UI param reaches the same frame as `rhizome:view-params` and `useViewParams()` updates; an identity param is part of the invocation, so the frame remounts. For an experience view, the page remounts inside the retained frame ([[experiences|SPEC-0136]] R2). `null` returns a param to its default, which leaves the URL.
   verification:: host unit tests; browser run.
-- Back and Forward compare identity params: when they changed the frame remounts, and otherwise the host sends the UI params to the same frame.
+- Back and Forward compare identity params: when they changed the frame remounts, and otherwise the host sends the UI params to the same frame. For an experience view, the page remounts inside the retained frame (SPEC-0136 R2).
   verification:: host unit tests; browser run.
 - A standalone page reads and writes its own URL query by the same rules, reloading when an identity param changes.
   verification:: kit unit tests; browser run.
+- A workbench tab retains the declared param values of the presentation it shows and restores them when the tab is activated, after another tab closes, from persisted tabs, and on reload, for note tabs and a group's home location ([[ao-kb-knowledge-site|SPEC-0135]] R6a). A tab keeps every query key the Notes route does not own, at most 32 keys and 2,048 characters, like its other persisted state. Back and Forward still work from the full URL.
+  verification:: host unit tests; browser run.
 
 ## Requirements
 
@@ -65,13 +67,13 @@ This extends [[configured-view-engine-and-repo-config|SPEC-0058]] and [[custom-v
 - Each selectable view MUST have a stable identity, name, applicable target, ordering, renderer, configuration, and configured-default marker. A declarative definition's variants become separately selectable choices without duplicating its native source engine.
 - Overview, Table, Cards, and eligible Kanban layouts MUST register through the same normalized contract as custom views. Built-ins MUST remain available when an authored default exists.
 - Definition, mount, and invocation MUST remain independent. A mount limits availability; it does not silently change query semantics.
-- Custom code MUST support `type`, `interface`, `group`, `node`, `workspace`, and existing `standalone` mounts. A `workspace` mount has no subject and targets the All notes page, whose concrete context is `{ kind: "workspace" }` ([[scope-overview|SPEC-0117]]). A `type` names one concrete collection type; an `interface` names its implementing collection; a `node` names one concrete node type.
+- Custom code MUST support `type`, `interface`, `group`, `node`, `workspace`, and existing `standalone` mounts, and `panel` mounts inside an experience (SPEC-0136 R1, R6). A `workspace` mount has no subject and targets the All notes page, whose concrete context is `{ kind: "workspace" }` ([[scope-overview|SPEC-0117]]). A `type` names one concrete collection type; an `interface` names its implementing collection; a `node` names one concrete node type.
 - `group` mounts MUST accept one effective display-group name or `"*"`. The latter means any display group and receives the selected group as context. A specific mount MUST appear only for its group.
 - Multiple definitions MUST be available for the same target. Ordering MUST be deterministic; conflicting defaults at the same specificity MUST produce diagnostics and retain a usable deterministic result.
 - Effective group discovery MUST share the navigation interpretation, including existing parent relationships. Display groups remain presentation metadata, never ontology membership.
 - Invalid definitions MUST report actionable diagnostics without hiding compatible valid views or built-in fallbacks.
 - A native view on a `type` or `interface` mount MAY set `mount.replaceGenerated: true` to take the generated view's place for that subject. The generated view then contributes no choices there and stays addressable by ID. The field on any other mount, or on a custom source, MUST produce a warning and be ignored. Several valid replacing views on one target MUST each produce a warning; the first by order, then ID, replaces and the rest remain ordinary authored choices.
-- Each choice MUST carry `custom: true` when it comes from an authored view beyond the subject's standard presentations. Standard choices are the built-ins, the subject's own native layouts (generated or replacing), and a standalone target's own layouts. Choices MUST list standard ones first (built-ins, then native layouts in Table, Cards, Board order), then custom ones by order, then ID. The subject's own layouts, including a standalone target's, are named "Table", "Cards", and "Board"; custom native choices are qualified as "<View> · <Layout>".
+- Each choice MUST carry `custom: true` when it comes from an authored view beyond the subject's standard presentations. Standard choices are the built-ins, the subject's own native layouts (generated or replacing), and a standalone target's own layouts. Choices MUST list standard ones first (built-ins, then native layouts in Table, Cards, Board order), then custom ones by order, then ID. This catalog order and the selection precedence below are unchanged by how the switcher draws choices: it shows custom choices first, then standard ones, inline while they fit at the measured width including trailing controls, and the rest in "More" (SPEC-0135 R7). The subject's own layouts, including a standalone target's, are named "Table", "Cards", and "Board"; custom native choices are qualified as "<View> · <Layout>".
 
 Examples of additive custom registrations:
 
@@ -100,11 +102,12 @@ mount:
 - Every view MUST consume one typed runtime contract containing registration, concrete context, authored configuration, lifecycle state, querying, navigation, and staged editing. Merely sharing a selector does not satisfy this requirement.
 - Concrete context MUST distinguish type collection, interface collection, display group, focused node, and context-free standalone invocation.
 - Node context MUST carry the resolved concrete type and canonical `NodeRef`, including embedded fragment and node identity. A file path alone is insufficient.
-- The host MUST own activation, context changes, refresh, and cleanup. Inactive custom frames MUST unmount and release subscriptions and polling.
+- The host MUST own activation, context changes, refresh, and cleanup. Inactive custom frames MUST unmount and release subscriptions and polling, except experience frames and pages, which are retained and suspended under SPEC-0136 R2 and R3.
 - Built-ins MUST consume that contract through adapters to their existing components. `HomeTab` and `ViewTab` dispatch MUST converge on a shared host rather than remain independent presentation-selection owners.
 - Queries, canonical navigation, refresh subscriptions, and edit-session operations MUST reuse the existing clients and services. Native collection execution MUST be accessible to custom views through the shared service boundary, with canonical items, capabilities, warnings, and normalized state intact.
 - Custom TSX entries MUST receive context and configuration through component props or the kit's shared accessor/hook. HTML entries MUST be able to use the same accessor and services.
-- Invocations and query-cache identities MUST include the subject, so two nodes using one custom definition cannot share the wrong data or tab.
+- Invocations and query-cache identities MUST include the subject, so two nodes using one custom definition cannot share the wrong data or tab. In an experience frame the subject reaches each page through the kit's per-location invocation (SPEC-0136 R2).
+- The catalog MUST carry, on every view choice that renders in an experience frame, the server-computed `experienceKey`, and on every target a `panel` descriptor (`view`, `folder`, `owner`, or `none`) resolved by SPEC-0136 R6. The browser derives neither.
 
 ### Defaults and user selection
 
@@ -149,3 +152,5 @@ No blocking product decisions remain. Export and route spellings may be settled 
 ## Change record
 
 2026-11-04: Reconciled standalone view replacement, note-only tab-strip visibility, and node presentation default markers. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.
+
+2026-11-09: Amended for [[experiences|SPEC-0136]] (retained experience frames and pages, page remounts for identity params, the `panel` mount, `experienceKey` and the target's `panel` descriptor, `frame` reserved) and [[ao-kb-knowledge-site|SPEC-0135]] (tab params, R6a; custom-first switcher order, R7).

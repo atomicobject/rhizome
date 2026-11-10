@@ -4,7 +4,7 @@ id: SPEC-0105
 aliases: [SPEC-0105, custom-view-apps]
 summary: "A configured view can be custom code: a view definition names a TSX or HTML entry beside it, rzm serves it same-origin with a prebuilt UI kit and per-file TSX transform, and the same URL works mounted in the Rhizome nav or as a standalone tool."
 spec-status: active
-last-updated: 2026-11-02
+last-updated: 2026-11-09
 ---
 
 # Custom view apps
@@ -92,7 +92,7 @@ Two limits keep the choice contained: custom view code runs only when a user or 
 
 #### Acceptance Criteria
 
-- The kit is embedded in the binary and served at `/kit/v1/`. One classic script, `boot.js`, installs an import map exposing `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `lucide-react`, `@rhizome/ui`, and `@rhizome/kit`, sharing one React instance, plus the theme and Tailwind's browser compiler.
+- The kit is embedded in the binary and served under `/kit/v1/<build>/`, where `<build>` is a hash of the embedded kit, with `Cache-Control: public, max-age=31536000, immutable`; the view shell and the import map reference that path, and `/kit/v1/` without a build keeps working for existing pages, revalidated against the build ([[experiences|SPEC-0136]] R5). One classic script, `boot.js`, installs an import map exposing `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `lucide-react`, `@rhizome/ui`, and `@rhizome/kit`, sharing one React instance. It loads the precompiled stylesheet `kit.css` (fonts, tokens, theme, kit components, and the utilities the kit and the bundled starters' views use) and, unless its tag carries `data-tailwind="false"`, Tailwind's browser compiler from its own file, `tailwind.js`. The view shell sets that attribute for an experience with `tailwind: false`.
   verification:: kit build output; browser run with no console errors.
 - `@rhizome/ui` exports shadcn-compatible components under their conventional names and props, so shadcn code an agent already knows works unchanged apart from the import path.
   verification:: proof-of-concept views written in ordinary shadcn idiom.
@@ -112,6 +112,10 @@ Two limits keep the choice contained: custom view code runs only when a user or 
   verification:: kit unit test with a mocked fetch.
 - `useViewParams()`, `getViewParams()`, `subscribeViewParams()`, `setViewParams(patch)`, and `openView(id, context, params?)` implement view parameters as [[unified-view-contract#^SPEC-0110-US1|SPEC-0110 US1]] defines; the invocation carries the declared params.
   verification:: kit unit tests; browser run.
+- The kit gains SPEC-0136 R7's additions: `useViewLocation`, `useViewActive`, `useViewConfiguration`, `markReady`, `useMarkReady`, `usePageNavigation`, `readNodes`, and `RecordPage`. It reports typed-root coverage with `typedRootCoverage(data)` and capped reads with `truncation(data)` ([[ao-kb-knowledge-site|SPEC-0135]] R2c). `openSearch`'s `folder` is optional, and without it the search covers the whole vault (SPEC-0135 R6). All are additive.
+  verification:: kit unit tests.
+- A frame loaded with `frame=experience` beside `hosted=1` is an experience or panel frame (SPEC-0136 R2, R3). It posts `rhizome:frame-ready` once it listens, receives `rhizome:location`, `rhizome:suspend`, `rhizome:resume`, `rhizome:generation`, and `rhizome:close-page`, and replies `rhizome:location-accepted` and `rhizome:location-rendered` instead of `rhizome:view-rendered`. Every message from one of its pages carries that page's tab ID and navigation ID.
+  verification:: kit and host unit tests; Playwright journeys on the synthetic experience fixture.
 
 ### US4 - Mount and standalone
 
@@ -155,7 +159,7 @@ Two limits keep the choice contained: custom view code runs only when a user or 
 - Kit source lives in `web/kit/` and builds with the web UI into the embedded assets. A `NO_WEB=1` build has no kit, and `/views/<id>` says so.
 - The OpenAPI document and generated web types carry the new source kind and entry field.
 - Executing a custom view through `POST /api/v1/views/{id}/execute` or `rzm view run` fails with a clear unsupported-kind error.
-- A standalone page reloads by polling a content stamp of the view's folder against a baseline the server writes into the shell. A hosted frame reloads on the `views.changed` event, which one server poller emits while an event stream is open ([[group-views-and-view-platform|SPEC-0111]]). Neither extends the vault watcher, which excludes `.rhizome/` by design.
+- A standalone page reloads by polling a content stamp of the view's folder against a baseline the server writes into the shell. A hosted frame reloads on the `views.changed` event, which one server poller emits while an event stream is open ([[group-views-and-view-platform|SPEC-0111]]). An experience frame instead rebuilds: the host destroys it and starts a fresh frame at the active tab's location, and the other tabs' pages rebuild at their locations when shown (SPEC-0136 R2, R3). Neither extends the vault watcher, which excludes `.rhizome/` by design.
 
 ## Open questions
 
@@ -166,3 +170,7 @@ Two limits keep the choice contained: custom view code runs only when a user or 
 
 - Subsystem ownership: `pkg/ontology/viewconfig/CONTEXT.md` gains the custom source kind; `web/CONTEXT.md` gains the kit and the `/views/` routes.
 - The skill template is the agent-facing documentation.
+
+## Change record
+
+2026-11-09: Amended for [[experiences|SPEC-0136]] (build-stamped immutable kit path, precompiled stylesheet, runtime Tailwind in its own file, R7's kit additions, the experience frame messages, and experience frames rebuilding on `views.changed`) and [[ao-kb-knowledge-site|SPEC-0135]] (typed-root coverage, optional open-search `folder`).

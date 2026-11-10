@@ -4,7 +4,7 @@ id: SPEC-0128
 aliases: [SPEC-0128, Workbench sidebar]
 summary: "One persistent, user-toggled sidebar across Notes, Ontology, Explorer, Agent, and GraphQL: the same themed frame with section-specific contents, one remembered collapsed state and width, a toggle in the browser top bar and in Rhizome Desktop's toolbar, and ⌃⌘S or ⌘\\ to toggle it."
 spec-status: active
-last-updated: 2026-11-04
+last-updated: 2026-11-09
 last-verified: 2026-11-04 # Round 7
 ---
 
@@ -27,7 +27,7 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 - Per-section collapsed state or per-section widths.
 - New narrow-window behaviour for the sidebar. The existing cap of 45% of the window stays.
 - Changes to the right pane (SPEC-0126 US6) and its `]` shortcut.
-- Changing what the Notes sidebar holds (SPEC-0126 US8).
+- Changing what the Notes sidebar holds (SPEC-0126 US8), except that it holds one resolved panel at its bottom ([[experiences|SPEC-0136]] R6). The panel never changes the sidebar's visibility, width, or toggle.
 
 ## User Stories
 
@@ -104,3 +104,5 @@ None. Drew settled the shared state, Ontology type tree, shortcuts, and original
 ## Change record
 
 2026-11-04: Recorded Drew's approved reversal of the 2026-10-26 GraphQL exclusion and the Views/Types grouping. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.
+
+2026-11-09: The Notes sidebar holds one resolved panel at its bottom ([[experiences|SPEC-0136]] R6), an exception to the non-goal on its contents.

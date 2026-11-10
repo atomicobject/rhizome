@@ -1,5 +1,6 @@
 import { type CSSProperties, type ReactNode, useEffect, useRef } from "react";
 
+import { inDesktop } from "./desktopHost";
 import { typingIn } from "./KeyboardShortcuts";
 import { PanelResizeHandle } from "./PanelResizeHandle";
 import { SIDEBAR_RANGE } from "./shellPanes";
@@ -48,22 +49,41 @@ export function isSidebarShortcut(event: KeyboardEvent, desktop = false): boolea
   return backslash || letterS;
 }
 
+/** A key listener for `realm` that toggles the sidebar on its shortcut, outside text fields. */
+const sidebarShortcutListener =
+  (desktop: boolean, realm: Window & typeof globalThis = window) =>
+  (event: KeyboardEvent) => {
+    if (
+      event.defaultPrevented ||
+      typingIn(event.target, realm) ||
+      !isSidebarShortcut(event, desktop)
+    )
+      return;
+    event.preventDefault();
+    toggleSidebar();
+  };
+
 /** Toggles the sidebar from the keyboard, outside text fields, unless `disabled`. */
 export function useSidebarShortcut({ desktop, disabled }: { desktop: boolean; disabled: boolean }) {
   useEffect(() => {
     if (disabled) return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || typingIn(event.target) || !isSidebarShortcut(event, desktop))
-        return;
-      event.preventDefault();
-      toggleSidebar();
-    };
-
+    const onKeyDown = sidebarShortcutListener(desktop);
     window.addEventListener("keydown", onKeyDown);
 
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [desktop, disabled]);
+}
+
+/**
+ * Keys pressed in a same-origin frame, such as a sidebar panel's, never reach
+ * this window, so the frame's newly loaded document answers the sidebar
+ * shortcut itself, outside its own text fields (SPEC-0136 R6). The listener
+ * goes with the document.
+ */
+export function bridgeSidebarShortcut(frame: HTMLIFrameElement) {
+  const realm = frame.contentDocument?.defaultView;
+
+  realm?.addEventListener("keydown", sidebarShortcutListener(inDesktop(), realm));
 }
 
 /** The top bar's sidebar toggle. Disabled where a section has no sidebar. */

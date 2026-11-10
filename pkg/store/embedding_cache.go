@@ -208,7 +208,7 @@ func (s *Store) UpsertEmbeddingCache(ctx context.Context, entries []EmbeddingCac
 		return nil
 	}
 	ctx = indexingperf.WithOp(ctx, "intel.upsert_embedding_cache")
-	return s.withWriteTx(ctx, func(tx *sql.Tx) error {
+	return s.withEmbeddingWriteTx(ctx, func(tx *sql.Tx) error {
 		stmt, err := tx.PrepareContext(ctx, `
 			INSERT INTO intel_embedding_cache (provider, model, dimensions, text_hash, vector, format)
 			VALUES (?, ?, ?, ?, ?, ?)
@@ -313,7 +313,7 @@ func (s *Store) NoteEmbeddingCacheBackfillPending(ctx context.Context) (bool, er
 // not.
 func (s *Store) BackfillNoteEmbeddingCache(ctx context.Context, copyVectors bool) error {
 	ctx = indexingperf.WithOp(ctx, "intel.backfill_note_embedding_cache")
-	return s.withWriteTx(ctx, func(tx *sql.Tx) error {
+	return s.withEmbeddingWriteTx(ctx, func(tx *sql.Tx) error {
 		noteMeta, err := tableExistsQuery(ctx, tx, "emb_index_meta")
 		if err != nil {
 			return err
@@ -355,7 +355,7 @@ func (s *Store) BackfillNoteEmbeddingCache(ctx context.Context, copyVectors bool
 func (s *Store) PruneEmbeddingCache(ctx context.Context, ontologyFormat, noteFormat string) (int64, error) {
 	ctx = indexingperf.WithOp(ctx, "intel.prune_embedding_cache")
 	var deleted int64
-	err := s.withWriteTx(ctx, func(tx *sql.Tx) error {
+	err := s.withEmbeddingWriteTx(ctx, func(tx *sql.Tx) error {
 		for _, promote := range [][2]string{{ontologyFormat, ontologyCacheRefs}, {noteFormat, noteCacheRefs}} {
 			if _, err := tx.ExecContext(ctx, `UPDATE intel_embedding_cache SET format = ?
 				WHERE format NOT IN (?, ?) AND text_hash IN (`+promote[1]+`)`, promote[0], ontologyFormat, noteFormat); err != nil {

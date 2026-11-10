@@ -8,7 +8,6 @@ mount:
   kind: group
   group: Knowledge
   order: 10
-  default: true
 params:
   - { name: find, kind: string }
   - { name: concept, kind: string }

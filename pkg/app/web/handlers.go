@@ -326,6 +326,7 @@ func (s *Server) status(ctx context.Context) StatusResponse {
 	s.statusMu.RLock()
 	defer s.statusMu.RUnlock()
 	resp := s.lastReady
+	resp.Generation = s.IndexGeneration(ctx)
 	noteIndex, noteProvider := s.runtime.NoteEmbeddings()
 	codeIndex, codeProvider := s.runtime.CodeEmbeddings()
 	intelStore := s.runtime.Intel()

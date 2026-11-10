@@ -97,6 +97,7 @@ export const PUBLIC_NODE_DETAIL_QUERY = /* GraphQL */ `
           typeName
         }
         parentTitle
+        noteType
         sourceLinks(first: 100) {
           target
           authoredTarget

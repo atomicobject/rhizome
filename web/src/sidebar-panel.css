@@ -1,0 +1,269 @@
+/* ---- The Notes sidebar's panel slot (SPEC-0136 R6) ----
+   Navigation above, one panel below: split with a divider, minimised to its
+   32px title bar, or covering the sidebar's contents. Panel text is chrome
+   text; --chrome-link marks only lines and highlights. */
+
+.sidebar-panel-slot {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sidebar-panel-slot__navigation {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sidebar-panel-slot__navigation[hidden] {
+  display: none;
+}
+
+.sidebar-panel {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--chrome-raised);
+  color: var(--chrome-muted);
+}
+
+/* Split keeps at least 96px of navigation above the panel. */
+.sidebar-panel-slot.is-split .sidebar-panel {
+  height: var(--panel-height);
+  max-height: calc(100% - 96px);
+}
+
+.sidebar-panel-slot.is-cover .sidebar-panel {
+  flex: 1;
+  border-top: 0;
+}
+
+.sidebar-panel__bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 8px;
+}
+
+.sidebar-panel__title,
+.sidebar-panel__control {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--chrome-text);
+  font: var(--label-structure);
+  cursor: pointer;
+  transition: background-color 0.12s var(--ease);
+}
+
+.sidebar-panel__title {
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+  padding: 0 8px 0 0;
+  text-align: left;
+}
+
+.sidebar-panel__caret {
+  display: inline-flex;
+  flex: 0 0 var(--disclosure-target);
+  align-items: center;
+  justify-content: center;
+  color: var(--chrome-muted);
+}
+
+.sidebar-panel__control {
+  flex: none;
+  justify-content: center;
+  width: 28px;
+  color: var(--chrome-muted);
+}
+
+.sidebar-panel__control svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sidebar-panel__title:hover,
+.sidebar-panel__control:hover,
+.sidebar-panel__control[aria-pressed="true"] {
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
+}
+
+.sidebar-panel__title:focus-visible,
+.sidebar-panel__control:focus-visible {
+  outline: 2px solid var(--chrome-text);
+  outline-offset: -2px;
+}
+
+.sidebar-panel__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 0 10px;
+  scrollbar-color: var(--chrome-raised) transparent;
+  scrollbar-width: thin;
+}
+
+.sidebar-panel__body[hidden] {
+  display: none;
+}
+
+/* The divider: the shared resize handle on the panel's top edge. */
+.panel-resize--y-start {
+  top: -4px;
+  right: 0;
+  bottom: auto;
+  left: 0;
+  width: auto;
+  height: 8px;
+  cursor: row-resize;
+}
+
+.panel-resize--y-start::after {
+  top: 3px;
+  right: 0;
+  bottom: auto;
+  left: 0;
+  width: auto;
+  height: 2px;
+}
+
+.sidebar-panel .panel-resize:hover::after,
+.sidebar-panel .panel-resize:active::after {
+  background: var(--chrome-link);
+}
+
+/* ---- Folder: the active note's folder, its ancestors, and its notes ---- */
+
+.folder-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 8px;
+}
+
+.folder-panel__state {
+  margin: 4px 10px;
+  color: var(--chrome-muted);
+  font-size: var(--fs-sm);
+}
+
+.folder-panel__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 30px;
+  padding: 0 10px 0 calc(8px + var(--folder-depth, 0) * 16px);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--chrome-muted);
+  font: inherit;
+  font-size: var(--fs-base);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s var(--ease);
+}
+
+.folder-panel__row:hover {
+  background: var(--chrome-raised);
+}
+
+.folder-panel__row:focus-visible {
+  outline: 2px solid var(--chrome-text);
+  outline-offset: -2px;
+}
+
+.folder-panel__row--folder {
+  color: var(--chrome-text);
+}
+
+/* The folder the note sits in: its name opens Explorer there. */
+.folder-panel__row--current {
+  font-weight: 600;
+}
+
+.folder-panel__row--current .folder-panel__icon {
+  color: var(--chrome-link);
+}
+
+.folder-panel__row.is-selected {
+  background: var(--chrome-pill);
+  color: var(--chrome-pill-text);
+  font-weight: 600;
+}
+
+.folder-panel__row.is-selected:focus-visible {
+  outline-color: var(--chrome-pill-text);
+}
+
+.folder-panel__icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.folder-panel__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A custom panel's frame: in a layer over the rail, laid over the slot's
+   body, so it outlives the slot showing Folder or nothing (moving an iframe
+   reloads it). */
+.notes-left-rail {
+  position: relative;
+}
+
+.panel-frame-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.panel-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 0;
+  background: transparent;
+  visibility: hidden;
+}
+
+.panel-frame[data-shown] {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.sidebar-panel__body:has(> .experience-placeholder) {
+  padding: 0;
+}
+
+.sidebar-panel .experience-placeholder__status {
+  margin: 6px 12px;
+  color: var(--chrome-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-panel__title,
+  .sidebar-panel__control,
+  .folder-panel__row {
+    transition: none;
+  }
+}

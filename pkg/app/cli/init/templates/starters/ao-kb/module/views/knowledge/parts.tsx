@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Count,
@@ -7,20 +7,22 @@ import {
   Section,
   SectionBody,
   sectionStatus,
-  setViewParams,
+  usePageNavigation,
   useViewParams,
   useViewPreference,
   workspaceViewHref,
-  openView,
 } from "@rhizome/kit";
 import { Button, Input } from "@rhizome/ui";
 import { badges, name, refKey } from "./lib/knowledge.ts";
 import type { Assertion, Knowledge, RecordLink } from "./lib/knowledge.ts";
 import type { Edge } from "./lib/relations.ts";
 import { useBindingFreshness, useKnowledge } from "./data.tsx";
+import { membership } from "./lib/site.ts";
 import "./knowledge.css";
 
-export const today = () => new Date().toLocaleDateString("en-CA");
+/** Today's local date as YYYY-MM-DD (what "en-CA" formats), without an Intl formatter per call. */
+export const today = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 /** Shown wherever model data appears: published bindings that are not ready are never
  * presented as current. Nothing while reading or when ready. */
 export function ModelFreshness({ className = "ak-footnote" }: { className?: string }) {
@@ -31,18 +33,18 @@ export function ModelFreshness({ className = "ak-footnote" }: { className?: stri
     </p>
   ) : null;
 }
+// One formatter for every date cell; building one per cell cost 55 ms per render of a long list.
+const DATE = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
 export function DateValue({ value }: { value?: string | null }) {
   const time = value ? Date.parse(value) : NaN;
   return (
     <span title={value || undefined}>
-      {Number.isFinite(time)
-        ? new Date(time).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            timeZone: "UTC",
-          })
-        : value || "Not recorded"}
+      {Number.isFinite(time) ? DATE.format(time) : value || "Not recorded"}
     </span>
   );
 }
@@ -60,6 +62,7 @@ export function Record({ record }: { record: RecordLink }) {
   );
 }
 export function TraceLink({ record }: { record: RecordLink }) {
+  const { openView } = usePageNavigation();
   return (
     <a
       className="text-link underline-offset-2 hover:underline"
@@ -115,8 +118,8 @@ export function Page({
             <>
               {state.capped && (
                 <p role="alert" className="text-risk">
-                  Incomplete: this presentation reads at most 500 records per type. References and
-                  observations cover that loaded scope; unresolved IDs may lie outside it.
+                  Incomplete: not every {state.incomplete.join(", ")} record was read. References
+                  and observations cover the records read; unresolved IDs may lie outside them.
                 </p>
               )}
               {children({ ...state, data: state.data })}
@@ -127,16 +130,36 @@ export function Page({
     </main>
   );
 }
+/** The shared membership (D1) over the evidence read: a link in either direction. */
+export function useMembership<T extends Knowledge | undefined>(data: T) {
+  return useMemo(
+    () =>
+      data
+        ? membership(
+            data.concept,
+            data.assertion.map((a) => a.path),
+          )
+        : undefined,
+    [data],
+  ) as T extends Knowledge
+    ? ReturnType<typeof membership>
+    : ReturnType<typeof membership> | undefined;
+}
+const text = (v: unknown, fallback = "") => (typeof v === "string" ? v : fallback);
 export function useFilters() {
   const params = useViewParams();
   return {
-    find: typeof params.find === "string" ? params.find : "",
-    concept: typeof params.concept === "string" ? params.concept : "",
-    sort: typeof params.sort === "string" ? params.sort : "title-asc",
+    find: text(params.find),
+    concept: text(params.concept),
+    sort: text(params.sort, "title-asc"),
+    assertionKind: text(params.assertionKind),
+    confidence: text(params.confidence),
+    gap: text(params.gap),
   };
 }
 export function Filters({ data, concepts = true }: { data: Knowledge; concepts?: boolean }) {
-  const { find, concept } = useFilters();
+  const { find, concept, assertionKind, confidence, gap } = useFilters();
+  const { setViewParams } = usePageNavigation();
   const conceptId = useId();
   const [draft, setDraft] = useState(find);
   useEffect(() => {
@@ -177,13 +200,27 @@ export function Filters({ data, concepts = true }: { data: Knowledge; concepts?:
           </select>
         </div>
       )}
-      {(find || concept) && <ClearFilters />}
+      {(find || concept || assertionKind || confidence || gap) && <ClearFilters />}
     </div>
   );
 }
 export function ClearFilters() {
+  const { setViewParams } = usePageNavigation();
+  const declared = useViewParams();
   return (
-    <Button size="sm" variant="ghost" onClick={() => setViewParams({ find: null, concept: null })}>
+    <Button
+      size="sm"
+      variant="ghost"
+      onClick={() =>
+        setViewParams(
+          Object.fromEntries(
+            ["find", "concept", "assertionKind", "confidence", "gap"]
+              .filter((k) => k in declared)
+              .map((k) => [k, null]),
+          ),
+        )
+      }
+    >
       Clear filters
     </Button>
   );

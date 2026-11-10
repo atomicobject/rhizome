@@ -1,0 +1,11 @@
+apiVersion: rhizome.view.v1
+id: ao-kb.overview
+name: KB overview
+source:
+  kind: custom
+  entry: overview.tsx
+mount:
+  kind: group
+  group: Knowledge
+  order: 5
+  default: true

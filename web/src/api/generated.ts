@@ -801,6 +801,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/views/{id}/invocation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description The invocation a host posts to an experience frame or panel frame (SPEC-0136 R2, R6), built with the same trust, mount, and context checks as the view shell. A view mounted as a panel passes the mount check exactly when the context's target resolves to that panel. The response carries the index generation in the Rhizome-Generation header. */
+    get: operations["getPublicViewInvocation"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/views/{id}/save": {
     parameters: {
       query?: never;
@@ -986,6 +1003,8 @@ export interface components {
       values: components["schemas"]["ViewPreferenceValues"];
     };
     StatusResponse: {
+      /** @description The opaque index generation `epoch.writes.schema.views.validation.config`, compared for equality only (SPEC-0136 R4). */
+      generation: string;
       vaultName: string;
       vaultPath: string;
       indexPath?: string;
@@ -1083,6 +1102,7 @@ export interface components {
       };
       queryRecipes: {
         available: boolean;
+        /** @description The opaque index generation (SPEC-0136 R4), `epoch.writes.schema.views.validation.config`; compare for equality only. Before SPEC-0136 it was an RFC3339 timestamp. */
         generation?: string;
         count: number;
         issues: number;
@@ -1107,6 +1127,7 @@ export interface components {
       };
       index: {
         available: boolean;
+        /** @description The opaque index generation (SPEC-0136 R4), `epoch.writes.schema.views.validation.config`; compare for equality only. Before SPEC-0136 it was an RFC3339 timestamp. */
         generation?: string;
       };
       providers: {
@@ -1619,6 +1640,10 @@ export interface components {
       nestedTypes: components["schemas"]["NestedTypeCount"][];
       truncated: boolean;
       needsIndex?: boolean;
+      /** @description Indexed note titles by note path, for notes whose title is known. Folder labels notes with them. */
+      titles?: {
+        [key: string]: string;
+      };
     };
     FolderLink: {
       source: string;
@@ -2517,6 +2542,70 @@ export interface components {
       name: string;
       defaultChoiceId: string;
       choices: components["schemas"]["ViewChoice"][];
+      panel: components["schemas"]["ViewPanel"];
+    };
+    /** @description The sidebar panel for this target, resolved by the server (SPEC-0136 R6); the browser never derives it, and the server always sends it on every target. `view` names an experience's panel view; `folder` is the built-in Folder panel; `owner` means use the descriptor of the Note target for the node's notePath (an embedded or section node), or Folder for a note; `none` shows no panel. */
+    ViewPanel:
+      | components["schemas"]["ViewPanelView"]
+      | components["schemas"]["ViewPanelFolder"]
+      | components["schemas"]["ViewPanelOwner"]
+      | components["schemas"]["ViewPanelNone"];
+    ViewPanelView: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "view";
+      viewId: string;
+      experienceKey: string;
+    };
+    ViewPanelFolder: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "folder";
+    };
+    ViewPanelOwner: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "owner";
+    };
+    ViewPanelNone: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "none";
+    };
+    /** @description The subject a view is invoked for. `view` names the standalone view whose target a panel is shown for; it is valid only with the standalone kind. */
+    ViewContext: {
+      /** @enum {string} */
+      kind: "type" | "interface" | "group" | "node" | "standalone" | "workspace";
+      type?: string;
+      interface?: string;
+      group?: string;
+      view?: string;
+      ref?: components["schemas"]["NodeRef"];
+    };
+    ViewInvocation: {
+      view: {
+        id: string;
+        name: string;
+        /** @enum {string} */
+        origin: "bundled" | "repository" | "generated";
+        /** @description Set when the view renders as a page of an experience frame or is an experience's panel. */
+        experienceKey?: string;
+      };
+      context: components["schemas"]["ViewContext"];
+      configuration?: {
+        [key: string]: unknown;
+      };
+      params?: components["schemas"]["ViewParam"][];
+      vaultKey?: string;
+      preferenceSlot?: string;
     };
     ViewChoice: {
       id: string;
@@ -2527,6 +2616,8 @@ export interface components {
       /** @enum {string} */
       variant?: "table" | "card" | "kanban";
       custom?: boolean;
+      /** @description Opaque identity of the experience whose frame renders this choice (SPEC-0136 R1). Absent for views outside experiences and for entries that keep their own frame (HTML entries and modules without a default export). */
+      experienceKey?: string;
     };
     ViewCatalogEntry: {
       id: string;
@@ -2546,6 +2637,8 @@ export interface components {
       defaults: components["schemas"]["ViewDefaultsSpec"];
       variants: components["schemas"]["ViewVariantSet"];
       availableVariants?: string[];
+      /** @description Opaque identity of the experience whose frame renders this view, as on ViewChoice. */
+      experienceKey?: string;
       definition: components["schemas"]["ViewDefinition"];
       issues?: components["schemas"]["ViewIssue"][];
     };
@@ -2591,6 +2684,7 @@ export interface components {
       [key: string]: unknown;
     };
     ViewMountSpec: {
+      /** @description type, interface, standalone, workspace, group, node, or panel. A panel mount (SPEC-0136 R6) is valid only for the view an experience.yml names as its panel; it is never a view choice. */
       kind: string;
       type?: string;
       interface?: string;
@@ -4202,7 +4296,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Server-sent event stream of public invalidation envelopes */
+      /** @description Server-sent event stream of public invalidation envelopes. An envelope for a change that can alter reads carries the opaque index generation as a top-level `generation` string (SPEC-0136 R4). */
       200: {
         headers: {
           [name: string]: unknown;
@@ -4377,9 +4471,11 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Public GraphQL result */
+      /** @description Public GraphQL result. `extensions.generation` holds the opaque index generation read before execution (SPEC-0136 R4). */
       200: {
         headers: {
+          /** @description The opaque index generation the result was read at. */
+          "Rhizome-Generation"?: string;
           [name: string]: unknown;
         };
         content: {
@@ -4754,6 +4850,72 @@ export interface operations {
         };
       };
       503: components["responses"]["IndexInitializing"];
+    };
+  };
+  getPublicViewInvocation: {
+    parameters: {
+      query?: {
+        /** @description The subject as JSON (ViewContext). Required for panel views; defaults to the view's own mount otherwise. */
+        context?: string;
+        /** @description 1 when the workbench already resolved a node context through its edit overlay. */
+        hosted?: string;
+        preferenceSlot?: string;
+      };
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The view's invocation for the context */
+      200: {
+        headers: {
+          /** @description The opaque index generation the invocation was built at (SPEC-0136 R4). */
+          "Rhizome-Generation"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ViewInvocation"];
+        };
+      };
+      /** @description Invalid context, or the view is not available for it */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description The repository's views are not trusted */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Custom view not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description The view's ontology is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
     };
   };
   savePublicView: {
