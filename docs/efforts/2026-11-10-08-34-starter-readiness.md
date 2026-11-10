@@ -30,7 +30,7 @@ Deliver [[starter-readiness|SPEC-0137]] using the existing module-action and run
 
 - [ ] Shared readiness and automatic eligible setup, including CLI installation and runtime reopen.
 - [ ] Persistent visible status, concrete recovery actions, conflict and input handling.
-- [ ] Ontology folder-only event refresh and client invalidation.
+- [x] Ontology folder-only event refresh and client invalidation.
 - [ ] Regression tests, required gates, and real fixture UI verification.
 
 ## Plan
@@ -56,6 +56,9 @@ Implementation is in progress.
 - 2026-11-10T13:34:58Z: Drew approved the preceding recommendation with "OK. Make the changes. Use sol". All delegated design, implementation, and review use GPT-6.1 Sol. The current user is not configured in this checkout, so approval is recorded here and `plan-approved-by` remains absent.
 - Existing unrelated changes in `AGENTS.md` and `pkg/app/web/assets/dist/index.html` remain untouched.
 - Grounding verified that individual `.graphql` changes already force ontology republication. The reported `artifact` collision occurs while building the executable query schema, which must be checked separately from authored SDL validity.
+- The Sol watcher implementation was reviewed and integrated as `323462c5`. Watch admission and change classification now share `assetroots.IsAssetRootOrAncestor`; the full live ownership test checks typed records and client invalidation after create, remove, and rename events for each ontology ancestor. The worker passed race-enabled tests and vet for assetroots, watchhub, and bootstrap, plus the file-size gate. Full integrated verification remains pending.
+- Integrated verification: the folder regression passes with host permissions. The sandboxed run cannot acquire the macOS process-identity-backed lane lease; this is an environment constraint, not a flaky pass.
+- Design decision: use a runtime-owned readiness flow declared by a module and executed through existing actions. Its states distinguish checking, working, required input, blocked, failed, and ready. Keep initial indexing and starter readiness separate. Reuse the runtime's existing index owner, reconstruct or persist unfinished work, and reject stale results. Reject a desktop-only checklist because it misses CLI installs and reopened repositories. The second Sol sketch remains an implementation review input.
 
 ## Deviations
 
