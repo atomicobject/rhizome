@@ -44,7 +44,8 @@ func LoadLocalConfig(dir string) (*LocalConfig, error) {
 	return cfg, nil
 }
 
-// SaveLocalConfig writes a LocalConfig to .rhizome/config.yml under dir.
+// SaveLocalConfig replaces modeled values in .rhizome/config.yml under dir.
+// Use UpdateLocalConfig for read-modify-write changes to existing settings.
 func SaveLocalConfig(dir string, cfg LocalConfig) error {
 	if _, err := cfg.Rhizome.UsesExternalBinaryManager(); err != nil {
 		return err

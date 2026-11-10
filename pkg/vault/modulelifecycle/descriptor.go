@@ -154,6 +154,7 @@ func Fingerprint(root string, d Descriptor) (string, error) {
 				return fmt.Errorf("readiness input cannot be a symlink: %s", p)
 			}
 			if e.IsDir() {
+				fmt.Fprintf(h, "directory:%s;", p)
 				return nil
 			}
 			if !e.Type().IsRegular() {

@@ -12,6 +12,8 @@ code-paths:
 
 An installed module can declare `.rhizome/modules/<id>/lifecycle.yml` with a title, four module-local action names, and one to 32 repository-relative input paths. The fields are `title`, `observe`, `setup`, `index`, `verify`, and `inputs`. Input paths are literal files or directories. Optional `excludes` holds up to 32 relative glob patterns for irrelevant subtrees. AO KB excludes raw evidence archives from readiness fingerprints. Observation includes missing files, rejects symlinks, and is bounded to 20000 files and 64 MiB. Narrow an oversized descriptor before retrying.
 
+Input fingerprints include directory names even when directories are empty. Adding, removing, or renaming an artifact phase therefore triggers another assessment without requiring a note-file change.
+
 Descriptors are regular files of at most 64 KiB. Descriptor, fingerprint, and receipt reads use repository-confined handles, reject symlinks and special files, and bound bytes before parsing. These reads run before trust is granted. Receipt publication uses an exclusive temporary file in a repository-confined state directory, so an authored symlink cannot redirect a startup write outside the repository.
 
 The elected runtime discovers declarations on opening and every two seconds, including modules installed through a separate CLI process. It invokes existing module actions, with their normal repository trust, process limits, and cancellation. Starter readiness is independent of the initial-index startup gate. Commands receive the runtime's absolute selected executable in `RZM`, with repository delegation suppressed.

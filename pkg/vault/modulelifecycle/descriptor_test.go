@@ -46,3 +46,24 @@ func TestExcludedEvidenceDoesNotInvalidateReadiness(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, first, second)
 }
+
+func TestFingerprintTracksEmptyDirectoryChanges(t *testing.T) {
+	root := t.TempDir()
+	artifacts := filepath.Join(root, "artifacts")
+	require.NoError(t, os.Mkdir(artifacts, 0755))
+	d := Descriptor{Module: "demo", Inputs: []string{"artifacts"}}
+	baseline, err := Fingerprint(root, d)
+	require.NoError(t, err)
+	require.NoError(t, os.Mkdir(filepath.Join(artifacts, "discovery"), 0755))
+	added, err := Fingerprint(root, d)
+	require.NoError(t, err)
+	require.NotEqual(t, baseline, added)
+	require.NoError(t, os.Rename(filepath.Join(artifacts, "discovery"), filepath.Join(artifacts, "delivery")))
+	renamed, err := Fingerprint(root, d)
+	require.NoError(t, err)
+	require.NotEqual(t, added, renamed)
+	require.NoError(t, os.Remove(filepath.Join(artifacts, "delivery")))
+	removed, err := Fingerprint(root, d)
+	require.NoError(t, err)
+	require.Equal(t, baseline, removed)
+}

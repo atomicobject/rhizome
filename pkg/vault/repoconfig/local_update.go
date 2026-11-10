@@ -2,6 +2,7 @@ package repoconfig
 
 import (
 	"context"
+	"errors"
 	"os"
 	"reflect"
 
@@ -20,18 +21,25 @@ func LockLocalConfig(ctx context.Context, dir string) (func(), error) {
 // UpdateLocalConfig reads, edits, and saves under the same lock as ordinary saves.
 // The callback must not call another configuration writer.
 func UpdateLocalConfig(ctx context.Context, dir string, edit func(*LocalConfig) error) error {
+	return updateLocalConfig(ctx, dir, false, edit)
+}
+
+func updateLocalConfig(ctx context.Context, dir string, createMissing bool, edit func(*LocalConfig) error) error {
 	release, err := LockLocalConfig(ctx, dir)
 	if err != nil {
 		return err
 	}
 	defer release()
 	before, err := LoadLocalConfig(dir)
-	if err != nil {
+	if err != nil && !(createMissing && errors.Is(err, ErrNoLocalConfig)) {
 		return err
 	}
-	cfg, err := LoadLocalConfig(dir)
-	if err != nil {
-		return err
+	cfg := &LocalConfig{}
+	if before != nil {
+		cfg, err = LoadLocalConfig(dir)
+		if err != nil {
+			return err
+		}
 	}
 	if err := edit(cfg); err != nil {
 		return err
