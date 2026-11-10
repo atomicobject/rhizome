@@ -4,7 +4,7 @@ id: EFF-2026-11-09-21-28
 aliases: [EFF-2026-11-09-21-28]
 name: Agentic Engineering delivery experience
 created-at: 2026-11-10T02:35:34Z
-status: planned
+status: active
 summary: "Deliver the complete refined Agentic Engineering starter experience with exact authored scope, installed UI proof, and an open unmerged PR."
 governing-specs:
   - "[[docs/specs/experience/agentic-engineering-delivery-experience.md]]"
@@ -96,6 +96,9 @@ Specification, architecture selection, independent plan review and its P1 correc
 - 2026-11-10T02:35:34Z [validation] Typed specification and repository documentation validation passed with zero issues/errors, as did frozen-scope-drift before this effort was written. These are authoring checks, not implementation proof.
 - 2026-11-10T02:35:34Z [decision] Recorded exact scope snapshot and verified eight story locators. Independent plan recheck approved the explicit HTML frozen-scope selector. Implemented foundation acceptance remains required.
 
+- 2026-11-10T02:38:18Z [validation] The story-acceptance-pack CLI attempt ended with publish-current-projection context cancellation. Exact story targets remain verified through node-link and typed docs validation. Recipe execution must be proven against installed fixtures; no successful pack result is claimed.
+- 2026-11-10T02:38:18Z [decision] Starting isolated implementation lanes from the committed contract. Registration IDs and stage parameters are fixed in the foundation contract.
+
 ## Deviations
 
 The initial seven-stage comp becomes five factual primary views plus separate Current contracts and Record review. This is an authorized accuracy refinement that avoids inventing readiness, acceptance, or reconciliation. P1 added explicit frozen-scope source selection for HTML workspaces as a necessary dependency. Existing records are not rewritten. No implementation scope is deferred.
@@ -115,4 +118,4 @@ Record recurring friction with its evidence. Fresh-worktree authoring needed OS/
 
 ## Status
 
-Planned. Specification and plan review are complete. Next work is the foundation implementation and independent foundation review, then the installed UI and full readiness proof. No product behavior or ready PR is claimed.
+Active. Specification and plan review are complete. Next work is the foundation implementation and independent foundation review, then the installed UI and full readiness proof. No product behavior or ready PR is claimed.

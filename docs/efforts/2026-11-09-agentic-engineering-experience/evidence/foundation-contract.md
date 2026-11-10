@@ -53,6 +53,8 @@ The source-link owner changes query implementation, tests, and owning documentat
 
 Keep the existing four native collection IDs and their behavior. Use concrete spec and effort node mounts, one hidden list view with declared route parameters, and the existing group and panel host. No generated installed skill or view copy is an implementation source.
 
+The registration contract is `agentic-engineering.home` on group Delivery, `agentic-engineering.stage` as a hidden standalone view with identity parameter `stage`, and `agentic-engineering.panel`. Stage values are `shaping`, `ready`, `planned`, `active`, `history`, `contracts`, and `review`; validate unknown values with an explicit invalid-route state. Stage links use standalone context. Concrete record mounts are `agentic-engineering.spec.process`, `.product`, `.technical`, `.experience`, and `.operations`, and `agentic-engineering.effort.note` and `.workspace`. They default to `spec.tsx` or `effort.tsx` respectively. Spec definitions declare a nonidentity `story` parameter for opening and focusing an inline story. The panel registers through the experience host. The four existing native definitions stay in place with their IDs and behavior.
+
 ## Foundation exit
 
 Focused tests prove occurrence counts and order at 0, 99, 100, 101, 200, and 201; negative and out-of-range offset; nonpositive and oversized first; repeated and unresolved links; same-file anchors; focused-section boundaries; aliases; and count-only reads without target hydration. Introspection, query validation, runtime behavior, and documentation agree.
