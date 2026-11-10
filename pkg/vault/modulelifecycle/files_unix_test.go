@@ -27,3 +27,28 @@ func TestLifecycleFIFOIsRejectedWithoutWaitingForAWriter(t *testing.T) {
 		t.Fatal("reading a lifecycle FIFO waited for a writer")
 	}
 }
+
+func TestLinkedInputReplacementCannotWaitForAFIFOWriter(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("original"), 0o600))
+	linkInput(t, root, "AGENTS.md")
+	dir, err := os.OpenRoot(root)
+	require.NoError(t, err)
+	defer dir.Close()
+	info, err := dir.Stat("CLAUDE.md")
+	require.NoError(t, err)
+	require.NoError(t, syscall.Mkfifo(filepath.Join(root, "pipe"), 0o600))
+	require.NoError(t, os.Remove(filepath.Join(root, "CLAUDE.md")))
+	linkInput(t, root, "pipe")
+	done := make(chan error, 1)
+	go func() {
+		_, err := readCheckedFile(dir, "CLAUDE.md", 1024, info)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		require.Error(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("a replaced input waited for a FIFO writer")
+	}
+}

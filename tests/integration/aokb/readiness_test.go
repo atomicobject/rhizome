@@ -23,12 +23,16 @@ import (
 func TestInstalledStarterAutomaticallyReachesReady(t *testing.T) {
 	for _, populated := range []bool{false, true} {
 		t.Run(fmt.Sprintf("populated=%t", populated), func(t *testing.T) {
-			testInstalledStarterReadiness(t, populated)
+			testInstalledStarterReadiness(t, populated, false)
 		})
 	}
 }
 
-func testInstalledStarterReadiness(t *testing.T, populated bool) {
+func TestInstalledStarterAcceptsLinkedGuidance(t *testing.T) {
+	testInstalledStarterReadiness(t, false, true)
+}
+
+func testInstalledStarterReadiness(t *testing.T, populated, linkedGuidance bool) {
 	kb := &aoKB{t: t, root: filepath.Join(t.TempDir(), "vault"), home: t.TempDir()}
 	if populated {
 		require.NoError(t, os.CopyFS(kb.root, os.DirFS(filepath.Join(fixture.RepoRoot(t), "testdata/ao-kb-legacy"))))
@@ -38,6 +42,12 @@ func testInstalledStarterReadiness(t *testing.T, populated bool) {
 	}
 	kb.write(".rhizome/config.yml", "rhizome:\n  binaryManager: external\nnotes:\n  includes: [\"**/*.md\"]\n")
 	kb.write(".kb/config/vault.md", "---\nschemaVersion: 5\nproductMode: single\n---\n")
+	if linkedGuidance {
+		kb.write("AGENTS.md", "# Repository guidance\n")
+		if err := os.Symlink("AGENTS.md", filepath.Join(kb.root, "CLAUDE.md")); err != nil {
+			t.Skipf("guidance symlink unavailable: %v", err)
+		}
+	}
 	store, err := repositorytrust.DefaultStore()
 	require.NoError(t, err)
 	_, err = store.Trust(kb.root)
@@ -47,6 +57,9 @@ func testInstalledStarterReadiness(t *testing.T, populated bool) {
 	output, err := kb.rzm("init", "--add-addon", "ao-kb", "--agents", "none")
 	require.NoError(t, err, output)
 	kb.authored = kb.files()
+	if populated {
+		delete(kb.authored, ".rhizome/source-ownership.yml")
+	}
 	waitFor := func(state modulereadiness.State) modulereadiness.Snapshot {
 		t.Helper()
 		type observation struct {
@@ -83,6 +96,14 @@ func testInstalledStarterReadiness(t *testing.T, populated bool) {
 	}
 	waitFor(modulereadiness.Ready)
 	kb.requireUnchanged()
+	if populated {
+		require.NoFileExists(t, filepath.Join(kb.root, ".rhizome/source-ownership.yml"))
+	}
+	if linkedGuidance {
+		target, err := os.Readlink(filepath.Join(kb.root, "CLAUDE.md"))
+		require.NoError(t, err)
+		require.Equal(t, "AGENTS.md", target)
+	}
 	selection := filepath.Join(kb.root, ".rhizome/modules/ao-kb/bindings/selection.json")
 	data, err := os.ReadFile(selection)
 	require.NoError(t, err)

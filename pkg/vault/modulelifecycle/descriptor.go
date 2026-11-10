@@ -106,7 +106,8 @@ func safePath(p string) bool {
 	return p != "" && p != "." && filepath.ToSlash(filepath.Clean(p)) == p && !filepath.IsAbs(p) && p != ".." && !strings.HasPrefix(p, "../") && !strings.ContainsAny(p, `\*?[]`) && p != ".git" && !strings.HasPrefix(p, ".git/")
 }
 
-// Fingerprint reads at most 64 MiB and visits 20000 paths, never following symlinks.
+// Fingerprint reads at most 64 MiB and visits 20000 paths. Declared file inputs
+// may be relative symlinks to regular files confined to the repository.
 // Missing inputs are part of the key so installation and removal invalidate it.
 func Fingerprint(ctx context.Context, root string, d Descriptor) (string, error) {
 	if err := ctx.Err(); err != nil {
@@ -124,16 +125,60 @@ func Fingerprint(ctx context.Context, root string, d Descriptor) (string, error)
 	defer fsRoot.Close()
 	h := sha256.New()
 	fmt.Fprintf(h, "%+v", d)
-	inputs := append([]string{assetroots.ModuleRoot(d.Module) + "/lifecycle.yml"}, d.Inputs...)
+	descriptorPath := assetroots.ModuleRoot(d.Module) + "/lifecycle.yml"
+	inputs := append([]string{descriptorPath}, d.Inputs...)
+	excluded := func(relative string) bool {
+		for _, pattern := range d.Excludes {
+			if matched, _ := doublestar.Match(pattern, relative); matched {
+				return true
+			}
+		}
+		return false
+	}
 	entries, size := 0, int64(0)
 	for _, input := range inputs {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		if !safePath(input) {
 			return "", fmt.Errorf("unsafe input %q", input)
 		}
-		if err := noSymlinks(root, input); err != nil {
+		checkedPath := filepath.ToSlash(filepath.Dir(input))
+		if input == descriptorPath {
+			checkedPath = input
+		}
+		if err := noSymlinks(root, checkedPath); err != nil {
 			return "", err
 		}
-		err := fs.WalkDir(fsRoot.FS(), input, func(relative string, e fs.DirEntry, err error) error {
+		info, err := fsRoot.Lstat(input)
+		if err != nil && !os.IsNotExist(err) {
+			return "", err
+		}
+		if err == nil && info.Mode()&os.ModeSymlink != 0 {
+			if excluded(input) {
+				continue
+			}
+			entries++
+			if entries > 20000 {
+				return "", fmt.Errorf("readiness inputs exceed 20000 paths; narrow lifecycle inputs")
+			}
+			target, err := fsRoot.Readlink(input)
+			if err != nil {
+				return "", err
+			}
+			data, err := readLinkedInputFile(ctx, fsRoot, input, (64<<20)-size)
+			if err != nil {
+				return "", err
+			}
+			currentTarget, err := fsRoot.Readlink(input)
+			if err != nil || currentTarget != target {
+				return "", fmt.Errorf("readiness input changed while reading: %s", input)
+			}
+			size += int64(len(data))
+			fmt.Fprintf(h, "link:%s:%s:%x;", input, target, sha256.Sum256(data))
+			continue
+		}
+		err = fs.WalkDir(fsRoot.FS(), input, func(relative string, e fs.DirEntry, err error) error {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
@@ -153,13 +198,11 @@ func Fingerprint(ctx context.Context, root string, d Descriptor) (string, error)
 			if err != nil {
 				return err
 			}
-			for _, pattern := range d.Excludes {
-				if matched, _ := doublestar.Match(pattern, rel.String()); matched {
-					if e.IsDir() {
-						return filepath.SkipDir
-					}
-					return nil
+			if excluded(rel.String()) {
+				if e.IsDir() {
+					return filepath.SkipDir
 				}
+				return nil
 			}
 			if e.Type()&os.ModeSymlink != 0 {
 				return fmt.Errorf("readiness input cannot be a symlink: %s", p)
@@ -171,27 +214,20 @@ func Fingerprint(ctx context.Context, root string, d Descriptor) (string, error)
 			if !e.Type().IsRegular() {
 				return fmt.Errorf("readiness input is not a regular file: %s", p)
 			}
-			info, err := e.Info()
+			data, err := readRegularFile(fsRoot, rel.String(), (64<<20)-size)
 			if err != nil {
 				return err
 			}
-			size += info.Size()
-			if size > 64<<20 {
-				return fmt.Errorf("readiness inputs exceed 64 MiB; narrow lifecycle inputs")
-			}
-			data, err := readRegularFile(fsRoot, rel.String(), (64<<20)-size+info.Size())
-			if err != nil {
-				return err
-			}
-			if int64(len(data)) > (64<<20)-size+info.Size() {
-				return fmt.Errorf("readiness input grew beyond 64 MiB")
-			}
+			size += int64(len(data))
 			fmt.Fprintf(h, "%s:%x;", p, sha256.Sum256(data))
 			return nil
 		})
 		if err != nil {
 			return "", err
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
 	}
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
