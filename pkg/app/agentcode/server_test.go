@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -195,25 +196,36 @@ func TestQueuedCallDeadlineStartsWhenReceived(t *testing.T) {
 func TestRunningDeadlinePreservesExecutionUncertainty(t *testing.T) {
 	for _, handlerError := range []bool{false, true} {
 		t.Run(fmt.Sprint(handlerError), func(t *testing.T) {
-			state := &serverState{selected: map[string]struct{}{"files": {}}, running: map[string]context.CancelFunc{}, cancelled: map[string]struct{}{}}
-			id := json.RawMessage("2")
-			require.True(t, state.enqueue(id))
-			params, err := json.Marshal(map[string]any{"operation": "files", "input": map[string]any{"inputs": []string{"a.go"}}, "timeoutMs": 20})
-			require.NoError(t, err)
-			_, err = state.run(context.Background(), id, params, time.Now(), func(ctx context.Context, _ string, _ map[string]any) (CallOutcome, error) {
-				<-ctx.Done()
-				if handlerError {
-					return CallOutcome{}, ctx.Err()
-				}
-				return CallOutcome{OK: true}, nil
+			synctest.Test(t, func(t *testing.T) {
+				state := &serverState{selected: map[string]struct{}{"files": {}}, running: map[string]context.CancelFunc{}, cancelled: map[string]struct{}{}}
+				id := json.RawMessage("2")
+				require.True(t, state.enqueue(id))
+				params, err := json.Marshal(map[string]any{"operation": "files", "input": map[string]any{"inputs": []string{"a.go"}}, "timeoutMs": 20})
+				require.NoError(t, err)
+				receivedAt := time.Now()
+				handlerStarted := false
+				_, err = state.run(context.Background(), id, params, receivedAt, func(ctx context.Context, _ string, _ map[string]any) (CallOutcome, error) {
+					handlerStarted = true
+					require.NoError(t, ctx.Err())
+					<-ctx.Done()
+					if handlerError {
+						return CallOutcome{}, ctx.Err()
+					}
+					return CallOutcome{OK: true}, nil
+				})
+				require.True(t, handlerStarted, "deadline expired before handler entry: %v", err)
+				require.Equal(t, 20*time.Millisecond, time.Since(receivedAt))
+				require.Error(t, err)
+				var reply rpcReply
+				require.NoError(t, writeFault(func(value rpcReply) error { reply = value; return nil }, id, err))
+				require.NotNil(t, reply.Error)
+				data, ok := reply.Error.Data.(map[string]any)
+				require.True(t, ok, "expected running deadline error data, got %#v", reply.Error)
+				require.Equal(t, "deadline_exceeded", data["code"])
+				require.Equal(t, true, data["mayHaveExecuted"])
+				_, hasOutcome := data["outcome"]
+				require.Equal(t, !handlerError, hasOutcome)
 			})
-			var reply rpcReply
-			require.NoError(t, writeFault(func(value rpcReply) error { reply = value; return nil }, id, err))
-			data := reply.Error.Data.(map[string]any)
-			require.Equal(t, "deadline_exceeded", data["code"])
-			require.Equal(t, true, data["mayHaveExecuted"])
-			_, hasOutcome := data["outcome"]
-			require.Equal(t, !handlerError, hasOutcome)
 		})
 	}
 }
