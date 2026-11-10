@@ -1,0 +1,5 @@
+title: Delivery
+group: Delivery
+types: [ProcessSpec, ProductSpec, TechnicalSpec, ExperienceSpec, OperationsSpec, EffortNote, EffortWorkspace, UserStory, AcceptanceCriterion]
+panel: agentic-engineering.panel
+tailwind: false

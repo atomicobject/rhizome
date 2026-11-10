@@ -1,0 +1,6 @@
+apiVersion: rhizome.view.v1
+id: agentic-engineering.panel
+name: Delivery
+source: { kind: custom, entry: panel.tsx }
+mount:
+  kind: panel

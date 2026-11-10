@@ -1,0 +1,8 @@
+apiVersion: rhizome.view.v1
+id: agentic-engineering.effort.note
+name: Resume brief
+source: { kind: custom, entry: effort.tsx }
+mount:
+  kind: node
+  type: EffortNote
+  default: true
