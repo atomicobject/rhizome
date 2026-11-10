@@ -27,8 +27,6 @@ func moduleReadiness(root, vault string, formats noteformat.Registry, changed fu
 	})
 }
 
-const moduleReadinessEvent = "starter-readiness.changed"
-
 var _ web.ModuleReadiness = (*modulereadiness.Coordinator)(nil)
 
 func moduleSchema(root string) error {
