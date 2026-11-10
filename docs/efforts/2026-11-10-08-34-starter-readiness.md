@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-11-10-08-34
 name: Starter readiness and recovery
 created-at: 2026-11-10T13:34:58Z
-status: complete
+status: active
 summary: Make installed starters complete their setup and indexing with visible readiness and recovery, and refresh ontology data after folder-only changes.
 aliases: [EFF-2026-11-10-08-34]
 governing-specs:
@@ -74,13 +74,13 @@ None identified yet.
 ## Closure Checklist
 
 - [x] Approved scope delivered or deviations recorded.
-- [x] Required gates and UI evidence recorded; the unresolved Windows timeout has an explicit approved exception.
+- [ ] Final native Windows startup failure resolved; the earlier readiness timeout has an explicit approved exception.
 - [x] Independent review completed and accepted findings fixed.
 - [x] Delivery branch and commit recorded.
 
 ## Status
 
-Completed on `feat/starter-readiness`, delivered through [PR #125](https://github.com/atomicobject/rhizome/pull/125). Code through `f02a48df` passed all 26 CI checks and Greptile review at 5/5 with no findings; subsequent review corrections and their verification are recorded below. The merge remains gated on the final head's checks and review. Drew authorized squash merge and explicitly accepted the documented uncertainty about the earlier Windows timeout. Rhizome Dev installation follows the repository's main-branch installation policy.
+Implementation is complete on `feat/starter-readiness` for [PR #125](https://github.com/atomicobject/rhizome/pull/125). Code through `f02a48df` passed all 26 CI checks and Greptile review at 5/5 with no findings; subsequent review corrections and their verification are recorded below. The final native Windows first-window failure is under investigation. Drew authorized squash merge and explicitly accepted the documented uncertainty about the earlier readiness timeout; that exception does not cover the newer native failure. Rhizome Dev installation follows the repository's main-branch installation policy.
 
 ## Implementation work log
 
@@ -134,3 +134,4 @@ Completed on `feat/starter-readiness`, delivered through [PR #125](https://githu
 - Final acceptance: all 26 checks passed on `f02a48df`, including both operating systems' integration suites. Greptile returned 5/5 with no findings. Drew approved the remaining Windows uncertainty with "Merge with the uncertainty documented." This closure changes documentation only; the verified runtime, UI, and tests remain unchanged.
 
 - The closure review identified a smaller cancellation race: Stop could observe PID zero, then discard the newer owner returned by cancellation. Stop now consumes the cancellation record and refreshes the observed PID only from the same startup token. The cancellation regression covers an owner registered after the initial observation. The complete runtime unit and real-binary integration packages passed fresh with the race detector, and `make check-fast` passed.
+- Native Windows CI on `00daf6ee` timed out before the first visible application window. Its initial failure snapshot shows only two IPC/tool windows; the later screenshot shows the rendered app. Both output logs were empty, so the evidence does not identify the blocking operation. Opt-in startup milestones and hidden-window evidence now distinguish installation preparation, native-window creation, and each WebView. The existing timeout remains unchanged. Local Rust formatting and all 145 native tests passed; Windows evidence is still required.

@@ -27,7 +27,9 @@ mod windows;
 use tauri::Manager;
 
 fn main() {
+    startup_stage("main");
     let context = tauri::generate_context!();
+    startup_stage("context ready");
     let arguments = std::env::args_os().skip(1).collect::<Vec<_>>();
     let integration = if installation::install::requested(&arguments) {
         Some(installation::install::run(
@@ -66,7 +68,9 @@ fn main() {
             commands::desktop_attach
         ])
         .setup(|app| {
+            startup_stage("setup started");
             installation::prepare(app.handle())?;
+            startup_stage("installation prepared");
             let directory = state::data_directory(app.path().app_data_dir()?)?;
             std::fs::create_dir_all(&directory)?;
             let session = state::Session::load(&directory);
@@ -83,7 +87,9 @@ fn main() {
             menu::install_menu(app.handle())?;
             let settings = appearance::current(&app.state::<commands::Desktop>().directory);
             app.handle().set_theme(settings.appearance.native());
+            startup_stage("restoring windows");
             windows::restore(app.handle(), session)?;
+            startup_stage("windows restored");
             let args = std::env::args().collect::<Vec<_>>();
             terminal::handle(app.handle(), &args);
             let restarted = updater::take_restart_marker();
@@ -94,6 +100,7 @@ fn main() {
         })
         .build(context)
         .expect("Cannot launch Rhizome Desktop");
+    startup_stage("app ready");
     app.run(|app, event| match event {
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen { .. } => windows::reopen(app),
@@ -114,4 +121,13 @@ fn main() {
         }
         _ => {}
     });
+}
+
+fn startup_stage(stage: &str) {
+    if std::env::var_os("RHIZOME_DESKTOP_STARTUP_TRACE").is_none() {
+        return;
+    }
+    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    let elapsed = START.get_or_init(std::time::Instant::now).elapsed();
+    eprintln!("Rhizome startup +{}ms: {stage}", elapsed.as_millis());
 }

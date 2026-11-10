@@ -274,6 +274,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
     }
     let settings = appearance::current(&app.state::<Desktop>().directory);
     let window = builder.build()?;
+    crate::startup_stage("native window created");
     // Keep GTK accelerators registered, but expose the menu through the shell.
     #[cfg(target_os = "linux")]
     window.hide_menu()?;
@@ -307,6 +308,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         LogicalPosition::new(0.0, 0.0),
         LogicalSize::new(width, height),
     )?;
+    crate::startup_stage("shell webview created");
     crate::menu::install_shortcuts(&shell_view).inspect_err(|_| discard_failed_window(&window))?;
     #[cfg(target_os = "linux")]
     crate::linux_webviews::mount_shell(&shell_view)
@@ -453,6 +455,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         LogicalPosition::new(0.0, 0.0),
         LogicalSize::new(1.0, 1.0),
     )?;
+    crate::startup_stage("content webview created");
     #[cfg(target_os = "linux")]
     crate::linux_webviews::mount_overlay(&content)?;
     content.hide()?;
@@ -494,6 +497,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         window.set_focus()?;
         shell_view.set_focus()?;
     }
+    crate::startup_stage("window ready");
     Ok(window)
 }
 
