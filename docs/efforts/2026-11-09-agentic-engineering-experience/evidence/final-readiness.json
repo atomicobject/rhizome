@@ -1,0 +1,210 @@
+{
+  "recordedAt": "2026-11-10T11:34:35Z",
+  "implementationHead": "2617a908be1c89b9437dba4a5ab056781672cc8d",
+  "priorReceipts": [
+    "implementation-readiness.json",
+    "follow-up-readiness.json"
+  ],
+  "pr": {
+    "headRefOid": "2617a908be1c89b9437dba4a5ab056781672cc8d",
+    "baseRefName": "main",
+    "state": "OPEN",
+    "isDraft": false,
+    "mergeable": "MERGEABLE",
+    "mergeStateStatus": "CLEAN",
+    "autoMergeRequest": null,
+    "baseRefOid": "019a59ea128b900b57dfbcf565481f10ea4e9553",
+    "headRefName": "feat/agentic-engineering-experience",
+    "url": "https://github.com/atomicobject/rhizome/pull/123"
+  },
+  "checks": [
+    {
+      "name": "Detect Changes",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795209182",
+      "workflow": "CI"
+    },
+    {
+      "name": "scan",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018402/job/129795209549",
+      "workflow": "Credential protection"
+    },
+    {
+      "name": "Native desktop (windows-latest)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018627/job/129795214276",
+      "workflow": "Desktop portability"
+    },
+    {
+      "name": "Native desktop (ubuntu-24.04)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018627/job/129795214731",
+      "workflow": "Desktop portability"
+    },
+    {
+      "name": "Native desktop (ubuntu-24.04-arm)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018627/job/129795214724",
+      "workflow": "Desktop portability"
+    },
+    {
+      "name": "Installed upgrade fixture (${{ matrix.target }})",
+      "state": "SKIPPED",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018627/job/129795216977",
+      "workflow": "Desktop portability"
+    },
+    {
+      "name": "Installer Tests",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795208830",
+      "workflow": "CI"
+    },
+    {
+      "name": "Rhizome Content",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795209234",
+      "workflow": "CI"
+    },
+    {
+      "name": "Lint",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795278138",
+      "workflow": "CI"
+    },
+    {
+      "name": "Unit Tests (ubuntu-latest, cmd-validate)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795278020",
+      "workflow": "CI"
+    },
+    {
+      "name": "Unit Tests (ubuntu-latest, anchors-app)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795278143",
+      "workflow": "CI"
+    },
+    {
+      "name": "Unit Tests (ubuntu-latest, web-cli)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795278073",
+      "workflow": "CI"
+    },
+    {
+      "name": "Unit Tests (ubuntu-latest, rest)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795278070",
+      "workflow": "CI"
+    },
+    {
+      "name": "Unit Tests (windows-latest, cmd-validate)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795278033",
+      "workflow": "CI"
+    },
+    {
+      "name": "Unit Tests (windows-latest, anchors-app)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795278076",
+      "workflow": "CI"
+    },
+    {
+      "name": "Unit Tests (windows-latest, web-cli)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795278133",
+      "workflow": "CI"
+    },
+    {
+      "name": "Unit Tests (windows-latest, rest)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795278059",
+      "workflow": "CI"
+    },
+    {
+      "name": "Team API Gateway",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795277993",
+      "workflow": "CI"
+    },
+    {
+      "name": "Runtime Code Evidence",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795277921",
+      "workflow": "CI"
+    },
+    {
+      "name": "Integration Tests (ubuntu-latest)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795277940",
+      "workflow": "CI"
+    },
+    {
+      "name": "Integration Tests (windows-latest)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795278000",
+      "workflow": "CI"
+    },
+    {
+      "name": "Web Tests",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795278036",
+      "workflow": "CI"
+    },
+    {
+      "name": "Web E2E",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795277907",
+      "workflow": "CI"
+    },
+    {
+      "name": "Build (ubuntu-latest, bin/linux/rzm)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795278024",
+      "workflow": "CI"
+    },
+    {
+      "name": "Build (windows-latest, bin/windows/rzm.exe)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795278187",
+      "workflow": "CI"
+    },
+    {
+      "name": "Desktop (macOS)",
+      "state": "SUCCESS",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42806018368/job/129795277978",
+      "workflow": "CI"
+    }
+  ],
+  "manualReview": {
+    "command": "greptile review --json",
+    "head": "2617a908be1c89b9437dba4a5ab056781672cc8d",
+    "result": {
+      "summary": "Adds the Agentic Engineering Delivery experience:\n- Workflow lists, selected-work prompts, spec pages, effort briefs, and contextual navigation.\n- Explicit `frozenScope` selection, paged source-link reads, and batch error ownership.\n- Provider-aware HTML workspace reads and supporting regression tests.\n\nThe previous frozen-spec identity finding is fixed. No new actionable issues were found. This review used source inspection; tests and browser checks were not run.",
+      "confidence": 5,
+      "confidenceReasoning": "The PR appears safe to merge; the previous identity issue is fixed and no new blocking issue was found.\n\nNote roots now match across catalog and hydrated refs without weakening section selectors. Selected prompts retain freshness guards, and source-link paging stays bounded.",
+      "securitySummary": null,
+      "instructions": null,
+      "effort": "base",
+      "comments": []
+    }
+  },
+  "githubReviews": [],
+  "inlineComments": [],
+  "issueComments": [],
+  "localVerification": {
+    "makeVerify": "passed for integrated implementation before scoped follow-ups",
+    "makeCheck": "passed after final test-only integration",
+    "makeBuild": "passed after final application change",
+    "strictTemplateTypeScript": "passed",
+    "installedDeliveryCases": 64,
+    "focusedPureCases": 28,
+    "sourceQueryIntegration": "passed",
+    "deadlineQueueCancellationRace": "passed",
+    "freshUpdateEject": "passed",
+    "documentationIssues": 0,
+    "frozenScopeIssues": 0,
+    "manifestCaptures": 55,
+    "committedImages": 31
+  },
+  "closure": "All eight frozen stories and G1 through G9 follow-ups are delivered. Current implementation CI and manual review are clean. The final documentation head receives its own CI and review before handback. Leave PR open and unmerged."
+}

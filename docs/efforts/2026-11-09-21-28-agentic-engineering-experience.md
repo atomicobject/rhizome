@@ -4,7 +4,7 @@ id: EFF-2026-11-09-21-28
 aliases: [EFF-2026-11-09-21-28]
 name: Agentic Engineering delivery experience
 created-at: 2026-11-10T02:35:34Z
-status: active
+status: complete
 summary: "Deliver the complete refined Agentic Engineering starter experience with exact authored scope, installed UI proof, and an open unmerged PR."
 governing-specs:
   - "[[docs/specs/experience/agentic-engineering-delivery-experience.md]]"
@@ -90,9 +90,9 @@ A complete accurate Agentic Engineering starter experience for humans and agents
 
 The complete starter-owned Delivery experience is implemented: home and five-group workflow map, seven factual work lists, selected prompts, inline spec criteria, both effort forms' resume briefs, contextual Find and Recent, first-day and incomplete-data states, themes and narrow layouts. Source-link pagination/count, explicit workspace frozen-scope selection, canonical ref navigation, source-aware Markdown links and provider-aware HTML commit reads preserve authored evidence.
 
-All eight stories are backported as satisfied. The full integrated make verify passed, including 158 native, 90 Knowledge and 54 Delivery browser cases; subsequent review fixes passed make check, make build, strict template TypeScript and all 60 expanded installed Delivery cases. Fresh/update/eject and init --check pass. The 47 major-state captures and two image-fallback captures were individually reviewed, with 25 committed images and a complete hash manifest. No implementation scope is deferred.
+All eight stories are backported as satisfied. The integrated make verify passed, including 158 native, 90 Knowledge and 54 Delivery browser cases. Subsequent scoped follow-ups passed make check, make build, strict template TypeScript, 28 pure tests and all 64 expanded installed Delivery cases. Query integration and deadline/queue/cancellation race tests pass. Fresh/update/eject and init --check pass. The proof manifest records 55 captures with 31 committed images. Every major-state screenshot and subsequent changed capture was opened individually at original resolution. No implementation scope is deferred.
 
-[PR #123](https://github.com/atomicobject/rhizome/pull/123) carries the work and remains open and unmerged. Verified implementation head `301faea690e22c0ec93337d652c776a4b5df9218` passed all active CI checks and manual Greptile 5/5 with zero comments. It is non-draft, mergeable and clean, with auto-merge absent. [The final implementation readiness receipt](2026-11-09-agentic-engineering-experience/evidence/follow-up-readiness.json), [installed proof](2026-11-09-agentic-engineering-experience/evidence/ui-proof.md) and [integration evidence](2026-11-09-agentic-engineering-experience/evidence/integration-notes.md) retain the source results and limitations. Subsequent documentation heads receive their own CI and manual review before handback.
+[PR #123](https://github.com/atomicobject/rhizome/pull/123) carries the work and remains open and unmerged. Verified implementation head `2617a908be1c89b9437dba4a5ab056781672cc8d` passed all 25 active CI jobs, with the existing conditional installed-upgrade job not applicable. Manual Greptile returned 5/5 with zero comments and confirmed G9 resolved. The PR is non-draft, mergeable and clean, with auto-merge absent and no review or issue comments. [The final readiness receipt](2026-11-09-agentic-engineering-experience/evidence/final-readiness.json), [installed proof](2026-11-09-agentic-engineering-experience/evidence/ui-proof.md) and [integration evidence](2026-11-09-agentic-engineering-experience/evidence/integration-notes.md) retain exact results and limitations. Earlier receipts remain historical. The final documentation head receives its own CI and manual review before handback.
 
 ## Execution Notes
 
@@ -154,14 +154,16 @@ The initial seven-stage comp becomes five factual primary views plus separate Cu
 
 - 2026-11-10 [final integrated verification] Root deadline/queue/cancellation race tests, make check and both validators passed. The complete installed Delivery proof remains 64 passing cases with 28 pure tests and strict template TypeScript. Both G9 and the Windows fixture correction have fresh independent approval. New-head CI and manual review remain pending before closure.
 
+- 2026-11-10T11:34:35Z [final closure] Verified all eight frozen stories and final integrated follow-ups against implementation 2617a908be1c89b9437dba4a5ab056781672cc8d. All 25 active CI jobs passed, including Windows rest and Web E2E; the existing conditional installed-upgrade job was not applicable. Manual review is 5/5 with zero comments. PR #123 is open, non-draft, mergeable and clean, with no auto-merge, formal reviews or comments. Closed this effort with its work; the final documentation head is checked before handback. No human approval metadata was invented.
+
 ## Closure Checklist
 
 - [x] Implemented foundation and independent technical review pass.
 - [x] All eight stories and Requirements are verified in the installed interface.
 - [x] Required local gates, documentation validation and frozen-scope checks pass.
-- [ ] Independent implementation review and Greptile 5/5 cover final behavior.
+- [x] Independent implementation review and Greptile 5/5 cover final behavior.
 - [x] Specs, owning docs, changelog, actual outcomes and deviations are reconciled.
-- [ ] PR URL, verified implementation head, passing CI and open unmerged state are recorded.
+- [x] PR URL, verified implementation head, passing CI and open unmerged state are recorded.
 
 ## Compounding Follow-ups
 
@@ -169,4 +171,4 @@ Record recurring friction with its evidence. Fresh-worktree authoring needed OS/
 
 ## Status
 
-Active for G9 note-root identity, the Windows running-deadline fixture and current-head readiness. All eight frozen stories remain delivered. Prior application-head receipts remain historical evidence; PR #123 stays open and unmerged until the follow-up gates and reviews pass.
+Complete on the branch. All eight frozen stories, reviewed follow-ups and required implementation gates are delivered. PR #123 remains open and unmerged for Drew. The final documentation head receives current-head CI and manual review before handback. No Rhizome Dev installation was performed.
