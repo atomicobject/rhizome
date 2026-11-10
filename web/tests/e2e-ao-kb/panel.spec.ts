@@ -40,6 +40,10 @@ async function openRecord(page: Page, notePath: string, title: string) {
       .first()
       .getByRole("heading", { name: title, level: 1 }),
   ).toBeVisible();
+  await expect(recent(page).getByRole("link", { name: title, exact: true })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
 }
 
 test.beforeEach(async ({ page }) => {

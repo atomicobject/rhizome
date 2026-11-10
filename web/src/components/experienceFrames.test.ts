@@ -200,6 +200,43 @@ describe("ExperienceFrames", () => {
     expect(frame("exp_kb")!.sent.at(-1)).toEqual({ type: CLOSE_PAGE_MESSAGE, tabId: "note:a.md" });
   });
 
+  it.each([
+    { viewId: "kb.other" },
+    { context: { kind: "group" as const, group: "Other" } },
+    { params: { concept: "other" } },
+  ])("retires a mismatched page before its invocation resolves (%o)", async (change) => {
+    const { frames, frame, from, lastLocation, fetchInvocation } = harness();
+    frames.show(showing(), null);
+    await vi.advanceTimersByTimeAsync(0);
+    from("exp_kb", { type: FRAME_READY_MESSAGE });
+    const { navigationId } = lastLocation("exp_kb");
+    from("exp_kb", { type: LOCATION_ACCEPTED_MESSAGE, tabId: "home", navigationId });
+    from("exp_kb", { type: LOCATION_RENDERED_MESSAGE, tabId: "home", navigationId, at: 1 });
+    expect(frame("exp_kb")!.view.visible).toBe(true);
+    let resolve!: (value: Awaited<ReturnType<typeof fetchInvocation>>) => void;
+    fetchInvocation.mockImplementation(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    frames.show(showing(change), null);
+    expect(frame("exp_kb")!.view.visible).toBe(false);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    from("exp_kb", { type: OPEN_NOTE_MESSAGE, path: "old.md", tabId: "home", navigationId });
+    expect(services.onOpenNote).not.toHaveBeenCalled();
+    resolve({
+      invocation: {
+        view: { id: "kb.other", name: "Other" },
+        context: { kind: "group", group: "Other" },
+        check: "/views/_check/kb",
+      },
+      generation: "g1",
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(lastLocation("exp_kb").navigationId).not.toBe(navigationId);
+  });
+
   it("retires a tab's page when its next subject fails to open, so the error shows", async () => {
     const { frames, fetchInvocation, frame, from, lastLocation } = harness();
     frames.show(showing({ tabId: "other" }), null);

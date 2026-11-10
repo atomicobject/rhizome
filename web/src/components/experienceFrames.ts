@@ -143,6 +143,20 @@ export class ExperienceFrames {
     for (const other of this.frames.values())
       if (other !== frame && other.panel === panel && other.activeTab !== null) this.leave(other);
 
+    const previous = frame.pages.get(showing.tabId);
+
+    if (previous && previous.key !== pageKey(showing)) {
+      frame.pages.delete(showing.tabId);
+
+      // Panels keep their component state across subjects.
+      if (!frame.panel) this.post(frame, { type: CLOSE_PAGE_MESSAGE, tabId: showing.tabId });
+
+      if (frame.awaiting) clearTimeout(frame.awaiting.timer);
+      frame.awaiting = null;
+      frame.pending = null;
+      frame.acceptedTab = null;
+    }
+
     const resuming = frame.suspended;
     frame.activeTab = showing.tabId;
     frame.showing = showing;
