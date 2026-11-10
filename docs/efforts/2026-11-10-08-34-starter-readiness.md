@@ -80,7 +80,7 @@ None identified yet.
 
 ## Status
 
-Completed on `feat/starter-readiness`, delivered through [PR #125](https://github.com/atomicobject/rhizome/pull/125). The final code commit `f02a48df` passed all 26 CI checks and Greptile review at 5/5 with no findings. Drew authorized squash merge and explicitly accepted the documented uncertainty about the earlier Windows timeout. Rhizome Dev installation follows the repository's main-branch installation policy.
+Completed on `feat/starter-readiness`, delivered through [PR #125](https://github.com/atomicobject/rhizome/pull/125). Code through `f02a48df` passed all 26 CI checks and Greptile review at 5/5 with no findings; subsequent review corrections and their verification are recorded below. The merge remains gated on the final head's checks and review. Drew authorized squash merge and explicitly accepted the documented uncertainty about the earlier Windows timeout. Rhizome Dev installation follows the repository's main-branch installation policy.
 
 ## Implementation work log
 
@@ -132,3 +132,5 @@ Completed on `feat/starter-readiness`, delivered through [PR #125](https://githu
 - The next review requested real-binary coverage of nonwaiting start followed by immediate stop. That regression failed on `11d80743`: the child removed its startup record before exiting, and Stop then returned early. Stop now retains the observed PID through every startup-completion path and waits for it to exit. The real-binary regression and a helper regression that removes the startup record both pass.
 - The previous Stop implementation also fails the strengthened helper regression through a Go overlay, with no changes to the working tree. The complete runtime unit and real-binary integration packages passed fresh with the race detector, followed by `make check-fast`. The diagnostic CI run on `11d80743` passed both Linux and Windows integration; no further Windows timeout occurred, so the original Windows cause remains unconfirmed.
 - Final acceptance: all 26 checks passed on `f02a48df`, including both operating systems' integration suites. Greptile returned 5/5 with no findings. Drew approved the remaining Windows uncertainty with "Merge with the uncertainty documented." This closure changes documentation only; the verified runtime, UI, and tests remain unchanged.
+
+- The closure review identified a smaller cancellation race: Stop could observe PID zero, then discard the newer owner returned by cancellation. Stop now consumes the cancellation record and refreshes the observed PID only from the same startup token. The cancellation regression covers an owner registered after the initial observation. The complete runtime unit and real-binary integration packages passed fresh with the race detector, and `make check-fast` passed.

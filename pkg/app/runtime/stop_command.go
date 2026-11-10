@@ -162,15 +162,20 @@ func stopOne(ctx context.Context, vaultPath string, grace time.Duration, out io.
 		}
 		if pending && targetToken == "" {
 			targetToken, targetPID = intent.Token, intent.OwnerPID
-			_, cancelled, cancelErr := registry.CancelIntent(gateCtx, vaultPath, targetToken)
+			cancelledIntent, cancelled, cancelErr := registry.CancelIntent(gateCtx, vaultPath, targetToken)
 			if cancelErr != nil {
 				return fmt.Errorf("cancel runtime startup: %w", cancelErr)
 			}
-			if !cancelled {
+			if cancelled {
+				intent = cancelledIntent
+			} else {
 				if owner, live := LockOwner(vaultPath); !live || owner != targetPID {
 					return stoppedStartup()
 				}
 			}
+		}
+		if pending && intent.Token == targetToken && intent.OwnerPID > 0 {
+			targetPID = intent.OwnerPID
 		}
 		if pending && targetToken != "" && intent.Token != targetToken {
 			// A fresh start owns a new token. This invocation stopped the
@@ -189,8 +194,7 @@ func stopOne(ctx context.Context, vaultPath string, grace time.Duration, out io.
 			// may be draining. Give cancellation its full grace before escalation.
 			if manifest, readErr := ReadManifest(vaultPath); readErr == nil {
 				if targetToken != "" && manifest.RunID != targetToken {
-					fmt.Fprintf(out, "stopped %s startup\n", vaultPath)
-					return nil
+					return stoppedStartup()
 				}
 				unresponsive = &manifest
 			}

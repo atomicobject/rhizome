@@ -42,6 +42,22 @@ func TestSpawnedChildRegistrationCannotReplaceAnotherOwner(t *testing.T) {
 	require.Equal(t, os.Getpid(), intent.OwnerPID)
 }
 
+func TestCancellationReturnsOwnerRegisteredAfterObservation(t *testing.T) {
+	registry, vault := intentRegistry(t)
+	ctx := t.Context()
+	requireSpawnIntent(t, registry, vault, "child")
+	observed, found, err := registry.StartIntentFor(ctx, vault)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Zero(t, observed.OwnerPID)
+	require.NoError(t, registry.recordSpawnedChild(ctx, vault, "child", os.Getpid()))
+	cancelledIntent, cancelled, err := registry.CancelIntent(ctx, vault, observed.Token)
+	require.NoError(t, err)
+	require.True(t, cancelled)
+	require.True(t, cancelledIntent.Cancelled)
+	require.Equal(t, os.Getpid(), cancelledIntent.OwnerPID)
+}
+
 func TestCancelledSpawnCannotRegisterChild(t *testing.T) {
 	registry, vault := intentRegistry(t)
 	requireSpawnIntent(t, registry, vault, "child")
