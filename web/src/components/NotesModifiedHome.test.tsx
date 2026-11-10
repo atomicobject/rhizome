@@ -149,9 +149,13 @@ it("names the item an in-note change targets", async () => {
 });
 
 it("reports an empty session as nothing staged", async () => {
-  http.on("POST", DIFF_PATH, () => jsonReply(emptyDiff));
+  const pending = deferredReply<ModifiedNotesResponse>();
+  http.on("POST", DIFF_PATH, () => pending.promise);
   render(<NotesModifiedHome session={session([])} onOpenNote={vi.fn()} onReplaceOps={vi.fn()} />);
 
+  await waitFor(() => expect(http.calls).toHaveLength(1));
+  expect(screen.getByRole("status")).toHaveTextContent("Computing diff…");
+  await act(async () => pending.resolve(emptyDiff));
   await screen.findByText("Nothing staged");
   expect(screen.queryByRole("status")).toBeNull();
 });

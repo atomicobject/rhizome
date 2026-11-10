@@ -166,6 +166,34 @@ describe("SourceEditor", () => {
     expect(flushed).toBe(true);
   });
 
+  it("transfers the raw draft to the session only after staging accepts it", async () => {
+    let accept: (() => void) | undefined;
+    const stage = vi.fn(() => new Promise<void>((resolve) => (accept = resolve)));
+    render(<SourceEditor revision={revision} vaultKey="/vault" onStageOps={stage} />);
+    const view = await sourceView();
+    replaceSource(view, `${revision.content}changed`);
+    const pending = flushEditors();
+    expect(readPersistedEditorDraftRecord("/vault", "source:notes%2Fa.md")).not.toBeNull();
+    accept?.();
+    await act(async () => pending);
+    expect(readPersistedEditorDraftRecord("/vault", "source:notes%2Fa.md")).toBeNull();
+  });
+
+  it("keeps newer typing when an earlier source draft finishes staging", async () => {
+    let accept: (() => void) | undefined;
+    const stage = vi.fn(() => new Promise<void>((resolve) => (accept = resolve)));
+    render(<SourceEditor revision={revision} vaultKey="/vault" onStageOps={stage} />);
+    const view = await sourceView();
+    replaceSource(view, `${revision.content}earlier`);
+    const pending = flushEditors();
+    replaceSource(view, `${revision.content}newer`);
+    accept?.();
+    await act(async () => pending);
+    expect(readPersistedEditorDraftRecord("/vault", "source:notes%2Fa.md")?.value).toBe(
+      `${revision.content}newer`,
+    );
+  });
+
   it("resets rejected staging so the next flush retries the source", async () => {
     const stage = vi
       .fn()

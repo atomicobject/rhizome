@@ -1,5 +1,13 @@
 import { useEffect } from "react";
-import { setViewParams, useMarkReady, useViewContext, useViewParams } from "@rhizome/kit";
+import {
+  Fact,
+  Facts,
+  RecordPage,
+  setViewParams,
+  useMarkReady,
+  useViewContext,
+  useViewParams,
+} from "@rhizome/kit";
 
 // The frame's document start: the same for every page one experience frame
 // renders, so a journey can tell a reused frame from a new one.
@@ -15,12 +23,23 @@ export default function ClaimPage() {
 
   return (
     <main>
-      <h1>{`Claim page ${path.split("/").at(-1)}`}</h1>
-      <p aria-label="Frame">{frameStart}</p>
-      <p aria-label="Section">{`section=${section}`}</p>
-      <button type="button" onClick={() => setViewParams({ section: "evidence" })}>
-        Show evidence
-      </button>
+      <RecordPage
+        title={`Claim page ${path.split("/").at(-1)}`}
+        facts={
+          <Facts note="A claim of the experience">
+            <Fact value={2}>sources</Fact>
+          </Facts>
+        }
+      >
+        <p aria-label="Frame">{frameStart}</p>
+        <p aria-label="Section">{`section=${section}`}</p>
+        <button type="button" onClick={() => setViewParams({ section: "evidence" })}>
+          Show evidence
+        </button>
+        <Facts className="e2e-body-facts">
+          <Fact value={1}>note</Fact>
+        </Facts>
+      </RecordPage>
     </main>
   );
 }

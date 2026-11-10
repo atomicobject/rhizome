@@ -16,7 +16,7 @@ import (
 // Directory patterns skip dot-prefixed paths, so a starter's repository
 // configuration under repo/.rhizome/ must be named explicitly.
 //
-//go:embed templates templates/**/* templates/starters/*/repo/.rhizome/*
+//go:embed templates templates/**/*
 var agentHelperTemplates embed.FS
 
 type agentTemplate struct {

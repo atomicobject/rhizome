@@ -1,31 +1,31 @@
 """An AO-authored synthesis artifact; references are navigation and do not manufacture evidence claims."""
 type Artifact @node(paths: ["artifacts/**/*.md"], propertyCase: AS_DEFINED) @display(group: "Knowledge") {
   """AO KB authored id; absent and unknown values are preserved without inferred defaults."""
-  aoId: String @field(source: "id") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  aoId: String @field(source: "id")
   """AO KB authored name; absent and unknown values are preserved without inferred defaults."""
-  name: String @field(source: "name") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  name: String @field(source: "name")
   """AO KB authored headline; absent and unknown values are preserved without inferred defaults."""
-  headline: String @field(source: "headline") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  headline: String @field(source: "headline")
   """AO KB authored abstract; absent and unknown values are preserved without inferred defaults."""
-  abstract: String @field(source: "abstract") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  abstract: String @field(source: "abstract")
   """AO KB authored status; absent and unknown values are preserved without inferred defaults."""
-  status: String @field(source: "status") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  status: String @field(source: "status")
   """AO KB authored layer; absent and unknown values are preserved without inferred defaults."""
-  layer: String @field(sources: ["layer", "phase"]) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  layer: String @field(sources: ["layer", "phase"])
   """AO KB authored artifactType; absent and unknown values are preserved without inferred defaults."""
-  artifactType: String @field(source: "artifactType") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  artifactType: String @field(source: "artifactType")
   """AO KB authored graphSyncedAt; absent and unknown values are preserved without inferred defaults."""
-  graphSyncedAt: String @field(source: "graphSyncedAt") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  graphSyncedAt: String @field(source: "graphSyncedAt")
   """AO KB authored sensitivity; absent and unknown values are preserved without inferred defaults."""
-  sensitivity: String @field(source: "sensitivity") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  sensitivity: String @field(source: "sensitivity")
   """AO KB authored last-reviewed; absent and unknown values are preserved without inferred defaults."""
-  lastReviewed: String @field(source: "last-reviewed") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  lastReviewed: String @field(source: "last-reviewed")
   """AO KB authored products; absent and unknown values are preserved without inferred defaults."""
-  products: [String!] @field(source: "products") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  products: [String!] @field(source: "products")
   """Assertions named in supported_by. Slug references bind; logical IDs need the same indexer resolution fix as extraction."""
-  supportedBy: [Assertion!] @link(source: "supported_by", includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  supportedBy: [Assertion!] @link(source: "supported_by", includeBodyLinks: false, includeBacklinks: false)
   """Raw recorded support values (`supported_by`, else the legacy `supportingAssertions`); an explicitly empty `supported_by` counts as recorded. Readers resolve them by AO ID, then unique file name, and keep the rest unresolved."""
-  supportValues: [String!] @field(sources: ["supported_by", "supportingAssertions"]) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  supportValues: [String!] @field(sources: ["supported_by", "supportingAssertions"])
   """Additional outgoing assertion references not already represented by supportedBy. Combine both fields for all referenced assertions; ambient edges exclude structural pairs."""
   additionalAssertionReferences: [Assertion!] @neighbors(direction: OUTBOUND, type: "Assertion")
   """Outgoing artifact body references to Concept records, with their authored direction."""
@@ -39,15 +39,15 @@ type Artifact @node(paths: ["artifacts/**/*.md"], propertyCase: AS_DEFINED) @dis
 """Durable AO conflict registry, including generated findings and human decisions. Discovery requires the explicit hidden-file include described in the fixture README."""
 type ConflictRegistry @node(paths: [".kb/curation/_conflicts.md"], propertyCase: AS_DEFINED) @display(group: "Knowledge") {
   """Registry sections preserve AO's grouping (for example Active and Settled)."""
-  groups: [ConflictGroup!] @contains(level: H2) @policy(reason: "AO KB owns this authored structure.")
+  groups: [ConflictGroup!] @contains(level: H2)
   """The authored `updatedAt`. The generated updatedAt record fact is a file modification time, not a curation date."""
-  recordedUpdatedAt: String @field(source: "updatedAt") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  recordedUpdatedAt: String @field(source: "updatedAt")
 }
 
 """An authored conflict registry group."""
 type ConflictGroup implements Section @node(locator: EMBEDDED) @display(group: "Knowledge") {
   """One entry per ### cf-NNN: title heading, in authored order."""
-  entries: [ConflictEntry!] @contains(level: H3) @policy(reason: "AO KB owns this authored structure.")
+  entries: [ConflictEntry!] @contains(level: H3)
 }
 
 """A durable conflict entry openable at its native source section. content retains every field; fields preserves unknown labels and authored order. State, Winner, Rule and impact are AO results, never recalculated here."""
@@ -55,13 +55,13 @@ type ConflictEntry implements Section @node(locator: EMBEDDED) @display(group: "
   """The linked assertion pair recorded by AO in the entry. Only assertion links in this entry are included."""
   assertions: [Assertion!] @neighbors(direction: OUTBOUND, type: "Assertion", scope: SUBTREE)
   """Every - **Field**: value line as an ordered native row, including unknown fields. Read label and value without inventing defaults."""
-  fields: [ConflictField!] @contains(shape: LIST_ITEM) @policy(reason: "AO KB owns this authored structure.")
+  fields: [ConflictField!] @contains(shape: LIST_ITEM)
 }
 
 """One authored conflict field. The label/value parser preserves AO's bold-label list syntax; no fixed enum drops future labels."""
 type ConflictField implements Section @node(locator: EMBEDDED) @display(group: "Knowledge") {
   """The exact bold field label, for example State or Impact override."""
-  label: String @field(sourceKind: ITEM_TITLE) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  label: String @field(sourceKind: ITEM_TITLE)
   """The authored value after the bold label and colon, including links and unknown text."""
-  value: String @field(sourceKind: ITEM_SUMMARY) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  value: String @field(sourceKind: ITEM_SUMMARY)
 }

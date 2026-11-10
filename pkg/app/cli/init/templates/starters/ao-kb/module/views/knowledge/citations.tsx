@@ -1,12 +1,12 @@
 // US3 citation states (SPEC-0135): one state per citation, from SPEC-0133's evidence states plus
 // whether the cited source's body links the assertion, and "Open in source", which passes the
 // assertion as the source view's `assertion` param so the target survives tabs and reloads.
-import { Section, sectionStatus, usePageNavigation, workspaceViewHref } from "@rhizome/kit";
+import { markdownLinks, Section, sectionStatus, usePageNavigation, workspaceViewHref } from "@rhizome/kit";
 import type { ViewNodeRef } from "@rhizome/kit";
 import { coverage, name } from "./lib/knowledge.ts";
 import type { Assertion, Knowledge, relationships } from "./lib/knowledge.ts";
 import { noteBody } from "./lib/locators.ts";
-import { bodyLinkParagraph, citationState } from "./lib/site.ts";
+import { citationState, linkedBlock } from "./lib/site.ts";
 import type { CitationState, Site } from "./lib/site.ts";
 import { useCitationPassages } from "./data.tsx";
 import { Record } from "./parts.tsx";
@@ -16,15 +16,16 @@ type Graph = ReturnType<typeof relationships>;
 export function useCitationStates(a: Assertion, data: Knowledge, graph: Graph) {
   const passages = useCitationPassages(a, data);
   const rows = passages.data?.map(({ citation, passage }) => {
-    const paragraph =
+    // The source offset of the first authored link to the assertion, found without rendering.
+    const at =
       citation.source && !citation.locator
-        ? bodyLinkParagraph(noteBody(citation.source.content), a.path, graph.resolve)
-        : -1;
+        ? linkedBlock(markdownLinks(noteBody(citation.source.content)), a.path, graph.resolve)
+        : undefined;
     return {
       citation,
       passage,
-      paragraph,
-      state: citationState(citation, passage, paragraph) as CitationState,
+      at,
+      state: citationState(citation, passage, at !== undefined) as CitationState,
     };
   });
   return { query: passages, rows };

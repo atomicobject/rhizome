@@ -1,5 +1,4 @@
 # Knowledge convention adapter for AO KB schemaVersion 8, toolkit e9dce951.
-# @policy is guidance; .rhizome/source-ownership.yml enforces AO ownership.
 # Nested provenance and map-shaped frontmatter connections use owner-local paths.
 # Logical-id references (a-..., s-...) stay raw strings until reference bindings land.
 # Deficiencies: flat section-scoped/ordered links and frontmatter connection-shape
@@ -8,91 +7,91 @@
 """An atomic AO KB claim. The note body is the claim, not an evidence quotation. Structured sections remain separately addressable."""
 type Assertion @node(paths: ["assertions/**/*.md"], propertyCase: KEBAB) @display(group: "Knowledge") {
   """AO logical identity (frontmatter id), distinct from the native nodeId and physical note path. Not a Rhizome identifier: AO notes carry no aliases, so look records up by an exact aoId filter."""
-  aoId: String @field(source: "id") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  aoId: String @field(source: "id")
   """AO KB authored headline; absent and unknown values are preserved without inferred defaults."""
-  headline: String @field(source: "headline") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  headline: String @field(source: "headline")
   """AO KB authored abstract; absent and unknown values are preserved without inferred defaults."""
-  abstract: String @field(source: "abstract") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  abstract: String @field(source: "abstract")
   """AO KB authored kind, read from the legacy `assertionKind` key when `kind` is absent (SPEC-0135 R2). The raw value is preserved."""
-  kind: String @field(sources: ["kind", "assertionKind"]) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  kind: String @field(sources: ["kind", "assertionKind"])
   """The legacy `assertionKind` key alone, so a reader can report a record whose two kind keys disagree."""
-  legacyKind: String @field(source: "assertionKind") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  legacyKind: String @field(source: "assertionKind")
   """AO KB authored confidence; absent and unknown values are preserved without inferred defaults."""
-  confidence: String @field(source: "confidence") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  confidence: String @field(source: "confidence")
   """AO KB authored attestation; absent and unknown values are preserved without inferred defaults."""
-  attestation: String @field(source: "attestation") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  attestation: String @field(source: "attestation")
   """AO KB authored status; absent and unknown values are preserved without inferred defaults."""
-  status: String @field(source: "status") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  status: String @field(source: "status")
   """AO KB authored horizon; absent and unknown values are preserved without inferred defaults."""
-  horizon: String @field(source: "horizon") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  horizon: String @field(source: "horizon")
   """AO KB authored priority; absent and unknown values are preserved without inferred defaults."""
-  priority: String @field(source: "priority") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  priority: String @field(source: "priority")
   """AO KB authored sensitivity; absent and unknown values are preserved without inferred defaults."""
-  sensitivity: String @field(source: "sensitivity") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  sensitivity: String @field(source: "sensitivity")
   """AO KB authored layer; absent and unknown values are preserved without inferred defaults."""
-  layer: String @field(sources: ["layer", "phase"]) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  layer: String @field(sources: ["layer", "phase"])
   """AO KB authored phase; absent and unknown values are preserved without inferred defaults."""
-  phase: String @field(source: "phase") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  phase: String @field(source: "phase")
   """AO KB authored validFrom; absent and unknown values are preserved without inferred defaults."""
-  validFrom: String @field(source: "validFrom") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  validFrom: String @field(source: "validFrom")
   """AO KB authored validUntil; absent and unknown values are preserved without inferred defaults."""
-  validUntil: String @field(source: "validUntil") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  validUntil: String @field(source: "validUntil")
   """AO KB authored reviewedBy; absent and unknown values are preserved without inferred defaults."""
-  reviewedBy: String @field(source: "reviewedBy") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  reviewedBy: String @field(source: "reviewedBy")
   """AO KB authored reviewedAt; absent and unknown values are preserved without inferred defaults."""
-  reviewedAt: String @field(source: "reviewedAt") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  reviewedAt: String @field(source: "reviewedAt")
   """AO KB authored withdrawnAt; absent and unknown values are preserved without inferred defaults."""
-  withdrawnAt: String @field(source: "withdrawnAt") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  withdrawnAt: String @field(source: "withdrawnAt")
   """AO KB authored withdrawnReason; absent and unknown values are preserved without inferred defaults."""
-  withdrawnReason: String @field(source: "withdrawnReason") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  withdrawnReason: String @field(source: "withdrawnReason")
   """AO KB authored createdAt; absent and unknown values are preserved without inferred defaults."""
-  createdAt: String @field(source: "createdAt") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  createdAt: String @field(source: "createdAt")
   """AO authored update timestamp, independent of the index or filesystem timestamp."""
-  updatedAt: String @field(source: "updatedAt") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  updatedAt: String @field(source: "updatedAt")
   """AO KB authored createdVia; absent and unknown values are preserved without inferred defaults."""
-  createdVia: String @field(source: "createdVia") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  createdVia: String @field(source: "createdVia")
   """AO KB authored lenses; absent and unknown values are preserved without inferred defaults."""
-  lenses: [String!] @field(source: "lenses") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  lenses: [String!] @field(source: "lenses")
   """AO KB authored products; absent and unknown values are preserved without inferred defaults."""
-  products: [String!] @field(source: "products") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  products: [String!] @field(source: "products")
   """AO KB authored extracted_by; absent and unknown values are preserved without inferred defaults."""
-  extractedBy: String @field(source: "extracted_by") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  extractedBy: String @field(source: "extracted_by")
   """AO KB authored speaker, read from the legacy `attestedBy` key when `speaker` is absent. The legacy `origin` key is not a role and is not read."""
-  speaker: String @field(sources: ["speaker", "attestedBy"]) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  speaker: String @field(sources: ["speaker", "attestedBy"])
   """AO KB authored speaker_role; absent and unknown values are preserved without inferred defaults."""
-  speakerRole: String @field(source: "speaker_role") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  speakerRole: String @field(source: "speaker_role")
   """Raw AO demo-feedback kind:id references; these are not claim-to-claim edges."""
-  contradictsRows: [String!] @field(source: "contradicts_rows") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  contradictsRows: [String!] @field(source: "contradicts_rows")
   """Raw AO demo-feedback kind:id references; these are not claim-to-claim edges."""
-  supportsRows: [String!] @field(source: "supports_rows") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  supportsRows: [String!] @field(source: "supports_rows")
   """Recorded origin source from provenance.source, exactly as authored (an AO id such as s-... or a slug). When absent, AO takes the origin from the first ## Sources link. Raw text: logical ids resolve through node(ref:) until reference bindings land."""
-  provenanceSource: String @field(path: "provenance.source") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  provenanceSource: String @field(path: "provenance.source")
   """Recorded passage locator from provenance.locator, [<file>::]<span> under the source's locator scheme. Absent means no passage was recorded."""
-  provenanceLocator: String @field(path: "provenance.locator") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  provenanceLocator: String @field(path: "provenance.locator")
   """Recorded speaker from provenance.speaker. Wins over the legacy top-level speaker."""
-  provenanceSpeaker: String @field(path: "provenance.speaker") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  provenanceSpeaker: String @field(path: "provenance.speaker")
   """Recorded speaker role from provenance.speaker_role. Wins over the legacy top-level speaker_role; never inferred from a name or source."""
-  provenanceSpeakerRole: String @field(path: "provenance.speaker_role") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  provenanceSpeakerRole: String @field(path: "provenance.speaker_role")
   """Recorded quote hash from provenance.quote_hash. Rhizome does not verify it."""
-  provenanceQuoteHash: String @field(path: "provenance.quote_hash") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  provenanceQuoteHash: String @field(path: "provenance.quote_hash")
   """Extraction metadata from provenance.extracted_by. Wins over the legacy top-level extracted_by."""
-  provenanceExtractedBy: String @field(path: "provenance.extracted_by") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  provenanceExtractedBy: String @field(path: "provenance.extracted_by")
   """Frontmatter connections declared as a map, by relation key, exactly as authored (AO ids or slugs). The views merge them with the ## Connections bullets and AO's inverse aliases. Sequence-shaped connections ([{type, target}] or a bare id list) are not projected yet and are reported by the check action."""
-  frontmatterSupports: [String!] @field(path: "connections.supports") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  frontmatterRefines: [String!] @field(path: "connections.refines") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  frontmatterDependsOn: [String!] @field(path: "connections.depends-on") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  frontmatterContradicts: [String!] @field(path: "connections.contradicts") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  frontmatterSupersedes: [String!] @field(path: "connections.supersedes") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  frontmatterResolves: [String!] @field(path: "connections.resolves") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  frontmatterRelatesTo: [String!] @field(path: "connections.relates-to") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  frontmatterCorroboratedBy: [String!] @field(path: "connections.corroborated-by") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  frontmatterSupportedBy: [String!] @field(path: "connections.supported-by") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  frontmatterSupersededBy: [String!] @field(path: "connections.superseded-by") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
-  frontmatterResolvedBy: [String!] @field(path: "connections.resolved-by") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  frontmatterSupports: [String!] @field(path: "connections.supports")
+  frontmatterRefines: [String!] @field(path: "connections.refines")
+  frontmatterDependsOn: [String!] @field(path: "connections.depends-on")
+  frontmatterContradicts: [String!] @field(path: "connections.contradicts")
+  frontmatterSupersedes: [String!] @field(path: "connections.supersedes")
+  frontmatterResolves: [String!] @field(path: "connections.resolves")
+  frontmatterRelatesTo: [String!] @field(path: "connections.relates-to")
+  frontmatterCorroboratedBy: [String!] @field(path: "connections.corroborated-by")
+  frontmatterSupportedBy: [String!] @field(path: "connections.supported-by")
+  frontmatterSupersededBy: [String!] @field(path: "connections.superseded-by")
+  frontmatterResolvedBy: [String!] @field(path: "connections.resolved-by")
   """Ordered citation rows from ## Sources only. Repeated links remain separate rows; incidental links elsewhere are excluded. TODO: flat sources: [Source!] needs ordered section-link support."""
-  sourcesSection: AssertionSources @contains(level: H2, heading: "Sources") @policy(reason: "AO KB owns this authored structure.")
+  sourcesSection: AssertionSources @contains(level: H2, heading: "Sources")
   """AO typed bullets in ## Connections. Read content for unknown declarations; frontmatter connections remain inspectable in the full source content."""
-  connectionsSection: AssertionConnections @contains(level: H2, heading: "Connections") @policy(reason: "AO KB owns this authored structure.")
+  connectionsSection: AssertionConnections @contains(level: H2, heading: "Connections")
   """Every outgoing assertion link to a concept, without inventing a primary concept."""
   concepts: [Concept!] @neighbors(direction: OUTBOUND, type: "Concept")
   """Incoming authored supports declarations. Each result is the declaring Connections section; notePath identifies its assertion. No inverse is invented."""
@@ -128,13 +127,13 @@ type Assertion @node(paths: ["assertions/**/*.md"], propertyCase: KEBAB) @displa
 """Only an assertion's ## Sources section. Citations retain list order and multiplicity."""
 type AssertionSources implements Section @node(locator: EMBEDDED) @display(group: "Knowledge") {
   """Each authored Sources bullet, including unresolved and repeated citations. Inspect content for its exact authored reference."""
-  citations: [SourceCitation!] @contains(shape: LIST_ITEM) @policy(reason: "AO KB owns this authored structure.")
+  citations: [SourceCitation!] @contains(shape: LIST_ITEM)
 }
 
 """One citation bullet; this native embedded row preserves an authored citation occurrence, not a deduplicated evidence set."""
 type SourceCitation implements Section @node(locator: EMBEDDED) @display(group: "Knowledge") {
   """Exact authored bullet text without the list marker. Preserves repeated or unresolved link spellings independently of target resolution."""
-  recordedLink: String @field(sourceKind: ITEM_SUMMARY) @policy(reason: "AO KB owns this authored citation.")
+  recordedLink: String @field(sourceKind: ITEM_SUMMARY)
   """Source nodes resolved from this bullet. Empty for a missing or ambiguous Source target; recordedLink preserves the authored target. Repeated citation bullets resolve independently."""
   sources: [Source!] @neighbors(direction: OUTBOUND, type: "Source", scope: SUBTREE)
 }
@@ -142,49 +141,49 @@ type SourceCitation implements Section @node(locator: EMBEDDED) @display(group: 
 """AO's ## Connections section. Canonical fields point from the declaring assertion's section to the target. Declared inverse fields point the other way semantically; consumers must reverse them. Frontmatter connections require an adapter and are not silently treated as bound."""
 type AssertionConnections implements Section @node(locator: EMBEDDED, propertyCase: KEBAB) @display(group: "Knowledge") {
   """Authored supports target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  supports: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  supports: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Authored refines target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  refines: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  refines: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Authored depends-on target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  dependsOn: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  dependsOn: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Authored contradicts target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  contradicts: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  contradicts: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Authored supersedes target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  supersedes: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  supersedes: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Authored resolves target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  resolves: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  resolves: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Authored duplicate target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  duplicate: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  duplicate: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Authored relates-to target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  relatesTo: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  relatesTo: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Authored traces-to target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  tracesTo: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  tracesTo: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Authored grounds target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  grounds: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  grounds: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Authored exemplifies target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  exemplifies: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  exemplifies: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Authored implements target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  implements: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  implements: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Authored actor-of target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  actorOf: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  actorOf: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Authored element-depends-on target from typed Connections bullets. Duplicate field targets form one graph edge."""
-  elementDependsOn: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  elementDependsOn: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Declared inverse supported-by: the target assertion is the source of the canonical supports edge. Reverse this declaration when interpreting direction."""
-  supportedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  supportedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Declared inverse refined-by: the target assertion is the source of the canonical refines edge. Reverse this declaration when interpreting direction."""
-  refinedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  refinedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Declared inverse contradicted-by: the target assertion is the source of the canonical contradicts edge. Reverse this declaration when interpreting direction."""
-  contradictedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  contradictedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Declared inverse superseded-by: the target assertion is the source of the canonical supersedes edge. Reverse this declaration when interpreting direction."""
-  supersededBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  supersededBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Declared inverse resolved-by: the target assertion is the source of the canonical resolves edge. Reverse this declaration when interpreting direction."""
-  resolvedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  resolvedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Declared inverse addressed-by: the target assertion is the source of the canonical resolves edge. Reverse this declaration when interpreting direction."""
-  addressedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  addressedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Declared inverse blocks: the target assertion is the source of the canonical depends-on edge. Reverse this declaration when interpreting direction."""
-  blocks: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  blocks: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """Declared inverse grounded-by: the target assertion is the source of the canonical grounds edge. Reverse this declaration when interpreting direction."""
-  groundedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  groundedBy: [Assertion!] @link(includeBodyLinks: false, includeBacklinks: false)
   """External or generated corroborating sources. This is distinct from origin, Sources citations, and extraction history."""
-  corroboratedBy: [Source!] @link(includeBodyLinks: false, includeBacklinks: false) @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  corroboratedBy: [Source!] @link(includeBodyLinks: false, includeBacklinks: false)
 }

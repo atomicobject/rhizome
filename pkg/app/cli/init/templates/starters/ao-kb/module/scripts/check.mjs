@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { bindingRows, globMatch, runCompilerCheck } from './lib/bindings-check.mjs';
+import { bindingRows, globMatch, liftStarterOwnership, ownedPatterns, runCompilerCheck } from './lib/bindings-check.mjs';
 
 // Read only the scalar frontmatter keys and simple include lists used by this check.
 function scalar(text, key) {
@@ -99,15 +99,22 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
   });
   const ownershipPath = '.rhizome/source-ownership.yml';
   inspect('source ownership', ownershipPath, () => {
-    const declared = new Set((read(root, ownershipPath) ?? '').split('\n')
-      .map(line => line.match(/^\s*-\s*['"]?([^'"#\s]+)['"]?\s*(?:#.*)?$/)?.[1]).filter(Boolean));
-    const required = ['.kb/**', 'assertions/**', 'sources/**', 'concepts/**', 'artifacts/**'];
-    const missing = required.filter(path => !declared.has(path));
-    add('source ownership', declared.size === 0 ? 'error' : missing.length ? 'warning' : 'ok', declared.size === 0
-      ? 'No source ownership declaration: AO-owned records are editable through Rhizome. Re-run init with the ao-kb add-on or restore the file.'
-      : missing.length
-      ? `Ownership declaration does not list ${missing.join(', ')}; Rhizome can edit those AO records.`
-      : 'AO KB knowledge paths are declared AO-owned; Rhizome refuses native edits to them.', ownershipPath);
+    // The starter declares no ownership: AO KB notes are edited through Rhizome like any other
+    // note. An installation from before 2026-11-10 still carries the starter's former
+    // declaration until refresh lifts it; any other declared entry is the repository's own.
+    const text = read(root, ownershipPath);
+    const { legacy } = liftStarterOwnership(text);
+    const owned = ownedPatterns(text ?? '');
+    const unreadable = text !== null && !owned.length && /- +owner:/.test(text);
+    add('source ownership', legacy.length || unreadable ? 'warning' : 'ok', text === null
+      ? 'No source ownership declaration; AO KB notes are edited through Rhizome like any other note.'
+      : legacy.length
+      ? `The starter's former read-only declaration still covers ${legacy.join(', ')}. Run rzm ao-kb refresh-bindings to lift it; entries for other owners stay as they are.`
+      : unreadable
+      ? 'This check cannot read the declaration, so it cannot say what Rhizome refuses to edit. If it still lists the starter\'s former AO KB paths, remove them by hand.'
+      : owned.length
+      ? `The repository's own declaration keeps ${owned.join(', ')} read-only in Rhizome; the starter adds no declaration of its own.`
+      : 'The declaration lists no owned path; AO KB notes are edited through Rhizome like any other note.', ownershipPath);
   });
   inspect('knowledge bindings', `${module}/ontology`, () => {
     const dir = join(root, module, 'ontology');

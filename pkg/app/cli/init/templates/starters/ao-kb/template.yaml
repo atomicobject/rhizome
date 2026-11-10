@@ -1,12 +1,12 @@
 id: ao-kb
 name: AO KB knowledge
-description: "Browse and trace an existing AO KB's knowledge and selected product model, read-only, while AO KB keeps authoring them"
+description: "Browse, trace, and edit an existing AO KB's knowledge beside AO's own skills, with the selected product model read-only"
 requires:
   - core
 optionalAddon: true
-# repo/.rhizome/source-ownership.yml declares AO-owned paths at install, before any
-# binding or index exists. Init keeps local edits; deleting it ends the protection.
-# module/bindings/ is the model binding compiler; it runs only through the
+# The starter declares no source ownership; a repository's own
+# .rhizome/source-ownership.yml is left to it. module/bindings/ is the model
+# binding compiler; it runs only through the
 # refresh-bindings action, never from init.
 installedAssetTypes:
   - ontology

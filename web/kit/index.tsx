@@ -24,6 +24,15 @@ import { useViewActive, useViewContext } from "./viewContext";
 
 export { Diagram } from "./Diagram";
 
+export {
+  Markdown,
+  markdownLinks,
+  type MarkdownLink,
+  type MarkdownLinkTo,
+  type MarkdownMark,
+  type MarkdownProps,
+} from "./markdown";
+
 export { mermaid } from "./mermaid";
 
 export * from "./viewContext";

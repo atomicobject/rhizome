@@ -19,7 +19,7 @@ import (
 
 // SPEC-0135 US6 and R2b: a single-product schemaVersion 5 KB completes setup through the
 // knowledge-only route with the real binary and no uv on PATH, the exported orientation
-// query reads every record, and no KB file changes.
+// query reads every record, and only the former starter ownership declaration changes.
 func TestAOKBLegacyKnowledgeOnlySetup(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the PATH without uv is built from symlinks")
@@ -33,6 +33,7 @@ func TestAOKBLegacyKnowledgeOnlySetup(t *testing.T) {
 	output, err := kb.rzm("init", "--add-addon", "ao-kb", "--agents", "none")
 	require.NoError(t, err, output)
 	kb.authored = kb.files()
+	require.Contains(t, kb.authored, ".rhizome/source-ownership.yml", "the fixture predates editable KB notes")
 
 	// PATH holds node and rzm only, so uv is absent.
 	bin := t.TempDir()
@@ -67,6 +68,8 @@ func TestAOKBLegacyKnowledgeOnlySetup(t *testing.T) {
 	require.Equal(t, false, refreshed["modelReady"])
 	require.Equal(t, "not applicable", model(refreshed))
 	require.Empty(t, refreshed["dependencies"], "uv is not looked up")
+	require.NoFileExists(t, filepath.Join(kb.root, ".rhizome/source-ownership.yml"))
+	delete(kb.authored, ".rhizome/source-ownership.yml")
 
 	report := run(check)
 	require.Equal(t, true, report["bindingsReady"], report)
@@ -78,9 +81,10 @@ func TestAOKBLegacyKnowledgeOnlySetup(t *testing.T) {
 	}
 	require.Equal(t, "ok", rows["schemaVersion"])
 	require.Equal(t, "ok", rows["note includes"])
-	for _, name := range []string{"model compiler dependencies", "model bindings", "model source ownership"} {
+	for _, name := range []string{"model compiler dependencies", "model bindings"} {
 		require.Equal(t, "not applicable", rows[name], name)
 	}
+	require.NotContains(t, rows, "model source ownership", "the starter declares no ownership")
 
 	indexed := run(compiler, "index")
 	require.Equal(t, true, indexed["indexReady"], indexed)

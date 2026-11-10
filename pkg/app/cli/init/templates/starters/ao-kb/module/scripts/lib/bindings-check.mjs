@@ -1,12 +1,13 @@
 // The model-binding half of the AO KB check: runs the binding compiler's own read-only
 // check and states its result as named rows beside the knowledge checks. The compiler's
-// computed status, not its saved manifest, decides freshness.
+// computed status, not its saved manifest, decides freshness. It also reads the source
+// ownership declaration: the starter once declared AO KB's layout read-only, and refresh
+// lifts that former declaration from an installation that still carries it.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const MODULE = '.rhizome/modules/ao-kb';
-const OWNERSHIP = '.rhizome/source-ownership.yml';
 
 /** The compiler's `check` report, or an error report when it cannot run. */
 export function runCompilerCheck(root) {
@@ -21,6 +22,23 @@ export function runCompilerCheck(root) {
     const tail = `${result.stderr || ''}${result.error?.message || ''}`.trim().slice(-400);
     return { bindingsReady: false, indexReady: false, status: 'error', diagnostics: [{ code: 'ao_compiler_failed', severity: 'error', message: `The binding compiler check did not report a result. ${tail}`.trim() }] };
   }
+}
+
+// One plain or quoted YAML scalar, or null when it is anything else.
+function scalar(raw) {
+  if (raw === undefined) return null;
+  const value = raw.trim().replace(/\s+#.*$/, '');
+  if (value.startsWith('"')) {
+    try { const parsed = JSON.parse(value); return typeof parsed === 'string' && parsed.trim() ? parsed : null; }
+    catch { return null; }
+  }
+  if (value.startsWith("'")) {
+    if (!/^'(?:[^']|'')*'$/.test(value)) return null;
+    const parsed = value.slice(1, -1).replace(/''/g, "'");
+    return parsed.trim() ? parsed : null;
+  }
+  if (!value || /^(?:null|~)$/i.test(value) || /^[&*!|>#]/.test(value) || /^[-?:]\s/.test(value) || /[\[\]{}]|:\s/.test(value)) return null;
+  return value;
 }
 
 /** Read the policy's block sources and scalar path lists; uncertain YAML certifies no ownership. */
@@ -41,21 +59,6 @@ export function ownedPatterns(text) {
       if (ownerIndent === undefined || indent !== ownerIndent + 4) return [];
     } else return [];
   }
-  const scalar = raw => {
-    if (raw === undefined) return null;
-    const value = raw.trim().replace(/\s+#.*$/, '');
-    if (value.startsWith('"')) {
-      try { const parsed = JSON.parse(value); return typeof parsed === 'string' && parsed.trim() ? parsed : null; }
-      catch { return null; }
-    }
-    if (value.startsWith("'")) {
-      if (!/^'(?:[^']|'')*'$/.test(value)) return null;
-      const parsed = value.slice(1, -1).replace(/''/g, "'");
-      return parsed.trim() ? parsed : null;
-    }
-    if (!value || /^(?:null|~)$/i.test(value) || /^[&*!|>#]/.test(value) || /^[-?:]\s/.test(value) || /[\[\]{}]|:\s/.test(value)) return null;
-    return value;
-  };
   const patterns = [];
   for (const block of text.split(/^ *- +owner:[ \t]*/m).slice(1)) {
     if ((block.match(/^ +reason:/gm) || []).length !== 1 || (block.match(/^ +paths:/gm) || []).length !== 1) return [];
@@ -69,6 +72,51 @@ export function ownedPatterns(text) {
     patterns.push(...decoded);
   }
   return patterns;
+}
+
+/** The starter's former declaration, installed before 2026-11-10: it kept AO KB's standard
+ * layout read-only in Rhizome. Refresh lifts exactly these paths from an `AO KB` entry. */
+export const STARTER_OWNER = 'AO KB';
+export const STARTER_PATHS = ['.kb/**', 'assertions/**', 'sources/**', 'concepts/**', 'artifacts/**', 'decisions.md', '_moc.md', 'MOCs/**', '_improvements/**',
+  'products/*/.kb/**', 'products/*/assertions/**', 'products/*/sources/**', 'products/*/concepts/**', 'products/*/artifacts/**', 'products/*/decisions.md', 'products/*/_moc.md', 'products/*/MOCs/**', 'products/*/_improvements/**'];
+
+/** `text` without the starter's former AO KB paths, and which of them it listed. Every other
+ * line stays byte for byte: other owners' entries, and paths someone added under AO KB. An
+ * AO KB entry left with no path goes; a declaration left with no entry becomes `null`, no file.
+ * Uncertain YAML, which certifies no ownership, is returned unchanged. */
+export function liftStarterOwnership(text) {
+  if (text === null || text === undefined || !ownedPatterns(text).length) return { legacy: [], text };
+  const eol = text.includes('\r\n') ? '\r\n' : '\n';
+  const kept = [];
+  const legacy = [];
+  let block = null;
+  const flush = () => { if (block && (block.owner !== STARTER_OWNER || block.paths > 0)) kept.push(...block.lines); block = null; };
+  for (const line of text.split(/\r?\n/)) {
+    const owner = line.match(/^ *- +owner:[ \t]*(.*)$/);
+    if (owner) { flush(); block = { owner: scalar(owner[1]), lines: [line], paths: 0 }; continue; }
+    if (!block) { kept.push(line); continue; }
+    const starter = block.owner === STARTER_OWNER;
+    const item = line.match(/^ +- (.*)$/);
+    const flow = line.match(/^( +paths:[ \t]*\[)([^\]]*)(\].*)$/);
+    if (item) {
+      const value = scalar(item[1]);
+      if (starter && STARTER_PATHS.includes(value)) { legacy.push(value); continue; }
+      block.paths++;
+    } else if (flow) {
+      const entries = flow[2].split(',').map(s => s.trim()).filter(Boolean);
+      const remaining = entries.filter(entry => {
+        if (starter && STARTER_PATHS.includes(scalar(entry))) { legacy.push(scalar(entry)); return false; }
+        return true;
+      });
+      block.paths += remaining.length;
+      if (remaining.length !== entries.length) { block.lines.push(`${flow[1]}${remaining.join(', ')}${flow[3]}`); continue; }
+    }
+    block.lines.push(line);
+  }
+  flush();
+  if (!legacy.length) return { legacy, text };
+  const result = kept.join(eol);
+  return { legacy, text: /^ *- +owner:/m.test(result) ? result : null };
 }
 
 /** Matches the preflight's bounded ownership patterns, ignoring case.
@@ -89,10 +137,6 @@ export function globMatch(pattern, path) {
   return new RegExp(`^${re}$`, 'i').test(path);
 }
 
-function read(root, path) {
-  try { return readFileSync(join(root, path), 'utf8'); } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
-}
-
 const SELECT = "Select a product with `rzm ao-kb refresh-bindings --product <slug>`, or `--single true` for a single-product KB.";
 
 export function bindingRows(root, report) {
@@ -106,10 +150,10 @@ export function bindingRows(root, report) {
     ? 'The generated knowledge admission matches the persisted product selection.'
     : `Knowledge typing is unscoped or stale until setup completes. ${SELECT}`, `${MODULE}/ontology/ao-knowledge.generated.graphql`);
 
-  // Below schemaVersion 8 the model stage does not run, so no model row reports a dependency, readiness, or ownership.
+  // Below schemaVersion 8 the model stage does not run, so no model row reports a dependency or readiness.
   const model = report.bindings?.model;
   if (model?.status === 'not applicable') {
-    for (const [name, path] of [['model compiler dependencies', `${MODULE}/bindings`], ['model bindings', `${MODULE}/bindings/manifest.json`], ['model source ownership', OWNERSHIP]]) {
+    for (const [name, path] of [['model compiler dependencies', `${MODULE}/bindings`], ['model bindings', `${MODULE}/bindings/manifest.json`]]) {
       add(name, 'not applicable', model.reason, path);
     }
     add('model index', report.indexReady ? 'ok' : 'pending', report.indexReady
@@ -148,17 +192,5 @@ export function bindingRows(root, report) {
     : 'No verified index receipt for the current bindings; `node .rhizome/modules/ao-kb/bindings/cli.mjs index` indexes and writes one.', `${MODULE}/bindings/index-receipt.json`);
 
   knowledgeRow();
-
-  const manifest = JSON.parse(read(root, bindingsPath) ?? 'null');
-  if (!manifest?.sources && !manifest?.knowledgeSources) {
-    add('model source ownership', 'pending', 'Checked after the first successful refresh lists the model sources.', OWNERSHIP);
-  } else {
-    const patterns = ownedPatterns(read(root, OWNERSHIP));
-    const paths = [...(manifest.sources ?? []), ...(manifest.knowledgeSources ?? [])].map(s => s.path).filter(Boolean);
-    const unowned = [...new Set(paths.filter(path => !patterns.some(p => globMatch(p, path))))];
-    add('model source ownership', unowned.length ? 'error' : 'ok', unowned.length
-      ? `These compiled AO sources are not declared AO-owned, so Rhizome could edit them: ${unowned.join(', ')}. Add them to ${OWNERSHIP} before indexing.`
-      : `All ${new Set(paths).size} compiled model and knowledge sources are declared AO-owned.`, OWNERSHIP);
-  }
   return rows;
 }

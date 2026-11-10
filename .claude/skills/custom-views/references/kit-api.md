@@ -164,6 +164,7 @@ List `@reverse` and `@neighbors` fields take `first`, which caps the targets rea
 | `RelativeTime` | `<RelativeTime value={record.updatedAt} />` renders a compact age ("5m", "3h", "12d", then a date) with the exact time as its tooltip; screen readers hear both. It does not tick: the age is computed when the view renders, which vault changes trigger. Pass `now` to set the comparison time. |
 | `Diagram` | `<Diagram label="Ideas by impact" source={source} links={links} />` renders Mermaid text with Pele and the view's theme. `label` is required; `links` maps diagram ids to canonical node refs. Empty or whitespace source renders nothing. Optional `className` styles the container. See [Diagrams](#diagrams) for the API and examples. |
 | `mermaid` | `text(value)` escapes non-CSV labels with Mermaid entities; `csv(value)` produces a quoted Sankey CSV field; `id(key)` produces a deterministic, syntax-safe node id. |
+| `Markdown` / `markdownLinks` | `<Markdown source={record.content} />` renders one whole Markdown document with GitHub-flavored Markdown, highlighted code, and Mermaid. `resolveLink` turns wikilinks and relative Markdown links into node links; `mark` highlights the block holding a link that `markdownLinks(source)` located. See [Markdown](#markdown). |
 | `typeLabel(labels, { count?, plural?, prefix? })` | A type's schema label, plural when `plural` is set or `count` is not 1, with a shared prefix dropped. |
 | `sharedLabelPrefix(labels)` | The first word every label shares, with its trailing space, or `""`. Pass it to `typeLabel` as `prefix` inside a group page. |
 
@@ -255,6 +256,22 @@ function portfolioSankey(data: Data): string {
 For xychart legends, name series, for example `bar "Sales" [1, 2]`. Mermaid frontmatter sizing uses `config.sankey` and case-sensitive `config.xyChart`. Sankey nodes and links expose their labels through `data-id` for scoped category styling.
 
 `mermaid.csv` quotes the field and doubles embedded quotes. `mermaid.id` uses FNV-1a 32-bit, base36, with an `n` prefix. Pele loads on the first Diagram mount with nonempty source. A pending update keeps the previous SVG visible; errors show their message and expandable source inside the view.
+
+## Markdown
+
+Import `Markdown` and `markdownLinks` from `@rhizome/kit`. `Markdown` renders one complete document through Rhizome's own renderer, so a fence with blank lines, a loose list, a table, emphasis, and a reference-style link read as written. Raw HTML stays literal text, `javascript:` and other unsafe schemes render as plain text, and images never load (their alt text and source show instead).
+
+```tsx
+import { Markdown, markdownLinks } from "@rhizome/kit";
+
+<Markdown source={record.content} className="prose" skipTitle />;
+```
+
+Wikilinks (`[[target]]`, `[[target|label]]`, `![[target]]`) and relative Markdown links, inline or reference-style, are internal links. Pass `resolveLink(target)` to turn each target into `{ node, view? }`; it renders as a `NodeLink` that opens the node in the workspace. Leave `resolveLink` out while its data loads and internal links show as plain labels; return `undefined` from it and the link shows as explicitly unresolved with its raw target in a tooltip. `http`, `https`, and `mailto` links open in a new tab, and `#fragment` links stay in the page. Pass a memoized resolver, because the document renders again when it changes. `skipTitle` hides a leading H1 that repeats the page title, unless that heading holds the selected citation mark.
+
+`markdownLinks(source)` returns the document's internal links as `{ target, offset }` in source order, through the same parse, without rendering. `offset` is the UTF-16 index of the link's first character in the exact string you passed. Links inside code spans, fences, and indented code are not links, a reference definition by itself is not one, and external links are left out.
+
+`mark={{ at, label, ref }}` highlights the innermost rendered block (paragraph, list item, heading, or table row) holding the link at `at`, shows `label` at its top, and hands the element to `ref` so your page can scroll to it. The AO KB Knowledge site finds the first link to an assertion on the assertion page with `markdownLinks`, passes its offset to the source page, and marks it there, so the two pages agree without a second parser.
 
 ## Freshness
 

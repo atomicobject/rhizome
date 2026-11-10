@@ -11,16 +11,20 @@ import (
 	mcpapi "github.com/atomicobject/rhizome/pkg/app/mcp"
 	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/sourceownership"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 )
 
-// SPEC-0133 R5: MCP write tools refuse AO-owned targets in a copy of the booking
-// fixture, under the starter's real ownership declaration and compiled
-// bindings, with the owner's reason and no byte changes.
-func TestMCPWriteToolsRefuseAOOwnedTargetsWithoutChangingBytes(t *testing.T) {
+// SPEC-0133 R5: MCP write tools refuse targets a repository's own declaration
+// owns, in a copy of the booking fixture under its compiled bindings, with the
+// owner's reason and no byte changes. The AO KB starter declares no ownership
+// of its own; this declaration is the repository's.
+const bookingDeclaration = "sources:\n  - owner: Model tool\n    reason: Managed by the model tool. Change it there.\n    paths:\n      - assertions/**\n      - artifacts/**\n"
+
+func TestMCPWriteToolsRefuseDeclaredOwnedTargetsWithoutChangingBytes(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.CopyFS(root, os.DirFS("../../../testdata/ao-kb/booking")))
 	static, err := filepath.Glob("../cli/init/templates/starters/ao-kb/module/ontology/*.graphql")
@@ -32,9 +36,7 @@ func TestMCPWriteToolsRefuseAOOwnedTargetsWithoutChangingBytes(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome/ontology", filepath.Base(file)), data, 0o644))
 	}
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome/config.yml"), []byte("notes:\n  includes: ['**/*.md']\n"), 0o644))
-	declaration, err := os.ReadFile("../cli/init/templates/starters/ao-kb/repo/.rhizome/source-ownership.yml")
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome/source-ownership.yml"), declaration, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, sourceownership.DeclarationPath), []byte(bookingDeclaration), 0o644))
 	authored := map[string]string{}
 	require.NoError(t, filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil || entry.IsDir() {
@@ -64,7 +66,7 @@ func TestMCPWriteToolsRefuseAOOwnedTargetsWithoutChangingBytes(t *testing.T) {
 			result, err := call.tool(t.Context(), mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: call.args}})
 			require.NoError(t, err)
 			require.True(t, result.IsError, "%+v", result.Content)
-			require.Contains(t, result.Content[0].(mcp.TextContent).Text, "Managed by AO KB. Change it with the AO KB skills")
+			require.Contains(t, result.Content[0].(mcp.TextContent).Text, "Managed by the model tool. Change it there.")
 			for path, content := range authored {
 				data, err := os.ReadFile(path)
 				require.NoError(t, err)

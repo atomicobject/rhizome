@@ -151,16 +151,25 @@ export function SourceEditor({
       readPersistedEditorDraftRecord(vaultKey, operationTarget)?.expected;
 
     if (!expected) return Promise.resolve();
-    stagedContentRef.current = draftRef.current;
+    const submitted = draftRef.current;
+    stagedContentRef.current = submitted;
     let staged: Promise<void>;
 
     try {
-      staged = Promise.resolve(
-        stageRef.current([sourceOperation(current, draftRef.current, expected)]),
-      ).catch((stageError: Error) => {
-        stagedContentRef.current = current.content;
-        throw stageError;
-      });
+      staged = Promise.resolve(stageRef.current([sourceOperation(current, submitted, expected)]))
+        .then(() => {
+          const pending = readPersistedEditorDraftRecord(vaultKey, operationTarget);
+
+          if (
+            pending?.value === submitted &&
+            JSON.stringify(pending.expected) === JSON.stringify(expected)
+          )
+            clearPersistedEditorDraft(vaultKey, operationTarget);
+        })
+        .catch((stageError: Error) => {
+          stagedContentRef.current = current.content;
+          throw stageError;
+        });
     } catch (error) {
       stagedContentRef.current = current.content;
       staged = Promise.reject(error);

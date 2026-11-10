@@ -101,6 +101,34 @@ test("the panel splits, covers, and minimises with keyboard-reachable controls",
   await expect(rail).toBeVisible();
 });
 
+test("the divider lies along the panel's top edge and resizes it with the pointer", async ({
+  page,
+}) => {
+  const panel = await openNote(page);
+  const title = panel.getByRole("button", { name: "Folder", exact: true });
+  await title.click();
+  await expect(title).toHaveAttribute("aria-expanded", "true");
+  const divider = panel.getByRole("separator", { name: "Resize Folder panel" });
+  const before = Number(await divider.getAttribute("aria-valuenow"));
+  const box = (await panel.boundingBox())!;
+
+  await expect(divider).toHaveCSS("cursor", "row-resize");
+  const handle = (await divider.boundingBox())!;
+  expect(handle.width).toBeCloseTo(box.width, 0);
+  expect(handle.height).toBe(8);
+  expect(Math.abs(handle.y + handle.height / 2 - box.y)).toBeLessThanOrEqual(1);
+
+  const x = box.x + box.width / 2;
+  await page.mouse.move(x, box.y + 1);
+  await page.mouse.down();
+  await page.mouse.move(x, box.y + 1 - 48, { steps: 4 });
+  await page.mouse.up();
+  await expect(divider).toHaveAttribute("aria-valuenow", String(before + 48));
+  await expect
+    .poll(async () => Math.round((await panel.boundingBox())?.height ?? 0))
+    .toBe(before + 48);
+});
+
 test("a page without a note holds no panel", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/notes");

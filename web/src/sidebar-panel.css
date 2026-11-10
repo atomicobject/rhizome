@@ -119,8 +119,8 @@
   display: none;
 }
 
-/* The divider: the shared resize handle on the panel's top edge. */
-.panel-resize--y-start {
+/* Outrank the side-edge defaults regardless of stylesheet order. */
+.sidebar-panel .panel-resize--y-start {
   top: -4px;
   right: 0;
   bottom: auto;
@@ -130,7 +130,7 @@
   cursor: row-resize;
 }
 
-.panel-resize--y-start::after {
+.sidebar-panel .panel-resize--y-start::after {
   top: 3px;
   right: 0;
   bottom: auto;

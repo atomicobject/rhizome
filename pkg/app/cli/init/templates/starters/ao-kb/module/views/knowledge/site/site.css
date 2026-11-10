@@ -229,35 +229,13 @@
   margin: 0;
 }
 
-/* Record pages */
+/* Record pages: the body is the kit's Markdown (its prose rules come with kit.css). */
 .ak-body {
   max-width: 680px;
   font-size: 15px;
-  line-height: 1.6;
 }
-.ak-body p,
-.ak-body ul {
-  margin: 0 0 12px;
-}
-.ak-body ul {
-  padding-left: 20px;
-}
-.ak-body h3 {
-  margin: 20px 0 6px;
-  font: 600 15px / 1.4 var(--font-sans);
-}
-.ak-body-mark {
-  margin: 0 -10px 12px;
-  padding: 6px 10px 1px;
-  border-radius: 4px;
-  background: var(--warning-soft, var(--surface-sunk));
-  outline: 1px solid var(--warning, var(--border-strong));
-}
-.ak-body-mark-label {
-  display: block;
-  margin-bottom: 4px;
-  font: 600 13px var(--font-sans);
-  color: var(--warning-ink, var(--text));
+.ak-body > :first-child {
+  margin-top: 0;
 }
 .ak-target {
   margin: 0;

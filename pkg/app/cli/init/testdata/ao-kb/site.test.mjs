@@ -4,7 +4,6 @@ import {
   artifactFollowUp,
   artifactScope,
   assertionFilter,
-  bodyLinkParagraph,
   buildSite,
   citationState,
   conceptScope,
@@ -13,6 +12,7 @@ import {
   GAPS,
   kbTitle,
   layout,
+  linkedBlock,
   matrix,
   rowLabel,
   scopedPair,
@@ -181,25 +181,24 @@ test("each US3 citation state", () => {
     { recordedLink: "[[gone]]", sources: [] },
   ] } };
   const [origin, two, three, gone] = citations(read, sources);
-  assert.equal(citationState(origin, { status: "resolved" }, -1), "passage");
-  assert.equal(citationState(origin, { status: "unsupported" }, -1), "locator");
-  assert.equal(citationState(origin, { status: "unresolved" }, 2), "locator");
-  const body2 = "Intro paragraph.\n\nSee [the claim](../assertions/claim.md#Top) for it.\n\nAlso [[claim]].";
-  const p = bodyLinkParagraph(body2, assertion.path, site.resolveAssertion);
-  assert.equal(p, 1);
-  assert.equal(citationState(two, undefined, p), "linked");
-  assert.equal(citationState(three, undefined, bodyLinkParagraph("Mentions [[other]] and https://x.test/claim.md only.", assertion.path, site.resolveAssertion)), "not-linked");
-  assert.equal(citationState(gone, undefined, -1), "unresolved");
-});
-
-test("a link inside code is not an authored assertion link, and paragraphs keep their places", () => {
-  const assertion = A("claim");
-  const site = buildSite(kb({ assertion: [assertion] }));
-  const fenced = "Intro.\n\n```md\nSee [[claim]].\n\n[the claim](../assertions/claim.md)\n```\n\nLater.";
-  assert.equal(bodyLinkParagraph(fenced, assertion.path, site.resolveAssertion), -1);
-  assert.equal(bodyLinkParagraph("Use `[[claim]]` to link.", assertion.path, site.resolveAssertion), -1);
-  assert.equal(bodyLinkParagraph("~~~\n[[claim]]\n~~~\n\nAfter the fence, [[claim]].", assertion.path, site.resolveAssertion), 1);
-  assert.equal(bodyLinkParagraph(`${fenced}\n\nAnd \`code\` then [[claim]].`, assertion.path, site.resolveAssertion), 4);
+  assert.equal(citationState(origin, { status: "resolved" }, false), "passage");
+  assert.equal(citationState(origin, { status: "unsupported" }, false), "locator");
+  assert.equal(citationState(origin, { status: "unresolved" }, true), "locator");
+  // The body's links as the kit lists them: the first one the resolver maps to the assertion wins,
+  // by AO ID, file name, or a relative Markdown destination, never a later one.
+  const links = [
+    { target: "other", offset: 0 },
+    { target: "../assertions/claim.md#Top", offset: 21 },
+    { target: "claim", offset: 60 },
+  ];
+  const at = linkedBlock(links, assertion.path, site.resolveAssertion);
+  assert.equal(at, 21);
+  assert.equal(citationState(two, undefined, at !== undefined), "linked");
+  const none = linkedBlock([{ target: "other", offset: 9 }, { target: "no-such-note", offset: 30 }], assertion.path, site.resolveAssertion);
+  assert.equal(none, undefined);
+  assert.equal(citationState(three, undefined, none !== undefined), "not-linked");
+  assert.equal(linkedBlock([], assertion.path, site.resolveAssertion), undefined);
+  assert.equal(citationState(gone, undefined, false), "unresolved");
 });
 
 test("a source's scope includes an assertion that cites it only through provenanceSource, with its concepts on the map", () => {
@@ -397,16 +396,5 @@ test("layout timing at 21, 48, and 200 concepts", () => {
     }
     const warm = runs.slice(1).sort((a, b) => a - b);
     console.log(`layout ${n} concepts: first ${runs[0].toFixed(1)} ms, warm median ${warm[2].toFixed(1)} ms`);
-  }
-});
-
-test("code spans use complete equal-length backtick runs and preserve paragraph positions", () => {
-  const resolve = (ref) => ref === "claim" ? "claim" : undefined;
-  for (const span of ["``a ` [[claim]] b``", "```a `` [[claim]] ` b```", "``a ``` [[claim]] b``", "``a `\n[[claim]] b``"]) {
-    assert.equal(bodyLinkParagraph(`Use ${span}`, "claim", resolve), -1, span);
-    assert.equal(bodyLinkParagraph(`Use ${span}\n\nAuthored [[claim]].`, "claim", resolve), 1, span);
-  }
-  for (const literal of ["``[[claim]]`", "`[[claim]]``", "``before\n\n[[claim]]``", "``before\r\n\r\n[[claim]]``"]) {
-    assert.notEqual(bodyLinkParagraph(literal, "claim", resolve), -1, literal);
   }
 });

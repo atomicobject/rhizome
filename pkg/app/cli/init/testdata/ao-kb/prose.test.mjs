@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  inlineText,
-  paragraphs,
-} from "../../templates/starters/ao-kb/module/views/knowledge/lib/prose.ts";
+import { inlineText } from "../../templates/starters/ao-kb/module/views/knowledge/lib/prose.ts";
 import {
   collapseContradictions,
   makeResolver,
@@ -14,12 +11,10 @@ const resolve = makeResolver([
   { key: "assertions/fee.md", notePath: "assertions/fee.md", aoId: "a-1" },
 ]);
 
-test("claim paragraphs preserve prose and only interpret AO wikilinks", () => {
+test("inline field values preserve prose and only interpret AO wikilinks", () => {
   const text =
-    "First paragraph.\r\n\r\nContext: [[cancellation|cancellation policy]], [[a-1]] and [[missing|guardian policy]].\n\n<script>literal</script> **literal**";
-  const blocks = paragraphs(text);
-  assert.equal(blocks.length, 3);
-  assert.deepEqual(inlineText(blocks[1], resolve), [
+    "Context: [[cancellation|cancellation policy]], [[a-1]] and [[missing|guardian policy]].";
+  assert.deepEqual(inlineText(text, resolve), [
     { kind: "text", text: "Context: " },
     { kind: "link", label: "cancellation policy", path: "concepts/cancellation.md" },
     { kind: "text", text: ", " },
@@ -28,9 +23,9 @@ test("claim paragraphs preserve prose and only interpret AO wikilinks", () => {
     { kind: "unresolved", label: "guardian policy", target: "missing" },
     { kind: "text", text: "." },
   ]);
-  assert.deepEqual(inlineText(blocks[2], resolve), [{ kind: "text", text: blocks[2] }]);
+  const literal = "<script>literal</script> **literal**";
+  assert.deepEqual(inlineText(literal, resolve), [{ kind: "text", text: literal }]);
   assert.deepEqual(inlineText("[[not closed", resolve), [{ kind: "text", text: "[[not closed" }]);
-  assert.deepEqual(paragraphs(" \n\n "), []);
 });
 
 test("record display collapses a symmetric contradiction without losing other directions", () => {

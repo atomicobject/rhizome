@@ -134,6 +134,13 @@
     font-size: var(--fs-sm);
   }
 
+  /* The record header supplies the facts strip's divider and spacing. */
+  .rz-record-head .rz-facts {
+    margin: 0;
+    padding: 0;
+    border-bottom: 0;
+  }
+
   .rz-facts-note {
     min-width: 0;
     color: var(--text-faint);
@@ -357,6 +364,48 @@
     .rz-disclosure-icon {
       transition: none;
     }
+  }
+
+  /* Markdown (kit/markdown.tsx): the cited block, an unresolved internal
+     link, and an image kept inert. The prose itself is src/markdown.css. */
+  .rz-markdown-mark {
+    margin-right: -10px;
+    margin-left: -10px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: var(--warning-soft, var(--surface-sunk));
+    outline: 1px solid var(--warning, var(--border-strong));
+  }
+
+  tr.rz-markdown-mark {
+    margin: 0;
+    padding: 0;
+  }
+
+  .rz-markdown-mark-label {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--warning-ink, var(--text));
+    font: 600 var(--fs-sm) var(--font-sans);
+  }
+
+  .rz-markdown-unresolved {
+    text-decoration: underline dotted var(--text-muted);
+    text-underline-offset: 3px;
+  }
+
+  .rz-markdown-unresolved-label {
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+  }
+
+  .rz-markdown-image {
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .rz-markdown-image code {
+    font-style: normal;
   }
 
   /* Loading placeholders: neutral, shaped like what they stand in for, and

@@ -1,5 +1,7 @@
-import { NodeLink } from "@rhizome/kit";
-import { inlineText, paragraphs } from "./lib/prose.ts";
+import { useMemo } from "react";
+import { Markdown, NodeLink } from "@rhizome/kit";
+import type { MarkdownLinkTo } from "@rhizome/kit";
+import { inlineText } from "./lib/prose.ts";
 import type { relationships } from "./lib/knowledge.ts";
 
 type Graph = ReturnType<typeof relationships>;
@@ -26,15 +28,26 @@ export function LinkedText({ text, graph }: { text: string; graph?: Graph }) {
   });
 }
 
+/** Authored links in claim text, resolved through the knowledge graph; absent while it loads. */
+function useGraphLinks(graph?: Graph) {
+  return useMemo(() => {
+    if (!graph) return undefined;
+    return (target: string): MarkdownLinkTo | undefined => {
+      const path = graph.resolve(target);
+      const record = path ? graph.all.find((r) => r.path === path) : undefined;
+      return record ? { node: record.ref } : undefined;
+    };
+  }, [graph]);
+}
+
+/** A claim's authored text as one Markdown document. */
 export function ClaimProse({ text, graph }: { text: string; graph?: Graph }) {
-  return (
-    <div className="ak-claim">
-      {paragraphs(text).map((paragraph, i) => (
-        <p key={i}>
-          <LinkedText text={paragraph} graph={graph} />
-        </p>
-      ))}
-      {!text.trim() && <p>None recorded</p>}
-    </div>
-  );
+  const resolveLink = useGraphLinks(graph);
+  if (!text.trim())
+    return (
+      <div className="ak-claim">
+        <p>None recorded</p>
+      </div>
+    );
+  return <Markdown className="ak-claim" source={text} resolveLink={resolveLink} />;
 }

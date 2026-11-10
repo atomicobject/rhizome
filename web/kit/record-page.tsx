@@ -49,7 +49,7 @@ export function RecordPage({
 
   return (
     <article aria-labelledby={titleId} className={cn("flex min-w-0 flex-col", className)}>
-      <header className="flex min-w-0 flex-col gap-1.5 border-b border-[var(--border)] pb-3">
+      <header className="rz-record-head flex min-w-0 flex-col gap-1.5 border-b border-[var(--border)] pb-3">
         <div className="flex min-h-9 min-w-0 items-center gap-[var(--sp-4)]">
           {kind && <span className="flex flex-none items-center">{kind}</span>}
           <h1
