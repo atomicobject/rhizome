@@ -2,6 +2,14 @@ title = "Rhizome credential protection"
 [extend]
 useDefault = true
 
+[[allowlists]]
+description = "Init ownership fingerprints for generated skill files"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)\.rhizome/generated-files\.yml$''']
+regexTarget = "line"
+regexes = ['''(?m)^[ \t]+\.(?:agents|claude)/skills/[^:\r\n]+:[ \t]+[a-f0-9]{16}[ \t]*$''']
+
 [[rules]]
 id = "rhizome-encrypted-bundle"
 description = "Encrypted release bundles must not enter Git"
