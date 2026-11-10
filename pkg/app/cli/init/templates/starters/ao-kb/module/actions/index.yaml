@@ -1,0 +1,4 @@
+description: Publish AO bindings through the runtime index owner and verify current input receipts
+run:
+  command: [node, "{module}/bindings/cli.mjs", index]
+timeout: 5m

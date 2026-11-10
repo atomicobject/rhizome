@@ -1,0 +1,4 @@
+description: Assess automatic AO KB setup and report required choices or blockers
+run:
+  command: [node, "{module}/scripts/readiness.mjs"]
+timeout: 3m

@@ -293,6 +293,7 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 		Hooks:    hooks,
 	})
 
+	modules := moduleReadiness(rt.VaultPath, rt.VaultDef.Name, rt.NoteFormatRegistry(), func() { rt.PublishGlobalEvent(appruntime.GlobalEventStarterReadinessChanged, nil) })
 	srv, err := web.NewServer(serveCtx, web.Config{
 		Vault:                     rt.Vault,
 		VaultDef:                  rt.VaultDef,
@@ -305,6 +306,7 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 		HTMLContentOriginTemplate: opts.HTMLContentOrigin,
 		ApplicationOrigin:         opts.ApplicationOrigin,
 		RuntimeControl:            control,
+		ModuleReadiness:           modules,
 		TasksOpener:               opts.OpenTasks,
 	}, web.Assets())
 	if err != nil {
@@ -313,6 +315,8 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 	readiness.BindServer(srv)
 	defer func() { _ = srv.Close() }()
 	rt.SetGlobalEventSink(readiness.GlobalEventSink())
+	go modules.Run(serveCtx)
+	defer func() { stopServe(); modules.Wait() }()
 
 	listener, err := bindListener(vaultPath, opts)
 	if err != nil {

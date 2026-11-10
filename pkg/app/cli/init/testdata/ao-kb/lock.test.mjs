@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {once} from 'node:events';
+import {mkdtemp, readFile, rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {acquire} from '../../templates/starters/ao-kb/module/bindings/lock.mjs';
+
+test('the runtime reclaims a killed lock owner but never a live owner', {timeout: 10000}, async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'ao-lock-'));
+  t.after(() => rm(directory, {recursive: true, force: true}));
+  const module = new URL('../../templates/starters/ao-kb/module/bindings/lock.mjs', import.meta.url).href;
+  const child = spawn(process.execPath, ['--input-type=module', '-e', `const {acquire} = await import(${JSON.stringify(module)}); await acquire(process.argv[1]); process.stdout.write('locked'); setInterval(() => {}, 1000);`, directory]);
+  t.after(() => { if (child.exitCode === null) child.kill('SIGKILL'); });
+  await once(child.stdout, 'data');
+  const owner = JSON.parse(await readFile(path.join(directory, 'refresh.lock'), 'utf8'));
+  assert.equal(owner.pid, child.pid);
+  const old = process.env.RZM_MODULE_LIFECYCLE;
+  process.env.RZM_MODULE_LIFECYCLE = '1';
+  t.after(() => { if (old === undefined) delete process.env.RZM_MODULE_LIFECYCLE; else process.env.RZM_MODULE_LIFECYCLE = old; });
+  await assert.rejects(acquire(directory), /ao_refresh_locked/);
+  const exit = once(child, 'exit');
+  child.kill('SIGKILL');
+  await exit;
+  delete process.env.RZM_MODULE_LIFECYCLE;
+  await assert.rejects(acquire(directory), /ao_refresh_locked/, 'ordinary callers cannot reclaim a lock');
+  process.env.RZM_MODULE_LIFECYCLE = '1';
+  const recovered = await acquire(directory);
+  await assert.rejects(readFile(path.join(directory, `refresh.${owner.token}.tmp/owner.json`)), {code: 'ENOENT'});
+  await recovered.release();
+  const next = await acquire(directory);
+  await next.release();
+  await assert.rejects(readFile(path.join(directory, 'refresh.lock')), {code: 'ENOENT'});
+});

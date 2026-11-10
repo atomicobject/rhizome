@@ -58,14 +58,21 @@ public static class DesktopPortabilityWindows {
             Marshal.OffsetOf(typeof(MouseInput), "ExtraInfo").ToInt64() != 24)
             throw new InvalidOperationException("The Windows x64 SendInput layout is incorrect.");
     }
-    public static IntPtr[] Visible(uint processId) {
+    public static IntPtr[] Owned(uint processId) {
         var windows = new List<IntPtr>();
         EnumWindows((window, parameter) => {
             uint owner;
             GetWindowThreadProcessId(window, out owner);
-            if (owner == processId && IsWindowVisible(window)) windows.Add(window);
+            if (owner == processId) windows.Add(window);
             return true;
         }, IntPtr.Zero);
+        return windows.ToArray();
+    }
+    public static IntPtr[] Visible(uint processId) {
+        var windows = new List<IntPtr>();
+        foreach (var window in Owned(processId)) {
+            if (IsWindowVisible(window)) windows.Add(window);
+        }
         return windows.ToArray();
     }
     public static bool ToolWindow(IntPtr window) {

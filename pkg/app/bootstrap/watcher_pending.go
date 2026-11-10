@@ -14,44 +14,50 @@ func (w *unifiedSemanticWatcher) subscribeWatchHub() {
 	if w.watchHub == nil {
 		return
 	}
-	w.stopWatchHub = w.watchHub.Subscribe("semantic", watchhub.Filter{IncludeFiles: true, IncludeDirs: true, IncludeHidden: true}, func(_ context.Context, events []watchhub.WatchEvent) {
-		dirty := make(map[string]cache.DirtyKind, len(events))
-		reasons := make(map[string]int64)
-		resync := false
-		for _, event := range events {
-			if event.IsDir {
-				resync = true
-				reasons["directory_event"]++
-				if event.Op.Has(watchhub.OpRename) {
-					reasons["directory_rename"]++
-				}
-				if event.Op.Has(watchhub.OpCreate) {
-					reasons["directory_create"]++
-				}
-				continue
-			}
-			kind := cache.DirtyModified
-			switch {
-			case event.Op.Has(watchhub.OpRemove) && event.Op.Has(watchhub.OpCreate):
-				kind = cache.DirtyRecreated
-			case event.Op.Has(watchhub.OpRename):
-				kind = cache.DirtyRenamed
-				resync = true
-				reasons["file_rename"]++
-			case event.Op.Has(watchhub.OpRemove):
-				kind = cache.DirtyRemoved
-			case event.Op.Has(watchhub.OpCreate):
-				kind = cache.DirtyCreated
-			}
-			dirty[event.RelPath] = kind
-			reasons["file_"+string(kind)]++
-		}
-		w.retainWatchInputs(dirty, resync, reasons)
-	}, func(_ context.Context, event watchhub.StaleEvent) {
+	w.stopWatchHub = w.watchHub.Subscribe("semantic", watchhub.Filter{IncludeFiles: true, IncludeDirs: true, IncludeHidden: true}, w.retainHubEvents, func(_ context.Context, event watchhub.StaleEvent) {
 		// No wake: the hub may reach the cache's stale handler after this one,
 		// and the next tick's batch must see the cache's recrawl to defer to it.
 		w.retainInputs(nil, true, map[string]int64{"stale_" + watchStaleReason(event.Reason): 1, "source_" + watchSource(event.Source): 1})
 	})
+}
+
+func (w *unifiedSemanticWatcher) retainHubEvents(_ context.Context, events []watchhub.WatchEvent) {
+	dirty := make(map[string]cache.DirtyKind, len(events))
+	reasons := make(map[string]int64)
+	resync := false
+	for _, event := range events {
+		if event.IsDir {
+			resync = true
+			reasons["directory_event"]++
+			if event.Op.Has(watchhub.OpRename) {
+				reasons["directory_rename"]++
+			}
+			if event.Op.Has(watchhub.OpCreate) {
+				reasons["directory_create"]++
+			}
+			// A generic resync loses the schema and capability invalidation reason.
+			if classifyInternalChange(event.RelPath).refreshOntology {
+				dirty[event.RelPath] = cache.DirtyModified
+			}
+			continue
+		}
+		kind := cache.DirtyModified
+		switch {
+		case event.Op.Has(watchhub.OpRemove) && event.Op.Has(watchhub.OpCreate):
+			kind = cache.DirtyRecreated
+		case event.Op.Has(watchhub.OpRename):
+			kind = cache.DirtyRenamed
+			resync = true
+			reasons["file_rename"]++
+		case event.Op.Has(watchhub.OpRemove):
+			kind = cache.DirtyRemoved
+		case event.Op.Has(watchhub.OpCreate):
+			kind = cache.DirtyCreated
+		}
+		dirty[event.RelPath] = kind
+		reasons["file_"+string(kind)]++
+	}
+	w.retainWatchInputs(dirty, resync, reasons)
 }
 
 func (w *unifiedSemanticWatcher) retainWatchEvents(dirty map[string]cache.DirtyKind, resync bool) {

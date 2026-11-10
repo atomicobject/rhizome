@@ -18,7 +18,7 @@ export async function failure(directory, stage, error) {
 }
 // Callers hold refresh.lock. Files and manifest form one recoverable generation;
 // a crash between renames is always advertised as stale.
-export async function publishSet(directory, stage, files, manifest, renameFile = rename) {
+export async function publishSet(directory, stage, files, manifest, stagingDirectory, renameFile = rename) {
   const file = manifestPath(directory, stage);
   const previous = await readJSON(file);
   const names = [...new Set([...Object.keys(files), ...(previous?.generatedFiles || [])])];
@@ -39,11 +39,11 @@ export async function publishSet(directory, stage, files, manifest, renameFile =
     for (const [name, bytes] of Object.entries(files)) {
       const target = path.resolve(directory, name);
       await mkdir(path.dirname(target), {recursive: true});
-      const temp = path.join(directory, 'refresh.lock', `${staged.length}.tmp`);
+      const temp = path.join(stagingDirectory, `${staged.length}.tmp`);
       await writeFile(temp, bytes);
       staged.push([temp, target]);
     }
-    const meta = path.join(directory, 'refresh.lock', 'manifest.tmp');
+    const meta = path.join(stagingDirectory, 'manifest.tmp');
     await writeFile(meta, json(manifest));
     await atomic(file, json({...manifest, status: 'stale', diagnostics: [{code: 'ao_publish_pending', severity: 'error', message: 'Publication interrupted; refresh bindings again'}]}));
     for (const [temp, target] of staged) await renameFile(temp, target);

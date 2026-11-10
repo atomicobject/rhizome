@@ -1,6 +1,7 @@
 package repoconfig
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -14,16 +15,11 @@ var ErrEmbeddingsProviderNotConfigured = errors.New("embeddings enabled but prov
 // Provider is always preserved; model/endpoint are only persisted when non-default
 // or already present in the config.
 func SaveEmbeddingsConfig(vaultPath string, embCfg embeddings.Config) error {
-	localCfg, err := LoadLocalConfig(vaultPath)
-	if err != nil {
-		return err
-	}
-
-	// Update enabled/provider, and persist explicit overrides without writing defaults.
-	updated := mergeEmbeddingsForSave(localCfg.NoteEmbeddings, embCfg, "note")
-	localCfg.NoteEmbeddings = &updated
-
-	return SaveLocalConfig(vaultPath, *localCfg)
+	return UpdateLocalConfig(context.Background(), vaultPath, func(localCfg *LocalConfig) error {
+		updated := mergeEmbeddingsForSave(localCfg.NoteEmbeddings, embCfg, "note")
+		localCfg.NoteEmbeddings = &updated
+		return nil
+	})
 }
 
 func mergeEmbeddingsForSave(existing *embeddings.Config, embCfg embeddings.Config, kind string) embeddings.Config {

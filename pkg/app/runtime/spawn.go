@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -27,10 +28,10 @@ const SpawnTokenEnv = "RZM_RUNTIME_SPAWN_TOKEN"
 
 // spawnHeadlessWithToken starts a detached headless runtime and returns its
 // PID. The child is fully detached (new session or process group, no terminal,
-// stdio redirected) so it outlives the client, and the client never waits on
-// its process handle. A nonempty token is passed to the child for startup
-// ownership.
-func spawnHeadlessWithToken(executable, vaultRoot, token string) (int, error) {
+// stdio redirected) so it outlives the client. Registration runs before its
+// lifetime is handed to a background reaper; failed registration kills and reaps it.
+// A nonempty token is passed to the child for startup ownership.
+func spawnHeadlessWithToken(executable, vaultRoot, token string, register func(int) error) (int, error) {
 	argv := spawnArgv(executable, vaultRoot)
 	if len(argv) == 0 {
 		return 0, fmt.Errorf("empty runtime spawn argv")
@@ -66,8 +67,21 @@ func spawnHeadlessWithToken(executable, vaultRoot, token string) (int, error) {
 		return 0, err
 	}
 	pid := cmd.Process.Pid
-	// Release the handle: the runtime's lifetime is its own from here.
-	_ = cmd.Process.Release()
+	if register != nil {
+		if err := register(pid); err != nil {
+			if killErr := cmd.Process.Kill(); killErr != nil && !errors.Is(killErr, os.ErrProcessDone) {
+				_ = cmd.Process.Release()
+				return 0, errors.Join(err, fmt.Errorf("stop unregistered runtime: %w", killErr))
+			}
+			var exitErr *exec.ExitError
+			if waitErr := cmd.Wait(); waitErr != nil && !errors.As(waitErr, &exitErr) {
+				return 0, errors.Join(err, fmt.Errorf("wait for unregistered runtime: %w", waitErr))
+			}
+			return 0, err
+		}
+	}
+	// A long-lived caller must reap exited children so PID checks see them stop.
+	go func() { _ = cmd.Wait() }()
 	return pid, nil
 }
 
