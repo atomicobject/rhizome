@@ -2,7 +2,7 @@
 
 Effort: [[{{effort_folder_vault_path}}/{{timestamp}}-effort.html]]
 
-These named sections are the lifecycle evidence contract. Keep the frozen snapshots consistent with the owning overview. Read the complete overview, linked plan, log, and explicitly selected materials before approval, resume, closure, or release decisions. Missing evidence is unresolved, not permission. Preserve frozen snapshots; record authorized changes and their reasons in Execution Notes.
+These named sections are the lifecycle evidence contract. The frozen sections are authoritative when the entry explicitly selects this file through frozen-scope. Otherwise they are log snapshots; the entry summary does not select scope. Read the complete overview, linked plan, log, and explicitly selected materials before approval, resume, closure, or release decisions. Missing evidence is unresolved, not permission. Preserve frozen snapshots; record authorized changes and their reasons in Execution Notes.
 
 ## Spec Set (Frozen)
 
@@ -10,7 +10,7 @@ Record each selected spec as a canonical vault-relative wikilink with its frozen
 
 ## Stories In Scope (Frozen)
 
-Record the exact selected story and acceptance-criterion block links from the overview, including explicit exclusions or partial selections. Keep these links on the owning overview too so story provenance remains effort-owned.
+Record exact selected story and acceptance-criterion block links, including exclusions or partial selections. A criterion-only selection does not select its whole story.
 
 ## Plan Approval
 

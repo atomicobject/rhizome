@@ -1,0 +1,313 @@
+{
+  "recordedAt": "2026-11-10T14:43:45Z",
+  "kind": "implementation-readiness",
+  "verifiedHead": "86d16eec39e2604cfca9b8c9ac54b86128906ed6",
+  "github": {
+    "autoMergeRequest": null,
+    "baseRefOid": "a2d49bf19294a704d306043afdf036e832dc7ab5",
+    "comments": [],
+    "headRefOid": "86d16eec39e2604cfca9b8c9ac54b86128906ed6",
+    "isDraft": false,
+    "mergeStateStatus": "CLEAN",
+    "mergeable": "MERGEABLE",
+    "reviews": [],
+    "state": "OPEN",
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:28:27Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892661267",
+        "name": "Detect Changes",
+        "startedAt": "2026-11-10T14:28:23Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:31:18Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357389/job/129892482845",
+        "name": "scan",
+        "startedAt": "2026-11-10T14:28:05Z",
+        "status": "COMPLETED",
+        "workflowName": "Credential protection"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:35:42Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357382/job/129892484354",
+        "name": "Native desktop (windows-latest)",
+        "startedAt": "2026-11-10T14:28:07Z",
+        "status": "COMPLETED",
+        "workflowName": "Desktop portability"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:41:33Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357382/job/129892483779",
+        "name": "Native desktop (ubuntu-24.04)",
+        "startedAt": "2026-11-10T14:28:05Z",
+        "status": "COMPLETED",
+        "workflowName": "Desktop portability"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:33:59Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357382/job/129892485083",
+        "name": "Native desktop (ubuntu-24.04-arm)",
+        "startedAt": "2026-11-10T14:28:07Z",
+        "status": "COMPLETED",
+        "workflowName": "Desktop portability"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:28:02Z",
+        "conclusion": "SKIPPED",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357382/job/129892487116",
+        "name": "Installed upgrade fixture (${{ matrix.target }})",
+        "startedAt": "2026-11-10T14:28:02Z",
+        "status": "COMPLETED",
+        "workflowName": "Desktop portability"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:28:51Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892661775",
+        "name": "Installer Tests",
+        "startedAt": "2026-11-10T14:28:23Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:29:21Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892662112",
+        "name": "Rhizome Content",
+        "startedAt": "2026-11-10T14:28:23Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:30:25Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734868",
+        "name": "Lint",
+        "startedAt": "2026-11-10T14:28:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:31:46Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734991",
+        "name": "Unit Tests (ubuntu-latest, cmd-validate)",
+        "startedAt": "2026-11-10T14:28:31Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:31:38Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734819",
+        "name": "Unit Tests (ubuntu-latest, anchors-app)",
+        "startedAt": "2026-11-10T14:28:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:32:09Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734975",
+        "name": "Unit Tests (ubuntu-latest, web-cli)",
+        "startedAt": "2026-11-10T14:28:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:32:35Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734853",
+        "name": "Unit Tests (ubuntu-latest, rest)",
+        "startedAt": "2026-11-10T14:28:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:33:44Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734794",
+        "name": "Unit Tests (windows-latest, cmd-validate)",
+        "startedAt": "2026-11-10T14:28:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:33:54Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734818",
+        "name": "Unit Tests (windows-latest, anchors-app)",
+        "startedAt": "2026-11-10T14:28:31Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:36:31Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892735009",
+        "name": "Unit Tests (windows-latest, web-cli)",
+        "startedAt": "2026-11-10T14:28:31Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:39:44Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734850",
+        "name": "Unit Tests (windows-latest, rest)",
+        "startedAt": "2026-11-10T14:28:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:34:10Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892735229",
+        "name": "Team API Gateway",
+        "startedAt": "2026-11-10T14:28:31Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:32:15Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734622",
+        "name": "Runtime Code Evidence",
+        "startedAt": "2026-11-10T14:28:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:35:11Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734834",
+        "name": "Integration Tests (ubuntu-latest)",
+        "startedAt": "2026-11-10T14:28:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:32:30Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734524",
+        "name": "Integration Tests (windows-latest)",
+        "startedAt": "2026-11-10T14:28:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:31:12Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734565",
+        "name": "Web Tests",
+        "startedAt": "2026-11-10T14:28:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:41:14Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734505",
+        "name": "Web E2E",
+        "startedAt": "2026-11-10T14:28:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:29:14Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734685",
+        "name": "Build (ubuntu-latest, bin/linux/rzm)",
+        "startedAt": "2026-11-10T14:28:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:29:33Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734904",
+        "name": "Build (windows-latest, bin/windows/rzm.exe)",
+        "startedAt": "2026-11-10T14:28:30Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-11-10T14:35:55Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/atomicobject/rhizome/actions/runs/42834357385/job/129892734750",
+        "name": "Desktop (macOS)",
+        "startedAt": "2026-11-10T14:28:31Z",
+        "status": "COMPLETED",
+        "workflowName": "CI"
+      }
+    ],
+    "url": "https://github.com/atomicobject/rhizome/pull/123"
+  },
+  "manualReview": {
+    "summary": "Adds the Agentic Engineering Delivery experience:\n- Workflow lists, selected-work prompts, spec pages, effort briefs, and contextual navigation.\n- Explicit frozen-scope sources, paged source-link reads, and per-ref batch errors.\n- Optional Markdown tooling and provider-aware HTML workspace reads.\n\nThe previous external-link finding is fixed. No new actionable issues were found. This review used source inspection; tests and browser checks were not run.",
+    "confidence": 5,
+    "confidenceReasoning": "The PR appears safe to merge; the previous external-link issue is fixed and no new blocking issue was found.\n\nProtocol-relative links now bypass note resolution. Source-link paging remains bounded, and selected prompts retain checks for incomplete or mismatched evidence.",
+    "securitySummary": null,
+    "instructions": null,
+    "effort": "base",
+    "comments": []
+  },
+  "localVerification": {
+    "fullVerifyCurrentMain": {
+      "result": "pass",
+      "webUnit": 2169,
+      "nativeBrowser": 159,
+      "knowledgeBrowser": 90,
+      "deliveryBrowser": 77
+    },
+    "finalFollowUp": [
+      "make check passed",
+      "make build passed",
+      "77 installed Delivery cases passed",
+      "strict template TypeScript passed",
+      "documentation validation: 0 issues",
+      "frozen-scope validation: 0 issues"
+    ],
+    "focusedDomainAndAdapter": 32,
+    "captureCount": 68,
+    "committedImages": 44
+  },
+  "limits": [
+    "No unmerged Rhizome Dev installation",
+    "No formal screen-reader or contrast audit",
+    "Full make verify preceded the final isolated URL-routing follow-ups; those follow-ups ran the complete Delivery suite and make check"
+  ]
+}

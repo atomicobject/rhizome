@@ -56,7 +56,7 @@ func TestClassifyAndResolveImports(t *testing.T) {
 	if got := ResolveRelative("poc/sub/view.tsx", "../style.css?rhizome-css"); got != "poc/style.css" {
 		t.Fatalf("resolved %q", got)
 	}
-	if !IsKitImport("@rhizome/kit") || !IsKitImport("react/jsx-runtime") || IsKitImport("lodash") {
+	if !IsKitImport("@rhizome/kit") || !IsKitImport("@rhizome/kit/markdown") || !IsKitImport("react/jsx-runtime") || IsKitImport("lodash") {
 		t.Fatal("kit import map")
 	}
 }

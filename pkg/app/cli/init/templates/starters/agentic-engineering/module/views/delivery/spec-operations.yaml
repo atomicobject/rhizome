@@ -1,0 +1,10 @@
+apiVersion: rhizome.view.v1
+id: agentic-engineering.spec.operations
+name: Contract
+source: { kind: custom, entry: spec.tsx }
+mount:
+  kind: node
+  type: OperationsSpec
+  default: true
+params:
+  - { name: story, kind: string }

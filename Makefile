@@ -376,6 +376,7 @@ web-fix:
 web-e2e: web-deps
 	cd $(WEB_DIR) && npm run test:e2e
 	cd $(WEB_DIR) && RHIZOME_E2E_SKIP_WEB_BUILD=1 npm run test:e2e:ao-kb
+	cd $(WEB_DIR) && RHIZOME_E2E_SKIP_WEB_BUILD=1 npm run test:e2e:agentic-engineering
 
 e2e: web-e2e
 

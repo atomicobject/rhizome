@@ -18,6 +18,7 @@ import (
 	appviews "github.com/atomicobject/rhizome/pkg/app/views"
 	appweb "github.com/atomicobject/rhizome/pkg/app/web"
 	"github.com/atomicobject/rhizome/pkg/ontology/viewconfig"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/validate"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
@@ -131,7 +132,11 @@ type ejectedInvocation struct {
 func serveEjectedVault(t *testing.T, root string) *httptest.Server {
 	t.Helper()
 	env := testkit.Env(t)
+	store, err := semdb.Open(filepath.Join(t.TempDir(), "registry.sqlite"))
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, store.Close()) })
 	server, err := appweb.NewServer(context.Background(), appweb.Config{
+		Runtime:           &appweb.Runtime{IntelStore: store},
 		Vault:             &repoconfig.Vault{Env: env, Name: "ejected"},
 		VaultPath:         root,
 		VaultDef:          obsidian.VaultDefinition{Name: "ejected", Path: root, Includes: []string{"**/*.md"}},

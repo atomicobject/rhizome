@@ -1518,14 +1518,7 @@ func requireInstalledViewsValidate(t *testing.T, root string) {
 
 	schema, err := ontoschema.LoadSchema(root)
 	require.NoError(t, err)
-	typeNames := make(map[string]struct{}, len(schema.Types))
-	for name := range schema.Types {
-		typeNames[name] = struct{}{}
-	}
-	interfaceNames := make(map[string]struct{}, len(schema.Interfaces))
-	for name := range schema.Interfaces {
-		interfaceNames[name] = struct{}{}
-	}
+	opts := viewconfig.SchemaValidateOptions(schema)
 
 	recipes, recipeIssues := queryrecipe.LoadDefaultSources(root)
 	require.Empty(t, recipeIssues)
@@ -1536,13 +1529,9 @@ func requireInstalledViewsValidate(t *testing.T, root string) {
 		recipeRowPaths[recipe.ID] = recipe.OutputContract.RowPath
 	}
 
-	result := viewconfig.Validate(views, viewconfig.ValidateOptions{
-		TypeNames:           typeNames,
-		InterfaceNames:      interfaceNames,
-		QueryRecipeIDs:      recipeIDs,
-		QueryRecipeRowPaths: recipeRowPaths,
-		CheckReferences:     true,
-	})
+	opts.QueryRecipeIDs = recipeIDs
+	opts.QueryRecipeRowPaths = recipeRowPaths
+	result := viewconfig.Validate(views, opts)
 	require.Empty(t, result.Issues)
 }
 

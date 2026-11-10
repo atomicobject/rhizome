@@ -1,0 +1,213 @@
+{
+  "recordedAt": "2026-11-10T08:02:40Z",
+  "implementationHead": "1ebb77b3077ca48b0af38d47b2f660276fd4616f",
+  "pr": {
+    "autoMergeRequest": null,
+    "baseRefOid": "019a59ea128b900b57dfbcf565481f10ea4e9553",
+    "headRefOid": "1ebb77b3077ca48b0af38d47b2f660276fd4616f",
+    "isDraft": false,
+    "mergeStateStatus": "CLEAN",
+    "mergeable": "MERGEABLE",
+    "reviewDecision": "",
+    "state": "OPEN",
+    "url": "https://github.com/atomicobject/rhizome/pull/123"
+  },
+  "checks": [
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319431",
+      "name": "Team API Gateway",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319688",
+      "name": "Unit Tests (windows-latest, web-cli)",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319674",
+      "name": "Build (windows-latest, bin/windows/rzm.exe)",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319612",
+      "name": "Build (ubuntu-latest, bin/linux/rzm)",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319746",
+      "name": "Unit Tests (ubuntu-latest, rest)",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319769",
+      "name": "Unit Tests (ubuntu-latest, cmd-validate)",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319420",
+      "name": "Web E2E",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319439",
+      "name": "Integration Tests (ubuntu-latest)",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319426",
+      "name": "Lint",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319430",
+      "name": "Integration Tests (windows-latest)",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319707",
+      "name": "Unit Tests (ubuntu-latest, anchors-app)",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319778",
+      "name": "Unit Tests (ubuntu-latest, web-cli)",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319717",
+      "name": "Unit Tests (windows-latest, rest)",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319645",
+      "name": "Unit Tests (windows-latest, cmd-validate)",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319695",
+      "name": "Unit Tests (windows-latest, anchors-app)",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319394",
+      "name": "Desktop (macOS)",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319353",
+      "name": "Runtime Code Evidence",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699319474",
+      "name": "Web Tests",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777480180/job/129699282085",
+      "name": "Native desktop (ubuntu-24.04-arm)",
+      "state": "SUCCESS",
+      "workflow": "Desktop portability"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699277265",
+      "name": "Installer Tests",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777480180/job/129699281683",
+      "name": "Native desktop (ubuntu-24.04)",
+      "state": "SUCCESS",
+      "workflow": "Desktop portability"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777480180/job/129699282198",
+      "name": "Native desktop (windows-latest)",
+      "state": "SUCCESS",
+      "workflow": "Desktop portability"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699276786",
+      "name": "Rhizome Content",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479714/job/129699277094",
+      "name": "Detect Changes",
+      "state": "SUCCESS",
+      "workflow": "CI"
+    },
+    {
+      "bucket": "pass",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777479711/job/129699276240",
+      "name": "scan",
+      "state": "SUCCESS",
+      "workflow": "Credential protection"
+    },
+    {
+      "bucket": "skipping",
+      "link": "https://github.com/atomicobject/rhizome/actions/runs/42777480180/job/129699283943",
+      "name": "Installed upgrade fixture (${{ matrix.target }})",
+      "state": "SKIPPED",
+      "workflow": "Desktop portability"
+    }
+  ],
+  "greptile": {
+    "command": "greptile review --json",
+    "head": "1ebb77b3077ca48b0af38d47b2f660276fd4616f",
+    "summary": "Adds the Agentic Engineering Delivery experience with workflow groups, selected-work prompts, spec pages, effort briefs, and a contextual panel.\n\n- Adds explicit `frozenScope` selection for HTML workspaces and paged source-link reads.\n- Preserves source-aware navigation and provider-specific HTML workspace reads.\n- Fixes the previous extensionless-wikilink finding. No new actionable issues were found.\n- Review conclusions are based on source inspection; no tests or browser checks were run during this review.",
+    "confidence": 5,
+    "confidenceReasoning": "The PR appears safe to merge; the previous wikilink issue is fixed and no new blocking issues were found.\n\n`SourceAnchor` now preserves extensionless targets instead of adding `.md`. Selected-work prompts refuse stale or incomplete scope, and the shared paging changes preserve existing bounds.",
+    "securitySummary": null,
+    "instructions": null,
+    "effort": "base",
+    "comments": []
+  },
+  "githubReviewComments": 0,
+  "githubIssueComments": 0,
+  "conditionalSkip": "Installed upgrade fixture is conditional in the existing Desktop portability workflow; no retry, timeout or skip was added by this effort."
+}

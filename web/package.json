@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:agentic-engineering": "playwright test -c playwright.agentic-engineering.config.ts",
     "test:e2e:ao-kb": "playwright test -c playwright.ao-kb.config.ts",
     "generate:api": "openapi-typescript ../pkg/app/web/openapi.yaml -o src/api/generated.ts && oxfmt src/api/generated.ts"
   },
@@ -64,8 +65,10 @@
     "react-markdown": "^10.1.0",
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
     "sigma": "^3.0.3",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "unified": "^11.0.5"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.81.0",

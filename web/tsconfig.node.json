@@ -7,6 +7,7 @@
   "include": [
     "playwright.config.ts",
     "playwright.ao-kb.config.ts",
+    "playwright.agentic-engineering.config.ts",
     "vite.config.ts",
     "vite.kit.config.ts",
     "kitStylesheet.ts",

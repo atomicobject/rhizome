@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/atomicobject/rhizome/internal/testkit"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -210,15 +211,25 @@ func TestAgentEventsHonorsLastEventIDAndWritesSSEIDs(t *testing.T) {
 		return err == nil && len(persisted) == 3
 	}, time.Second, 10*time.Millisecond)
 
-	ctx, cancel := context.WithTimeout(vaultconfig.WithEnv(context.Background(), env), 20*time.Millisecond)
+	server := &Server{agentService: service}
+	httpServer := httptest.NewServer(http.HandlerFunc(server.handleAgentSessionByID))
+	defer httpServer.Close()
+	ctx, cancel := context.WithCancel(vaultconfig.WithEnv(context.Background(), env))
 	defer cancel()
-	request := httptest.NewRequest(http.MethodGet, "/api/agent/sessions/"+created.Session.ID+"/events?after=0", nil).WithContext(ctx)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, httpServer.URL+"/api/agent/sessions/"+created.Session.ID+"/events?after=0", nil)
+	require.NoError(t, err)
 	request.Header.Set("Last-Event-ID", strconv.FormatInt(persisted[1].ID, 10))
-	response := httptest.NewRecorder()
-	(&Server{agentService: service}).handleAgentSessionByID(response, request)
+	response, err := httpServer.Client().Do(request)
+	require.NoError(t, err)
+	defer response.Body.Close()
 
-	require.Equal(t, http.StatusOK, response.Code)
-	require.Contains(t, response.Body.String(), fmt.Sprintf("id: %d\n", persisted[2].ID))
-	require.NotContains(t, response.Body.String(), fmt.Sprintf("id: %d\n", persisted[0].ID))
-	require.NotContains(t, response.Body.String(), fmt.Sprintf("id: %d\n", persisted[1].ID))
+	// Headers arrive after session and replay admission; bound only stream collection.
+	timer := time.AfterFunc(20*time.Millisecond, cancel)
+	defer timer.Stop()
+	body, readErr := io.ReadAll(response.Body)
+	require.Equal(t, http.StatusOK, response.StatusCode, "response body: %s", body)
+	require.ErrorIs(t, readErr, context.Canceled, "response body: %s", body)
+	require.Contains(t, string(body), fmt.Sprintf("id: %d\n", persisted[2].ID))
+	require.NotContains(t, string(body), fmt.Sprintf("id: %d\n", persisted[0].ID))
+	require.NotContains(t, string(body), fmt.Sprintf("id: %d\n", persisted[1].ID))
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { graphQLRequestBody, jsonReply, withFakeFetch } from "../src/test/fakeFetch";
-import { responseGeneration, truncation } from "./coverage";
+import { responseGeneration, truncation } from "./index";
 import { frameGeneration } from "./generation";
 import { NODES_BATCH_MAX, readNodes } from "./read-nodes";
 

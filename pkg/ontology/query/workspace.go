@@ -115,12 +115,15 @@ func (e *executor) resolveWorkspaceSelectionSet(ctx context.Context, ref ontolog
 			out[key] = items
 		case "bodies":
 			out[key] = e.resolveWorkspaceBodies(bodiesByField[field], links, field, append(path, key))
+		case "sourceLinkCount":
+			out[key] = len(projection.SourceLinks())
 		case "sourceLinks":
-			first := maxWorkspaceSourceLinks
+			first, offset := maxWorkspaceSourceLinks, 0
 			if args := e.fieldArgs(field); args != nil {
 				first = intValue(args["first"], maxWorkspaceSourceLinks)
+				offset = intValue(args["offset"], 0)
 			}
-			items := e.workspaceSourceLinks(ctx, projection, first, append(path, key))
+			items := e.workspaceSourceLinks(ctx, projection, first, offset, append(path, key))
 			resolved := make([]any, 0, len(items))
 			for _, item := range items {
 				resolved = append(resolved, e.resolveWorkspaceSourceLink(item, field.SelectionSet, append(path, key)))

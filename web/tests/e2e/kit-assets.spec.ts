@@ -49,3 +49,24 @@ test("a page that opts out of the compiler styles from the precompiled sheet alo
   await expect(page.locator("script[src$='tailwind.js']")).toHaveCount(0);
   await expect(page.locator("#extra")).not.toHaveCSS("background-color", "rgb(1, 2, 3)");
 });
+
+test("custom views can import the optional Markdown entry from the stamped kit", async ({
+  page,
+}) => {
+  await page.goto("/views/e2e.views.params");
+  await expect(page.getByRole("heading", { name: "Params demo" })).toBeVisible();
+
+  const result = await page.evaluate(async () => {
+    const moduleName = "@rhizome/kit/markdown";
+
+    const { markdownChecklist, convertWikilinks } = await import(moduleName);
+
+    return {
+      tasks: markdownChecklist("- [x] Done\n- [ ] Pending\n\n    - [x] Nested task"),
+      link: convertWikilinks("[[plan.md#Scope|Plan]]"),
+    };
+  });
+
+  expect(result.tasks).toEqual({ checked: 2, total: 3 });
+  expect(result.link).toBe("[Plan](rhizome://note/plan.md%23Scope)");
+});

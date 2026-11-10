@@ -11,6 +11,18 @@ import {
 } from "./context";
 
 describe("view context URLs", () => {
+  it("preserves public GraphQL structural selectors without changing the returned ref", () => {
+    const ref = { notePath: "a.md", kind: "SECTION", structural: "fingerprint" };
+    expect(parseViewNodeRef(ref)).toEqual({
+      notePath: "a.md",
+      kind: "SECTION",
+      structuralFingerprint: "fingerprint",
+    });
+    expect(nodeHref(ref)).toBe("/notes?note=a.md&kind=SECTION&structural=fingerprint");
+    expect(ref).toEqual({ notePath: "a.md", kind: "SECTION", structural: "fingerprint" });
+    expect(parseViewNodeRef({ ...ref, structural: 42 })).toBeNull();
+  });
+
   it("accepts GraphQL nulls for navigation and direct node view launches", () => {
     const ref = {
       notePath: "notes/a %.md",

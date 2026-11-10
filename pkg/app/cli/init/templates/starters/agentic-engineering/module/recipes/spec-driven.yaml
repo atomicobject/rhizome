@@ -107,6 +107,17 @@ query:
         path
         title
         ref { ref notePath typeName }
+        workspace {
+          sourceRevision { notePath contentFingerprint }
+          capabilities { canEdit readOnlyReason }
+          assessment { issues { code fieldName message } }
+          fields {
+            name present values
+            links { value resolved ref { ref notePath typeName } }
+            sectionNodes { ref notePath typeName }
+            issues { code message }
+          }
+        }
         ... on Effort {
           id
           name
@@ -119,7 +130,12 @@ query:
             content
           }
           specSetFrozen {
+            ref { ref notePath typeName }
             content
+            workspace {
+              sourceRevision { notePath contentFingerprint }
+              sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+            }
             frozenSpecs {
               id
               summary
@@ -133,7 +149,12 @@ query:
             }
           }
           storiesInScopeFrozen {
+            ref { ref notePath typeName }
             content
+            workspace {
+              sourceRevision { notePath contentFingerprint }
+              sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+            }
           }
           specCoverageChecklist {
             content
@@ -164,11 +185,45 @@ query:
           }
         }
         ... on EffortWorkspace {
+          frozenScope {
+            path title ref { ref notePath typeName }
+            workspace {
+              sourceRevision { notePath contentFingerprint }
+              capabilities { canEdit readOnlyReason }
+              assessment { issues { code fieldName message } }
+              fields {
+                name present values
+                links { value resolved ref { ref notePath typeName } }
+                sectionNodes { ref notePath typeName }
+                issues { code message }
+              }
+            }
+            specSetFrozen {
+              ref { ref notePath typeName }
+              content
+              workspace {
+                sourceRevision { notePath contentFingerprint }
+                sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+              }
+            }
+            storiesInScopeFrozen {
+              ref { ref notePath typeName }
+              content
+              workspace {
+                sourceRevision { notePath contentFingerprint }
+                sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+              }
+            }
+          }
           implementationPlan { path title ref { ref notePath typeName } }
           workLog {
             path title ref { ref notePath typeName }
             specSetFrozen { content }
-            storiesInScopeFrozen { content }
+            storiesInScopeFrozen {
+              content
+              ref { ref notePath typeName }
+              workspace { sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget resolved resolvedRef { ref notePath typeName } } }
+            }
             planApproval { content }
             originalIntendedDelivery { content }
             actualDelivered { content }
@@ -191,6 +246,11 @@ outputContract:
     - note.specSetFrozen.frozenSpecs.path
     - note.closureChecklist.content
     - note.ref.ref
+    - note.workspace.fields
+    - note.frozenScope.ref.ref
+    - note.frozenScope.workspace.fields
+    - note.frozenScope.specSetFrozen.workspace.sourceLinks
+    - note.frozenScope.storiesInScopeFrozen.workspace.sourceLinks
     - note.implementationPlan.path
     - note.workLog.path
     - note.workLog.planApproval.content
@@ -199,8 +259,23 @@ outputContract:
     - note.materials.path
     - note.governingSpecs.path
   empty: The effort path did not resolve; confirm the current effort before making scope or closure decisions.
-  partial: A blank planApprovedBy means no approval is recorded on the effort, not that approval is missing. Policy accepts explicit approval in chat and requires recording it only when a current user is configured, so reconcile the metadata with the actual authorization in the conversation before asking again, and ask only when neither exists. Expected paths are form-dependent; Markdown efforts return inline sections, while workspaces return explicit component and governing-spec links with source references. Work-log lifecycle sections are explicit snapshots, not substitutes for source reads. Read the workspace entry source and linked plan, log, and materials before interpreting frozen scope or closure evidence. Compare the frozen snapshots with the entry and require an exact approved plan revision; report disagreements rather than choosing authority silently. Missing components, unresolved links, or empty delivery evidence must be reported; absence does not authorize execution or closure. A resolved non-effort note is the wrong anchor.
-  highVolume: Keep this anchored to one effort. Do not broaden to every effort unless doing a process audit.
+  partial: >-
+    A blank planApprovedBy means no approval is recorded on the effort, not that approval is missing. Policy
+    accepts explicit approval in chat and requires recording it only when a current user is configured, so
+    reconcile the metadata with the actual authorization in the conversation before asking again, and ask only
+    when neither exists. Expected paths are form-dependent; Markdown efforts return inline sections, while
+    workspaces return explicit component and governing-spec links with source references. Work-log lifecycle
+    sections are explicit snapshots, not substitutes for source reads. Read the workspace entry source and linked
+    plan, log, and materials before interpreting frozen scope or closure evidence. The entry explicitly selects
+    frozenScope. Only that Markdown material's focused frozen-section sourceLinks establish exact selected
+    occurrences; retain order and criterion-only targets. Governing links and entry mentions remain separate. A
+    different workLog is a snapshot; deduplicate canonical sources when both roles select one file. Inspect
+    workspace fields.present, values, links, sectionNodes and issues before treating scope as known. Missing
+    selectors, broken or unsupported targets, and missing or duplicate sections are incomplete evidence, never
+    empty scope. Preserve authored unresolved references. Require an exact approved plan revision and report
+    disagreements. Missing components, unresolved links, or empty delivery evidence must be reported; absence does
+    not authorize execution or closure. A resolved non-effort note is the wrong anchor.
+  highVolume: Focused sourceLinks return at most 100 occurrences. Compare sourceLinkCount and continue with offset until every occurrence is read, preserving source revision and graph generation across pages. Missing or changed evidence leaves coverage incomplete; a full page alone does not prove membership. Keep this anchored to one effort. Do not broaden to every effort unless doing a process audit.
 adaptationGuidance:
   summary: Preserve one-effort anchored loading of frozen scope, plan approval, plan, delivery truth, execution notes, deviations, closure checklist, and current status.
   rules:
@@ -694,14 +769,14 @@ outputContract:
     - note.experienceStories.stories.references.path
     - note.operationsStories.stories.references.path
   empty: The spec path did not resolve or the spec family does not carry embedded user stories.
-  partial: "Only stories with `status: ready` should be selected for ordinary execution efforts unless the effort is explicitly story-shaping work."
+  partial: "Only stories with `status: ready` should be selected for ordinary execution efforts unless the effort is explicitly story-shaping work. Inbound efforts are mention context. An empty relation does not prove no frozen coverage or unclaimed scope; inspect explicitly selected effort scope for membership, including frozenScope materials."
   highVolume: Do not widen beyond one spec during effort creation; freeze explicit story ids, acceptance criteria content, and durable link locators.
 adaptationGuidance:
   summary: Preserve ready story, acceptance criterion, locator, reference, decision, and prior effort visibility for story selection, implementation linking, and audit.
   rules:
     - Keep story ids, status, increment, acceptance criteria content, and locator fields in the result. Select an individual criterion through its `criteria` entry; the section-level result is context, not a criterion link.
     - Use `locator.wikilink` or `locator.linkTarget` for code/doc links only when `requiresFix` is false. A planned locator does not exist yet and must never be persisted as a citation. When `requiresFix` is true, inspect the repair with `rzm agent node-link --ensure plan`; if source mutation is authorized, apply it through a write-capable Rhizome surface, rerun this recipe, and cite only the returned durable link. Otherwise cite the nearest durable parent and record the missing precise target as follow-up.
-    - Keep prior effort links so agents avoid reselecting stale or already-closed scope blindly.
+    - Treat UserStory.efforts and AcceptanceCriterion.efforts as inbound mention context only. Empty relations do not prove a story is unclaimed or has no frozen coverage; selection through an EffortMaterial may create no inbound Effort relation. Inspect explicitly selected effort frozen sections for exact membership. Ready stories remain ready regardless of mentions.
     - If story families move out of spec notes, adapt this recipe to the new story root while keeping exact story ids, acceptance criteria content, and locator metadata.
 examples:
   - name: Saved-query-recipes stories
@@ -731,6 +806,17 @@ query:
         path
         title
         ref { ref notePath typeName }
+        workspace {
+          sourceRevision { notePath contentFingerprint }
+          capabilities { canEdit readOnlyReason }
+          assessment { issues { code fieldName message } }
+          fields {
+            name present values
+            links { value resolved ref { ref notePath typeName } }
+            sectionNodes { ref notePath typeName }
+            issues { code message }
+          }
+        }
         ... on Effort {
           id
           planApprovedBy
@@ -739,7 +825,12 @@ query:
         }
         ... on EffortNote {
           specSetFrozen {
+            ref { ref notePath typeName }
             content
+            workspace {
+              sourceRevision { notePath contentFingerprint }
+              sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+            }
             frozenSpecs {
               id
               summary
@@ -753,7 +844,12 @@ query:
             }
           }
           storiesInScopeFrozen {
+            ref { ref notePath typeName }
             content
+            workspace {
+              sourceRevision { notePath contentFingerprint }
+              sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+            }
           }
           specCoverageChecklist {
             content
@@ -784,11 +880,45 @@ query:
           }
         }
         ... on EffortWorkspace {
+          frozenScope {
+            path title ref { ref notePath typeName }
+            workspace {
+              sourceRevision { notePath contentFingerprint }
+              capabilities { canEdit readOnlyReason }
+              assessment { issues { code fieldName message } }
+              fields {
+                name present values
+                links { value resolved ref { ref notePath typeName } }
+                sectionNodes { ref notePath typeName }
+                issues { code message }
+              }
+            }
+            specSetFrozen {
+              ref { ref notePath typeName }
+              content
+              workspace {
+                sourceRevision { notePath contentFingerprint }
+                sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+              }
+            }
+            storiesInScopeFrozen {
+              ref { ref notePath typeName }
+              content
+              workspace {
+                sourceRevision { notePath contentFingerprint }
+                sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+              }
+            }
+          }
           implementationPlan { path title ref { ref notePath typeName } }
           workLog {
             path title ref { ref notePath typeName }
             specSetFrozen { content }
-            storiesInScopeFrozen { content }
+            storiesInScopeFrozen {
+              content
+              ref { ref notePath typeName }
+              workspace { sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget resolved resolvedRef { ref notePath typeName } } }
+            }
             planApproval { content }
             originalIntendedDelivery { content }
             actualDelivered { content }
@@ -811,6 +941,11 @@ outputContract:
     - note.specSetFrozen.frozenSpecs.path
     - note.closureChecklist.content
     - note.ref.ref
+    - note.workspace.fields
+    - note.frozenScope.ref.ref
+    - note.frozenScope.workspace.fields
+    - note.frozenScope.specSetFrozen.workspace.sourceLinks
+    - note.frozenScope.storiesInScopeFrozen.workspace.sourceLinks
     - note.implementationPlan.path
     - note.workLog.path
     - note.workLog.planApproval.content
@@ -819,8 +954,23 @@ outputContract:
     - note.materials.path
     - note.governingSpecs.path
   empty: The effort path did not resolve; do not audit or close until the owning effort is known.
-  partial: A blank planApprovedBy means no approval is recorded on the effort, not that approval is missing. Policy accepts explicit approval in chat and requires recording it only when a current user is configured, so reconcile the metadata with the actual authorization in the conversation before asking again, and ask only when neither exists. Expected paths are form-dependent; Markdown efforts return inline sections, while workspaces return explicit component and governing-spec links with source references. Work-log lifecycle sections are explicit snapshots, not substitutes for source reads. Read the workspace entry source and linked plan, log, and materials before interpreting frozen scope or closure evidence. Compare the frozen snapshots with the entry and require an exact approved plan revision; report disagreements rather than choosing authority silently. Missing components, unresolved links, or empty delivery evidence must be reported; absence does not authorize execution or closure. A resolved non-effort note is the wrong anchor.
-  highVolume: Keep this anchored to one effort during closure; use broader effort queries only for process audits.
+  partial: >-
+    A blank planApprovedBy means no approval is recorded on the effort, not that approval is missing. Policy
+    accepts explicit approval in chat and requires recording it only when a current user is configured, so
+    reconcile the metadata with the actual authorization in the conversation before asking again, and ask only
+    when neither exists. Expected paths are form-dependent; Markdown efforts return inline sections, while
+    workspaces return explicit component and governing-spec links with source references. Work-log lifecycle
+    sections are explicit snapshots, not substitutes for source reads. Read the workspace entry source and linked
+    plan, log, and materials before interpreting frozen scope or closure evidence. The entry explicitly selects
+    frozenScope. Only that Markdown material's focused frozen-section sourceLinks establish exact selected
+    occurrences; retain order and criterion-only targets. Governing links and entry mentions remain separate. A
+    different workLog is a snapshot; deduplicate canonical sources when both roles select one file. Inspect
+    workspace fields.present, values, links, sectionNodes and issues before treating scope as known. Missing
+    selectors, broken or unsupported targets, and missing or duplicate sections are incomplete evidence, never
+    empty scope. Preserve authored unresolved references. Require an exact approved plan revision and report
+    disagreements. Missing components, unresolved links, or empty delivery evidence must be reported; absence does
+    not authorize execution or closure. A resolved non-effort note is the wrong anchor.
+  highVolume: Focused sourceLinks return at most 100 occurrences. Compare sourceLinkCount and continue with offset until every occurrence is read, preserving source revision and graph generation across pages. Missing or changed evidence leaves coverage incomplete; a full page alone does not prove membership. Keep this anchored to one effort during closure; use broader effort queries only for process audits.
 adaptationGuidance:
   summary: Preserve closure comparison between frozen intent, plan approval, execution evidence, actual delivery, deviations, checklist, and current effort status.
   rules:

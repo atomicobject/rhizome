@@ -1,7 +1,7 @@
 ---
 summary: "Browser and public HTTP adapters: provider-aware readiness, shared node reads and edit sessions, and bounded runtime ownership."
 reference-kind: guide
-last-verified: 2026-11-07
+last-verified: 2026-11-10
 code-paths:
   - pkg/app/web
   - pkg/app/graphpresentation
@@ -22,6 +22,13 @@ code-anchors:
 
 ## Design constraints
 
+- The optional `@rhizome/kit/markdown` entry owns Markdown rendering, wikilink conversion, and GFM checklist parsing; the core kit does not load their parser. Both entries use the same stamped import map and React runtime. The public kit reuses native narrative wikilink conversion and the source-aware preview resolver for inline Markdown links. Authored Markdown versus wikilink syntax stays in the request with its source path; the returned canonical ref supplies navigation. A view iframe URL never supplies relative-link context.
+
+- An experience panel reads only its declared params from the active workspace URL, like an experience page. Non-identity params update its existing page and preserve local state.
+
+- Experience node navigation preserves the public GraphQL `structural` selector when normalizing host refs or forming node URLs. The shared global toolbar wraps its section navigation below 980px; narrow experience pages retain access to search and appearance.
+
+
 - Explorer's `/api/v1/graphs/folders` projects the same cached global graph into trimmed file nodes, first-seen undirected file pairs, and nested-type counts. It preserves maximum edge weight separately for note-code and other evidence. Folder placement and expansion stay client-owned; this projection does not introduce another identity resolver or graph cache.
 
 - `pkg/app/graphpresentation` owns graph DTOs and shared pure projection/collapse mechanisms. CLI and HTTP retain their own module, language, ordering and enrichment policy. Browser note-target parsing is shared in `web/src/lib/noteTarget.ts`; synchronous first-paint appearance is generated from the shared theme/settings definitions.
@@ -31,6 +38,7 @@ code-anchors:
 - Typed node and relation reads use request-scoped `noderead` services. GraphQL uses the shared application query engine and recipe registry. Counts and public type summaries use their bounded read contracts; handlers do not rebuild ontology projections or scan the catalog per result.
 - Readiness follows the selected provider and complete publication proof. Raw-only exact reads may use their admitted immutable provider-current fact bundle. Broad, fragmented, workspace, relation, and semantic reads wait for their required publication. Old ready flags alone do not certify current data.
 - Server construction validates and retains the explicit metadata runtime. Every read scope receives that runtime so root capabilities follow the provider, including non-Markdown formats. Missing dependencies produce structured errors or retryable readiness responses.
+- The legacy node snapshot cache parses Markdown. Registered non-Markdown sources bypass it through the provider-aware read scope, including workspaces returned by a metadata commit; their format, title, and source revision must agree.
 - Live operations consume one runtime snapshot containing its matching vault definition and configuration. Runtime-free paths assemble an explicit snapshot. Read fallbacks use existing read-only stores and never create, migrate, repair, or rebuild an index.
 - File and rendered-content routes admit only resolved paths within the resolved vault root. Ignore policy applies to both an authored symlink path and its target. Validate the application host before dispatch; isolated HTML viewing retains its separate origin and nonce contract.
 - Custom view files, stamps, and checks are read through the `os.Root` of the one views folder that holds the definition, after that folder resolves inside the vault. Flat views use `/views/_files|_stamp|_check/` and bare folder keys; module views ([[rhizome-modules|SPEC-0130]]) use `/views/_module/<module>/_files|_stamp|_check/` and the folder key `/module/<module>/<folder>`, so no module route or key can reach or collide with a flat folder, including one named `modules`. The `views.changed` poller stamps every views folder.

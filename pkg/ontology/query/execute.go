@@ -5,6 +5,7 @@ import (
 	"fmt"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/sourceownership"
+	"maps"
 	"slices"
 	"strings"
 
@@ -410,7 +411,14 @@ func (e *executor) resolveNodeBatchItemSelectionSet(ctx context.Context, item no
 			if item.Node == nil {
 				out[key] = nil
 			} else {
+				firstError := len(e.errors)
 				out[key] = e.resolveAnyNodeSelectionSet(ctx, item.Node, field.SelectionSet, append(path, key))
+				for i := firstError; i < len(e.errors); i++ {
+					extensions := make(map[string]any, len(e.errors[i].Extensions)+1)
+					maps.Copy(extensions, e.errors[i].Extensions)
+					extensions["requestedRef"] = item.Input
+					e.errors[i].Extensions = extensions
+				}
 			}
 		case "error":
 			if item.Error == nil {
