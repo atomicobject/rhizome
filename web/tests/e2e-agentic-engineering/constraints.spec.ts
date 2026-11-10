@@ -210,15 +210,26 @@ test("ambiguous spec sections disable ready selection while preserving authored 
 
       if (!isJsonObject(value)) return;
 
-      if (
-        value.name === "userStories" &&
-        Array.isArray(value.sectionNodes) &&
-        value.sectionNodes.length
-      ) {
-        value.sectionNodes.push(value.sectionNodes[0]);
-        value.issues = [{ code: "cardinality", message: "Section must match a single heading" }];
-        changed++;
-      }
+      const workspace =
+        isJsonObject(value.ref) && value.ref.notePath === specPath && isJsonObject(value.workspace)
+          ? value.workspace
+          : null;
+
+      if (Array.isArray(workspace?.fields))
+        for (const field of workspace.fields) {
+          if (
+            isJsonObject(field) &&
+            field.name === "userStories" &&
+            Array.isArray(field.sectionNodes) &&
+            field.sectionNodes.length
+          ) {
+            field.sectionNodes.push(field.sectionNodes[0]);
+            field.issues = [
+              { code: "cardinality", message: "Section must match a single heading" },
+            ];
+            changed++;
+          }
+        }
 
       Object.values(value).forEach(update);
     }
@@ -231,6 +242,9 @@ test("ambiguous spec sections disable ready selection while preserving authored 
   await expect(f.getByRole("checkbox", { name: /Select US1.*Reserve a seat/ })).toBeDisabled();
   await expect(f.getByRole("button", { name: "Copy workflow prompt", exact: true })).toBeDisabled();
   expect(changed).toBeGreaterThan(0);
+  await f.getByRole("checkbox", { name: /Select US1.*Inspect proposed context/ }).check();
+  await expect(f.getByRole("button", { name: "Copy workflow prompt", exact: true })).toBeEnabled();
+  await expect(f.getByRole("textbox", { name: /prompt/i })).toHaveValue(/proposed-2\.md/);
   await page.goto(record(specPath, "SPEC-9001-US1"));
   await expect(f.getByText(/harbor confirmation ends here/)).toBeVisible();
 });

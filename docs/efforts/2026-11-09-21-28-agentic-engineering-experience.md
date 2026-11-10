@@ -110,6 +110,10 @@ All eight stories are backported as satisfied. Local `make check` and `make veri
 
 - 2026-11-10 [review] Manual Greptile returned 4/5 on `46e792283` with two confirmed findings: ambiguous spec-section coverage and recipe-presence assertions. Root fixed both, with red-before-green scope proof and all 16 named recipe cases passing. [The review ledger](2026-11-09-agentic-engineering-experience/evidence/greptile-review.md) records the evidence; strict template TypeScript, make check, make build, all 55 installed Delivery cases and documentation/frozen-scope validation pass. A new committed-head review remains pending.
 
+- 2026-11-10 [validation] Windows web/CLI CI on `46e792283` exposed a newline-only difference in the new skill-install parity assertion. Root corrected that assertion with the existing template-newline helper. All other content remains compared exactly; current-head Windows CI is required before readiness.
+
+- 2026-11-10 [review] The `83a6195aa` manual review confirmed both earlier findings resolved and identified overbroad field-error coverage. Root reproduced the clean-neighbor failure and scoped field evidence to each owning spec/story while retaining batched hydration. Counterexamples include a clean sibling and clean neighboring specs beside active or archived ambiguous records. Strict template TypeScript, 25 focused tests, make check, make build and all 55 installed Delivery cases pass. A subsequent committed-head review and current-head CI remain required.
+
 ## Deviations
 
 The initial seven-stage comp becomes five factual primary views plus separate Current contracts and Record review. This is an authorized accuracy refinement that avoids inventing readiness, acceptance, or reconciliation. P1 added explicit frozen-scope source selection for HTML workspaces as a necessary dependency. Existing records are not rewritten. No implementation scope is deferred.

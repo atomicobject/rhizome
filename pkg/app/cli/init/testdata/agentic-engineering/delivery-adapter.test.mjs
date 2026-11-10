@@ -175,10 +175,16 @@ test('ambiguous spec sections retain prose but cannot supply copied scope', asyn
       const criterion = node(ref('spec.md', 'AcceptanceCriterion', 'criterion'));
       const story = node(ref('spec.md', 'UserStory', 'story'), [field('status', [], ['ready']), field('acceptanceCriteria', [ac.ref])]);
       const own = node(ref('spec.md', 'ExperienceSpec'), [field('specStatus', [], ['active']), field('userStories', [wrapper.ref])]);
-      wrapper.workspace.collections = [{ name: 'stories', items: [{ ref: story.ref }] }];
+      const sibling = node(ref('spec.md', 'UserStory', 'sibling'), [field('status', [], ['ready'])]);
+      wrapper.workspace.collections = [{ name: 'stories', items: [{ ref: story.ref }, { ref: sibling.ref }] }];
       ac.workspace.collections = [{ name: 'criteria', items: [{ ref: criterion.ref }] }];
-      const nodes = [own, wrapper, story, ac, criterion];
-      const h = harness(nodes, new Map(), () => {}, { specLike: [own] });
+      const nodes = [own, wrapper, story, sibling, ac, criterion];
+      const cleanWrapper = node(ref('clean.md', 'UserStoriesSection', 'stories'));
+      const cleanStory = node(ref('clean.md', 'UserStory', 'story'), [field('status', [], ['ready'])]);
+      const cleanSpec = node(ref('clean.md', 'ExperienceSpec'), [field('specStatus', [], ['active']), field('userStories', [cleanWrapper.ref])]);
+      cleanWrapper.workspace.collections = [{ name: 'stories', items: [{ ref: cleanStory.ref }] }];
+      nodes.push(cleanSpec, cleanWrapper, cleanStory);
+      const h = harness(nodes, new Map(), () => {}, { specLike: [own, cleanSpec] });
       const keys = [identity(story.ref)];
       assert.equal(promptFor('ready', (await h.read.portfolio()).portfolio, keys).copyable, true);
       const state = (section === 'userStories' ? own : story).workspace.fields.find(item => item.name === section);
@@ -196,6 +202,10 @@ test('ambiguous spec sections retain prose but cannot supply copied scope', asyn
       assert.equal(detail.coverage.complete, false, `${section}/${fault}`);
       assert.equal(detail.node.content, 'Full authored prose');
       assert.equal(detail.record.stories[0].criteria[0].source.content, 'Full authored prose');
+      assert.equal(promptFor('ready', portfolio.portfolio, [identity(sibling.ref)]).copyable, section === 'acceptanceCriteria', `sibling: ${section}/${fault}`);
+      assert.equal(promptFor('ready', portfolio.portfolio, [identity(cleanStory.ref)]).copyable, true, `clean neighbor: ${section}/${fault}`);
+      own.workspace.fields.find(item => item.name === 'specStatus').values = ['archived'];
+      assert.equal(promptFor('ready', (await h.read.portfolio()).portfolio, [identity(cleanStory.ref)]).copyable, true, `archived neighbor: ${section}/${fault}`);
     }
   }
 });

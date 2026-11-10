@@ -117,31 +117,37 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
   }
   async function children(parents: readonly LiveNode[], name: string, detail = false) {
     const targets = parents.flatMap(node => refs(node, name));
-    const errors = parents.flatMap(node => [
-      ...(field(node, name)?.issues ?? []).map(issue => `${node.title}: ${name}: ${issue.message}`),
-      ...(['userStories', 'acceptanceCriteria'].includes(name) && refs(node, name).length > 1
-        ? [`${node.title}: ${name} matches multiple sections`] : []),
-    ]);
     const result = targets.length ? await hydrate(targets, detail) : { nodes: [], coverage: null };
-    return { nodes: result.nodes, coverage: errors.length
-      ? combine([...[result.coverage].filter(nonNull), absent(errors.join('\n'))]) : result.coverage };
+    return { nodes: result.nodes, coverage(parent: LiveNode) {
+      const errors = [
+        ...(field(parent, name)?.issues ?? []).map(issue => `${parent.title}: ${name}: ${issue.message}`),
+        ...(['userStories', 'acceptanceCriteria'].includes(name) && refs(parent, name).length > 1
+          ? [`${parent.title}: ${name} matches multiple sections`] : []),
+      ];
+      return errors.length ? combine([...[result.coverage].filter(nonNull), absent(errors.join('\n'))]) : result.coverage;
+    } };
   }
   async function specs(nodes: LiveNode[], base: Coverage, detail = false): Promise<LiveSpec[]> {
     const wrappers = await children(nodes, 'userStories');
     const stories = await children(wrappers.nodes, 'stories', detail);
     const ac = await children(stories.nodes, 'acceptanceCriteria');
     const criteria = await children(ac.nodes, 'criteria', detail);
-    const storyCoverage = combine([base, ...[wrappers.coverage, stories.coverage].filter(nonNull)]);
-    const criteriaCoverage = combine([storyCoverage, ...[ac.coverage, criteria.coverage].filter(nonNull)]);
     const owned = (parent: LiveNode, name: string, candidates: LiveNode[]) => candidates.filter(node => refs(parent, name).some(ref => identity(ref) === identity(node.ref)));
-    return nodes.map(node => ({ ...summary(node, base), source: node, kind: 'spec', status: status(node, 'specStatus', specStates),
-      storiesCoverage: storyCoverage,
-      stories: owned(node, 'userStories', wrappers.nodes).flatMap(wrapper => owned(wrapper, 'stories', stories.nodes)).map((story): LiveStory => ({
-        ...summary(story, storyCoverage), source: story, status: status(story, 'status', storyStates), criteriaCoverage,
-        criteria: owned(story, 'acceptanceCriteria', ac.nodes).flatMap(wrapper => owned(wrapper, 'criteria', criteria.nodes))
-          .map(criterion => ({ ...summary(criterion, criteriaCoverage), source: criterion, story: story.ref })),
-      })),
-    }));
+    return nodes.map(node => {
+      const ownWrappers = owned(node, 'userStories', wrappers.nodes);
+      const storyCoverage = combine([base, ...[wrappers.coverage(node), ...ownWrappers.map(wrapper => stories.coverage(wrapper))].filter(nonNull)]);
+      return { ...summary(node, base), source: node, kind: 'spec', status: status(node, 'specStatus', specStates),
+        storiesCoverage: storyCoverage,
+        stories: ownWrappers.flatMap(wrapper => owned(wrapper, 'stories', stories.nodes)).map((story): LiveStory => {
+          const ownCriteria = owned(story, 'acceptanceCriteria', ac.nodes);
+          const criteriaCoverage = combine([storyCoverage, ...[ac.coverage(story), ...ownCriteria.map(wrapper => criteria.coverage(wrapper))].filter(nonNull)]);
+          return { ...summary(story, storyCoverage), source: story, status: status(story, 'status', storyStates), criteriaCoverage,
+            criteria: ownCriteria.flatMap(wrapper => owned(wrapper, 'criteria', criteria.nodes))
+              .map(criterion => ({ ...summary(criterion, criteriaCoverage), source: criterion, story: story.ref })),
+          };
+        }),
+      };
+    });
   }
   function effort(node: LiveNode, read: Coverage, scope = node.resolvedType === 'EffortWorkspace'
     ? frozenScope({ form: 'EffortWorkspace', selector: { state: 'unreadable', authored: [], material: null, coverage: absent('Frozen scope deferred') } })

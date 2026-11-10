@@ -47,7 +47,7 @@ func TestAgenticEngineeringDeliveryFreshInstall(t *testing.T) {
 		require.NoError(t, err)
 		source, err := os.ReadFile("templates/starters/agentic-engineering/agents/skills/agentic-engineering/SKILL.md")
 		require.NoError(t, err)
-		require.Equal(t, string(source), string(installed), "prompt route tests must cover the installed workflow")
+		require.Equal(t, normalizeTemplateNewlines(string(source)), normalizeTemplateNewlines(string(installed)), "prompt route tests must cover the installed workflow")
 	}
 	requireDeliveryAssetsManaged(t, root)
 	requireDeliveryNativeBaseline(t, root)
