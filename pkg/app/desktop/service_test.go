@@ -136,6 +136,25 @@ func TestFolderIdentityAndCanonicalTrust(t *testing.T) {
 	code(t, err, "folder_missing")
 }
 
+func TestExplicitTrustRecordsActionPermissionForExternalAndGlobalExecutables(t *testing.T) {
+	for _, manager := range []string{"", "external"} {
+		t.Run(manager, func(t *testing.T) {
+			s := testService(t)
+			folder := config(t, repoconfig.LocalRhizomeConfig{BinaryManager: manager})
+			before, err := s.Inspect(folder)
+			require.NoError(t, err)
+			require.False(t, before.Trusted)
+			require.False(t, before.TrustRequired, "opening with a global binary remains independent of action trust")
+			after, err := s.Trust(folder)
+			require.NoError(t, err)
+			require.True(t, after.Trusted)
+			trusted, err := s.trust.Trusted(folder)
+			require.NoError(t, err)
+			require.True(t, trusted, "module actions read the same checkout trust record")
+		})
+	}
+}
+
 func TestOpenPassesExactSelectedBinaryAndBuildToRuntime(t *testing.T) {
 	for _, authority := range []string{"development", "managed", "external", "global"} {
 		t.Run(authority, func(t *testing.T) {

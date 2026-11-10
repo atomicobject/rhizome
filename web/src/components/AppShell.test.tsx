@@ -24,6 +24,7 @@ describe("AppShell", () => {
     resetSidebarForTests();
     // Workspaces render for real; they only need empty, well-formed reads.
     http
+      .json("GET", "/api/v1/starter-readiness", [])
       .json("GET", "/api/v1/files/tree", { path: "", entries: [] })
       .json("GET", "/api/v1/graphs/global", emptyGraph)
       .json("GET", "/api/v1/graphs/folders", {

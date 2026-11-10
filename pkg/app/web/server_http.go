@@ -104,6 +104,8 @@ func (s *Server) registerRoutes() {
 	s.registerRuntimeControlRoutes()
 	// API endpoints
 	s.mux.HandleFunc("/api/v1/status", s.handlePublicStatus)
+	s.mux.HandleFunc("/api/v1/starter-readiness", s.handleStarterReadiness)
+	s.mux.HandleFunc("/api/v1/starter-readiness/", s.handleStarterReadiness)
 	s.mux.HandleFunc("/api/v1/capabilities", s.handlePublicCapabilities)
 	s.mux.HandleFunc("/api/v1/validate", s.handleRetiredValidation)
 	s.mux.HandleFunc("/api/v2/validate", s.handlePublicValidate)

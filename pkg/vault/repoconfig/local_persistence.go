@@ -1,6 +1,7 @@
 package repoconfig
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -43,8 +44,21 @@ func LoadLocalConfig(dir string) (*LocalConfig, error) {
 	return cfg, nil
 }
 
-// SaveLocalConfig writes a LocalConfig to .rhizome/config.yml under dir.
+// SaveLocalConfig replaces modeled values in .rhizome/config.yml under dir.
+// Use UpdateLocalConfig for read-modify-write changes to existing settings.
 func SaveLocalConfig(dir string, cfg LocalConfig) error {
+	if _, err := cfg.Rhizome.UsesExternalBinaryManager(); err != nil {
+		return err
+	}
+	release, err := LockLocalConfig(context.Background(), dir)
+	if err != nil {
+		return err
+	}
+	defer release()
+	return saveLocalConfig(dir, cfg)
+}
+
+func saveLocalConfig(dir string, cfg LocalConfig) error {
 	cfg.Rhizome.BinaryManager = strings.TrimSpace(cfg.Rhizome.BinaryManager)
 	if _, err := cfg.Rhizome.UsesExternalBinaryManager(); err != nil {
 		return err

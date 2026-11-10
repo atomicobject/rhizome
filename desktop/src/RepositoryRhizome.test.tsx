@@ -30,6 +30,25 @@ function show(p = props(), unsupported = true) {
 }
 
 describe("repository Rhizome version", () => {
+  it("shows trust progress separately from changing the executable", async () => {
+    let finish!: () => void;
+    const onTrust = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const p = props({ onTrust });
+    p.worktree = { ...p.worktree, trusted: false };
+    const { onReload } = show(p, false);
+    expect(screen.getByText("Not trusted on this Mac")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Trust this worktree" }));
+    expect(screen.getByRole("button", { name: "Trusting…" })).toBeDisabled();
+    expect(screen.queryByText("Changing Rhizome…")).toBeNull();
+    finish();
+    await waitFor(() => expect(onReload).toHaveBeenCalledOnce());
+  });
+
   it("offers the app when no newer pin exists and reloads after selecting it", async () => {
     const p = props();
     const { onReload } = show(p);

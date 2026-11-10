@@ -182,7 +182,8 @@
       "scope": [
         "pkg/app/runtime/**",
         "pkg/app/bootstrap/**",
-        "pkg/app/cli/serve/**"
+        "pkg/app/cli/serve/**",
+        "pkg/app/modulereadiness/**"
       ],
       "severity": "medium",
       "enabled": true

@@ -1,0 +1,138 @@
+/* Starter readiness (DESIGN.md, Banners): one compact notice in the shell's
+   chrome frame, above the workbench. It sits on --chrome-bg with the content
+   panel's surface, corner, and edge, so notice and panel read as one frame.
+   Each starter is one row: a status mark, the starter and its state, one
+   plain sentence, and at most one bordered action. Raw reasons and paths
+   open in a popover, so the notice never grows to show diagnostics. */
+.starter-readiness {
+  flex: none;
+  padding: 6px 6px 0;
+  background: var(--chrome-bg);
+}
+
+.starter-readiness__card {
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  outline: 1px solid var(--panel-edge);
+  outline-offset: -1px;
+}
+
+.starter-readiness__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  min-height: 40px;
+  padding: 6px var(--sp-2) 6px var(--sp-5);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.starter-readiness__row + .starter-readiness__row {
+  border-top: 1px solid var(--border-faint);
+}
+
+/* Two lines at most; the full reason is in Details. */
+.starter-readiness__text {
+  display: -webkit-box;
+  flex: 1 1 320px;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.starter-readiness__subject {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.starter-readiness__state {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.starter-readiness__sentence {
+  margin-left: var(--sp-2);
+}
+
+.starter-readiness code {
+  font-size: var(--fs-xs);
+}
+
+.starter-readiness__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+
+.starter-readiness__details {
+  position: relative;
+}
+
+.starter-readiness__details > summary {
+  list-style: none;
+}
+
+.starter-readiness__details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.starter-readiness__details[open] > summary {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.starter-readiness__popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  gap: var(--sp-3);
+  width: min(480px, calc(100vw - 32px));
+  max-height: min(360px, 50vh);
+  overflow: auto;
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.starter-readiness__reason,
+.starter-readiness__hint {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.starter-readiness__hint {
+  color: var(--text-muted);
+}
+
+.starter-readiness__paths {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+.starter-readiness__error {
+  flex-basis: 100%;
+  margin: 0;
+  padding-left: 19px;
+  color: var(--accent-ink);
+}

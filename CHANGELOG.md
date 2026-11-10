@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Installed starters now complete eligible setup and indexing automatically through the runtime. Unfinished setup stays visible across navigation and reopening, with product selection, concrete conflict and dependency reasons, Settings recovery, and Retry. CLI installations use the same readiness owner; existing schemas and AO knowledge remain intact.
 - Refine Agentic Engineering Delivery lists, source notices, sorting, and contextual navigation; load Markdown tooling only in views that use it.
 - Agentic Engineering now includes a Delivery experience: a workflow map, selectable shaping and implementation lists with composed agent prompts, full inline spec criteria, source-grounded effort resume briefs, and a contextual Find and Recent panel. Frozen scope stays separate from governing metadata and mentions; missing evidence never becomes approval or completion.
 - Workspace source-link reads support offset pagination and an occurrence count, so callers can establish complete authored scope without losing repeated or unresolved links.
@@ -25,6 +26,7 @@
 
 ### Fixed
 
+- Creating, removing, or renaming ontology and module folders refreshes the live ontology and capabilities even when individual schema-file events are absent.
 - Repository Settings offers a pin update or the app's Rhizome when an old executable cannot report settings, and reloads after the fix. Its Rhizome version section controls the executable for this worktree on this Mac, keeps the shared pin unchanged, and preserves checkout trust. Explicit worktree choices now take precedence over managed pins in the desktop app.
 
 - Rhizome Desktop no longer dead-ends when a folder's selected Rhizome can't serve it:

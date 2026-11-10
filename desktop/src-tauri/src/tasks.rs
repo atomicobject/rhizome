@@ -1,7 +1,6 @@
-//! The Tasks page's two native actions: open an item's worktree in a new
-//! window, and start an item in Terminal. The page names only a path or an
-//! item number. Both are checked against the window's own repository, and
-//! the command Terminal runs is built here.
+//! Native page requests open task worktrees, start tasks in Terminal, or
+//! open the current repository settings. Repository identity comes from the
+//! window; task paths and item numbers are validated before execution.
 use crate::{bridge, commands::Desktop, page::Ask, pane::Panes, terminal};
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -14,6 +13,13 @@ pub fn handle(app: &AppHandle, window: &str, ask: Ask) {
     else {
         return;
     };
+    if ask == Ask::OpenRepositorySettings {
+        app.state::<Panes>().deliver(
+            window,
+            json!({"type": "repository-settings", "repository": repository, "worktree": worktree}),
+        );
+        return;
+    }
     let (app, window) = (app.clone(), window.to_string());
     tauri::async_runtime::spawn(async move {
         if let Err(message) = act(&app, &repository, &worktree, ask).await {
@@ -31,6 +37,7 @@ async fn act(app: &AppHandle, repository: &str, worktree: &str, ask: Ask) -> Res
     }
     let (common, main) = main_checkout(Path::new(worktree)).await?;
     match ask {
+        Ask::OpenRepositorySettings => Ok(()),
         Ask::OpenTaskWorktree { path } => {
             let path = task_worktree(&main, &path)?;
             git_worktree_of(&path, &common).await?;

@@ -297,6 +297,21 @@ describe("desktop shell", () => {
     expect(call).toHaveBeenCalledWith("setup-report", { id: repository.id, worktree: main });
   });
 
+  it("opens the current repository settings for a starter recovery request", async () => {
+    start(undefined, (operation) => {
+      if (operation === "scope")
+        return { builtInApplies: false, rules: [], keepIndexed: [], root: main };
+      if (operation === "settings-report") throw { code: "setup_unsupported", message: "Too old." };
+      if (operation === "global-status") return null;
+      return undefined;
+    });
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    act(() => emit({ type: "repository-settings", repository: repository.id, worktree: main }));
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith("settings-report", { id: repository.id, worktree: main }),
+    );
+  });
+
   it("opens Repository Settings from the repository menu on the repository tab", async () => {
     start(undefined, (operation) => {
       if (operation === "scope")

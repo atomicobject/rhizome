@@ -61,7 +61,11 @@ func TestLocalConfigPublicationWithOpenReaders(t *testing.T) {
 			require.Equal(t, "never", current.WorkflowTemplateManagement.UpdatePolicy.Docs)
 			entries, err := os.ReadDir(filepath.Dir(configPath))
 			require.NoError(t, err)
-			require.Len(t, entries, 2, "successful publication leaves only config and workflow files")
+			var names []string
+			for _, entry := range entries {
+				names = append(names, entry.Name())
+			}
+			require.Equal(t, []string{"config.yml", "config.yml.init.lock", "workflows.yml"}, names, "successful publication leaves no temporary files")
 		})
 	}
 }
@@ -89,8 +93,11 @@ func TestLocalConfigPublicationBlockedByNoncooperatingReader(t *testing.T) {
 	require.Equal(t, old, unchanged, "failed replacement retains the published config")
 	entries, err := os.ReadDir(filepath.Dir(path))
 	require.NoError(t, err)
-	require.Len(t, entries, 1, "failed replacement must not leak a temporary sibling")
-	require.Equal(t, filepath.Base(path), entries[0].Name())
+	var names []string
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	require.Equal(t, []string{"config.yml", "config.yml.init.lock"}, names, "failed replacement must not leak a temporary sibling")
 
 	require.NoError(t, reader.Close())
 	require.NoError(t, SaveLocalConfig(root, *cfg), "a new save succeeds after the blocking reader closes")

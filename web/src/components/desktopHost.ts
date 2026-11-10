@@ -63,7 +63,8 @@ export type DesktopReport = {
 /** What the Tasks page may ask the app to do. The app validates both. */
 export type DesktopRequest =
   | { action: "openTaskWorktree"; path: string }
-  | { action: "startTask"; item: string };
+  | { action: "startTask"; item: string }
+  | { action: "openRepositorySettings" };
 
 type NumberedRequest = DesktopRequest & { n: number };
 
