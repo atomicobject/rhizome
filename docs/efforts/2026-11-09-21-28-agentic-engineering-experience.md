@@ -4,7 +4,7 @@ id: EFF-2026-11-09-21-28
 aliases: [EFF-2026-11-09-21-28]
 name: Agentic Engineering delivery experience
 created-at: 2026-11-10T02:35:34Z
-status: complete
+status: active
 summary: "Deliver the complete refined Agentic Engineering starter experience with exact authored scope, installed UI proof, and an open unmerged PR."
 governing-specs:
   - "[[docs/specs/experience/agentic-engineering-delivery-experience.md]]"
@@ -156,14 +156,18 @@ The initial seven-stage comp becomes five factual primary views plus separate Cu
 
 - 2026-11-10T11:34:35Z [final closure] Verified all eight frozen stories and final integrated follow-ups against implementation 2617a908be1c89b9437dba4a5ab056781672cc8d. All 25 active CI jobs passed, including Windows rest and Web E2E; the existing conditional installed-upgrade job was not applicable. Manual review is 5/5 with zero comments. PR #123 is open, non-draft, mergeable and clean, with no auto-merge, formal reviews or comments. Closed this effort with its work; the final documentation head is checked before handback. No human approval metadata was invented.
 
+- 2026-11-10 [integration CI follow-up] Final documentation head e61b951bc retained manual Greptile 5/5 with zero comments but failed the AO KB legacy setup integration case. The log explicitly reports a missing pinned binary and GitHub release manifest HTTP 403. Root reproduced the same error with a local failed release service, then seeded the fixture with this checkout's actual built CLI and matching version marker. Every setup, binding, indexing, complete orientation and authored-byte assertion remains; the failed release service stays active. Focused race-enabled red/green passed. Reopened readiness for the independently reviewed test-only correction and final gates. Earlier passing implementation receipts remain historical.
+
+- 2026-11-10 [AO KB fixture verification] The complete AO KB race suite, make check and both validators pass. Fresh independent Sol high review approves the 15-line correction and retained setup/data assertions. No application source changed after the 64-case installed proof. Current-head CI and manual review remain pending before closure.
+
 ## Closure Checklist
 
 - [x] Implemented foundation and independent technical review pass.
 - [x] All eight stories and Requirements are verified in the installed interface.
 - [x] Required local gates, documentation validation and frozen-scope checks pass.
-- [x] Independent implementation review and Greptile 5/5 cover final behavior.
+- [ ] Independent implementation review and Greptile 5/5 cover final behavior.
 - [x] Specs, owning docs, changelog, actual outcomes and deviations are reconciled.
-- [x] PR URL, verified implementation head, passing CI and open unmerged state are recorded.
+- [ ] PR URL, verified implementation head, passing CI and open unmerged state are recorded.
 
 ## Compounding Follow-ups
 
@@ -171,4 +175,4 @@ Record recurring friction with its evidence. Fresh-worktree authoring needed OS/
 
 ## Status
 
-Complete on the branch. All eight frozen stories, reviewed follow-ups and required implementation gates are delivered. PR #123 remains open and unmerged for Drew. The final documentation head receives current-head CI and manual review before handback. No Rhizome Dev installation was performed.
+Active for AO KB integration-fixture release isolation and current-head readiness. All eight frozen stories remain delivered. The existing final readiness receipt records the passing implementation before this CI follow-up. PR #123 stays open and unmerged; no Rhizome Dev installation is authorized.

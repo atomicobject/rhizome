@@ -90,3 +90,9 @@ Final root integration passed the focused deadline/queue/cancellation race tests
 ## Final verified implementation
 
 At 2617a908be1c89b9437dba4a5ab056781672cc8d, all 25 active CI jobs passed, including Windows rest, macOS Desktop, platform portability and Web E2E. The existing conditional installed-upgrade job was not applicable. Manual Greptile returned 5/5 with zero comments and confirmed G9 fixed. PR #123 was open, non-draft, mergeable and clean, with auto-merge absent and no review, inline or issue comments. [The final receipt](final-readiness.json) records exact source results. All eight frozen stories and G1 through G9 are closed. The effort is complete on the branch; the final documentation head receives its own CI and manual review before handback.
+
+## AO KB setup release-access follow-up
+
+The final documentation-head integration job exposed a public GitHub release dependency in the existing AO KB setup fixture. Its explicit HTTP 403 is retained in [the diagnosis](aokb-setup-release-diagnosis.md). The fixture now uses its actual built CLI and a matching pin marker, while a local failed release service proves setup has no release-download dependency. All original setup, binding, indexing, complete orientation and authored-byte assertions remain. The focused race-enabled counterexample fails before and passes after. The effort is active for final fixture review, gates and current-head CI; earlier passing receipts remain historical.
+
+The complete AO KB race suite, make check and both validators passed after the correction. Fresh independent Sol high review approved the fixture, its marker fast path and retained assertions. No application source changed after the 64-case installed proof. Current-head CI and manual review remain required.
