@@ -1,0 +1,33 @@
+# Harbor work log
+
+## Spec Set (Frozen)
+
+[[docs/specs/experience/harbor-booking.md]]
+
+## Stories In Scope (Frozen)
+
+[[docs/specs/experience/harbor-booking.md#^ae-a-confirmation|Only criterion A confirmation]]
+
+## Plan Approval
+No approver recorded.
+
+## Original Intended Delivery
+Preserve the selected passenger outcome.
+
+## Actual Delivered
+No runtime delivery acceptance is claimed.
+
+## Deviations
+Different work log selection is an authored snapshot.
+
+## Closure Checklist
+- [x] Capture source evidence.
+- [ ] Inspect the installed experience.
+
+## Status
+Resume after checking exact selected scope and authority.
+
+## Execution Notes
+First authored entry has no structured event date.
+
+Second authored entry mentions 2027-01-01 as a proposed service date, not an event timestamp.
