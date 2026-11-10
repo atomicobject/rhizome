@@ -8,6 +8,7 @@ import (
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+	"github.com/atomicobject/rhizome/pkg/vault/watchhub"
 	"github.com/stretchr/testify/require"
 )
 
@@ -74,18 +75,19 @@ func TestLiveOwnershipOntologyFolderEventsRefreshUnchangedNotes(t *testing.T) {
 
 				var published []string
 				w.publishEvent = func(kind string, _ any) { published = append(published, kind) }
-				dirtyKind := cache.DirtyRemoved
+				op := watchhub.OpRemove
 				folderPath := filepath.Join(root, filepath.FromSlash(folder.path))
 				switch operation {
 				case "create":
 					writeSchema()
-					dirtyKind = cache.DirtyModified
+					op = watchhub.OpCreate
 				case "remove":
 					require.NoError(t, os.RemoveAll(folderPath))
 				case "rename":
 					require.NoError(t, os.Rename(folderPath, filepath.Join(root, "retired")))
+					op = watchhub.OpRename
 				}
-				cacheService.MarkDirty(folder.path, dirtyKind)
+				w.retainHubEvents(t.Context(), []watchhub.WatchEvent{{RelPath: folder.path, Op: op, IsDir: true}})
 				runOwnershipBatch(t, w)
 				requireLiveOwnershipCompleted(t, w)
 				assertType(after)
