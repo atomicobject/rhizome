@@ -190,7 +190,13 @@ async fn refresh_at(
     .expect("updater must settle and release its lock after the request timeout")
 }
 
-async fn timed_server(byte_delay: Duration) -> (url::Url, tokio::task::JoinHandle<()>) {
+async fn timed_server(
+    byte_delay: Duration,
+) -> (
+    url::Url,
+    tokio::sync::oneshot::Receiver<tokio::time::Instant>,
+    tokio::task::JoinHandle<()>,
+) {
     // Blocking socket phases inhibit paused-clock auto-advance until real I/O catches up.
     use std::io::Read;
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -199,10 +205,13 @@ async fn timed_server(byte_delay: Duration) -> (url::Url, tokio::task::JoinHandl
         .parse()
         .unwrap();
     let package_url = url.join("/package").unwrap();
+    let (started, first_byte) = tokio::sync::oneshot::channel();
     let server = tokio::spawn(async move {
+        let mut started = Some(started);
         for package in [false, true] {
             let listener = listener.try_clone().unwrap();
             let package_url = package_url.clone();
+            let started = if package { started.take() } else { None };
             let stream = tokio::task::spawn_blocking(move || {
                 let began = std::time::Instant::now();
                 let mut stream = loop {
@@ -227,6 +236,7 @@ async fn timed_server(byte_delay: Duration) -> (url::Url, tokio::task::JoinHandl
                 }
                 if package {
                     stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\nt").unwrap();
+                    started.unwrap().send(tokio::time::Instant::now()).unwrap();
                     Some(stream)
                 } else {
                     let feed = json!({"version": "1.0.0", "platforms": {"test-target": {"url": package_url, "signature": SIGNATURE}}}).to_string();
@@ -266,7 +276,7 @@ async fn timed_server(byte_delay: Duration) -> (url::Url, tokio::task::JoinHandl
             }
         }
     });
-    (url, server)
+    (url, first_byte, server)
 }
 
 fn ready(version: &str) -> Status {
@@ -335,12 +345,12 @@ fn progressing_download_can_exceed_the_read_timeout() {
         .unwrap()
         .block_on(async {
             let app = app();
-            let (url, server) = timed_server(Duration::from_millis(100)).await;
-            let began = tokio::time::Instant::now();
+            let (url, mut first_byte, server) = timed_server(Duration::from_millis(100)).await;
             assert_eq!(
                 refresh_at(&app, &url, Duration::from_secs(5)).await,
                 ready("1.0.0")
             );
+            let began = first_byte.try_recv().expect("package body never started");
             assert!(began.elapsed() >= Duration::from_millis(300));
             assert!(began.elapsed() > LIMIT);
             assert_cached(&app, "1.0.0");
@@ -357,8 +367,7 @@ fn a_paused_clock_read_stall_still_times_out() {
         .unwrap()
         .block_on(async {
             let app = app();
-            let (url, server) = timed_server(Duration::from_millis(400)).await;
-            let began = tokio::time::Instant::now();
+            let (url, mut first_byte, server) = timed_server(Duration::from_millis(400)).await;
             let status = refresh_at(&app, &url, Duration::from_secs(5)).await;
             assert_eq!(
                 status,
@@ -366,6 +375,8 @@ fn a_paused_clock_read_stall_still_times_out() {
                     message: "error decoding response body".into()
                 }
             );
+            // Feed and connection setup do not count toward the body read timeout.
+            let began = first_byte.try_recv().expect("package body never started");
             assert!(began.elapsed() >= LIMIT);
             assert!(began.elapsed() < Duration::from_millis(400));
             assert!(app.state::<Updates>().ready.lock().unwrap().is_none());
