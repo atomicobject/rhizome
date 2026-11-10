@@ -31,6 +31,24 @@ const portfolio = (specs = [spec()], efforts = [effort()]) => ({ specs, efforts,
   specCoverage: coverage(), effortCoverage: coverage() });
 const keys = result => result.rows.map(row => identity(row.record.ref));
 
+test('note evidence joins canonical roots without weakening section or criterion identity', () => {
+  const canonical = Object.freeze({ notePath: 'spec.md', ref: 'spec.md', kind: 'NOTE', nodeId: 'spec.md', structural: null, typeName: 'ExperienceSpec' });
+  const linked = Object.freeze({ ...canonical, structural: 'catalog-fingerprint', structuralFingerprint: 'catalog-fingerprint' });
+  assert.equal(attributionFor({ governing: { coverage: coverage(), occurrences: [] }, entryMentions: { coverage: coverage(), occurrences: [] },
+    frozen: frozenScope({ form: 'EffortNote', inline: { ...material(), specs: section([occurrence(linked, 0, 'spec')]) } }), workLogSnapshot: null }, canonical).frozenSpecs.occurrences.length, 1);
+  const wholeSpec = frozenScope({ form: 'EffortNote', inline: { ...material(), stories: section([occurrence(linked, 0, 'spec')]) } });
+  assert.equal(selectionFor(wholeSpec, canonical).occurrences.length, 1);
+  assert.equal(distinctTargets([occurrence(linked), occurrence(canonical)]).size, 1);
+  assert.equal(identity(linked), identity({ notePath: 'spec.md', kind: 'note' }));
+  assert.notEqual(identity(canonical), identity({ ...canonical, notePath: 'other.md', ref: 'other.md' }));
+  const selected = Object.freeze({ ...canonical, kind: 'SECTION', fragment: 'selection', nodeId: 'spec.md#selection', structural: 'first' });
+  assert.notEqual(identity(selected), identity({ ...selected, structural: 'second' }));
+  assert.notEqual(identity(selected), identity({ ...selected, fragment: 'other' }));
+  assert.notEqual(identity(selected), identity({ ...selected, kind: 'EMBEDDED', typeName: 'AcceptanceCriterion' }));
+  assert.notEqual(identity(canonical), identity(selected));
+  assert.equal(linked.structural, 'catalog-fingerprint');
+});
+
 test('mixed story states overlap factual groups and preserve historical states', () => {
   const input = portfolio([spec(), { ...spec('proposed'), ...record('proposal.md') }],
     [effort(), { ...effort('complete'), ...record('done.md') }, { ...effort('archived'), ...record('old.md') }]);

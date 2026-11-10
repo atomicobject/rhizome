@@ -92,3 +92,7 @@ Root opened the two additional light/dark image-fallback captures individually a
 ## Root follow-up: partial child reads
 
 Root opened all four new captures individually at original resolution: healthy-story-partial-unresolved-light.png, healthy-story-partial-owned-field-light.png, healthy-story-partial-unresolved-dark.png and healthy-story-partial-owned-field-dark.png. Each shows the partial-read notice, disabled affected story and selected healthy sibling without horizontal overflow. The 64-case installed suite verifies that the healthy prompt remains copyable and excludes the affected story. The manifest now contains 53 captures, with 29 committed. No additional formal accessibility or below-the-fold visual claim is made.
+
+## Root follow-up: frozen-spec relationships
+
+Root opened frozen-spec-relationships-light.png and frozen-spec-relationships-dark.png individually at original resolution. Both preserve recorded states, governing metadata, frozen-spec occurrences, story selections and source-section provenance. The qualified incomplete notice remains visible because other synthetic records deliberately lack evidence. No collision or visual blocker was found. All 64 installed cases passed after the note-root identity correction. The manifest contains 55 captures with 31 committed images. The earlier formal accessibility limits still apply.

@@ -148,6 +148,8 @@ The initial seven-stage comp becomes five factual primary views plus separate Cu
 
 - 2026-11-10 [final root gates] make check, query/pushdown integration tests, 27 pure tests, strict template TypeScript, make build and all 64 installed cases pass. Documentation and frozen-scope validation report zero issues. The first root gate stopped on five test-spacing lint findings; the corrected complete gate passed. Committed-head manual review and CI remain pending.
 
+- 2026-11-10 [G9 follow-up] Manual review confirmed G8 fixed and identified hidden frozen-spec relationships caused by metadata-only note-ref differences. The shared identity helper now joins only fragment-free NOTE roots by canonical path, preserving exact embedded selectors and raw refs. Both-theme installed and pure counterexamples pass after the minimal correction. Fresh independent Sol high review approves. make check, build, all 64 installed cases, 28 focused tests and strict TypeScript pass. Root inspected paired relationship captures. A separate Windows rest failure in an existing running-deadline fixture remains under isolated diagnosis; current-head readiness stays open.
+
 ## Closure Checklist
 
 - [x] Implemented foundation and independent technical review pass.
@@ -163,4 +165,4 @@ Record recurring friction with its evidence. Fresh-worktree authoring needed OS/
 
 ## Status
 
-Active for G8 child-read ownership, final integration gates and current-head readiness. All eight frozen stories remain delivered. Prior application-head receipts remain historical evidence; PR #123 stays open and unmerged until the follow-up gates and reviews pass.
+Active for G9 note-root identity, the Windows running-deadline fixture and current-head readiness. All eight frozen stories remain delivered. Prior application-head receipts remain historical evidence; PR #123 stays open and unmerged until the follow-up gates and reviews pass.

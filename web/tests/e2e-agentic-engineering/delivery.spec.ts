@@ -162,6 +162,14 @@ for (const colorScheme of ["light", "dark"] as const) {
           .getByText(/Stories In Scope \(Frozen\):/)
           .first(),
       ).toBeVisible();
+
+      const frozenSpec = content(page)
+        .getByText(/Spec Set \(Frozen\):/)
+        .first();
+
+      await expect(frozenSpec).toBeVisible();
+      await frozenSpec.scrollIntoViewIfNeeded();
+      await capture(page, info, "frozen-spec-relationships");
       const direct = page.url();
       await page.reload();
       await expect(content(page).getByText(/harbor confirmation ends here/)).toBeVisible();

@@ -687,5 +687,31 @@
     "file": "healthy-story-partial-owned-field-dark.png",
     "sha256": "db3953647cddb3542be7ce3129ce2e8aca8c1199e7962253b7571c659a0f09fb",
     "included": true
+  },
+  {
+    "scenario": "frozen-spec-relationships",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md&story=SPEC-9001-US1",
+    "file": "frozen-spec-relationships-light.png",
+    "sha256": "53cba6f68104dcb61ec07a77bff4d9d9c5646486e15635b7bc81bcb3df7bed4c",
+    "included": true
+  },
+  {
+    "scenario": "frozen-spec-relationships",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md&story=SPEC-9001-US1",
+    "file": "frozen-spec-relationships-dark.png",
+    "sha256": "fdee01545f8c015c29d6b22a882c89506a8deb606a41102c903e62d867ca36a0",
+    "included": true
   }
 ]

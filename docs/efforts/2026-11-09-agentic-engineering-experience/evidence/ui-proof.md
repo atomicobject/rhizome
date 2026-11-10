@@ -10,6 +10,7 @@ The five factual groups retain the visual Shape, Build, Settle orientation. A sp
 | Select exact stories and copy one prompt | [Selected stories](screenshots/ready-selected-light.png) | [Selected stories](screenshots/ready-selected-dark.png) |
 | Continue healthy work when another criterion read fails | [Partial read](screenshots/healthy-story-partial-unresolved-light.png) | [Partial read](screenshots/healthy-story-partial-unresolved-dark.png) |
 | Read full criteria in their spec | [Spec](screenshots/spec-expanded-light.png) | [Spec](screenshots/spec-expanded-dark.png) |
+| Inspect frozen specs separately from governing metadata and story selection | [Relationships](screenshots/frozen-spec-relationships-light.png) | [Relationships](screenshots/frozen-spec-relationships-dark.png) |
 | Developer resumes an inline effort | [Brief](screenshots/inline-effort-light.png) | [Brief](screenshots/inline-effort-dark.png) |
 | Inspect explicit workspace scope and separate log evidence | [Workspace](screenshots/workspace-provenance-light.png) | [Workspace](screenshots/workspace-provenance-dark.png) |
 | Keep unknown legacy scope visible | [Legacy workspace](screenshots/legacy-workspace-light.png) | [Legacy workspace](screenshots/legacy-workspace-dark.png) |
@@ -29,3 +30,5 @@ Keyboard, accessible-name, focus and overflow checks run in the installed browse
 Two additional image-fallback captures bring the manifest to 49 captures, with 25 images committed. Source-relative Markdown images use an explicit fallback with their authored label, exact path and canonical source button because the kit has no public binary attachment URL. Absolute image URLs still render. Both-theme installed cases check a decoded data image and source navigation; the root inspected their fallback screenshots.
 
 Four G8 captures bring the manifest to 53 captures, with 29 images committed. Root opened each new capture individually at original resolution. Explicit missing-target and owned-field failures keep the affected story disabled while a healthy sibling remains selected. The complete 64-case installed suite verifies prompt eligibility, partial notices and overflow in both themes. The held-refresh regression also prevents acknowledgement from reducing selection before the read finishes. These localized changes do not alter the earlier layout proof.
+
+Two G9 relationship captures bring the manifest to 55 captures, with 31 images committed. Root opened both at original resolution. They show exact frozen-spec occurrences alongside governing metadata and story selection after the canonical note-root identity correction. The original 47-state layout evidence remains unchanged; these captures add an expanded relationship state.

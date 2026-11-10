@@ -13,6 +13,7 @@ export type Ref = {
 };
 
 export function identity(ref: Ref): string {
+  if (ref.kind.toLowerCase() === 'note' && !ref.fragment) return JSON.stringify([ref.notePath, 'note']);
   return JSON.stringify([ref.notePath, ref.fragment ?? '', ref.nodeId ?? '', ref.kind,
     ref.structural ?? ref.structuralFingerprint ?? '', ref.typeName ?? '']);
 }
