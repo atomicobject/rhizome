@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-11-10-08-34
 name: Starter readiness and recovery
 created-at: 2026-11-10T13:34:58Z
-status: active
+status: complete
 summary: Make installed starters complete their setup and indexing with visible readiness and recovery, and refresh ontology data after folder-only changes.
 aliases: [EFF-2026-11-10-08-34]
 governing-specs:
@@ -65,7 +65,7 @@ All three stories are implemented. Installed starters reconcile setup and indexi
 
 ## Deviations
 
-None.
+An earlier Windows readiness timeout remains unexplained. Its assertion did not capture the final state, and subsequent runs with improved diagnostics passed without reproducing it. Drew explicitly approved squash merging with this uncertainty documented as an exception to the repository's requirement to diagnose flaky tests before merging. The timeout was not increased and no retry was added to mask it.
 
 ## Compounding Follow-ups
 
@@ -74,13 +74,13 @@ None identified yet.
 ## Closure Checklist
 
 - [x] Approved scope delivered or deviations recorded.
-- [ ] Final CI failures resolved; required gates and UI evidence recorded.
+- [x] Required gates and UI evidence recorded; the unresolved Windows timeout has an explicit approved exception.
 - [x] Independent review completed and accepted findings fixed.
 - [x] Delivery branch and commit recorded.
 
 ## Status
 
-Active while resolving fresh CI race failures. [PR #125](https://github.com/atomicobject/rhizome/pull/125) carries the delivery. Drew authorized squash merge after the required checks pass. Rhizome Dev installation follows the repository's main-branch installation policy.
+Completed on `feat/starter-readiness`, delivered through [PR #125](https://github.com/atomicobject/rhizome/pull/125). The final code commit `f02a48df` passed all 26 CI checks and Greptile review at 5/5 with no findings. Drew authorized squash merge and explicitly accepted the documented uncertainty about the earlier Windows timeout. Rhizome Dev installation follows the repository's main-branch installation policy.
 
 ## Implementation work log
 
@@ -131,3 +131,4 @@ Active while resolving fresh CI race failures. [PR #125](https://github.com/atom
 
 - The next review requested real-binary coverage of nonwaiting start followed by immediate stop. That regression failed on `11d80743`: the child removed its startup record before exiting, and Stop then returned early. Stop now retains the observed PID through every startup-completion path and waits for it to exit. The real-binary regression and a helper regression that removes the startup record both pass.
 - The previous Stop implementation also fails the strengthened helper regression through a Go overlay, with no changes to the working tree. The complete runtime unit and real-binary integration packages passed fresh with the race detector, followed by `make check-fast`. The diagnostic CI run on `11d80743` passed both Linux and Windows integration; no further Windows timeout occurred, so the original Windows cause remains unconfirmed.
+- Final acceptance: all 26 checks passed on `f02a48df`, including both operating systems' integration suites. Greptile returned 5/5 with no findings. Drew approved the remaining Windows uncertainty with "Merge with the uncertainty documented." This closure changes documentation only; the verified runtime, UI, and tests remain unchanged.
