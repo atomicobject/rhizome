@@ -2,15 +2,16 @@ import { useMemo } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Markdown,
+  DisclosureIcon,
   usePageNavigation,
   useViewActive,
-  convertWikilinks,
   resolveRenderedLinkTarget,
   getNodePreview,
   noteHref,
 } from "@rhizome/kit";
+import { Markdown, convertWikilinks } from "@rhizome/kit/markdown";
 import type { LiveNode } from "./data.tsx";
+import { Notice } from "./presentation.tsx";
 
 const preserveLinkURL = (url: string) => url;
 const noIndexedLinks = { links: [] };
@@ -138,42 +139,55 @@ export function SourceContent({ node }: { node: LiveNode }) {
 }
 
 export function FieldEvidence({ node }: { node: LiveNode }) {
+  const issues =
+    node.workspace?.fields.flatMap((field) =>
+      (field.issues ?? []).map((issue) => ({ name: field.name, issue })),
+    ) ?? [];
   return (
     <>
-      {node.workspace?.fields.flatMap((field) =>
-        (field.issues ?? []).map((issue, index) => (
-          <p role="status" key={`${field.name}-${index}`}>
-            {field.name}: {issue.code}. {issue.message}
-          </p>
-        )),
+      {issues.length > 0 && (
+        <Notice>
+          {issues.map(({ name, issue }, index) => (
+            <p role="status" key={`${name}-${index}`}>
+              <code className="ae-path">{name}</code>: <code className="ae-path">{issue.code}</code>
+              . {issue.message}
+            </p>
+          ))}
+        </Notice>
       )}
       {node.workspace?.fields
         .filter((field) => field.name === "specSetFrozen" || field.name === "storiesInScopeFrozen")
         .map((field) => (
           <p className="ae-note" key={field.name}>
-            {field.name}: recorded field {field.present ? "present" : "absent"},{" "}
-            {field.sectionNodes?.length ?? 0} returned sections.
+            <code className="ae-path">{field.name}</code>: recorded field{" "}
+            {field.present ? "present" : "absent"}, {field.sectionNodes?.length ?? 0} returned
+            sections.
           </p>
         ))}
       <details>
-        <summary>Recorded fields and source issues</summary>
+        <summary>
+          <DisclosureIcon open={false} />
+          Recorded fields and source issues
+        </summary>
         {node.workspace ? (
           node.workspace.fields.map((field) => (
             <div className="ae-row" key={field.name}>
-              <strong>{field.name}</strong>
+              <code className="ae-path">{field.name}</code>
               <p className="ae-note">{field.present ? "present" : "absent"}</p>
               {field.values?.map((value, index) => (
                 <p key={index}>{value}</p>
               ))}
               {field.issues?.map((issue, index) => (
                 <p role="status" key={index}>
-                  {issue.code}: {issue.message}
+                  <code className="ae-path">{issue.code}</code>: {issue.message}
                 </p>
               ))}
               {field.links
                 ?.filter((link) => !link.resolved)
                 .map((link, index) => (
-                  <p key={index}>Unresolved recorded target {link.value}</p>
+                  <p key={index}>
+                    Unresolved recorded target <code className="ae-path">{link.value}</code>
+                  </p>
                 ))}
             </div>
           ))

@@ -1,6 +1,6 @@
 import { useDeliveryPortfolio, useDeliverySelectedEfforts } from "./data.tsx";
 import { useEffect, useState } from "react";
-import { Section, useViewParams } from "@rhizome/kit";
+import { Section, Segmented, useViewParams } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import {
   eligibility,
@@ -9,12 +9,13 @@ import {
   identity,
   inventoryComplete,
   promptFor,
-  readComplete,
 } from "./lib/index.ts";
-import type { Row, RecordSummary } from "./lib/index.ts";
+import type { Row, RecordSummary, RowSort } from "./lib/index.ts";
 import {
   CoverageNotice,
   EmptyGroup,
+  ErrorDetail,
+  Notice,
   PromptBox,
   Ready,
   ReadState,
@@ -24,20 +25,15 @@ import {
   WorkflowMap,
   unit,
   parentSpecSummary,
+  useAnnounceStage,
 } from "./presentation.tsx";
 import type { PortfolioProps } from "./presentation.tsx";
 
-function selectable(row: Row) {
-  if (row.kind !== "effort") return eligibility(row);
-  return {
-    eligible: !!row.record.locator && readComplete(row.record.coverage),
-    reason: !row.record.locator
-      ? "Durable canonical locator unavailable"
-      : !readComplete(row.record.coverage)
-        ? "Record read incomplete"
-        : null,
-  };
-}
+const sorts: readonly { value: RowSort; label: string }[] = [
+  { value: "source", label: "Source order" },
+  { value: "title-asc", label: "Title A to Z" },
+  { value: "title-desc", label: "Title Z to A" },
+];
 
 export function DeliveryStage({
   portfolio,
@@ -46,6 +42,8 @@ export function DeliveryStage({
 }: PortfolioProps & { stale?: boolean }) {
   const params = useViewParams();
   const group = groupFor(typeof params.stage === "string" ? params.stage : "");
+  useAnnounceStage(group?.stage ?? null);
+  const [sort, setSort] = useState<RowSort>("source");
   const [selectedRecords, setSelectedRecords] = useState<RecordSummary[]>([]);
   const selected = selectedRecords.map((record) => identity(record.ref));
   useEffect(() => setSelectedRecords([]), [group?.stage]);
@@ -66,10 +64,10 @@ export function DeliveryStage({
     ...portfolio,
     efforts: portfolio.efforts.map((record) => loaded.get(identity(record.ref)) ?? record),
   };
-  const result = group ? groupResult(group.stage, current) : null;
+  const result = group ? groupResult(group.stage, current, sort) : null;
   const rows = result?.state === "records" ? result.rows : [];
   const eligible = rows
-    .filter((row) => selectable(row).eligible)
+    .filter((row) => eligibility(row, "select").eligible)
     .map((row) => identity(row.record.ref));
   const unavailable = selectedRecords.filter((record) => !eligible.includes(identity(record.ref)));
   if (!group)
@@ -79,7 +77,7 @@ export function DeliveryStage({
         <p>This route does not identify a supported stage.</p>
       </main>
     );
-  const composed = promptFor(group.stage, current, selected);
+  const composed = promptFor(group.stage, current, selected, sort);
   const loadingScope = effortRefs.length > 0 && (details.isPending || details.isFetching);
   const incompleteScope = effortRefs.length > 0 && details.data && !coherent;
   const readReasons = [
@@ -115,7 +113,7 @@ export function DeliveryStage({
   }
   function renderRow(row: Row, index: number) {
     const key = identity(row.record.ref);
-    const allowed = selectable(row);
+    const allowed = eligibility(row, "select");
     return (
       <div className="ae-select-row" key={`${key}-${index}`}>
         <input
@@ -132,6 +130,22 @@ export function DeliveryStage({
             <RecordLink record={row.record} />
           )}
           <RowFacts row={row} />
+          {row.kind === "review" && row.selected.length > 0 && (
+            <>
+              <p className="ae-note">Pending selected records found in this read</p>
+              <ul
+                className="ae-pending"
+                aria-label={`Pending selected records for ${row.record.title}`}
+              >
+                {row.selected.map((record) => (
+                  <li key={identity(record.ref)}>
+                    <RecordLink record={record} />
+                    <code className="ae-path">{record.locator}</code>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
           {allowed.reason && <p className="ae-note">{allowed.reason}</p>}
         </div>
       </div>
@@ -158,26 +172,38 @@ export function DeliveryStage({
           caption={group.rule}
           status={status}
           what={group.title}
-          controls={
-            <Button
-              onClick={() =>
-                setSelectedRecords(
-                  rows
-                    .filter((row) => eligible.includes(identity(row.record.ref)))
-                    .map((row) => row.record),
-                )
-              }
-              disabled={!eligible.length || unavailable.length > 0}
-            >
-              Select all visible eligible {group.unit}
-            </Button>
-          }
         >
+          <div className="ae-list-tools">
+            <Segmented
+              label="Sort records"
+              showLabel
+              value={sort}
+              options={sorts}
+              onChange={setSort}
+            />
+            <span>
+              <Button
+                onClick={() =>
+                  setSelectedRecords(
+                    rows
+                      .filter((row) => eligible.includes(identity(row.record.ref)))
+                      .map((row) => row.record),
+                  )
+                }
+                disabled={!eligible.length || unavailable.length > 0}
+              >
+                Select all visible eligible {group.unit}
+              </Button>
+              {selected.length > 0 && (
+                <Button onClick={() => setSelectedRecords([])}>Clear selection</Button>
+              )}
+            </span>
+          </div>
           {group.stage === "ready"
             ? [...parents.values()].map((siblings) => {
                 const parent = siblings[0].parent;
                 const keys = siblings
-                  .filter((row) => selectable(row).eligible)
+                  .filter((row) => eligibility(row, "select").eligible)
                   .map((row) => identity(row.record.ref));
                 const checked = keys.length > 0 && keys.every((key) => selected.includes(key));
                 const mixed = !checked && keys.some((key) => selected.includes(key));
@@ -186,7 +212,7 @@ export function DeliveryStage({
                     <div className="ae-select-row">
                       <input
                         type="checkbox"
-                        aria-label={`Select ${keys.length} visible eligible ready stories in ${parent.title}`}
+                        aria-label={`Select ${keys.length} visible eligible ready ${unit(keys.length, "stories")} in ${parent.title}`}
                         ref={(element) => {
                           if (element) element.indeterminate = mixed;
                         }}
@@ -197,7 +223,8 @@ export function DeliveryStage({
                       <div>
                         <RecordLink record={parent} />
                         <p className="ae-note">
-                          Recorded {parent.status}. {keys.length} visible eligible ready stories.
+                          Recorded {parent.status}. {keys.length} visible eligible ready{" "}
+                          {unit(keys.length, "stories")}.
                         </p>
                       </div>
                     </div>
@@ -210,7 +237,7 @@ export function DeliveryStage({
         </Section>
         <aside>
           {unavailable.length > 0 && (
-            <div role="alert">
+            <Notice role="alert">
               <p>
                 {unavailable.length} selected{" "}
                 {unavailable.length === 1 ? "record is" : "records are"} no longer eligible or
@@ -219,7 +246,8 @@ export function DeliveryStage({
               <ul>
                 {unavailable.map((record) => (
                   <li key={identity(record.ref)}>
-                    Previously selected: {record.title} · {record.locator}
+                    Previously selected: {record.title} ·{" "}
+                    <code className="ae-path">{record.locator}</code>
                   </li>
                 ))}
               </ul>
@@ -233,22 +261,26 @@ export function DeliveryStage({
               >
                 Use remaining eligible selection
               </Button>
-            </div>
+            </Notice>
           )}
-          {selected.length > 0 && (
-            <Button onClick={() => setSelectedRecords([])}>Clear selection</Button>
-          )}
-          {loadingScope && <p role="status">Reading selected effort scope…</p>}
-          {details.error && (
-            <p role="alert">
-              Selected effort read failed. {details.error.message}{" "}
-              <Button onClick={() => details.refetch()}>Read selection again</Button>
+          {loadingScope && (
+            <p role="status" className="ae-note">
+              Reading selected effort scope…
             </p>
+          )}
+          {details.error && (
+            <Notice tone="risk">
+              <p role="alert">
+                Selected effort read failed.{" "}
+                <Button onClick={() => details.refetch()}>Read selection again</Button>
+              </p>
+              <ErrorDetail error={details.error} />
+            </Notice>
           )}
           {!loadingScope && incompleteScope && (
-            <p role="status">
+            <Notice role="status">
               Some selected scope is incomplete. Inspect the source before copying.
-            </p>
+            </Notice>
           )}
           <PromptBox prompt={prompt} />
         </aside>

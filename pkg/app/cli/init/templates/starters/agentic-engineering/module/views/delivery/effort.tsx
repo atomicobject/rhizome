@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import {
+  DisclosureIcon,
   Fact,
   Facts,
   RecordChip,
@@ -14,7 +16,17 @@ import { field } from "./reads.ts";
 import { SourceContent, FieldEvidence } from "./evidence.tsx";
 import { identity, promptFor } from "./lib/index.ts";
 import type { Occurrence } from "./lib/index.ts";
-import { ReadState, PromptBox, Ready, RecordWorkflow, subjectPortfolio } from "./presentation.tsx";
+import {
+  Notice,
+  NoticeMark,
+  PromptBox,
+  ReadState,
+  Ready,
+  RecordedStatus,
+  RecordWorkflow,
+  sourceLocator,
+  subjectPortfolio,
+} from "./presentation.tsx";
 
 function Occurrences({
   occurrences,
@@ -33,10 +45,10 @@ function Occurrences({
         return (
           <li key={`${occurrence.ordinal}-${index}`}>
             <strong>{occurrence.link.text || occurrence.link.title || occurrence.authored}</strong>
-            <div className="ae-note">{occurrence.authored || occurrence.link.authoredTarget}</div>
+            <code className="ae-path">{occurrence.authored || occurrence.link.authoredTarget}</code>
             <div className="ae-note">
-              {occurrence.targetKind} · source {occurrence.source.notePath}
-              {occurrence.source.fragment ? `#${occurrence.source.fragment}` : ""}
+              {occurrence.targetKind} · source{" "}
+              <code className="ae-path">{sourceLocator(occurrence.source)}</code>
             </div>
             {occurrence.target && (
               <RecordChip
@@ -59,7 +71,7 @@ function Occurrences({
                 {target ? (
                   <SourceContent node={target} />
                 ) : (
-                  <p role="status">Selected target content unavailable.</p>
+                  <Notice role="status">Selected target content unavailable.</Notice>
                 )}
               </>
             )}
@@ -75,11 +87,13 @@ function Narrative({
   name,
   title,
   detail,
+  note,
 }: {
   owner: LiveNode | undefined;
   name: string;
   title: string;
   detail: RecordDetail;
+  note?: ReactNode;
 }) {
   const nav = usePageNavigation();
   const state = owner && field(owner, name);
@@ -98,8 +112,7 @@ function Narrative({
             className="ae-link ae-note"
             onClick={() => nav.openNode(source.ref, { view: "builtin:read" })}
           >
-            Source {source.ref.notePath}
-            {source.ref.fragment ? `#${source.ref.fragment}` : ""}
+            Source <code className="ae-path">{sourceLocator(source.ref)}</code>
           </button>
         </>
       ) : (
@@ -113,6 +126,7 @@ function Narrative({
                 : "Section unreadable. Inspect source issues below."}
         </p>
       )}
+      {note}
     </Section>
   );
 }
@@ -121,10 +135,13 @@ function OriginalSource({ node }: { node: LiveNode }) {
   const [open, setOpen] = useState(false);
   return (
     <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary>{node.title || node.ref.notePath} · original source</summary>
+      <summary>
+        <DisclosureIcon open={false} />
+        {node.title || node.ref.notePath} · original source
+      </summary>
       {open && (
         <>
-          <p className="ae-note">{node.ref.notePath}</p>
+          <code className="ae-path">{node.ref.notePath}</code>
           <FieldEvidence node={node} />
           <SourceContent node={node} />
         </>
@@ -155,6 +172,14 @@ export default function Page() {
     detail?.workLogSnapshot &&
     identity(record.scope.source) === identity(detail.workLogSnapshot.ref);
   const nav = usePageNavigation();
+  const unresolved =
+    query.state === "missing-node"
+      ? "Effort source unavailable."
+      : query.state === "invalid-route"
+        ? "Invalid effort route."
+        : detail
+          ? "This subject did not resolve to a supported effort."
+          : "";
   return (
     <main className="ae-page">
       <ReadState query={query} />
@@ -168,13 +193,23 @@ export default function Page() {
         kind="Effort"
         status={{ status: query.state === "loading" ? "loading" : "ready" }}
         partial={
-          detail && (!detail.coverage.complete || record?.scope.state !== "known")
-            ? "Incomplete execution context. Recorded status remains visible; inspect the source evidence before resuming."
-            : undefined
+          detail && (!detail.coverage.complete || record?.scope.state !== "known") ? (
+            <>
+              <NoticeMark />
+              <span>
+                Incomplete execution context. Recorded status remains visible; inspect the source
+                evidence before resuming.
+              </span>
+            </>
+          ) : undefined
         }
         facts={
-          <Facts note={record?.status ?? "Status unavailable"}>
-            <Fact>{record?.locator}</Fact>
+          <Facts note={<RecordedStatus status={record?.status} />}>
+            {record?.locator && (
+              <Fact>
+                <code className="ae-path">{record.locator}</code>
+              </Fact>
+            )}
             <Fact>
               {checklist?.state === "recorded" || checklist?.state === "empty"
                 ? `${checklist.checked} of ${checklist.total} checklist items checked`
@@ -211,24 +246,34 @@ export default function Page() {
                   caption={`Membership ${record.scope.state}. Only the explicit frozen source establishes this selection.`}
                 >
                   {record.scope.source && (
-                    <p className="ae-note">Selected source {record.scope.source.notePath}</p>
+                    <p className="ae-note">
+                      Selected source{" "}
+                      <code className="ae-path">{record.scope.source.notePath}</code>
+                    </p>
                   )}
                   {record.scope.authored.map((target, i) => (
                     <p className="ae-note" key={i}>
-                      Recorded selector {target}
+                      Recorded selector <code className="ae-path">{target}</code>
                     </p>
                   ))}
-                  {record.scope.reasons.map((reason, i) => (
-                    <p role="status" key={i}>
-                      {reason}
-                    </p>
-                  ))}
+                  {record.scope.reasons.length > 0 && (
+                    <Notice>
+                      {record.scope.reasons.map((reason, i) => (
+                        <p role="status" key={i}>
+                          {reason}
+                        </p>
+                      ))}
+                    </Notice>
+                  )}
                   <Occurrences occurrences={record.scope.selections} detail={detail} />
                   {record.scope.state === "known" && !record.scope.selections.length && (
                     <p>No selected story or criterion occurrences recorded.</p>
                   )}
                   <details>
-                    <summary>Frozen spec occurrences ({record.scope.specs.length})</summary>
+                    <summary>
+                      <DisclosureIcon open={false} />
+                      Frozen spec occurrences ({record.scope.specs.length})
+                    </summary>
                     <Occurrences occurrences={record.scope.specs} />
                   </details>
                 </Section>
@@ -239,11 +284,13 @@ export default function Page() {
                   name="closureChecklist"
                   title="Closure checklist"
                   detail={detail}
+                  note={
+                    <p className="ae-note">
+                      Checked items record checklist state. They do not change the effort's status
+                      or establish acceptance.
+                    </p>
+                  }
                 />
-                <p className="ae-note">
-                  Checked items record checklist state. They do not change the effort's status or
-                  establish acceptance.
-                </p>
                 <Narrative
                   owner={owner}
                   name="actualDelivered"
@@ -261,7 +308,9 @@ export default function Page() {
                   ).flatMap(([name, label]) =>
                     (field(detail.node, name)?.links ?? []).map((link, index) => (
                       <p key={`${name}-${index}`}>
-                        <strong>{label}</strong>
+                        <span className="ae-label">
+                          {label.charAt(0).toUpperCase() + label.slice(1)}
+                        </span>
                         <br />
                         {link.resolved && link.ref ? (
                           <button
@@ -274,7 +323,10 @@ export default function Page() {
                             {link.title || link.value}
                           </button>
                         ) : (
-                          <span>{link.value} · unresolved recorded target</span>
+                          <span>
+                            <code className="ae-path">{link.value}</code> · unresolved recorded
+                            target
+                          </span>
                         )}
                       </p>
                     )),
@@ -284,7 +336,7 @@ export default function Page() {
                   )}
                   {approval?.present ? (
                     <>
-                      <p>Recorded approval metadata</p>
+                      <p className="ae-label">Recorded approval metadata</p>
                       {approval.values?.map((value, i) => (
                         <p key={i}>{value}</p>
                       ))}
@@ -337,6 +389,7 @@ export default function Page() {
             >
               <details>
                 <summary>
+                  <DisclosureIcon open={false} />
                   Governing metadata ({detail.governing.occurrences.length} returned links)
                 </summary>
                 <Occurrences occurrences={detail.governing.occurrences} />
@@ -345,7 +398,10 @@ export default function Page() {
                 <p className="ae-note">The work log and frozen scope select the same source.</p>
               ) : (
                 <details>
-                  <summary>Recorded log scope · separate snapshot</summary>
+                  <summary>
+                    <DisclosureIcon open={false} />
+                    Recorded log scope · separate snapshot
+                  </summary>
                   <p className="ae-note">This snapshot does not establish frozen membership.</p>
                   <Occurrences
                     occurrences={
@@ -361,7 +417,10 @@ export default function Page() {
               )}
               {record.form === "EffortWorkspace" && (
                 <details>
-                  <summary>Entry mentions ({detail.entryMentions.occurrences.length})</summary>
+                  <summary>
+                    <DisclosureIcon open={false} />
+                    Entry mentions ({detail.entryMentions.occurrences.length})
+                  </summary>
                   <p className="ae-note">
                     Links from the HTML entry do not supply frozen membership.
                   </p>
@@ -383,15 +442,7 @@ export default function Page() {
             </Section>
           </>
         ) : (
-          <p>
-            {query.state === "missing-node"
-              ? "Effort source unavailable."
-              : query.state === "invalid-route"
-                ? "Invalid effort route."
-                : detail
-                  ? "This subject did not resolve to a supported effort."
-                  : ""}
-          </p>
+          unresolved && <Notice>{unresolved}</Notice>
         )}
       </RecordPage>
     </main>

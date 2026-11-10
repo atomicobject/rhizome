@@ -4,14 +4,30 @@ import { EffortRelationships } from "./relationships.tsx";
 import { useDeliveryRecord } from "./data.tsx";
 import { useViewContext } from "@rhizome/kit";
 import { SourceContent, FieldEvidence } from "./evidence.tsx";
-import { ReadState, RecordWorkflow } from "./presentation.tsx";
+import {
+  Notice,
+  NoticeMark,
+  ReadState,
+  Ready,
+  RecordedStatus,
+  RecordWorkflow,
+  TypeName,
+  unit,
+} from "./presentation.tsx";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Fact, Facts, RecordPage, Section, usePageNavigation, useViewParams } from "@rhizome/kit";
+import {
+  DisclosureIcon,
+  Fact,
+  Facts,
+  RecordPage,
+  Section,
+  usePageNavigation,
+  useViewParams,
+} from "@rhizome/kit";
 import type { SectionStatus } from "@rhizome/kit";
 import { identity } from "./lib/index.ts";
 import type { Story } from "./lib/index.ts";
-import { Ready } from "./presentation.tsx";
 
 export type SpecProps = {
   record: LiveSpec | null;
@@ -41,15 +57,20 @@ export function InlineStory({
   return (
     <details ref={details} open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary tabIndex={0} role="button">
+        <DisclosureIcon open={false} />
         <strong>{story.title || story.ref.fragment || "Untitled story"}</strong>{" "}
-        <span className="ae-note">
-          {story.status ?? "Status unavailable"} ·{" "}
-          {story.criteriaCoverage.complete ? "" : "at least "}
-          {story.criteria.length} criteria
+        <span className="ae-summary-facts ae-note">
+          <RecordedStatus status={story.status} />{" "}
+          <span>
+            {story.criteriaCoverage.complete ? "" : "at least "}
+            {story.criteria.length} {unit(story.criteria.length, "criteria")}
+          </span>
         </span>
       </summary>
       {open && children}
-      {!story.criteriaCoverage.complete && <p role="status">Criteria read is incomplete.</p>}
+      {!story.criteriaCoverage.complete && (
+        <Notice role="status">Criteria read is incomplete.</Notice>
+      )}
       {open && !children && (
         <ol>
           {story.criteria.map((criterion) => (
@@ -77,6 +98,8 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
   const params = useViewParams();
   const nav = usePageNavigation();
   const storyParam = typeof params.story === "string" ? params.story : null;
+  const id = record && field(record.source, "id")?.values?.[0];
+  const updated = record && field(record.source, "lastUpdated")?.values?.[0];
   const focused = stories.find(
     (story) =>
       story.locator === storyParam ||
@@ -94,18 +117,31 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
         status={status}
         what="this spec"
         partial={
-          record && (!record.coverage.complete || !record.storiesCoverage.complete)
-            ? "Partial contract read. Story and criterion counts describe loaded evidence."
-            : undefined
+          record && (!record.coverage.complete || !record.storiesCoverage.complete) ? (
+            <>
+              <NoticeMark />
+              <span>
+                Partial contract read. Story and criterion counts describe loaded evidence.
+              </span>
+            </>
+          ) : undefined
         }
         facts={
-          <Facts note={record?.status ?? "Status unavailable"}>
-            <Fact>{record?.ref.typeName}</Fact>
-            <Fact>{record && field(record.source, "id")?.values?.[0]}</Fact>
-            <Fact>{record?.locator ?? title}</Fact>
-            {record && field(record.source, "lastUpdated")?.values?.[0] && (
-              <Fact>Updated {field(record.source, "lastUpdated")?.values?.[0]}</Fact>
+          <Facts note={<RecordedStatus status={record?.status} />}>
+            {record?.ref.typeName && (
+              <Fact>
+                <TypeName name={record.ref.typeName} />
+              </Fact>
             )}
+            {id && (
+              <Fact>
+                <code className="ae-path">{id}</code>
+              </Fact>
+            )}
+            <Fact>
+              {record?.locator ? <code className="ae-path">{record.locator}</code> : title}
+            </Fact>
+            {updated && <Fact>Updated {updated}</Fact>}
           </Facts>
         }
       >
@@ -116,16 +152,16 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
               <RecordWorkflow record={record} />
               <Section
                 title="What done means"
-                count={`${record.storiesCoverage.complete ? "" : "at least "}${record.stories.length} stories`}
+                count={`${record.storiesCoverage.complete ? "" : "at least "}${record.stories.length} ${unit(record.stories.length, "stories")}`}
                 caption="Expand a story to inspect its full recorded criteria. Story status is recorded evidence."
               >
                 {storyParam && !focused && (
-                  <p role="status">
+                  <Notice role="status">
                     The requested inline story was not found in this read.{" "}
                     <button className="ae-link" onClick={() => nav.setViewParams({ story: null })}>
                       Clear story focus
                     </button>
-                  </p>
+                  </Notice>
                 )}
                 {stories.map((story) => (
                   <InlineStory key={identity(story.ref)} story={story} focus={story === focused}>
@@ -146,7 +182,7 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
               <EffortRelationships spec={record} />
             </>
           ) : (
-            <p>This subject did not resolve to a supported spec.</p>
+            <Notice>This subject did not resolve to a supported spec.</Notice>
           )
         }
       </RecordPage>
@@ -169,19 +205,14 @@ export default function Page() {
           status={{ status: query.state === "loading" ? "loading" : "ready" }}
           what="this spec"
         >
-          {query.state === "missing-node"
-            ? "Spec source unavailable."
-            : query.state === "invalid-route"
-              ? "Invalid spec route."
-              : null}
+          {query.state === "missing-node" && <Notice>Spec source unavailable.</Notice>}
+          {query.state === "invalid-route" && <Notice>Invalid spec route.</Notice>}
         </RecordPage>
       </main>
     );
   return (
     <>
       <ReadState query={query} />
-      {query.state === "invalid-route" && <p>Invalid spec route.</p>}
-      {query.state === "missing-node" && <p>Spec source unavailable.</p>}
       {query.data && (
         <SpecPage
           title={query.data.node.title}
@@ -194,7 +225,10 @@ export default function Page() {
                 open={sourceOpen}
                 onToggle={(event) => setSourceOpen(event.currentTarget.open)}
               >
-                <summary>Contract source</summary>
+                <summary>
+                  <DisclosureIcon open={false} />
+                  Contract source
+                </summary>
                 {sourceOpen && <SourceContent node={query.data.node} />}
               </details>
             </>
@@ -210,7 +244,7 @@ export default function Page() {
             return source && selectedStory ? (
               <>
                 <p>{field(source, "summary")?.values?.[0]}</p>
-                <ol className="ae-criteria">
+                <ol>
                   {selectedStory.criteria.map((criterion) => (
                     <li key={identity(criterion.ref)}>
                       <SourceContent node={criterion.source} />

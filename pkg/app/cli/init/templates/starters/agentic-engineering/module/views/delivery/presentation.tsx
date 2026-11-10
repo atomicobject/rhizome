@@ -1,12 +1,17 @@
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
+  DisclosureIcon,
   Facts,
   Fact,
   RecordChip,
   Section,
+  StatusMark,
+  typeLabel,
   useMarkReady,
   usePageNavigation,
+  useTypeDocs,
+  useViewActive,
   workspaceViewHref,
 } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
@@ -67,11 +72,20 @@ export function RecordLink({ record }: { record: RecordSummary }) {
   );
 }
 
-export function StageLink({ stage, children }: { stage: Stage; children: ReactNode }) {
+export function StageLink({
+  stage,
+  current = false,
+  children,
+}: {
+  stage: Stage;
+  current?: boolean;
+  children: ReactNode;
+}) {
   const nav = usePageNavigation();
   return (
     <a
       className="ae-link"
+      aria-current={current ? "page" : undefined}
       href={workspaceViewHref("agentic-engineering.stage", { kind: "standalone" }, { stage })}
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -84,10 +98,128 @@ export function StageLink({ stage, children }: { stage: Stage; children: ReactNo
   );
 }
 
-export function unit(count: number, plural: "specs" | "stories" | "efforts" | "observations") {
-  return count === 1
-    ? { specs: "spec", stories: "story", efforts: "effort", observations: "observation" }[plural]
-    : plural;
+const singular = {
+  specs: "spec",
+  stories: "story",
+  efforts: "effort",
+  observations: "observation",
+  criteria: "criterion",
+  records: "record",
+  visits: "visit",
+} as const;
+
+export function unit(count: number, plural: keyof typeof singular) {
+  return count === 1 ? singular[plural] : plural;
+}
+
+export function sourceLocator(ref: Ref) {
+  return `${ref.notePath}${ref.fragment ? `#${ref.fragment}` : ""}`;
+}
+
+/** The recorded status word with the mark the house gives that word. Nothing is inferred. */
+export function RecordedStatus({ status }: { status: string | null | undefined }) {
+  return status ? <StatusMark value={status} values={[]} /> : <>Status unavailable</>;
+}
+
+/** A type's human label, with its identifier in the tooltip and as the fallback evidence. */
+export function TypeName({ name }: { name: string }) {
+  const doc = useTypeDocs([name]).docs[name];
+  return doc ? <span title={name}>{typeLabel(doc)}</span> : <code className="ae-path">{name}</code>;
+}
+
+type NoticeTone = "neutral" | "risk";
+
+/** The house status shapes: a neutral ring, or the risk disc with its exclamation cut out. */
+export function NoticeMark({ tone = "neutral" }: { tone?: NoticeTone }) {
+  return tone === "risk" ? (
+    <svg
+      className="ae-notice-mark"
+      data-tone="risk"
+      viewBox="0 0 12 12"
+      width="11"
+      height="11"
+      aria-hidden="true"
+    >
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M6 0a6 6 0 1 0 0 12A6 6 0 0 0 6 0ZM5.25 2.5h1.5v4.75h-1.5ZM5.25 8.25h1.5v1.5h-1.5Z"
+      />
+    </svg>
+  ) : (
+    <svg className="ae-notice-mark" viewBox="0 0 9 9" width="9" height="9" aria-hidden="true">
+      <circle cx="4.5" cy="4.5" r="3.75" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+/** One treatment for every failed, partial, and changed state. Live-region roles stay on the lines inside unless `role` names the whole notice. */
+export function Notice({
+  tone = "neutral",
+  role,
+  children,
+}: {
+  tone?: NoticeTone;
+  role?: "status" | "alert";
+  children: ReactNode;
+}) {
+  return (
+    <div className="ae-notice" role={role}>
+      <NoticeMark tone={tone} />
+      <div className="ae-notice-body">{children}</div>
+    </div>
+  );
+}
+
+export function ErrorDetail({ error }: { error: Error }) {
+  return (
+    <details>
+      <summary>
+        <DisclosureIcon open={false} />
+        Error detail
+      </summary>
+      <code className="ae-path">{error.message}</code>
+    </details>
+  );
+}
+
+// ponytail: the host gives a panel the active page's subject but not its params, so the stage
+// page names its stage for the panel through this window's session storage. Read the stage from
+// the panel's location instead once a panel invocation carries the page's params.
+const stageKey = "agentic-engineering.current-stage";
+
+function announcedStage() {
+  try {
+    return sessionStorage.getItem(stageKey);
+  } catch {
+    return null;
+  }
+}
+
+function onStageAnnounced(listener: () => void) {
+  window.addEventListener("storage", listener);
+  return () => window.removeEventListener("storage", listener);
+}
+
+/** The stage page on screen names its stage, and withdraws it when it leaves. */
+export function useAnnounceStage(stage: Stage | null) {
+  const active = useViewActive();
+  useEffect(() => {
+    if (!active || !stage) return;
+    try {
+      sessionStorage.setItem(stageKey, stage);
+    } catch {
+      // The panel shows no current stage when browser storage is unavailable.
+      return;
+    }
+    return () => {
+      if (announcedStage() === stage) sessionStorage.removeItem(stageKey);
+    };
+  }, [active, stage]);
+}
+
+export function useAnnouncedStage() {
+  return useSyncExternalStore(onStageAnnounced, announcedStage);
 }
 
 export function parentSpecSummary(result: ReturnType<typeof groupResult>) {
@@ -127,25 +259,19 @@ export function WorkflowMap({
                       (row.kind === "story" && identity(row.parent.ref) === identity(subject)),
                   );
                 return (
-                  <div
-                    key={group.stage}
-                    className="ae-stage"
-                    aria-current={current === group.stage ? "page" : undefined}
-                    data-subject={contains || undefined}
-                  >
-                    <StageLink stage={group.stage}>
+                  <div key={group.stage} className="ae-stage" data-subject={contains || undefined}>
+                    <StageLink stage={group.stage} current={current === group.stage}>
                       {showCounts && (
-                        <>
+                        <span className="ae-stage-count">
                           <span className="ae-number">
                             {result.complete ? "" : "at least "}
                             {result.count}
                           </span>{" "}
                           {unit(result.count, group.unit)}
                           {parentSpecSummary(result)}
-                          <br />{" "}
-                        </>
-                      )}
-                      {group.title}
+                        </span>
+                      )}{" "}
+                      <span className="ae-stage-title">{group.title}</span>{" "}
                       {contains && <span className="ae-this-record">This record</span>}
                     </StageLink>
                   </div>
@@ -161,26 +287,26 @@ export function WorkflowMap({
 export function CoverageNotice({ portfolio }: { portfolio: Portfolio }) {
   const reads = [portfolio.specCoverage, portfolio.effortCoverage];
   const errors = [...new Set(reads.flatMap((read) => read.errors))];
+  const partial = reads.some((read) => !read.complete || read.truncated);
+  if (!partial && !errors.length) return null;
   return (
-    <>
-      {reads.some((read) => !read.complete || read.truncated) && (
-        <p role="status" className="ae-note">
-          Partial inventory. Counts describe loaded records and may omit work.
-        </p>
+    <Notice tone={errors.length ? "risk" : "neutral"}>
+      {partial && (
+        <p role="status">Partial inventory. Counts describe loaded records and may omit work.</p>
       )}
       {errors.map((error) => (
-        <p role="alert" key={error}>
+        <p role="alert" className="ae-path" key={error}>
           {error}
         </p>
       ))}
-    </>
+    </Notice>
   );
 }
 
 export function RowFacts({ row }: { row: Row }) {
   const record = row.record;
   return (
-    <Facts note={record.status ?? "Status unavailable"}>
+    <Facts note={<RecordedStatus status={record.status} />}>
       {row.kind === "spec" && (
         <Fact value={row.record.stories.length}>
           {row.record.storiesCoverage.complete
@@ -197,9 +323,7 @@ export function RowFacts({ row }: { row: Row }) {
           </Fact>
           <Fact value={row.record.criteria.length}>
             {row.record.criteriaCoverage.complete
-              ? row.record.criteria.length === 1
-                ? "criterion"
-                : "criteria"
+              ? unit(row.record.criteria.length, "criteria")
               : "loaded criteria"}
           </Fact>
         </>
@@ -281,37 +405,49 @@ export function ReadState({
   useEffect(() => {
     if (query.state !== "loading") mark();
   }, [query.state, mark]);
+  const errors = query.data?.coverage.errors ?? [];
+  const partial = query.state === "partial";
   return (
     <div className="ae-read-state">
-      {query.state === "loading" && <p role="status">Loading delivery records…</p>}
-      {query.error && (
-        <p role="alert">
-          Read failed. {query.error.message}{" "}
-          <Button onClick={() => query.refresh()}>Retry read</Button>
+      {query.state === "loading" && (
+        <p role="status" className="ae-note">
+          Loading delivery records…
         </p>
       )}
-      {query.retained && (
-        <p role="status">Showing previous saved records after a failed refresh.</p>
+      {(query.error || partial || errors.length > 0) && (
+        <Notice tone={query.error ? "risk" : "neutral"}>
+          {query.error && (
+            <p role="alert">
+              Read failed. <Button onClick={() => query.refresh()}>Retry read</Button>
+            </p>
+          )}
+          {query.retained && (
+            <p role="status">Showing previous saved records after a failed refresh.</p>
+          )}
+          {partial && (
+            <p role="status">
+              Some source evidence is unavailable.{" "}
+              <Button className="ae-refresh" onClick={() => query.refresh()}>
+                Refresh records
+              </Button>
+            </p>
+          )}
+          {errors.map((error, index) => (
+            <p role="status" className="ae-path" key={index}>
+              {error}
+            </p>
+          ))}
+          {query.error && <ErrorDetail error={query.error} />}
+        </Notice>
       )}
-      {query.state === "partial" && (
-        <p role="status">
-          Some source evidence is unavailable.{" "}
+      <p className="ae-note ae-saved">
+        Saved records. Unsaved workspace edits are not included.{" "}
+        {query.state === "ready" && (
           <Button className="ae-refresh" onClick={() => query.refresh()}>
             Refresh records
           </Button>
-        </p>
-      )}
-      {query.data?.coverage.errors.map((error, index) => (
-        <p role="status" key={index}>
-          {error}
-        </p>
-      ))}
-      <p className="ae-note">Saved records. Unsaved workspace edits are not included.</p>
-      {query.state === "ready" && (
-        <Button className="ae-refresh" onClick={() => query.refresh()}>
-          Refresh records
-        </Button>
-      )}
+        )}
+      </p>
     </div>
   );
 }

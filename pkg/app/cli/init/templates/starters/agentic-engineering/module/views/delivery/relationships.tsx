@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Section } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import { useDeliveryPortfolio, useDeliverySelectedEfforts } from "./data.tsx";
 import type { LiveSpec } from "./data.tsx";
 import { field } from "./reads.ts";
 import { identity, inventoryComplete } from "./lib/index.ts";
-import { RecordLink } from "./presentation.tsx";
+import { Notice, RecordLink, sourceLocator } from "./presentation.tsx";
 
 function LoadedRelationships({ spec }: { spec: LiveSpec }) {
   const inventory = useDeliveryPortfolio();
@@ -50,9 +50,13 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
         inventoryComplete([inventory.data.coverage, details.data.coverage])));
   return (
     <>
-      {pending && <p role="status">Reading authored effort sources…</p>}
+      {pending && (
+        <p role="status" className="ae-note">
+          Reading authored effort sources…
+        </p>
+      )}
       {(inventory.error || details.error) && (
-        <p role="alert">
+        <Notice tone="risk" role="alert">
           Effort relationships could not be read.{" "}
           <Button
             onClick={() => {
@@ -62,13 +66,13 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
           >
             Read relationships again
           </Button>
-        </p>
+        </Notice>
       )}
       {!pending && !complete && (
-        <p role="status">
+        <Notice role="status">
           Relationship evidence is incomplete. These are the links found in the loaded sources;
           missing links do not establish absent scope.
-        </p>
+        </Notice>
       )}
       {rows.map(({ effort, metadata, frozen, selected }) => (
         <div className="ae-row" key={identity(effort.ref)}>
@@ -76,28 +80,39 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
           <p className="ae-note">
             Recorded {effort.status}. Frozen membership {effort.scope.state}.
           </p>
-          {metadata.length > 0 && (
-            <p>Governing-specs metadata: {metadata.map((link) => link.value).join(", ")}</p>
-          )}
-          {frozen.map((occurrence, i) => (
-            <p key={`spec-${i}`}>
-              Spec Set (Frozen): {occurrence.authored}
-              <br />
-              <span className="ae-note">
-                Source {occurrence.source.notePath}#{occurrence.source.fragment}
-              </span>
-            </p>
-          ))}
-          {selected.map((occurrence, i) => (
-            <p key={`selection-${i}`}>
-              Stories In Scope (Frozen): {occurrence.authored}
-              <br />
-              <span className="ae-note">
-                {occurrence.targetKind} · source {occurrence.source.notePath}#
-                {occurrence.source.fragment}
-              </span>
-            </p>
-          ))}
+          <dl className="ae-relations">
+            {metadata.length > 0 && (
+              <>
+                <dt>Governing-specs metadata:</dt>
+                <dd>
+                  <code className="ae-path">{metadata.map((link) => link.value).join(", ")}</code>
+                </dd>
+              </>
+            )}
+            {frozen.map((occurrence, i) => (
+              <Fragment key={`spec-${i}`}>
+                <dt>Spec Set (Frozen):</dt>
+                <dd>
+                  <code className="ae-path">{occurrence.authored}</code>
+                  <span className="ae-note">
+                    Source <code className="ae-path">{sourceLocator(occurrence.source)}</code>
+                  </span>
+                </dd>
+              </Fragment>
+            ))}
+            {selected.map((occurrence, i) => (
+              <Fragment key={`selection-${i}`}>
+                <dt>Stories In Scope (Frozen):</dt>
+                <dd>
+                  <code className="ae-path">{occurrence.authored}</code>
+                  <span className="ae-note">
+                    {occurrence.targetKind} · source{" "}
+                    <code className="ae-path">{sourceLocator(occurrence.source)}</code>
+                  </span>
+                </dd>
+              </Fragment>
+            ))}
+          </dl>
         </div>
       ))}
       {!pending && !rows.length && (
