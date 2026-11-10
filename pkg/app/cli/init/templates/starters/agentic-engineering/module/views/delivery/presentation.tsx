@@ -90,6 +90,11 @@ export function unit(count: number, plural: "specs" | "stories" | "efforts" | "o
     : plural;
 }
 
+export function parentSpecSummary(result: ReturnType<typeof groupResult>) {
+  if (result.state !== "records" || result.parentSpecCount === null) return "";
+  return ` in ${result.complete ? "" : "at least "}${result.parentSpecCount} ${unit(result.parentSpecCount, "specs")}`;
+}
+
 export function WorkflowMap({
   portfolio,
   current,
@@ -136,6 +141,7 @@ export function WorkflowMap({
                             {result.count}
                           </span>{" "}
                           {unit(result.count, group.unit)}
+                          {parentSpecSummary(result)}
                           <br />{" "}
                         </>
                       )}

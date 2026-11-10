@@ -9,7 +9,7 @@
     },
     "route": "/notes/group/Delivery",
     "file": "loading-light.png",
-    "sha256": "37c67bb43550dd71cf1923bb926cecb7d07a3825c58be1a64cd9c499593fad02",
+    "sha256": "2520a1ab9e1030c7925de3a4a9358a927613a8310765b4562163e7fbd315c184",
     "included": true
   },
   {
@@ -22,7 +22,7 @@
     },
     "route": "/notes/group/Delivery",
     "file": "loading-dark.png",
-    "sha256": "40b07983527fa2a5d08354ca622f5bc5c9d9840a5c45206338a42d4ce9ff5bf0",
+    "sha256": "d7038024a47d28a7257e61e8c794b24c93b8177559aed1a369f89194e06239f8",
     "included": true
   },
   {
@@ -35,7 +35,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-02-harbor.md",
     "file": "retained-error-light.png",
-    "sha256": "76f6697b5b4e0b7d12f9d0249d8d4b0e63683be999912f8ed5ede3f41b8f9ef9",
+    "sha256": "c80e29392d0f2a691fe7c65f404009627b3781e0d51f0d8e617181daeef89e69",
     "included": true
   },
   {
@@ -48,7 +48,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-02-harbor.md",
     "file": "retained-error-dark.png",
-    "sha256": "6e359ccb47555c64fc0cd5fd919a854d026057bd24d0e3e6e1af03603fe76223",
+    "sha256": "ad6f0e53e0a18e2bb7fa2fb48fc4e499f5927e5daa942948e62a0825bc398b92",
     "included": true
   },
   {
@@ -61,7 +61,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=ready",
     "file": "changed-selection-default.png",
-    "sha256": "b5b0aab65d352dbf38768b749d145da8f28e89929313a132876443ff2f5c07eb",
+    "sha256": "64fb9c072fd845fb4fd216b5879deeda7e7c328499fab85319b2757f2d783c79",
     "included": true
   },
   {
@@ -74,7 +74,7 @@
     },
     "route": "/notes/group/Delivery",
     "file": "home-light.png",
-    "sha256": "0cfbd74cea6e63251e6ec3a92b59de2684c48130f4c26b05a78c139b4ec2063f",
+    "sha256": "a5e9c6aa3c7a1dc21d6792162139b61eff79ba6147a2ee45cac52a2e15e1828b",
     "included": true
   },
   {
@@ -87,7 +87,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=shaping",
     "file": "stage-shaping-light.png",
-    "sha256": "4caea176c7327881c787117fdc10cb50b3192dff10f5fd5f2f33731e8f0093fb",
+    "sha256": "370fda8d3ac889c71ddd7f4e643ea4c0c3a614929884ff568bd4b3fab861be54",
     "included": false
   },
   {
@@ -100,7 +100,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=ready",
     "file": "stage-ready-light.png",
-    "sha256": "730ca0207f49558edd9b5260d97ee19a0a2e2bae13a10d43ad16b58bf231e5c6",
+    "sha256": "30e8b2bff78946ea4d1dab85baf4829fa4d70c1b664b324872c4994c5841a2f0",
     "included": false
   },
   {
@@ -113,7 +113,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=planned",
     "file": "stage-planned-light.png",
-    "sha256": "207d37395f22c437bd780c0b9998360e85041d4305bcb46be8a466c4634e4739",
+    "sha256": "283ba2a2bfceade58ccd08060281e566000bb1bf17ed13bb40816d0762a78e1b",
     "included": false
   },
   {
@@ -126,7 +126,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=active",
     "file": "stage-active-light.png",
-    "sha256": "0d000a371d09f801478c34fafb03732206134076e5da1af595b5310250b6b6ea",
+    "sha256": "abb77cd6bdf2e8204750937679549ffe489abf15cb91991eafd047f10fc3d5b7",
     "included": false
   },
   {
@@ -139,7 +139,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=history",
     "file": "stage-history-light.png",
-    "sha256": "cdc24c1b4e86718cec3f72a2faefab7c6a335955c80896f1b5fe5b66d78f959e",
+    "sha256": "1a2e9a3cba227fa5690172e791d5358941741da18dbb6c80fb2c741eeb219e52",
     "included": false
   },
   {
@@ -152,7 +152,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=contracts",
     "file": "stage-contracts-light.png",
-    "sha256": "b0406f12e1abf1ca628c7e185a67adcc5d0214d74052e29d7dd9c427246cebe4",
+    "sha256": "e6419f084449ba2803c65182c4b173173d2b6a2b9f28142931f565d921872707",
     "included": false
   },
   {
@@ -165,7 +165,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=review",
     "file": "stage-review-light.png",
-    "sha256": "4eb6025aeea6df6c1524f512410c1bf29f4836bcb55372f9fc54ec0faaf314ed",
+    "sha256": "2c32988208233c111433fb404eaab277c57a6ea0ed909cda8bd545353efc7866",
     "included": false
   },
   {
@@ -178,7 +178,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=ready",
     "file": "ready-selected-light.png",
-    "sha256": "1035d42fdef19292a0924f79370ddc66220587893d8c07fedbdc6c6d6f9328d8",
+    "sha256": "44075464e4771ebdf3e8ca0e0494e154bc65e1eb7542e7e74fd0581037dc47c6",
     "included": true
   },
   {
@@ -191,7 +191,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=active",
     "file": "selection-incomplete-light.png",
-    "sha256": "cfd2743e12cf9a2db1d65868ead1a534c25421b75e9ed14ef093229cd18e67ff",
+    "sha256": "160a1eb50995f1eb9d4df6e919108bbe4f6e03583b42bb359d43bd4ad817e895",
     "included": false
   },
   {
@@ -204,7 +204,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=ready",
     "file": "clipboard-error-light.png",
-    "sha256": "8b470fad58a54c4d2d464fd630426045a41bea705462d675e38cdcbbd256c253",
+    "sha256": "13cd237e08c64a897a890ed4adf899c44a097bf8c02ffa1784ae0e7db83eeebe",
     "included": false
   },
   {
@@ -217,7 +217,7 @@
     },
     "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md&story=SPEC-9001-US1",
     "file": "spec-expanded-light.png",
-    "sha256": "fba78e27abe26f3b71f2499bb3876c4c915e3691483f49a4144b14a2b5003477",
+    "sha256": "fc578b57e5fc9b482553fe4f637188080790613469f93a7169b12b0b3096e6ad",
     "included": true
   },
   {
@@ -230,7 +230,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2Fharbor-explicit%2F2026-11-09-11-00-effort.html",
     "file": "workspace-provenance-light.png",
-    "sha256": "9c26dcd89e05a0f1b4b321b86ea4d5d50d59f66844e3a3f3c6f1ba3f499b9f1a",
+    "sha256": "4b750d1ea333e1b15b0b01ff6ae330edb498937f71e3fcc7bf45bc296d93ffa0",
     "included": true
   },
   {
@@ -243,7 +243,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-02-harbor.md",
     "file": "inline-effort-light.png",
-    "sha256": "95ed90a37a2dd87bc4bd7da04766410cfd67283e7fe84c09dfd345269ec8ac4a",
+    "sha256": "b5a288ec6d04ddc7b24cfe632aed138a55fab828758cb04a96a3e3a4dbf59faf",
     "included": true
   },
   {
@@ -256,7 +256,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2Fharbor-legacy%2F2026-11-09-11-02-effort.html",
     "file": "legacy-workspace-light.png",
-    "sha256": "a2e9bf12fea2d4b6960719f40eb5165948566e0a75616c9aab0f6049990eec41",
+    "sha256": "a364abfd201e42f2cbe81541b39f792613e779ef155c36f21f141644c62ec76a",
     "included": true
   },
   {
@@ -269,7 +269,7 @@
     },
     "route": "/notes?presentation=builtin%3Aread&kind=NOTE&note=docs%2Fefforts%2Fharbor-legacy%2Fplan.html",
     "file": "html-plan-light.png",
-    "sha256": "0cb04f3684ef89ac0327738ffe073752bbd4c10e7f82409c69c3cbec64747040",
+    "sha256": "a5f929c8793e7d78e6fbd56f4d3511f486893f8711654dda492d7bd490bcd5cb",
     "included": false
   },
   {
@@ -282,7 +282,7 @@
     },
     "route": "/notes/group/Delivery?kind=NOTE&note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
     "file": "panel-find-recent-light.png",
-    "sha256": "6e8a7298234e2c912307a0561be85905c11f317053a306c2417cad164e6be957",
+    "sha256": "3136a705ba2897898915540353143bcc4ac05a9c29c92b0fd4eb204fbb34ab74",
     "included": true
   },
   {
@@ -295,7 +295,7 @@
     },
     "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
     "file": "narrow-768-light.png",
-    "sha256": "82888d44d925784a9f6fd8e73d0950ec9ed106c35b2bf459374666530a1fe830",
+    "sha256": "78b8bc992f88ec7daedab1ea190cadc0ae73fa9f724bfd33e76e5f19878d3d32",
     "included": false
   },
   {
@@ -308,7 +308,7 @@
     },
     "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
     "file": "narrow-390-light.png",
-    "sha256": "51e405ac7201261e078ec280d1867c6dc14e9350fb0a48e765e26f65b481f619",
+    "sha256": "2bdcecebe231d16b78af5b26e62ee6b956faed0800e8aa6b356e4037eb20aa3b",
     "included": true
   },
   {
@@ -321,7 +321,7 @@
     },
     "route": "/notes/group/Delivery",
     "file": "home-dark.png",
-    "sha256": "8ce15bc97e3ccd45af327afab81aaabe3cbae7c3d29fb7e13d743df6771ada2e",
+    "sha256": "17fce45a7e336d559b736445b36b76cf6f95154f6ab47d34896492ffe776f70a",
     "included": true
   },
   {
@@ -334,7 +334,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=shaping",
     "file": "stage-shaping-dark.png",
-    "sha256": "e53d1be11369464908d8ccc1cdf2b47bbe4cc65458f687375bd834a10675fa8e",
+    "sha256": "6ab387d0e066013f04f37ca7d81f059fb6f3c6ff819f2c8544b1f9811c04b51f",
     "included": false
   },
   {
@@ -347,7 +347,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=ready",
     "file": "stage-ready-dark.png",
-    "sha256": "31933c7bf5e4c2807e6e83a1bb1881ac3abb64a9416d19fb0f0cd2d78d711978",
+    "sha256": "0e66afada20741f86568e9e95d12c610646641daceb302a2c59f434deeb1a8fa",
     "included": false
   },
   {
@@ -360,7 +360,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=planned",
     "file": "stage-planned-dark.png",
-    "sha256": "1d642357225a732b3c90a162efbecb6e378283ec303e21c1fab0ef4aedaaea14",
+    "sha256": "0783e8e30658bdd31d001ecc31516f1fca6b3ab91d586fc9126deefd61011899",
     "included": false
   },
   {
@@ -373,7 +373,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=active",
     "file": "stage-active-dark.png",
-    "sha256": "738ed87ea031d297de6689d194401f4a0714d74cc1d37ac59518e48f9e154185",
+    "sha256": "b5e206d6926b51650954c7fedbedf41a4645c6bc29434adc58f70c8960eaa69d",
     "included": false
   },
   {
@@ -386,7 +386,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=history",
     "file": "stage-history-dark.png",
-    "sha256": "a51566822fd8294d366d41ebeb5db5209ad9f707c8d663660730773b07b3378d",
+    "sha256": "8f746a0baaa692eec4041cb39d586bf5678c95a401e429f3a5d7b85cf2c22eec",
     "included": false
   },
   {
@@ -399,7 +399,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=contracts",
     "file": "stage-contracts-dark.png",
-    "sha256": "14790152ae03f7e0d45d2e781c12fefbda141e4bf1bd8706d09ea5d9dc04dec7",
+    "sha256": "90693025dda161b34ec1736e0b41a2171b9c0413733f9bd73711b950260bd3b4",
     "included": false
   },
   {
@@ -412,7 +412,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=review",
     "file": "stage-review-dark.png",
-    "sha256": "38a25af0861e2b6290ab128fc9726bae9f979ca4dbea2134b957f08685f634b9",
+    "sha256": "bb8667da7a992415bc59cb783157c311665f884583f9d45c37150f9dd5caab60",
     "included": false
   },
   {
@@ -425,7 +425,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=ready",
     "file": "ready-selected-dark.png",
-    "sha256": "6623c6aaf901290f8f1ec3cb36fae8dcf000fb3826a6a5e890d871019fcf293b",
+    "sha256": "b45580422290466ff7c7cd1a9d2bbd6ff0cad73b789886aaeaee4da06474b5d6",
     "included": true
   },
   {
@@ -438,7 +438,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=active",
     "file": "selection-incomplete-dark.png",
-    "sha256": "edf23a28f3e83dab32201e433bd3d471fcf237ca3efb65ab1a48818e97efd56c",
+    "sha256": "16102bbf912c6b568c80a20b0eef9503538bffc6c330fd85659c08f2f183d8bc",
     "included": false
   },
   {
@@ -451,7 +451,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=ready",
     "file": "clipboard-error-dark.png",
-    "sha256": "7af2378911dee547d0e59d843c68d645bb9745477a2422ebcf3b12f81000ab3b",
+    "sha256": "d621ea9b69b2de21993958f492146321f5abbe051bfec128f15d02a41f93f393",
     "included": false
   },
   {
@@ -464,7 +464,7 @@
     },
     "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md&story=SPEC-9001-US1",
     "file": "spec-expanded-dark.png",
-    "sha256": "0687f425c9fab0caebc5caa42aefda5072eff2939889e41f6b5f61fff1576155",
+    "sha256": "9f4a211a791b35d30d8d8fe47466701e70e27f21aa7218e4e9c5ad1a4c5b8681",
     "included": true
   },
   {
@@ -477,7 +477,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2Fharbor-explicit%2F2026-11-09-11-00-effort.html",
     "file": "workspace-provenance-dark.png",
-    "sha256": "e0dfcd5e0be53aa813825d7aeb56ff2f2084bd73e432fd030e071122df749778",
+    "sha256": "90c19d3fb62f6ffa569be811185dfd47d40ecc2b5f610ef1db8f2b007eb197e6",
     "included": true
   },
   {
@@ -490,7 +490,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-02-harbor.md",
     "file": "inline-effort-dark.png",
-    "sha256": "c7160ec5eb648eddeea2be821d7971d15e964785602fbd682d9a90e8f9859354",
+    "sha256": "1c896f7552c3c05a079166958a3a0c3540a253df4729c73aaeade544ca35a83e",
     "included": true
   },
   {
@@ -503,7 +503,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2Fharbor-legacy%2F2026-11-09-11-02-effort.html",
     "file": "legacy-workspace-dark.png",
-    "sha256": "4b65c6b9c56c226849f485c2344ae41ee2664593b3600910fd0ee2b9b441e217",
+    "sha256": "14b8692fdddeec5f062da51a1188dcbdff483e62c0c327f2fdc36027e1368739",
     "included": true
   },
   {
@@ -516,7 +516,7 @@
     },
     "route": "/notes?presentation=builtin%3Aread&kind=NOTE&note=docs%2Fefforts%2Fharbor-legacy%2Fplan.html",
     "file": "html-plan-dark.png",
-    "sha256": "5f5223e8fff3acdc6647958d8f7ec3a9011598dd45e7997e6dc1b69593041af2",
+    "sha256": "b123a68fe7643ed5725dfa1d0f83b22a6df82b15507e950ba713a64b1acb0a2a",
     "included": false
   },
   {
@@ -529,7 +529,7 @@
     },
     "route": "/notes/group/Delivery?kind=NOTE&note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
     "file": "panel-find-recent-dark.png",
-    "sha256": "f11a38718c6e19815ab3620692c63b09aa2f97f65915e6fd1c5ba98a484f3c5a",
+    "sha256": "20845a7e457eff02b67410c5931d1cfd9218f20dbc1beffa754348777df14e56",
     "included": true
   },
   {
@@ -542,7 +542,7 @@
     },
     "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
     "file": "narrow-768-dark.png",
-    "sha256": "75b7e123f4e79eea537ab27d86a0c03b4ba45a91371bf20aa14e9e2f81099f1c",
+    "sha256": "24458a672ccd08bc1a9174e46728930235ad1e16c464cce0db71cd5e912f523d",
     "included": false
   },
   {
@@ -555,7 +555,7 @@
     },
     "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
     "file": "narrow-390-dark.png",
-    "sha256": "c9d25e6b2409556e9f413f0976571911685318265616684f260dba9572912593",
+    "sha256": "581b5be429b5dddfec807b4a025e647083a5a088425ba15ec912bd6d18e37b0e",
     "included": true
   },
   {
@@ -568,7 +568,7 @@
     },
     "route": "/notes/group/Delivery",
     "file": "empty-home-light.png",
-    "sha256": "93c3ecabc1a7e43e08e5195fde0f765da7164f0bd335911c588e403e0f1d2351",
+    "sha256": "c7f1a8d40f6324f75166ebca96576895545ff616e9db8133a051677025e4e782",
     "included": true
   },
   {
@@ -581,7 +581,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=planned",
     "file": "empty-planned-light.png",
-    "sha256": "298f3a863bfd2560a7ddfd3c97069a4694e36f62bf63bff1bcbed966ddd2a03f",
+    "sha256": "283ddff8e11092b79a473336c08ab722f6fb055c9f197882fea375dff4154df9",
     "included": false
   },
   {
@@ -594,7 +594,7 @@
     },
     "route": "/notes/group/Delivery",
     "file": "empty-home-dark.png",
-    "sha256": "41f261a77b33f87a69aa671bcb7274f20b118e3d76893a928f95e1c30823db85",
+    "sha256": "0a4b6e415823796c0568eb8a4b21823a480cbf10d8f6ca0633a79c650fdb0cad",
     "included": true
   },
   {
@@ -607,7 +607,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=planned",
     "file": "empty-planned-dark.png",
-    "sha256": "a9b2552e2cc0811d545082df84ef4e304d2fb14519e9d516b8dcd1f6a89b1051",
+    "sha256": "9461cfbd9537c72a9a3d394eb4a8361675b47bc3ae865142a3aff2a07e6f13ad",
     "included": false
   }
 ]

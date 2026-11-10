@@ -29,6 +29,11 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(content(page).getByRole("link", { name: /Current contracts/ })).toBeVisible();
       await expect(content(page).getByRole("link", { name: /Record review/ })).toBeVisible();
       await expect(content(page).getByText(/overlap/i)).toBeVisible();
+      await expect(
+        content(page)
+          .getByText(/^(?:at least )?3 stories in (?:at least )?2 specs$/)
+          .first(),
+      ).toBeVisible();
       await capture(page, info, "home");
     });
 
@@ -46,6 +51,13 @@ for (const colorScheme of ["light", "dark"] as const) {
         await expect(
           content(page).getByRole("heading", { name: new RegExp(title), level: 1 }),
         ).toBeVisible();
+
+        if (value === "ready")
+          await expect(
+            content(page)
+              .getByText(/^(?:at least )?3 stories in (?:at least )?2 specs$/)
+              .first(),
+          ).toBeVisible();
         await capture(page, info, `stage-${value}`);
       });
     }

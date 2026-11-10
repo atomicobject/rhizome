@@ -14,6 +14,7 @@ import {
   StageLink,
   WorkflowMap,
   unit,
+  parentSpecSummary,
 } from "./presentation.tsx";
 import type { Portfolio, Stage } from "./lib/index.ts";
 import type { PortfolioProps } from "./presentation.tsx";
@@ -25,7 +26,7 @@ function GroupPreview({ stage, portfolio }: { stage: Stage; portfolio: Portfolio
   return (
     <Section
       title={<StageLink stage={stage}>{group.title}</StageLink>}
-      count={`${result.complete ? "" : "at least "}${result.count} ${unit(result.count, group.unit)}`}
+      count={`${result.complete ? "" : "at least "}${result.count} ${unit(result.count, group.unit)}${parentSpecSummary(result)}`}
       caption={group.rule}
     >
       {result.rows.length ? (

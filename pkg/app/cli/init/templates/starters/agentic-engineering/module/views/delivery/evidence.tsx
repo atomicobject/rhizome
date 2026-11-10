@@ -24,7 +24,10 @@ function SourceAnchor({
   children?: ReactNode;
   from: string;
 }) {
-  const target = resolveRenderedLinkTarget(href, noIndexedLinks);
+  const target = resolveRenderedLinkTarget(
+    href,
+    href?.startsWith("rhizome://note/") ? null : noIndexedLinks,
+  );
   const authoredTarget = href?.startsWith("rhizome://note/")
     ? `[[${target}]]`
     : `[target](${href})`;

@@ -2,6 +2,10 @@ import { isJsonObject, isString, type JsonValue } from "../../src/api/parse";
 import { expect, test } from "@playwright/test";
 import { capture, content, home, noOverflow, record, specPath, specTitle } from "./helpers";
 
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "wait" });
+});
+
 for (const colorScheme of ["light", "dark"] as const) {
   test.describe(colorScheme, () => {
     test.use({ colorScheme });
@@ -187,6 +191,32 @@ test("inline Markdown links resolve from their authored source", async ({ page }
 
   await expect(
     plan.getByText("Inspect selected sources before implementation.", { exact: true }),
+  ).toBeVisible();
+});
+
+test("extensionless wikilinks preserve HTML targets and ambiguous names", async ({ page }) => {
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    const ref = url.searchParams.get("ref");
+
+    if (url.pathname === "/api/v1/nodes/preview" && ref) requests.push(ref);
+  });
+  await page.goto(record("docs/efforts/2026-11-09-10-04-harbor.md"));
+  const f = content(page);
+  const plan = f.getByRole("link", { name: "Extensionless HTML plan", exact: true });
+  await expect(plan).toBeVisible();
+  await expect(
+    f.getByText("(recorded link unavailable in this read: plan)", { exact: true }),
+  ).toBeVisible();
+  await expect(f.getByRole("link", { name: "Ambiguous plan", exact: true })).toHaveCount(0);
+  expect(requests).toContain("[[docs/efforts/harbor-legacy/plan]]");
+  expect(requests).toContain("[[plan]]");
+  await plan.click();
+  await expect(
+    page
+      .frameLocator('iframe[title="Interactive HTML note: docs/efforts/harbor-legacy/plan.html"]')
+      .getByText("Inspect selected sources before implementation.", { exact: true }),
   ).toBeVisible();
 });
 

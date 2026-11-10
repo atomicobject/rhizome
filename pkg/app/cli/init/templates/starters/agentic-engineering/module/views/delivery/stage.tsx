@@ -23,6 +23,7 @@ import {
   RowFacts,
   WorkflowMap,
   unit,
+  parentSpecSummary,
 } from "./presentation.tsx";
 import type { PortfolioProps } from "./presentation.tsx";
 
@@ -153,7 +154,7 @@ export function DeliveryStage({
       <div className="ae-with-aside">
         <Section
           title={group.title}
-          count={`${result?.state === "records" && !result.complete ? "at least " : ""}${rows.length} ${unit(rows.length, group.unit)}`}
+          count={`${result?.state === "records" && !result.complete ? "at least " : ""}${rows.length} ${unit(rows.length, group.unit)}${result ? parentSpecSummary(result) : ""}`}
           caption={group.rule}
           status={status}
           what={group.title}
