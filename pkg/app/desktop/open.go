@@ -100,12 +100,7 @@ func (s *Service) prepare(ctx context.Context, info FolderInfo, plan repoexec.Pl
 			if !errors.Is(err, appupdate.ErrReleaseNotFound) {
 				return ex, problem("install_error", fmt.Sprintf("Could not prepare pinned Rhizome %s: %v", plan.PinnedVersion, err))
 			}
-			// A pin whose release is gone never installs, so the app offers
-			// to move the pin, or runs the user's choice, rather than retrying.
-			if ex.PinFallback == "" {
-				return ex, problem("pinned_version_unavailable", fmt.Sprintf("This worktree pins Rhizome %s, which is no longer published.", plan.PinnedVersion))
-			}
-			ex.Target, ex.ExactBuild = ex.PinFallback, false
+			return ex, problem("pinned_version_unavailable", fmt.Sprintf("This worktree pins Rhizome %s, which is no longer published.", plan.PinnedVersion))
 		}
 	}
 	if err := executable(ex.Target); err != nil {

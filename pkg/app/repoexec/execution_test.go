@@ -38,10 +38,28 @@ func TestResolveCompletesEveryAuthority(t *testing.T) {
 			want:   Execution{Target: "/usr/local/bin/rzm", FromCaller: true, ExactBuild: true},
 		},
 		{
-			name:   "a managed pin installs first, with the user's choice only as its fallback",
+			name:   "a managed pin yields to the explicit worktree choice",
 			plan:   Plan{Authority: "managed", Target: pin, ConfigDir: root, PinnedVersion: "v1.0.0", PinTarget: pin},
 			caller: Caller{Chosen: "/tools/rzm"},
-			want:   Execution{Target: pin, TrustRoot: root, InstallPin: true, PinFallback: "/tools/rzm", ExactBuild: true},
+			want:   Execution{Target: "/tools/rzm", TrustRoot: root},
+		},
+		{
+			name:   "the app's own choice does not bypass managed checkout trust",
+			plan:   Plan{Authority: "managed", Target: pin, ConfigDir: root, PinnedVersion: "v1.0.0", PinTarget: pin},
+			caller: Caller{Executable: "/app/rzm", Chosen: "/app/rzm"},
+			want:   Execution{Target: "/app/rzm", TrustRoot: root},
+		},
+		{
+			name:   "an unpinned worktree also honors the explicit choice",
+			plan:   Plan{Authority: "global"},
+			caller: Caller{Executable: "/app/rzm", Chosen: "/tools/rzm"},
+			want:   Execution{Target: "/tools/rzm"},
+		},
+		{
+			name:   "an override keeps trust even when the caller already runs the pin",
+			plan:   Plan{Authority: "managed", Target: pin, ConfigDir: root, PinnedVersion: "v1.0.0", PinTarget: pin},
+			caller: Caller{Executable: pin, Chosen: "/tools/rzm"},
+			want:   Execution{Target: "/tools/rzm", TrustRoot: root},
 		},
 		{
 			name:   "the caller already running the pinned binary needs no trust",

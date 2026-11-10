@@ -134,12 +134,13 @@ export function App() {
     worktree: string,
     skipSeed = false,
     ticket = ++selecting.current,
+    keepSettings = false,
   ) {
     if (ticket !== selecting.current) return;
     remembered.current[id] = worktree;
     target.current = { repository: id, worktree, after: seen.current };
     setSelection({ repository: id, worktree });
-    setSettings(false);
+    if (!keepSettings) setSettings(false);
     setScopeView(null);
     setOpen({
       type: "open",
@@ -375,19 +376,29 @@ export function App() {
     });
   }
 
-  function chooseExecutable(repository: Repository, path: string) {
+  async function setWorktreeExecutable(
+    repository: Repository,
+    path: string,
+    executable: string | null,
+  ) {
+    setLibrary(await request("set-executable", { id: repository.id, worktree: path, executable }));
+    if (runtimes[path]?.state === "running" || runtimes[path]?.state === "starting") {
+      await request("restart", { id: repository.id, worktree: path });
+    }
+    if (target.current.worktree === path)
+      await openWorktree(repository.id, path, false, undefined, settings);
+  }
+
+  async function chooseExecutable(repository: Repository, path: string) {
+    const executable = await pickPath(false);
+    if (!executable) return false;
+    await setWorktreeExecutable(repository, path, executable);
+    return true;
+  }
+
+  function pickExecutable(repository: Repository, path: string) {
     void perform("Choosing executable…", async () => {
-      const executable = await pickPath(false);
-      if (!executable) return;
-      setLibrary(
-        await request("set-executable", { id: repository.id, worktree: path, executable }),
-      );
-      // A chosen executable may be a shim, so Open skips the build check and
-      // would reuse a running runtime; replace it to run the new choice.
-      if (runtimes[path]?.state === "running") {
-        await request("restart", { id: repository.id, worktree: path });
-      }
-      if (target.current.worktree === path) await openWorktree(repository.id, path);
+      await chooseExecutable(repository, path);
     });
   }
 
@@ -466,7 +477,7 @@ export function App() {
           ? []
           : [{ label: "which can differ from the rzm your terminal runs.", disabled: true }]),
         { separator: true },
-        { label: "Choose Executable…", run: () => chooseExecutable(repository, path) },
+        { label: "Choose Executable…", run: () => pickExecutable(repository, path) },
       ],
       anchor,
     );
@@ -606,20 +617,14 @@ export function App() {
           label: `Rhizome executable for ${subject ? worktreeName(subject) : "this worktree"}`,
           disabled: !path,
           items: [
-            { label: "Choose executable…", run: () => path && chooseExecutable(repository, path) },
+            { label: "Choose executable…", run: () => path && pickExecutable(repository, path) },
             {
               label: "Use configured selection",
               disabled: !path || !repository.executables?.[path],
               run: () =>
                 path &&
                 void perform("Saving executable…", async () => {
-                  setLibrary(
-                    await request("set-executable", {
-                      id: repository.id,
-                      worktree: path,
-                      executable: null,
-                    }),
-                  );
+                  await setWorktreeExecutable(repository, path, null);
                 }),
             },
           ],
@@ -731,7 +736,28 @@ export function App() {
           worktree={target.worktree}
           onChanged={setSettingsChanged}
           onEditRules={() => setScopeView({ ...target, fromSettings: true })}
-          onManageInstallation={openSettings}
+          rhizome={{
+            name: repository.name,
+            worktree,
+            chosen: repository.executables?.[target.worktree],
+            app: global,
+            runningVersion: runtimes[target.worktree]?.version,
+            onSelect: (executable) =>
+              setWorktreeExecutable(repository, target.worktree, executable),
+            onChoose: () => chooseExecutable(repository, target.worktree),
+            onAdvance: async () => {
+              await request("pin-advance", { id: repository.id, worktree: target.worktree });
+              await discover(repository);
+              if (repository.executables?.[target.worktree]) {
+                await setWorktreeExecutable(repository, target.worktree, null);
+              } else if (target.worktree === selection.worktree) {
+                await openWorktree(repository.id, target.worktree, false, undefined, true);
+              } else if (["running", "starting"].includes(runtimes[target.worktree]?.state ?? "")) {
+                // Another worktree's runtime keeps the old pin until replaced.
+                await request("restart", { id: repository.id, worktree: target.worktree });
+              }
+            },
+          }}
           onProviderSettings={() => {
             setSettingsTab("app");
             requestAnimationFrame(() =>
@@ -914,7 +940,7 @@ export function App() {
             await openWorktree(open.repository, open.worktree, false, ticket);
           })
         }
-        onChooseExecutable={() => selected && chooseExecutable(selected, open.worktree)}
+        onChooseExecutable={() => selected && pickExecutable(selected, open.worktree)}
         onManageInstallation={openSettings}
         upgrade={
           worktree?.path === open.worktree && worktree.pinOffer?.state === "advance"

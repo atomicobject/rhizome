@@ -45,6 +45,8 @@ export interface Worktree {
   trusted: boolean;
   trustRequired: boolean;
   authority?: "managed" | "development" | "global" | "external";
+  /** The pin from .rhizome/config.yml, even when no update is offered. */
+  pinnedVersion?: string;
   /** The local build a developer override selects. */
   executable?: string;
   /** Present when a managed pin differs from the app's Rhizome. */
@@ -114,6 +116,8 @@ export interface CredentialStatus {
   providers?: ProviderReport[];
 }
 export interface GlobalInfo {
+  /** This app's bundled rzm, even when a global override is selected. */
+  bundledPath?: string;
   path: string;
   version: string;
   /** True when the global executable is the one inside this app. */

@@ -20,13 +20,17 @@ machine.
 take trust from it, and desktop also acts on the rest; CLI dispatch still
 chooses its target and bootstrap in `DecisionFor`. An `Execution` holds the exact target and why, whether it is the caller's own
 executable (the invoked `rzm`, or the app's global one), the trust root, a
-managed pin to install first, the user's choice as that pin's fallback once
-its release is missing, and whether the target's file identity is its build
+managed pin to install first, and whether the target's file identity is its build
 (not for an external manager's executable or the user's choice, which may be
 shims). A caller with `ActsOnPin` covers the pinned binary's trust even when
-the Dev app's `rzm` runs; a caller already running the selected binary needs
-no trust. Trust is decided only there; a change to the target or install
-fields reaches desktop, not CLI dispatch.
+the Dev app's `rzm` runs; without an explicit override, a caller already
+running the selected binary needs no trust. An explicit desktop worktree choice takes precedence over a managed pin or global
+fallback and never installs the pin. Clearing it restores the repository selection.
+Development authority keeps its source build. The repository's canonical-checkout
+trust still applies when a managed pin is overridden, including by the app's own
+executable. CLI callers supply no Chosen value, so CLI dispatch keeps its policy.
+Trust is decided only in Resolve; a change to the target or install fields reaches
+desktop, not CLI dispatch.
 
 `TrustRequirement` identifies whether CLI dispatch needs canonical-checkout
 trust, from `Resolve` with `ActsOnPin`. When it needs none, dispatch and hooks do not resolve a

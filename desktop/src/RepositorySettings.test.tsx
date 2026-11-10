@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { request, type SettingsChoices, type SetupPlan, type SetupResult } from "./api";
 import { providerAccessChanged } from "./ProviderAccess";
+import type { RepositoryRhizomeProps } from "./RepositoryRhizome";
 import { RepositorySettings } from "./RepositorySettings";
 
 vi.mock("./api", async (importOriginal) => ({
@@ -123,14 +124,40 @@ function serve(overrides: Partial<Record<string, (args: unknown) => unknown>> = 
 function calls(operation: string) {
   return call.mock.calls.filter(([name]) => name === operation).map(([, args]) => args);
 }
-function tab(props: Partial<Parameters<typeof RepositorySettings>[0]> = {}) {
+function tab(
+  props: Partial<Parameters<typeof RepositorySettings>[0]> = {},
+  rhizome: Partial<RepositoryRhizomeProps> = {},
+) {
   const handlers = {
     onEditRules: vi.fn(),
-    onManageInstallation: vi.fn(),
     onProviderSettings: vi.fn(),
     onChanged: vi.fn(),
   };
-  render(<RepositorySettings repository={id} worktree={worktree} {...handlers} {...props} />);
+  render(
+    <RepositorySettings
+      repository={id}
+      worktree={worktree}
+      rhizome={{
+        name: "acme",
+        worktree: {
+          path: worktree,
+          configured: true,
+          hasDatabase: true,
+          trusted: true,
+          trustRequired: false,
+          authority: "managed",
+          pinnedVersion: "v0.51.0",
+        },
+        app: { path: "/app/rzm", version: "v0.51.0", bundled: true },
+        onSelect: vi.fn().mockResolvedValue(undefined),
+        onChoose: vi.fn().mockResolvedValue(false),
+        onAdvance: vi.fn().mockResolvedValue(undefined),
+        ...rhizome,
+      }}
+      {...handlers}
+      {...props}
+    />,
+  );
   return handlers;
 }
 beforeEach(() => vi.resetAllMocks());
@@ -144,7 +171,7 @@ describe("repository settings", () => {
     expect(screen.getByRole("checkbox", { name: /Compounding/ })).not.toBeChecked();
     expect(screen.getByRole("checkbox", { name: /Claude Code/ })).toBeChecked();
     expect(screen.getByLabelText("Search")).toHaveValue("voyage");
-    expect(screen.getByText(/Rhizome v0.51.0, pinned for this repository/)).toBeVisible();
+    expect(screen.getByRole("radio", { name: /Pinned version, v0.51.0/ })).toBeChecked();
     expect(screen.queryByRole("region", { name: "Unapplied changes" })).toBeNull();
     expect(calls("settings-report")).toEqual([{ id, worktree }]);
     fireEvent.click(screen.getByRole("button", { name: "Edit rules…" }));
@@ -182,6 +209,23 @@ describe("repository settings", () => {
     ]);
     // Applying reloads the settings as they now are.
     await waitFor(() => expect(calls("settings-report").at(-1)).toEqual({ id, worktree }));
+  });
+
+  it("locks the Rhizome version while settings changes are unapplied", async () => {
+    serve();
+    tab();
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Cursor/ }));
+    expect(screen.getByRole("radio", { name: /The app's Rhizome/ })).toBeDisabled();
+    expect(screen.getByText("Apply or discard your changes to change Rhizome.")).toBeVisible();
+  });
+
+  it("keeps a failed Rhizome change's error after the settings reload", async () => {
+    serve();
+    tab({}, { onSelect: vi.fn().mockRejectedValue(new Error("Could not restart the runtime.")) });
+    fireEvent.click(await screen.findByRole("radio", { name: /The app's Rhizome/ }));
+    await waitFor(() => expect(calls("settings-report").length).toBeGreaterThan(1));
+    expect(await screen.findByRole("checkbox", { name: /Cursor/ })).toBeVisible();
+    expect(screen.getByText("Could not restart the runtime.")).toBeVisible();
   });
 
   it("undoes one row and discards every change", async () => {
@@ -362,15 +406,17 @@ describe("repository settings", () => {
         return null;
       },
     });
-    const { onManageInstallation } = tab();
+    tab();
     fireEvent.click(await screen.findByRole("button", { name: "Trust and continue" }));
     expect(
       await screen.findByRole("heading", {
-        name: "Rhizome needs an update to change settings from the app",
+        name: "This repository's Rhizome is too old to change settings here",
       }),
     ).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Manage installation" }));
-    expect(onManageInstallation).toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Manage installation" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Use the app's Rhizome for this repository" }),
+    ).toHaveClass("primary");
     expect(calls("trust")).toEqual([{ id, worktree }]);
   });
 });

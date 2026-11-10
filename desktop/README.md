@@ -28,7 +28,7 @@ npm run tauri -- build --bundles app
 
 Native builds use the host platform. The `rzm` staging script rejects cross compilation because Rhizome embeds SQLite through CGO; with `RZM_DESKTOP_PREBUILT_RZM` set it copies that binary instead of building one. Release packaging uses the platform release config and includes only `rzm`; the local `team-api` gateway is development-only. The macOS app is produced in `src-tauri/target/release/bundle/macos/Rhizome.app`. See [Releasing](../docs/RELEASING.md) for signing and publication.
 
-The selected runtime must support `serve --headless`. For a local development build, run `make build` from the repository root, then choose `bin/darwin/rzm` under Settings > Use an existing executable. Repository development settings continue to take precedence. Global executable overrides expect a native Rhizome binary; external-manager folders may use a launcher script through their folder options.
+The selected runtime must support `serve --headless`. For a local development build, run `make build` from the repository root, then choose `bin/darwin/rzm` under Settings > Use an existing executable. Repository development settings continue to take precedence. In a managed repository, Settings > Rhizome version can instead select the app's Rhizome or another executable for this worktree on this Mac. This keeps the shared pin unchanged and requires the same checkout trust. Choosing Pinned version restores the pin. The app restarts running worktrees after an executable change. Global executable overrides expect a native Rhizome binary; external-manager folders may use a launcher script through their folder options.
 
 ## Local Linux build
 
