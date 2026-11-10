@@ -5,7 +5,7 @@ aliases:
   - SPEC-0135
   - AO KB Knowledge site
 summary: "Turns the AO KB starter's Knowledge group into a navigable site for newcomers and maintainers: a KB overview with a topic map, sources by date, and a topic-by-kind matrix; record pages that show where a record sits; a Review page of live gaps; a sidebar panel; and a view switcher that puts custom views first. Every mark comes from authored AO data, labelled for what it is, and legacy KBs on AO schema 4 to 7 read and set up without migrating."
-spec-status: proposed
+spec-status: active
 last-updated: 2026-11-09
 ---
 

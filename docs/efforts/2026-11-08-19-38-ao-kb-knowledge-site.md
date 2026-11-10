@@ -4,7 +4,7 @@ id: EFF-2026-11-08-19-38
 aliases: [EFF-2026-11-08-19-38]
 name: "AO KB Knowledge site"
 created-at: "2026-11-09T00:38:28Z"
-status: planned
+status: complete
 summary: "Deliver SPEC-0135 on the SPEC-0136 experiences platform: complete legacy-aware data and setup, the site library, the Knowledge experience (KB overview, Review, lists, record pages on RecordPage, the panel), and the custom-first view switcher, in one pull request with EFF-2026-11-09-09-16."
 governing-specs:
   - "[[docs/specs/experience/ao-kb-knowledge-site]]"
@@ -35,18 +35,18 @@ Excluded, as the spec's Non-Goals state: KB writes, AO judgments, inferred links
 
 ## Spec Coverage Checklist
 
-- [ ] R1 labels and missing values: Batch C copy table, checked in Batch D's real-KB pass.
-- [ ] R2 fields, R2a params, R2b legacy admission and setup, R2c completeness and identity: Batch A (fields, setup, queries), Batch C (params).
-- [ ] R3 kind groups and colour: Batch B (table), Batch C (tokens and palette check).
-- [ ] R4 visuals and their "not enough to draw yet" states: Batches B and C.
-- [ ] R5 orientation query, scope reads, and query budget: Batch A query module, Batch B library, Batch D measurement.
-- [ ] R6 the Knowledge experience and its panel: Batch C (`experience.yml`), Batch F (panel view); the platform is EFF-2026-11-09-09-16.
-- [ ] R6a view params survive tabs: EFF-2026-11-09-09-16 Batch P6.
-- [ ] R7 switcher order: Batch G.
-- [ ] R8 accessibility and design: Batches C, F, G.
-- [ ] R9 verification: every batch; real-KB pass in Batch D.
-- [ ] US1 to US5: Batches B and C (US4's tab return with P6). US6: Batch A. US7: Batch F on the platform's P7. US8: Batch G.
-- [ ] Amendments: SPEC-0133 (Batches A and C), SPEC-0105 (Batch A), SPEC-0110 (Batch G and P6). The SPEC-0128 amendment is the platform effort's.
+- [x] R1 labels and missing values: Batch C copy table, checked in Batch D's real-KB pass.
+- [x] R2 fields, R2a params, R2b legacy admission and setup, R2c completeness and identity: Batch A (fields, setup, queries), Batch C (params).
+- [x] R3 kind groups and colour: Batch B (table), Batch C (tokens and palette check).
+- [x] R4 visuals and their "not enough to draw yet" states: Batches B and C.
+- [x] R5 orientation query, scope reads, and query budget: Batch A query module, Batch B library, Batch D measurement.
+- [x] R6 the Knowledge experience and its panel: Batch C (`experience.yml`), Batch F (panel view); the platform is EFF-2026-11-09-09-16.
+- [x] R6a view params survive tabs: EFF-2026-11-09-09-16 Batch P6.
+- [x] R7 switcher order: Batch G.
+- [x] R8 accessibility and design: Batches C, F, G.
+- [x] R9 verification: every batch; real-KB pass in Batch D.
+- [x] US1 to US5: Batches B and C (US4's tab return with P6). US6: Batch A. US7: Batch F on the platform's P7. US8: Batch G.
+- [x] Amendments: SPEC-0133 (Batches A and C), SPEC-0105 (Batch A), SPEC-0110 (Batch G and P6). The SPEC-0128 amendment is the platform effort's.
 
 ## Plan
 
@@ -205,7 +205,17 @@ Recorded at approval.
 
 ## Actual Delivered
 
-Nothing delivered yet.
+Delivered in [PR #121](https://github.com/atomicobject/rhizome/pull/121) on the SPEC-0136 platform (EFF-2026-11-09-09-16):
+
+- Batch A: the R2 fields; legacy admission for schemaVersion 4 to 7 with the knowledge-only route and the `not applicable` model state; complete reads with typed-root coverage; the query module; the legacy fixture; CRLF-safe ownership declarations.
+- Batch B: the site library (`lib/site.ts`, `lib/kinds.ts`, `lib/neighbourhood.ts`, `lib/prose.ts`): membership in both directions, kind groups (with `principle` in Intent and rules), dates with their basis, the deterministic topic layout with separation and shortened labels, matrix counts, scope sets, and gaps.
+- Batch C: the Knowledge experience (`experience.yml`); the KB overview with topic map, sources by date, and matrix; Review; Sources and Artifacts lists; Concept, Artifact, Assertion, and Source record pages on `RecordPage`; the scoped pair with captions that describe what is drawn; the US4 breakdown; `--kind-*` tokens checked with the palette validator.
+- Batch F: the Knowledge panel (`ao-kb.panel`) with Find, site links, counted lists, the locator, and window-scoped Recent.
+- Batch G: the custom-first view switcher with overflow into More, on collection and note bars.
+- Batch D, run with the platform's P10: three real KB copies, captions and labels checked against the library, an edit and a delete followed after reindex, and reads within R5's thresholds (orientation 291, 125, and 161 ms; scope reads under 250 ms).
+- Documentation: the AO KB guide's Knowledge site section and label table, the setup skill's step 8, chart type sizes in `DESIGN.md`, and the SPEC-0133 amendment.
+
+Verification is recorded under EFF-2026-11-09-09-16's Actual Delivered, including AO KB e2e 88 of 88 in Chromium and WebKit.
 
 ## Execution Notes
 
@@ -237,14 +247,17 @@ Nothing delivered yet.
 
 ## Deviations
 
-None yet.
+- Batch E was replaced by the SPEC-0136 platform, Batch H moved into the platform's P6, and Batch D ran with P10 as one pass, as the reworked plan records.
+- R5 changes made during delivery: Related Concepts pairs come from their own uncacheable read beside the cacheable orientation query, and an assertion page reads its cited sources' text on demand (US3).
+- R4: the scoped neighbourhood draws only what its crop holds and shows the "not enough to draw yet" note for a scope with no concept or a single node, so on small KBs most source pages show the note.
+- The current-schema copy's model stage stayed "dependency missing" in Batch D (uv absent and AO's toolkit not fetched); its site was indexed with plain `rzm index`.
 
 ## Closure Checklist
 
-- [ ] Required quality gates pass.
-- [ ] Alignment and actual outcomes are verified.
-- [ ] Specs and documentation are reconciled.
-- [ ] Follow-ups are triaged.
+- [x] Required quality gates pass (see EFF-2026-11-09-09-16).
+- [x] Alignment and actual outcomes are verified (Batch D on three real KBs; council, sol-loop, and Greptile reviews).
+- [x] Specs and documentation are reconciled (SPEC-0135 `active`; amendments applied).
+- [x] Follow-ups are triaged.
 
 ## Compounding Follow-ups
 
@@ -253,4 +266,4 @@ None yet.
 
 ## Status
 
-Planned and approved. Next: the council's review of the revised specs, then Batches A, B, and G alongside the platform's P1 to P5.
+Complete in PR #121. Next: Drew reviews and merges.

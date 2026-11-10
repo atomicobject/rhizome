@@ -5,7 +5,7 @@ aliases:
   - SPEC-0136
   - Experiences
 summary: "Any module, whether a bundled starter, a team's own module, or an ejected starter, can ship an experience: a folder of views with an experience.yml that Rhizome runs as one site, with one long-lived frame per experience in a host frame layer, a sidebar panel at the bottom of the Notes sidebar, a shared record-page shell, reads cached on a composite index generation, cacheable kit assets, and query-layer fixes that make whole-scope and record reads fast for any starter. Rhizome ships one built-in panel, Folder."
-spec-status: proposed
+spec-status: active
 last-updated: 2026-11-09
 ---
 
