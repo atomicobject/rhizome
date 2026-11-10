@@ -8,3 +8,5 @@ Produce findings first: missing criteria, unsupported claims, stale links, unrec
 <!-- /rzm:skill-slot -->
 
 Mechanical corrections and in-scope review fixes proceed within the approved authority. Stop for unresolved truth, scope, or acceptance decisions; record the mismatch in the effort instead of smoothing it over.
+
+For workspace frozen membership, inspect the explicit `frozen-scope` material and its focused frozen sections. Keep governing links, entry mentions, and a different log snapshot separate. Missing selectors or incomplete section evidence leave authority unknown. Deduplicate canonical source reads when scope and log share a file.
