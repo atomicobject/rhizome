@@ -168,6 +168,7 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     async function section(name: string): Promise<ScopeSection> {
       if (!supported) return { state: 'unsupported', coverage: read, occurrences: [] };
       const targets = refs(node, name);
+      if (field(node, name)?.issues?.length) return { state: targets.length > 1 ? 'duplicate' : 'unreadable', coverage: read, occurrences: [] };
       if (targets.length !== 1) return { state: targets.length ? 'duplicate' : 'missing', coverage: read, occurrences: [] };
       const hydrated = await hydrate(targets, true);
       const child = hydrated.nodes[0];

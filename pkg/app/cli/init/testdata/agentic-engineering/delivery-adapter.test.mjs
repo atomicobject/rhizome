@@ -119,6 +119,9 @@ test('workspace A selection, B mention and C log remain distinct including crite
   assert.equal(result.entryMentions.occurrences[0].target.fragment, 'b');
   assert.equal(result.workLogSnapshot.stories.occurrences[0].target.fragment, 'c');
   assert.equal(result.node.content, 'Full authored prose');
+  selected.workspace.fields[1].issues = [{ code: 'cardinality', message: 'Duplicate section' }];
+  assert.equal((await h.read.record(own.ref)).record.scope.state, 'incomplete');
+  selected.workspace.fields[1].issues = [];
   own.workspace.fields = own.workspace.fields.filter(f => f.name !== 'frozenScope');
   const legacy = await h.read.record(own.ref);
   assert.equal(legacy.record.scope.state, 'incomplete');
