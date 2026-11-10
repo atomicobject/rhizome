@@ -146,6 +146,10 @@ Drew requested a fresh Fable 5.2 visual critique and independent implementation-
 
 The final independent verdict is APPROVE. Root fixed the residual singular label and tightened nominal capture readiness. Full `make verify` passed before that final copy-only correction, including 2,169 web unit, 159 native browser, 90 Knowledge browser, and 77 Delivery browser cases. The post-correction check, installed proof and both documentation validators passed. Current-head PR review/CI are the remaining closure work. This follow-up preserves the requirement to leave PR #123 open and unmerged.
 
+### Current-main and root-image follow-up
+
+The cleanup now includes `origin/main` at `a2d49bf19` through merge `3fa4314`. Full `make verify` passed on that integrated tree. Greptile then identified root-relative images bypassing the source fallback. Both-theme installed tests failed before the one-line correction and passed afterward; all 77 installed cases, `make check`, `make build`, strict template TypeScript and both validators pass. Both updated image captures were inspected. Current-head CI and manual review remain required before closure. The old-head macOS build failure was an external Go dependency DNS error, recorded separately; no test or production workaround was added.
+
 ## Deviations
 
 The initial seven-stage comp becomes five factual primary views plus separate Current contracts and Record review. This is an authorized accuracy refinement that avoids inventing readiness, acceptance, or reconciliation. P1 added explicit frozen-scope source selection for HTML workspaces as a necessary dependency. Existing records are not rewritten. No implementation scope is deferred.

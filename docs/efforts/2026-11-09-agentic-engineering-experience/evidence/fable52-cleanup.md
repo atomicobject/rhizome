@@ -36,3 +36,14 @@ The synthetic inline-effort request fixture performed eight API calls before reu
 The first regression run failed for the newly exposed behaviors before their fixes. The initial integrated browser run passed 65 of 68 cases and exposed one real duplicate-row regression plus two incorrect new test assumptions. The duplicate rows came from repeated parent refs, and were fixed without removing the incomplete-coverage warning. The sort assertion now scopes to the selected stories rather than an unrelated story with the same ID. The error test exercises the actual partial-read state rather than expecting a whole-query error from a reader that preserves partial results.
 
 The Fable code recheck approved the main changes but identified selectable review observations with unknown scope and a stale host comment. Both were corrected, with a pure regression for review selection. All 77 installed AE cases and full `make verify` subsequently passed: 2,169 web unit cases, 159 native browser cases, and 90 Knowledge browser cases. The final Fable screenshot review approved the 63-capture snapshot; `fable52-final-review.md` records the remaining copy and capture corrections. The final copy and capture corrections passed `make check`, `make build`, strict template TypeScript, all 77 installed AE cases, and both documentation validators. The resulting manifest has 68 captures, with 44 committed images. Current-head PR evidence remains pending until the cleanup commit is pushed.
+
+
+## Current-main integration and final review follow-up
+
+`origin/main` advanced to `a2d49bf19` while the cleanup was in verification. It merged without conflicts, and full `make verify` passed again with the same 2,169 web unit, 159 native, 90 Knowledge and 77 AE cases. The merge is preserved as a separate commit.
+
+The old `a1b7cd0` macOS job failed before Desktop tests when Go dependency DNS resolution failed. `macos-build-network-diagnosis.md` records the exact build stage and cause. The failure is not claimed as a pass, and no production or test change is made for it.
+
+Greptile's P2 root-image finding was reproduced in both installed themes. The source fallback now distinguishes repository-root paths from protocol-relative external images; `greptile-review.md` records G10.
+
+The G10 correction passed the complete 77-case installed suite, `make check`, `make build`, strict template TypeScript and both validators. Both refreshed image-fallback captures were inspected.

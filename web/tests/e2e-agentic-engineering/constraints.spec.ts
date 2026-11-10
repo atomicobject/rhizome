@@ -278,6 +278,12 @@ for (const colorScheme of ["light", "dark"] as const) {
     test("relative images retain source context and absolute images render", async ({
       page,
     }, info) => {
+      await page.route("**/cdn.example.invalid/signal.svg", (route) =>
+        route.fulfill({
+          contentType: "image/svg+xml",
+          body: '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1"/></svg>',
+        }),
+      );
       await page.goto(record("docs/efforts/2026-11-09-10-04-harbor.md"));
       const f = content(page);
       await expect(
@@ -285,15 +291,30 @@ for (const colorScheme of ["light", "dark"] as const) {
       ).toBeVisible();
       await expect(f.getByText("./diagram.svg", { exact: true })).toBeVisible();
       await expect(f.getByRole("img", { name: "Decision diagram", exact: true })).toHaveCount(0);
-      const inline = f.getByRole("img", { name: "Inline signal", exact: true });
-      await expect
-        .poll(() =>
-          inline.evaluate(
-            (image) =>
-              image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
-          ),
-        )
-        .toBe(true);
+      await expect(
+        f.getByText("Image preview unavailable here: Root diagram.", { exact: true }),
+      ).toBeVisible();
+      await expect(f.getByText("/docs/efforts/diagram.svg", { exact: true })).toBeVisible();
+      await expect(f.getByRole("img", { name: "Root diagram", exact: true })).toHaveCount(0);
+      await expect(f.getByRole("img", { name: "Network signal", exact: true })).toHaveAttribute(
+        "src",
+        "//cdn.example.invalid/signal.svg",
+      );
+
+      for (const name of ["Inline signal", "Network signal"]) {
+        const image = f.getByRole("img", { name, exact: true });
+        await expect
+          .poll(() =>
+            image.evaluate(
+              (node) => node instanceof HTMLImageElement && node.complete && node.naturalWidth > 0,
+            ),
+          )
+          .toBe(true);
+      }
+
+      await f
+        .getByText("Image preview unavailable here: Root diagram.", { exact: true })
+        .scrollIntoViewIfNeeded();
       await capture(page, info, "relative-image-fallback");
       await f
         .getByRole("button", { name: "Open source for Decision diagram", exact: true })

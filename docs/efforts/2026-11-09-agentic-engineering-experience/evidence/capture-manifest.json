@@ -74,7 +74,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-04-harbor.md",
     "file": "relative-image-fallback-light.png",
-    "sha256": "db7da4c8e24620077d57313be7236be978cd705f8c453e27aa6b871fe712f7e6",
+    "sha256": "78532f1733b71fb55eaa0b48d524f9c296e237adcdffe9d9174e2ab94185f9ee",
     "included": true
   },
   {
@@ -87,7 +87,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-04-harbor.md",
     "file": "relative-image-fallback-dark.png",
-    "sha256": "1e3f7641e0763a97d74c753913ef29ce9c7496438bce0309f322fd0b9f6a04cb",
+    "sha256": "44133158f04df4af85c6c4568ed7b8174dc8ba475dc5e5af97d4f8bec2d2803a",
     "included": true
   },
   {

@@ -87,7 +87,7 @@ export function SourceContent({ node }: { node: LiveNode }) {
         </SourceAnchor>
       ),
       img: ({ src, alt, title }) =>
-        src && (src.startsWith("/") || URL.canParse(src)) ? (
+        src && (src.startsWith("//") || URL.canParse(src)) ? (
           <img
             src={src}
             alt={alt ?? ""}

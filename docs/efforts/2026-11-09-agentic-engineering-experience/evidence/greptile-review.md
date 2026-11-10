@@ -97,3 +97,12 @@ At 2617a908be1c89b9437dba4a5ab056781672cc8d, all 25 active CI jobs passed, inclu
 Final documentation head e61b951bc retained manual review 5/5 with zero comments but failed the AO KB setup integration case on an explicit release-manifest HTTP 403. The disposable fixture had built this checkout's CLI but supplied no matching pinned executable. A local failed release service reproduces the same error. Seeding the exact built CLI at the existing platform pin path with the production version-marker writer removes this unrelated setup dependency. The failed release service remains in the test and all original binding, index, orientation completeness and authored-byte assertions remain.
 
 The focused and complete AO KB race cases, make check and both validators passed. A fresh independent Sol high review approved the 15-line fixture correction. No production behavior, retry, timeout or skip changed. [The diagnosis](aokb-setup-release-diagnosis.md) and [review](aokb-release-fixture-review.md) preserve the evidence. Current-head CI and manual review remain pending.
+
+
+## G10: Repository-root image paths
+
+Greptile reviewed `a1b7cd0da5b1a97097989938fec59027bee3d728` at 5/5 and raised one P2 comment: `SourceContent` treated every leading slash as a directly renderable image URL. A vault-root path therefore reached the application's web root rather than the existing source fallback.
+
+The installed regression added `/docs/efforts/diagram.svg` beside the existing relative image and a protocol-relative synthetic external image. Both theme cases failed before the fix because the root image fallback was absent. The one-line correction admits `//host/path` and absolute URLs while routing single-leading-slash paths through the existing labeled fallback and canonical source button. The external image is intercepted locally in the test; no remote dependency is added.
+
+The final run must preserve relative-path fallback, root-path fallback, decoded data and protocol-relative images, and source navigation. No retry, timeout or skip changed. Both corrected theme cases passed within the complete 77-case installed suite. `make check`, `make build`, strict template TypeScript and both documentation validators passed. Root inspected both refreshed screenshots individually. Current-head manual review follows the commit.
