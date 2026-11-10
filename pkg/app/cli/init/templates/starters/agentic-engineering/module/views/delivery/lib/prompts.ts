@@ -35,6 +35,12 @@ export function promptFor(stage: Stage, input: Portfolio, selectedKeys: readonly
     if (row.kind === 'story') add(row.parent.locator,
       row.parent.status === 'proposed' ? 'proposed parent spec' : 'parent spec');
     add(row.record.locator, row.kind === 'story' ? 'selected story' : row.record.status ?? 'recorded status unavailable');
+    if (row.kind === 'effort' || row.kind === 'review') {
+      for (const source of row.record.contextSources ?? []) {
+        if (source.locator) add(source.locator, source.role);
+        else lines.push(`- Recorded ${source.role}: ${source.authored} (reference not verified in this read)`);
+      }
+    }
   }
   const routes: Record<Stage, string> = {
     shaping: 'Use the installed agentic-engineering specify route to shape the selected contracts.',

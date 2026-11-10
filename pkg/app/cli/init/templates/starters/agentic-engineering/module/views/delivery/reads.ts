@@ -1,10 +1,11 @@
-import { composePages, composeCoverage, frozenScope, identity, recordedChecklist, inventoryComplete,
+import { composePages, composeCoverage, frozenScope, identity, inventoryComplete,
   type Coverage, type Ref, type ScopeMaterial, type ScopeSection, type ScopeSelector, type Occurrence,
   type Portfolio, type Checklist } from './lib/index.ts';
 import { NODE_DETAIL, NODE_SUMMARY, SOURCE_PAGE, type LiveNode, type SourcePage,
   type FieldState, type LiveSpec, type LiveStory, type LiveEffort, type RecordDetail, type PortfolioRead } from './queries.ts';
 
 export type ReadAPI = {
+  markdownChecklist(source: string): { checked: number; total: number };
   graphql<T>(query: string, variables: Record<string, string | number>): Promise<T>;
   readNodes<T>(refs: readonly string[], selection: string, options: { signal?: AbortSignal }): Promise<{
     nodes: T[]; complete: boolean; errors: { message: string }[];
@@ -139,7 +140,7 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     ? frozenScope({ form: 'EffortWorkspace', selector: { state: 'unreadable', authored: [], material: null, coverage: absent('Frozen scope deferred') } })
     : frozenScope({ form: 'EffortNote', inline: null })): LiveEffort {
     return { ...summary(node, read), source: node, kind: 'effort', form: node.resolvedType === 'EffortWorkspace' ? 'EffortWorkspace' : 'EffortNote',
-      status: status(node, 'status', effortStates), checklist: recordedChecklist(null), scope };
+      status: status(node, 'status', effortStates), checklist: { state: 'unreadable' }, scope };
   }
   async function portfolio(review = false): Promise<PortfolioRead> {
     const specRead = await inventory('specLike');
@@ -188,7 +189,8 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     const section = await hydrate(targets, true);
     const child = section.nodes[0];
     const read = composeCoverage([ownerCoverage, { ...section.coverage, sourceRevision: child ? revision(child) : null }]);
-    return { checklist: recordedChecklist(child?.content, read.complete && child?.content !== undefined), nodes: section.nodes, coverage: read };
+    const counts = read.complete && child?.content !== undefined ? api.markdownChecklist(child.content) : null;
+    return { checklist: counts ? { state: counts.total ? 'recorded' : 'empty', ...counts } : { state: 'unreadable' }, nodes: section.nodes, coverage: read };
   }
   async function record(ref: Ref): Promise<RecordDetail | null> {
     const own = await hydrate([ref], true);
@@ -226,6 +228,15 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
       ? frozenScope({ form: 'EffortNote', inline: await material(node, ownCoverage) })
       : frozenScope({ form: 'EffortWorkspace', selector });
     const result = effort(node, ownCoverage, scope);
+    result.contextSources = (['implementationPlan', 'workLog'] as const).flatMap(name => {
+      const state = field(node, name);
+      return (state?.values ?? []).map((authored, index) => {
+        const target = state?.links?.[index]?.ref;
+        const component = target && components.nodes.find(item => identity(item.ref) === identity(target));
+        return { role: name === 'implementationPlan' ? 'implementation plan' as const : 'work log' as const,
+          authored, locator: component ? locator(component) : null };
+      });
+    });
     const entryMentions = await occurrences(node);
     const governingField = field(node, 'governingSpecs');
     const governing = { coverage: governingField ? ownCoverage : absent('Governing metadata unavailable'),
@@ -255,7 +266,25 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     return { node, record: result, components: [...components.nodes, ...checklistRead.nodes], selectedTargets: targets.nodes, governing, entryMentions,
       workLogSnapshot, coverage: totalCoverage };
   }
-  return { portfolio, record, occurrences, hydrate };
+  async function selectedEfforts(targets: readonly Ref[]) {
+    const efforts: LiveEffort[] = [];
+    const reads: Coverage[] = [];
+    const seen = new Set<string>();
+    for (const target of targets) {
+      if (seen.has(identity(target))) continue;
+      seen.add(identity(target));
+      check();
+      const detail = await record(target);
+      if (detail?.record?.kind === 'effort') {
+        efforts.push(detail.record);
+        reads.push(detail.record.coverage, detail.record.scope.coverage);
+      } else reads.push(absent('Selected effort unavailable'));
+    }
+    const coverage = combine(reads);
+    coverage.complete &&= efforts.every(item => item.scope.state === 'known');
+    return { efforts, coverage };
+  }
+  return { portfolio, record, occurrences, hydrate, selectedEfforts };
 }
 function nonNull<T>(item: T | null): item is T { return item !== null; }
 export function combine(reads: readonly Coverage[], sourceRevision: string | null = null): Coverage {

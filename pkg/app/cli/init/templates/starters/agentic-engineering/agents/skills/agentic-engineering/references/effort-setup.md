@@ -5,9 +5,7 @@ Deliverable: one effort that freezes durable links to the exact specs and select
 ## Select scope
 
 - Freeze durable links to the exact specs, requirements, stories, or criteria that apply; record exclusions and uncertainty. Requirements-only specs need no invented stories.
-- Use `query-recipe run --id story-acceptance-pack` when selecting stories or criteria. Freeze a locator only when `requiresFix: false`. A planned block ID is a proposed source edit, not a durable link. When repair is authorized, apply it through a write-capable Rhizome surface and rerun the recipe. Otherwise freeze the nearest durable parent and record the precise target as follow-up.
-
-The story-acceptance-pack inbound `efforts` relations show mentions only. A story selected through an explicitly chosen `frozenScope` material may have no inbound Effort relation. Empty relations do not prove unclaimed scope or absent frozen coverage. Inspect explicitly selected effort frozen sections for exact membership. Ready stories retain their recorded readiness regardless of mentions.
+- Use `query-recipe run --id story-acceptance-pack` when selecting stories or criteria. Freeze a locator only when `requiresFix: false`. A planned block ID is a proposed source edit, not a durable link. When repair is authorized, apply it through a write-capable Rhizome surface and rerun the recipe. Otherwise freeze the nearest durable parent and record the precise target as follow-up. The story-acceptance-pack inbound `efforts` relations show mentions only. A story selected through an explicitly chosen `frozenScope` material may have no inbound Effort relation. Empty relations do not prove unclaimed scope or absent frozen coverage. Inspect explicitly selected effort frozen sections for exact membership. Ready stories retain their recorded readiness regardless of mentions.
 
 ## Choose and allocate
 

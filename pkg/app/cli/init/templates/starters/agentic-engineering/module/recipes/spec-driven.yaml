@@ -134,7 +134,7 @@ query:
             content
             workspace {
               sourceRevision { notePath contentFingerprint }
-              sourceLinks(first: 100) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+              sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
             }
             frozenSpecs {
               id
@@ -153,7 +153,7 @@ query:
             content
             workspace {
               sourceRevision { notePath contentFingerprint }
-              sourceLinks(first: 100) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+              sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
             }
           }
           specCoverageChecklist {
@@ -203,7 +203,7 @@ query:
               content
               workspace {
                 sourceRevision { notePath contentFingerprint }
-                sourceLinks(first: 100) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+                sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
               }
             }
             storiesInScopeFrozen {
@@ -211,7 +211,7 @@ query:
               content
               workspace {
                 sourceRevision { notePath contentFingerprint }
-                sourceLinks(first: 100) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+                sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
               }
             }
           }
@@ -222,7 +222,7 @@ query:
             storiesInScopeFrozen {
               content
               ref { ref notePath typeName }
-              workspace { sourceLinks(first: 100) { authoredTarget resolved resolvedRef { ref notePath typeName } } }
+              workspace { sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget resolved resolvedRef { ref notePath typeName } } }
             }
             planApproval { content }
             originalIntendedDelivery { content }
@@ -275,7 +275,7 @@ outputContract:
     empty scope. Preserve authored unresolved references. Require an exact approved plan revision and report
     disagreements. Missing components, unresolved links, or empty delivery evidence must be reported; absence does
     not authorize execution or closure. A resolved non-effort note is the wrong anchor.
-  highVolume: Focused sourceLinks are capped at 100. A full page does not prove complete membership; report incomplete coverage and use the public focused projection paging contract when available. Keep this anchored to one effort. Do not broaden to every effort unless doing a process audit.
+  highVolume: Focused sourceLinks return at most 100 occurrences. Compare sourceLinkCount and continue with offset until every occurrence is read, preserving source revision and graph generation across pages. Missing or changed evidence leaves coverage incomplete; a full page alone does not prove membership. Keep this anchored to one effort. Do not broaden to every effort unless doing a process audit.
 adaptationGuidance:
   summary: Preserve one-effort anchored loading of frozen scope, plan approval, plan, delivery truth, execution notes, deviations, closure checklist, and current status.
   rules:
@@ -829,7 +829,7 @@ query:
             content
             workspace {
               sourceRevision { notePath contentFingerprint }
-              sourceLinks(first: 100) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+              sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
             }
             frozenSpecs {
               id
@@ -848,7 +848,7 @@ query:
             content
             workspace {
               sourceRevision { notePath contentFingerprint }
-              sourceLinks(first: 100) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+              sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
             }
           }
           specCoverageChecklist {
@@ -898,7 +898,7 @@ query:
               content
               workspace {
                 sourceRevision { notePath contentFingerprint }
-                sourceLinks(first: 100) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+                sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
               }
             }
             storiesInScopeFrozen {
@@ -906,7 +906,7 @@ query:
               content
               workspace {
                 sourceRevision { notePath contentFingerprint }
-                sourceLinks(first: 100) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
+                sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget target resolved resolvedRef { ref notePath typeName } }
               }
             }
           }
@@ -917,7 +917,7 @@ query:
             storiesInScopeFrozen {
               content
               ref { ref notePath typeName }
-              workspace { sourceLinks(first: 100) { authoredTarget resolved resolvedRef { ref notePath typeName } } }
+              workspace { sourceLinkCount sourceLinks(first: 100, offset: 0) { authoredTarget resolved resolvedRef { ref notePath typeName } } }
             }
             planApproval { content }
             originalIntendedDelivery { content }
@@ -970,7 +970,7 @@ outputContract:
     empty scope. Preserve authored unresolved references. Require an exact approved plan revision and report
     disagreements. Missing components, unresolved links, or empty delivery evidence must be reported; absence does
     not authorize execution or closure. A resolved non-effort note is the wrong anchor.
-  highVolume: Focused sourceLinks are capped at 100. A full page does not prove complete membership; report incomplete coverage and use the public focused projection paging contract when available. Keep this anchored to one effort during closure; use broader effort queries only for process audits.
+  highVolume: Focused sourceLinks return at most 100 occurrences. Compare sourceLinkCount and continue with offset until every occurrence is read, preserving source revision and graph generation across pages. Missing or changed evidence leaves coverage incomplete; a full page alone does not prove membership. Keep this anchored to one effort during closure; use broader effort queries only for process audits.
 adaptationGuidance:
   summary: Preserve closure comparison between frozen intent, plan approval, execution evidence, actual delivery, deviations, checklist, and current effort status.
   rules:

@@ -96,7 +96,9 @@ export function groupResult(stage: string, input: Portfolio) {
   const specReads = [input.specCoverage, ...input.specs.flatMap(spec =>
     [spec.coverage, spec.storiesCoverage, ...spec.stories.map(story => story.coverage)])];
   const effortReads = [input.effortCoverage, ...input.efforts.map(effort => effort.coverage)];
-  const reads = stage === 'review' ? [...specReads, ...effortReads, ...input.efforts.map(effort => effort.scope.coverage),
+  const completed = input.efforts.filter(effort => effort.status === 'complete');
+  const active = input.efforts.filter(effort => effort.status === 'active');
+  const reads = stage === 'review' ? [...specReads, ...effortReads, ...completed.map(effort => effort.scope.coverage),
     ...input.specs.flatMap(spec => spec.stories.flatMap(story =>
       [story.criteriaCoverage, ...story.criteria.map(criterion => criterion.coverage)]))]
     : stage === 'contracts' ? [input.specCoverage, ...input.specs.map(spec => spec.coverage)]
@@ -108,7 +110,8 @@ export function groupResult(stage: string, input: Portfolio) {
     : stage === 'shaping' || stage === 'ready' ? specFactsKnown && storyFactsKnown
       : stage === 'review' ? specFactsKnown && storyFactsKnown && effortFactsKnown : effortFactsKnown;
   return { state: 'records' as const, group, rows, count: rows.length,
-    complete: factsKnown && inventoryComplete(reads) && (stage !== 'review' || input.efforts.every(effort => effort.scope.state === 'known')),
+    complete: factsKnown && inventoryComplete(reads) && (stage !== 'review' ||
+      completed.every(effort => effort.scope.state === 'known') && active.every(effort => effort.checklist.state !== 'unreadable')),
     parentSpecCount: stage === 'ready' ? new Set(rows.flatMap(row =>
       row.kind === 'story' ? [identity(row.parent.ref)] : [])).size : null };
 }

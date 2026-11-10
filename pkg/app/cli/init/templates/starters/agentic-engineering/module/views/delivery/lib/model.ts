@@ -54,6 +54,7 @@ export type Effort = RecordSummary & {
   status: 'planned' | 'active' | 'complete' | 'archived' | null;
   checklist: Checklist;
   scope: FrozenScope;
+  contextSources?: readonly { role: 'implementation plan' | 'work log'; authored: string; locator: string | null }[];
 };
 
 export type SourceLink = {

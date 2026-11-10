@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { composeCoverage, composePages, identity, frozenScope, distinctTargets, sourceRoles,
-  selectionFor, attributionFor, recordedChecklist, groups, groupResult, eligibility, promptFor, firstDayPrompt }
+  selectionFor, attributionFor, groups, groupResult, eligibility, promptFor, firstDayPrompt }
   from '../../templates/starters/agentic-engineering/module/views/delivery/lib/index.ts';
 
 const coverage = (extra = {}) => ({ complete: true, truncated: false, errors: [],
@@ -25,7 +25,7 @@ const material = (selections = []) => ({ ref: ref('scope.md'), supported: true, 
 const scope = (selections = []) => frozenScope({ form: 'EffortNote', inline: material(selections),
   selector: { state: 'missing', authored: [], material: null, coverage: coverage() } });
 const effort = (status = 'active', selections = []) => ({ ...record('effort.md'), kind: 'effort',
-  form: 'EffortNote', status, checklist: recordedChecklist('- [ ] Deliver'), scope: scope(selections) });
+  form: 'EffortNote', status, checklist: { state: 'recorded', checked: 0, total: 1 }, scope: scope(selections) });
 const portfolio = (specs = [spec()], efforts = [effort()]) => ({ specs, efforts,
   specCoverage: coverage(), effortCoverage: coverage() });
 const keys = result => result.rows.map(row => identity(row.record.ref));
@@ -44,11 +44,11 @@ test('mixed story states overlap factual groups and preserve historical states',
 });
 
 test('checked active efforts remain active and observations do not decide acceptance', () => {
-  const active = { ...effort(), checklist: recordedChecklist('- [x] Deliver\n- [X] Verify') };
+  const active = { ...effort(), checklist: { state: 'recorded', checked: 2, total: 2 } };
   const input = portfolio([], [active]);
   assert.equal(groupResult('active', input).count, 1);
   assert.equal(groupResult('review', input).rows[0].observation, 'closure-checklist');
-  for (const checklist of [recordedChecklist(null), recordedChecklist(''), recordedChecklist('', false)]) {
+  for (const checklist of [{ state: 'missing' }, { state: 'empty', checked: 0, total: 0 }, { state: 'unreadable' }]) {
     assert.equal(groupResult('review', portfolio([], [{ ...active, checklist }])).count, 0);
   }
 });
@@ -153,14 +153,6 @@ test('prompt contains canonical selection once in displayed order and proposed a
   assert.match(firstDayPrompt().text, /<describe the outcome>/);
 });
 
-test('recorded checklist ignores code fences and prose and distinguishes empty reads', () => {
-  assert.deepEqual(recordedChecklist('```md\n- [x] example\n```\n~~~\n- [ ] example\n~~~\nText [x] claim\n- [x] real\n  - [ ] nested'),
-    { state: 'recorded', checked: 1, total: 2 });
-  assert.deepEqual(recordedChecklist('    ```\n    - [x] example\n    ```'), { state: 'empty', checked: 0, total: 0 });
-  assert.deepEqual(recordedChecklist('Narrative only'), { state: 'empty', checked: 0, total: 0 });
-  assert.deepEqual(recordedChecklist(null), { state: 'missing' });
-  assert.deepEqual(recordedChecklist('', false), { state: 'unreadable' });
-});
 
 
 test('unknown statuses cannot establish an empty group and legacy logs never become selected sources', () => {
@@ -176,7 +168,7 @@ test('unknown statuses cannot establish an empty group and legacy logs never bec
 });
 
 test('each work group uses its installed workflow route and incomplete selected criteria block copy', () => {
-  const active = { ...effort(), checklist: recordedChecklist('- [x] Done') };
+  const active = { ...effort(), checklist: { state: 'recorded', checked: 1, total: 1 } };
   const input = portfolio([spec('proposed'), { ...spec(), ...record('current.md') }],
     [active, { ...effort('planned'), ...record('plan.md') }, { ...effort('complete'), ...record('history.md') }]);
   for (const [stage, route] of [['shaping', /specify route/], ['planned', /classify route/],
@@ -218,4 +210,32 @@ test('inventory generation is sufficient without inventing an inventory source r
   input.specCoverage.graphGeneration = null;
   assert.equal(groupResult('ready', input).complete, false);
   assert.equal(composeCoverage([coverage({ sourceRevision: null })]).complete, false);
+});
+
+
+test('review coverage depends on active checklists and complete scope, not planned or archived scope', () => {
+  const unknown = frozenScope({ form: 'EffortNote', inline: null });
+  const input = portfolio([], [
+    { ...effort('planned'), ...record('planned.md'), scope: unknown },
+    { ...effort('archived'), ...record('archived.md'), scope: unknown },
+    { ...effort('active'), ...record('active.md'), scope: unknown },
+  ]);
+  assert.equal(groupResult('review', input).complete, true);
+  input.efforts[2].checklist = { state: 'unreadable' };
+  assert.equal(groupResult('review', input).complete, false);
+  input.efforts[2].checklist = { state: 'missing' };
+  input.efforts.push({ ...effort('complete'), ...record('complete.md'), scope: unknown });
+  assert.equal(groupResult('review', input).complete, false);
+});
+
+test('effort prompts retain explicit plan and log references without inventing a missing target', () => {
+  const item = effort();
+  item.contextSources = [
+    { role: 'implementation plan', authored: 'plan.html', locator: 'docs/efforts/team/plan.html' },
+    { role: 'work log', authored: '[[missing log]]', locator: null },
+  ];
+  const prompt = promptFor('active', portfolio([], [item]), [identity(item.ref)]);
+  assert.equal(prompt.copyable, true);
+  assert.match(prompt.text, /docs\/efforts\/team\/plan.html \(implementation plan\)/);
+  assert.match(prompt.text, /Recorded work log: \[\[missing log\]\] \(reference not verified in this read\)/);
 });

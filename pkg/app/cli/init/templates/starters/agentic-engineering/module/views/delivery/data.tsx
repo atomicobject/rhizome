@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { graphql, readNodes, responseGeneration, typedRootCoverage, useViewActive } from '@rhizome/kit';
+import { graphql, readNodes, responseGeneration, typedRootCoverage, useViewActive, markdownChecklist } from '@rhizome/kit';
 import { reader, type ReadAPI } from './reads.ts';
 import { identity, type Ref } from './lib/index.ts';
 export type { LiveNode, FieldState, LiveSpec, LiveStory, LiveCriterion, LiveEffort, RecordDetail, PortfolioRead } from './queries.ts';
 
-const api: ReadAPI = { graphql, readNodes, generation: responseGeneration, roots: typedRootCoverage };
+const api: ReadAPI = { graphql, readNodes, generation: responseGeneration, roots: typedRootCoverage, markdownChecklist };
 
 /** Committed reads share the kit's query client and vault freshness invalidation. */
 export function useDeliveryPortfolio(options: { enabled?: boolean; review?: boolean } = {}) {
@@ -33,4 +33,16 @@ export function useDeliveryRecord(ref: Ref | null) {
   return { ...query, state: !ref ? 'invalid-route' : query.isPending ? 'loading' : query.isError ? 'error'
     : query.data === null ? 'missing-node' : query.data?.coverage.complete ? 'ready' : 'partial',
     refresh: query.refetch, retained: query.isError && query.data !== undefined, mode: 'committed' as const };
+}
+
+/** Only selected effort rows load their execution scope for prompt composition. */
+export function useDeliverySelectedEfforts(refs: readonly Ref[]) {
+  const active = useViewActive();
+  return useQuery({
+    queryKey: ['agentic-engineering', 'selection', refs.map(identity)],
+    queryFn: ({ signal }) => reader(api, signal).selectedEfforts(refs),
+    enabled: active && refs.length > 0,
+    subscribed: active,
+    retry: false,
+  });
 }

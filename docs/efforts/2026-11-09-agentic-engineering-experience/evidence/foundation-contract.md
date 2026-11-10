@@ -45,7 +45,7 @@ Do not add an AE-specific GraphQL root, lifecycle field, generic pagination fram
 
 ## Starter interface and ownership
 
-The experience lives under `pkg/app/cli/init/templates/starters/agentic-engineering/module/views/delivery/`. Its pure library owns factual group predicates, canonical identity, coverage composition, recorded checklist parsing, exact selected scope, and prompt construction. React data hooks adapt the shared query results. Pages and the panel consume those facts and never duplicate the rules.
+The experience lives under `pkg/app/cli/init/templates/starters/agentic-engineering/module/views/delivery/`. Its pure library owns factual group predicates, canonical identity, coverage composition, recorded checklist states, exact selected scope, and prompt construction. The kit's markdownChecklist helper counts task items with the same installed GFM parser used by Markdown rendering; the starter does not approximate Markdown with a private parser. React data hooks adapt the shared query results. Pages and the panel consume those facts and never duplicate the rules.
 
 Home and list reads use summaries first. Record pages read their own subject before wider orientation. Bodies are scoped to selected records or the explicit candidates needed for a review observation. A generic inbound story effort relation is a mention, never frozen selection. Header governing links, frozen spec occurrences, and work-log snapshots remain distinct.
 
@@ -62,3 +62,5 @@ Focused tests prove occurrence counts and order at 0, 99, 100, 101, 200, and 201
 Domain tests prove mixed story states, overlapping groups, criterion-only selections, mentions outside frozen scope, missing approver metadata, separate governing and frozen sets, and partial or changed-generation reads. Checked boxes do not establish acceptance. A completed effort with an unselected ready story does not create a maintenance finding.
 
 Independent foundation review covers the implemented API and domain rules before dependent UI integration. Review fixes within this contract remain authorized. A failed check remains a failed check. The final installed UI, all major states in both themes, native alternatives, install/update/eject behavior, full repository gates, independent implementation review, Greptile 5/5, and current-head CI are still required.
+
+Selected effort rows load only their selected execution contexts before composing a prompt. Summary rows remain selectable by their known canonical record facts, while Copy stays disabled until their selected scope is known. Prompt context retains explicit plan and log references, with unresolved authored values labeled as unverified.

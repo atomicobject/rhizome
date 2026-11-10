@@ -13,6 +13,10 @@ function harness(nodes = [], source = new Map(), alter = () => {}, inventory = {
   const facts = new WeakMap();
   const calls = [];
   const api = {
+    markdownChecklist(source) {
+      assert.equal(source, '- [x] Verified\n- [x] Backported');
+      return { checked: 2, total: 2 };
+    },
     generation: data => facts.get(data)?.generation,
     roots: data => facts.get(data)?.roots,
     async readNodes(targets, selection) {
@@ -219,4 +223,16 @@ test('workspace checklist uses the exact log independently of unknown frozen aut
   assert.equal(result.node.content, 'Full authored prose');
   assert.equal(result.record.status, 'active');
   assert.equal(result.record.coverage.complete, true);
+});
+
+test('prompt scope hydration reads only the selected efforts and preserves unknown scope', async () => {
+  const chosen = node(ref('chosen.md'), [field('status', [], ['planned'])]);
+  const other = node(ref('other.md'), [field('status', [], ['active'])]);
+  const h = harness([chosen, other], new Map(), () => {}, { effort: [chosen, other] });
+  const result = await h.read.selectedEfforts([chosen.ref, chosen.ref]);
+  assert.deepEqual(result.efforts.map(item => item.ref.notePath), ['chosen.md']);
+  assert.equal(result.efforts[0].scope.state, 'incomplete');
+  assert.equal(result.coverage.complete, false);
+  assert.ok(h.calls.every(call => !call.query?.includes('DeliveryInventory')));
+  assert.ok(h.calls.every(call => !call.targets?.some(target => target.includes('other.md'))));
 });
