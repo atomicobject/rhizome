@@ -47,3 +47,5 @@ The old `a1b7cd0` macOS job failed before Desktop tests when Go dependency DNS r
 Greptile's P2 root-image finding was reproduced in both installed themes. The source fallback now distinguishes repository-root paths from protocol-relative external images; `greptile-review.md` records G10.
 
 The G10 correction passed the complete 77-case installed suite, `make check`, `make build`, strict template TypeScript and both validators. Both refreshed image-fallback captures were inspected.
+
+The final G11 follow-up preserves protocol-relative and absolute external links while keeping canonical note links on the resolver. Both-theme regression and the complete 77-case installed suite pass; refreshed image/source captures include the working external links.

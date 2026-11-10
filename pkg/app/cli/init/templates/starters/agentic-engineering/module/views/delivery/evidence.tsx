@@ -25,11 +25,12 @@ function SourceAnchor({
   children?: ReactNode;
   from: string;
 }) {
-  const target = resolveRenderedLinkTarget(
-    href,
-    href?.startsWith("rhizome://note/") ? null : noIndexedLinks,
-  );
-  const authoredTarget = href?.startsWith("rhizome://note/")
+  const noteLink = href?.startsWith("rhizome://note/");
+  const target =
+    !noteLink && href && (href.startsWith("//") || URL.canParse(href))
+      ? null
+      : resolveRenderedLinkTarget(href, noteLink ? null : noIndexedLinks);
+  const authoredTarget = noteLink
     ? `[[${target}]]`
     : `[target](${href?.replaceAll("(", "%28").replaceAll(")", "%29")})`;
   const nav = usePageNavigation();

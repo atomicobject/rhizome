@@ -286,6 +286,22 @@ for (const colorScheme of ["light", "dark"] as const) {
       );
       await page.goto(record("docs/efforts/2026-11-09-10-04-harbor.md"));
       const f = content(page);
+      await expect(f.getByRole("link", { name: "External guide", exact: true })).toHaveAttribute(
+        "href",
+        "//cdn.example.invalid/guide",
+      );
+      await expect(f.getByRole("link", { name: "External guide", exact: true })).toHaveAttribute(
+        "target",
+        "_blank",
+      );
+      await expect(f.getByRole("link", { name: "Mail the operator", exact: true })).toHaveAttribute(
+        "href",
+        "mailto:operator@example.invalid",
+      );
+      await expect(f.getByRole("link", { name: "Call the operator", exact: true })).toHaveAttribute(
+        "href",
+        "tel:+15550100",
+      );
       await expect(
         f.getByText("Image preview unavailable here: Decision diagram.", { exact: true }),
       ).toBeVisible();

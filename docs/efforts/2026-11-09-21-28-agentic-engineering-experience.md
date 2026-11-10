@@ -148,7 +148,7 @@ The final independent verdict is APPROVE. Root fixed the residual singular label
 
 ### Current-main and root-image follow-up
 
-The cleanup now includes `origin/main` at `a2d49bf19` through merge `3fa4314`. Full `make verify` passed on that integrated tree. Greptile then identified root-relative images bypassing the source fallback. Both-theme installed tests failed before the one-line correction and passed afterward; all 77 installed cases, `make check`, `make build`, strict template TypeScript and both validators pass. Both updated image captures were inspected. Current-head CI and manual review remain required before closure. The old-head macOS build failure was an external Go dependency DNS error, recorded separately; no test or production workaround was added.
+The cleanup now includes `origin/main` at `a2d49bf19` through merge `3fa4314`. Full `make verify` passed on that integrated tree. Greptile then identified root-relative images bypassing the source fallback. Both-theme installed tests failed before the one-line correction and passed afterward; all 77 installed cases, `make check`, `make build`, strict template TypeScript and both validators pass. Both updated image captures were inspected. The subsequent protocol-relative link finding was also reproduced in both themes and corrected at the SourceAnchor boundary; all 77 installed cases pass with mail and telephone links covered as well. Current-head CI and manual review remain required before closure. The old-head macOS build failure was an external Go dependency DNS error, recorded separately; no test or production workaround was added.
 
 ## Deviations
 
