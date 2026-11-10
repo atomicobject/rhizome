@@ -14,6 +14,8 @@ func classifyInternalChange(rel string) internalChangeEffect {
 		return internalChangeEffect{reloadVaultDef: true, refreshMeta: true, refreshOntology: true, invalidateCapabilities: true}
 	case rel == ".rhizome/ignore", rel == ".obsidianignore":
 		return internalChangeEffect{refreshMeta: true, refreshOntology: true}
+	case assetroots.IsAssetRootOrAncestor(rel, assetroots.Ontology):
+		return internalChangeEffect{refreshOntology: true, invalidateCapabilities: true}
 	case assetroots.IsAssetPath(rel, assetroots.Ontology) && filepath.Ext(rel) == ".graphql":
 		return internalChangeEffect{refreshOntology: true, invalidateCapabilities: true}
 	case assetroots.IsAssetPath(rel, assetroots.Recipes) && isYAMLPath(rel):

@@ -19,6 +19,7 @@
 
 ### Fixed
 
+- Creating, removing, or renaming ontology and module folders refreshes the live ontology and capabilities even when individual schema-file events are absent.
 - Repository Settings offers a pin update or the app's Rhizome when an old executable cannot report settings, and reloads after the fix. Its Rhizome version section controls the executable for this worktree on this Mac, keeps the shared pin unchanged, and preserves checkout trust. Explicit worktree choices now take precedence over managed pins in the desktop app.
 
 - Rhizome Desktop no longer dead-ends when a folder's selected Rhizome can't serve it:

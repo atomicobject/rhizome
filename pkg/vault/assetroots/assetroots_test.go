@@ -93,6 +93,36 @@ func TestAllRootsAndQualify(t *testing.T) {
 	}
 }
 
+func TestIsAssetRootOrAncestor(t *testing.T) {
+	for _, tc := range []struct {
+		rel  string
+		kind Kind
+		want bool
+	}{
+		{".rhizome/ontology", Ontology, true},
+		{"./.rhizome/ontology/", Ontology, true},
+		{".rhizome/modules", Ontology, true},
+		{".rhizome/modules/team-1", Ontology, true},
+		{".rhizome/modules/team-1/ontology", Ontology, true},
+		{".rhizome/modules/Bad_Name/ontology", Ontology, false},
+		{".rhizome/modules/Upper", Ontology, false},
+		{".rhizome/modules/team/ontology/nested", Ontology, false},
+		{".rhizome/ontology/schema.graphql", Ontology, false},
+		{".rhizome/modules/team/scripts", Ontology, false},
+		{".rhizome/query-recipes", Recipes, true},
+		{".rhizome/modules/team/recipes", Recipes, true},
+		{".rhizome/modules", Kind("unknown"), false},
+		{".rhizome", Ontology, false},
+		{"", Scripts, false},
+	} {
+		t.Run(tc.rel+"/"+string(tc.kind), func(t *testing.T) {
+			if got := IsAssetRootOrAncestor(tc.rel, tc.kind); got != tc.want {
+				t.Fatalf("IsAssetRootOrAncestor(%q, %q) = %v, want %v", tc.rel, tc.kind, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestRootsReportsAnAssetRootThatIsNotAFolder(t *testing.T) {
 	repo := t.TempDir()
 	mkdirs(t, repo, ".rhizome", ".rhizome/modules/alpha")

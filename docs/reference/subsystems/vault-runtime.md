@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the vault runtime: one auto-started serve process per vault root that wins the runtime lock, publishes a probe-verified manifest, runs every indexing job on one lane, and serves the loopback control API that rzm index and code mode execute through."
 reference-kind: guide
-last-verified: 2026-11-09
+last-verified: 2026-11-10
 code-paths:
   - pkg/app/runtime
   - pkg/app/bootstrap
@@ -61,6 +61,7 @@ code-anchors:
 - **Ontology readers consume published proof.** `PublishedRuntimeWithStore` checks the durable readiness witness without scanning source/catalog rows or writing. `OpenPublishedRuntime` opens an existing store read-only and never creates or migrates it. An uncertified read model remains unavailable; a live reader can call `RequestOntologyRefresh` to retain a reconciliation request for the existing watcher and writer lane. Standalone readers without that owner report that indexing is required.
 - **Priority cancellation reaches validation.** Boot indexing runs the configured validation snapshot before relinquishing its job lease. Identifier migration checks cancellation between notes, recursive sections and reference scans; the suite returns cancellation after joining its checks and never publishes partial repair authority. A canceled boot attempt leaves ownership reconciliation pending and the existing submitter retries it after priority clears.
 - **Watcher inputs survive cache reads.** The semantic watcher retains hub events and resync notices independently of the cache until its destination batch succeeds. A cache refresh by a save or reader cannot consume embedding and graph work; events received during a running batch remain for the next batch, and retry preserves newer events.
+- **Ontology folder changes request full refresh.** Events naming `.rhizome/ontology`, `.rhizome/modules`, a valid module folder, or its ontology root force full ontology reconciliation and capability invalidation through the existing watcher lane. Classification uses `assetroots.IsAssetRootOrAncestor` without checking existence, so removal and rename work even when individual schema-file events are absent.
 - **Watcher job outcomes report structural reconciliation.** Required structural destination, cache-refresh, and reconciliation-debt read errors reach the lane's handle, terminal event, and last-error status. Job-context cancellation takes precedence after work drains, preserving explicit preemption identity. The watcher retains failed inputs and pending generations for retry. Provider failures belong to durable derived work and do not change an already committed structural result.
 - **The runtime never outlives its database file.** A lane preflight compares the database on disk with the file the runtime opened; a deleted, renamed, or replaced database fails the job with `lane.ErrDatabaseReplaced` and shuts the runtime down so the next client starts one against the new file. `rzm index` falls back to in-process indexing and restarts the runtime.
 - **A pre-upgrade serve still owns its vault.** Election, `Ensure`, and status recognize a live `watcher.lock` owner and refuse to compete; a new owner clears the stale legacy files.

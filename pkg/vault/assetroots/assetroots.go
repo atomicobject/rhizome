@@ -187,6 +187,28 @@ func IsAssetPath(rel string, k Kind) bool {
 	return ok && kind == k
 }
 
+// IsAssetRootOrAncestor reports whether rel is a flat asset root, the modules
+// folder, a valid module folder, or that module's root for k. It does not stat
+// the path, so removed or renamed folders can still be classified.
+func IsAssetRootOrAncestor(rel string, k Kind) bool {
+	if !knownKind(k) {
+		return false
+	}
+	rel = path.Clean(strings.TrimPrefix(filepath.ToSlash(rel), "./"))
+	if flat := flatDirs[k]; flat != "" && rel == flat {
+		return true
+	}
+	if rel == ModulesDir {
+		return true
+	}
+	rest, ok := strings.CutPrefix(rel, ModulesDir+"/")
+	if !ok {
+		return false
+	}
+	module, kind, nested := strings.Cut(rest, "/")
+	return ValidModuleName(module) && (!nested || kind == string(k))
+}
+
 func knownKind(k Kind) bool {
 	for _, known := range Kinds {
 		if k == known {
