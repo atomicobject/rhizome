@@ -4,7 +4,7 @@ id: EFF-2026-11-09-21-28
 aliases: [EFF-2026-11-09-21-28]
 name: Agentic Engineering delivery experience
 created-at: 2026-11-10T02:35:34Z
-status: complete
+status: active
 summary: "Deliver the complete refined Agentic Engineering starter experience with exact authored scope, installed UI proof, and an open unmerged PR."
 governing-specs:
   - "[[docs/specs/experience/agentic-engineering-delivery-experience.md]]"
@@ -132,6 +132,8 @@ All eight stories are backported as satisfied. The full integrated make verify p
 
 - 2026-11-10T08:40:56Z [closure] Rechecked the eight frozen stories, integrated source delta, paired image proof and local gates. G6 is closed: implementation `301faea690e22c0ec93337d652c776a4b5df9218` passed Greptile 5/5 with zero comments and all active CI jobs, including Windows web/CLI and Web E2E. The existing conditional installed-upgrade job was not applicable. PR #123 is open, non-draft, mergeable and clean, with auto-merge absent and no review or issue comments. Closed this continuing effort with its work; the documentation head receives its own review and CI before handback. No human approval metadata was invented.
 
+- 2026-11-10 [CI follow-up] Reopened readiness after Windows cmd-validate failed the first setup call in the existing JSON settings test at documentation head dab298fa6. Its stdout JSON had been discarded, so the original error remains unavailable. Root reproduced a manifest-stage failure with a controlled 404 release service, then reused the existing seeded-binary fixture while keeping the service unavailable and every settings assertion intact. The test now retains JSON diagnostics. This changes test isolation only; production init and update behavior remain unchanged. [The diagnosis](2026-11-09-agentic-engineering-experience/evidence/windows-init-test-diagnosis.md) distinguishes the verified mechanism from the unknown original Windows error. All focused init JSON cases, make check and both documentation validators passed. Independent Codex GPT-6.1 Sol high fixture review approved the correction with no verified findings. Committed-head manual review and Windows CI remain pending.
+
 ## Deviations
 
 The initial seven-stage comp becomes five factual primary views plus separate Current contracts and Record review. This is an authorized accuracy refinement that avoids inventing readiness, acceptance, or reconciliation. P1 added explicit frozen-scope source selection for HTML workspaces as a necessary dependency. Existing records are not rewritten. No implementation scope is deferred.
@@ -141,9 +143,9 @@ The initial seven-stage comp becomes five factual primary views plus separate Cu
 - [x] Implemented foundation and independent technical review pass.
 - [x] All eight stories and Requirements are verified in the installed interface.
 - [x] Required local gates, documentation validation and frozen-scope checks pass.
-- [x] Independent implementation review and Greptile 5/5 cover final behavior.
+- [ ] Independent implementation review and Greptile 5/5 cover final behavior.
 - [x] Specs, owning docs, changelog, actual outcomes and deviations are reconciled.
-- [x] PR URL, verified implementation head, passing CI and open unmerged state are recorded.
+- [ ] PR URL, verified implementation head, passing CI and open unmerged state are recorded.
 
 ## Compounding Follow-ups
 
@@ -151,4 +153,4 @@ Record recurring friction with its evidence. Fresh-worktree authoring needed OS/
 
 ## Status
 
-Complete. All eight frozen stories and the image follow-up are delivered and reconciled in [PR #123](https://github.com/atomicobject/rhizome/pull/123). Implementation `301faea690e22c0ec93337d652c776a4b5df9218` has passing CI and Greptile 5/5 with zero comments. Leave the PR open and unmerged for Drew. The PR checks and final report identify the subsequently verified documentation head.
+Active for the Windows settings-test isolation correction and current-head readiness. All eight frozen stories remain delivered. Prior application-head receipts remain historical evidence; PR #123 stays open and unmerged until the follow-up gates and reviews pass.
