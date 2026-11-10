@@ -194,6 +194,32 @@ test("inline Markdown links resolve from their authored source", async ({ page }
   ).toBeVisible();
 });
 
+test("Markdown filenames with parentheses retain their complete canonical destination", async ({
+  page,
+}) => {
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    const ref = url.searchParams.get("ref");
+
+    if (url.pathname === "/api/v1/nodes/preview" && ref) requests.push(ref);
+  });
+  await page.goto(record("docs/efforts/2026-11-09-10-04-harbor.md"));
+  const f = content(page);
+  await f.getByText("Archived harbor pilot · original source", { exact: true }).click();
+  const link = f.getByRole("link", { name: "Versioned plan", exact: true });
+  await expect(link).toBeVisible();
+  expect(requests).toContain("[target](./harbor-legacy/plan%28v2%29.html)");
+  await link.click();
+  await expect(
+    page
+      .frameLocator(
+        'iframe[title="Interactive HTML note: docs/efforts/harbor-legacy/plan(v2).html"]',
+      )
+      .getByText("The versioned plan remains readable.", { exact: true }),
+  ).toBeVisible();
+});
+
 test("extensionless wikilinks preserve HTML targets and ambiguous names", async ({ page }) => {
   const requests: string[] = [];
   page.on("request", (request) => {

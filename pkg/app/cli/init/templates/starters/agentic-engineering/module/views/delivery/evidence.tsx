@@ -30,7 +30,7 @@ function SourceAnchor({
   );
   const authoredTarget = href?.startsWith("rhizome://note/")
     ? `[[${target}]]`
-    : `[target](${href})`;
+    : `[target](${href?.replaceAll("(", "%28").replaceAll(")", "%29")})`;
   const nav = usePageNavigation();
   const active = useViewActive();
   const query = useQuery({
