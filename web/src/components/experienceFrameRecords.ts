@@ -76,6 +76,7 @@ export type Frame = PhaseClock & {
   sessionSent: string | null;
   /** View definition folders the frame has loaded, as views.changed names them. */
   folders: Set<string>;
+  bundled: boolean;
 };
 
 /** One frame as the layer renders it. */
@@ -211,6 +212,7 @@ export function newFrame(showing: ExperienceShowing, id: number): Frame {
     generationSent: false,
     sessionSent: null,
     folders: new Set(),
+    bundled: false,
   };
 }
 

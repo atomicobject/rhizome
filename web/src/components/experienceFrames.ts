@@ -4,6 +4,7 @@
 // experience's sidebar panel (R6) is a frame of its own here, with one page
 // (tab PANEL_TAB_ID), and counts toward the same K. The frame layer and the
 // panel slot render what this store holds; the store owns every message.
+import { isString } from "../api/parse";
 import {
   recordExperienceCount,
   recordExperiencePhase,
@@ -223,6 +224,8 @@ export class ExperienceFrames {
   private destroy(frame: Frame) {
     if (frame.awaiting) clearTimeout(frame.awaiting.timer);
     frame.awaiting = null;
+    frame.pending = null;
+    frame.window = null;
 
     if (this.frames.get(frame.key) === frame) this.frames.delete(frame.key);
   }
@@ -263,6 +266,7 @@ export class ExperienceFrames {
     const request: Promise<Invocation> & { generation?: string } = this.options
       .fetchInvocation(showing)
       .then((result) => {
+        if (this.invocations.get(key) !== request) return result;
         request.generation = result.generation;
 
         if (result.generation !== undefined) this.generation = result.generation;
@@ -282,10 +286,11 @@ export class ExperienceFrames {
   private revoked({ untrusted, message }: Refusal) {
     if (!untrusted) return;
     this.invocations.clear();
+    this.requests.clear();
 
-    // Bundled views name no folder and need no trust.
+    // Only an invocation response can confirm a frame is bundled.
     for (const frame of Array.from(this.frames.values())) {
-      if (frame.folders.size === 0) continue;
+      if (frame.bundled) continue;
 
       if (frame.activeTab !== null) this.errors.set(frame.activeTab, message);
       this.destroy(frame);
@@ -350,6 +355,10 @@ export class ExperienceFrames {
     const folder = checkFolder(result.invocation);
 
     if (folder) frame.folders.add(folder);
+    frame.bundled =
+      frame.folders.size === 0 &&
+      isString(result.invocation.check) &&
+      result.invocation.check.startsWith("/views/_bundled/");
     const posted = JSON.stringify([navigationId, showing.params, frame.id]);
 
     // An unchanged location for the page the frame already shows needs no message.
