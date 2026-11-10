@@ -187,8 +187,8 @@ export const GapLink = ({ id, children }: { id: string; children: ReactNode }) =
   </ListLink>
 );
 
-/** Roots the orientation query did not read completely, said where their numbers appear (R2c). */
-export function Incomplete({ site }: { site: Site }) {
+/** Roots a query did not read completely, said where their numbers appear (R2c). */
+export function Incomplete({ site }: { site: { incomplete: { root: string; status: string; returned: number }[] } }) {
   if (!site.incomplete.length) return null;
   return (
     <p role="alert" className="ak-incomplete">

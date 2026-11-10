@@ -359,3 +359,29 @@ for (const [path, view, text] of [
     await expect(page).toHaveURL(/presentation=ao-kb.overview/);
   });
 }
+
+test("Review discloses incomplete document counts", async ({ page }) => {
+  await page.route("**/api/v1/graphql", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+
+    if (body.data?.submission && body.extensions?.typedRoots?.submission) {
+      body.extensions.typedRoots.submission = {
+        ...body.extensions.typedRoots.submission,
+        returnedCount: 5000,
+        hasMore: true,
+        nextOffset: 5000,
+        status: "capped",
+      };
+    }
+
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto(group("review"));
+  await expect(frame(page).getByRole("alert")).toContainText(
+    "submission read 5,000 records (capped)",
+  );
+  await expect(frame(page).getByRole("alert")).toContainText(
+    "Counts below cover only what was read.",
+  );
+});

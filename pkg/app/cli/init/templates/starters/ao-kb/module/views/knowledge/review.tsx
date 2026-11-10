@@ -2,7 +2,15 @@
 // recorded status, curation registries and reports, and stored confidence, each handed to the AO
 // KB skill that acts on it. Counts come from the current index on every load.
 import { useEffect, useState } from "react";
-import { Count, Section, SectionBody, sectionStatus, useGraphQL, useMarkReady } from "@rhizome/kit";
+import {
+  Count,
+  Section,
+  SectionBody,
+  sectionStatus,
+  typedRootCoverage,
+  useGraphQL,
+  useMarkReady,
+} from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import { GAPS, gap } from "./lib/site.ts";
 import type { Root, Site } from "./lib/site.ts";
@@ -142,6 +150,21 @@ function DocList({ docs }: { docs: Doc[] }) {
 
 function Documents() {
   const query = useGraphQL<Documents>(REVIEW_DOCUMENTS_QUERY);
+  const coverage = typedRootCoverage(query.data);
+  const incomplete = (["submission", "curationDocument", "conflictRegistry"] as const).flatMap(
+    (root) => {
+      const c = coverage?.[root];
+      return c?.status === "complete"
+        ? []
+        : [
+            {
+              root,
+              status: c?.status ?? "not reported",
+              returned: c?.returnedCount ?? query.data?.[root].length ?? 0,
+            },
+          ];
+    },
+  );
   const subs = query.data?.submission ?? [];
   const findings = subs.filter((s) => s.recordType === "finding"),
     plain = subs.filter((s) => s.recordType !== "finding");
@@ -152,6 +175,7 @@ function Documents() {
   const pending = plain.filter((s) => s.status === "pending").length;
   return (
     <>
+      {query.data && <Incomplete site={{ incomplete }} />}
       <Section
         title="Submissions"
         count={query.data ? `${pending} pending` : undefined}
