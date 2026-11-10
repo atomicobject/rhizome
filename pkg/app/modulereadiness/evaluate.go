@@ -11,7 +11,7 @@ import (
 
 func (c *Coordinator) evaluate(ctx context.Context, d modulelifecycle.Descriptor, key *string, trust string, s Snapshot, input map[string]any) Snapshot {
 	fail := func(err error) Snapshot {
-		if current, readErr := modulelifecycle.Fingerprint(c.opts.Root, d); readErr == nil && current+trust != *key {
+		if current, readErr := modulelifecycle.Fingerprint(ctx, c.opts.Root, d); readErr == nil && current+trust != *key {
 			s.State = Checking
 			s.Reason = ""
 			s.Recovery = nil
@@ -43,7 +43,7 @@ func (c *Coordinator) evaluate(ctx context.Context, d modulelifecycle.Descriptor
 		}
 	}
 	for step := 0; step < 4; step++ {
-		before, err := modulelifecycle.Fingerprint(c.opts.Root, d)
+		before, err := modulelifecycle.Fingerprint(ctx, c.opts.Root, d)
 		if err != nil {
 			return fail(err)
 		}
@@ -53,7 +53,7 @@ func (c *Coordinator) evaluate(ctx context.Context, d modulelifecycle.Descriptor
 			action = d.Verify
 		}
 		actionErr := c.action(ctx, d.Module+"/"+action, nil, &a)
-		after, err := modulelifecycle.Fingerprint(c.opts.Root, d)
+		after, err := modulelifecycle.Fingerprint(ctx, c.opts.Root, d)
 		if err != nil {
 			return fail(err)
 		}
@@ -70,7 +70,7 @@ func (c *Coordinator) evaluate(ctx context.Context, d modulelifecycle.Descriptor
 			s.Recovery = []Recovery{{Kind: Review, Label: "Review schema conflict"}, {Kind: Retry, Label: "Retry"}}
 			return s
 		}
-		current, err := modulelifecycle.Fingerprint(c.opts.Root, d)
+		current, err := modulelifecycle.Fingerprint(ctx, c.opts.Root, d)
 		if err != nil {
 			return fail(err)
 		}
@@ -83,7 +83,7 @@ func (c *Coordinator) evaluate(ctx context.Context, d modulelifecycle.Descriptor
 			if err = c.opts.Include(ctx, a.Includes); err != nil {
 				return fail(err)
 			}
-			after, err = modulelifecycle.Fingerprint(c.opts.Root, d)
+			after, err = modulelifecycle.Fingerprint(ctx, c.opts.Root, d)
 			if err != nil {
 				return fail(err)
 			}

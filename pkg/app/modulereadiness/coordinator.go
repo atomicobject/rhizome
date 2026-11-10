@@ -149,7 +149,7 @@ func (c *Coordinator) scan(ctx context.Context, request *recoveryRequest) {
 			return
 		}
 		present[d.Module] = true
-		key, err := modulelifecycle.Fingerprint(c.opts.Root, d)
+		key, err := modulelifecycle.Fingerprint(ctx, c.opts.Root, d)
 		trust := ""
 		if c.opts.Trust != nil {
 			trust = c.opts.Trust(ctx)

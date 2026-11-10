@@ -25,6 +25,19 @@ test('unambiguous single-product setup is automatic', async t => {
   const {root} = await fixture(t);
   assert.deepEqual((await assess(root)).input, {single: true});
 });
+test('unmarked entries under products do not block single-product setup', async t => {
+  const {root, write} = await fixture(t);
+  await write('products/README.md', '# Products\n');
+  await write('products/drafts/README.md', '# Drafts\n');
+  const result = await assess(root);
+  assert.equal(result.next, 'prepare', JSON.stringify(result));
+  assert.deepEqual(result.input, {single: true});
+});
+test('invalid multi-product setup cannot fall back to single-product mode', async t => {
+  const {root} = await fixture(t, ['alpha']);
+  await rm(path.join(root, 'products/alpha/.kb/config/manifest.json'));
+  assert.equal((await assess(root)).next, 'blocked');
+});
 test('one eligible product is automatic and multiple products require an explicit choice', async t => {
   const one = await fixture(t, ['alpha']);
   const resultOne = await assess(one.root);

@@ -2,7 +2,7 @@ import {readFile, readdir} from 'node:fs/promises';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {check as compilerCheck} from '../bindings/publish.mjs';
-import {knowledge, scalar, siteInventory} from '../bindings/knowledge.mjs';
+import {knowledge, siteInventory} from '../bindings/knowledge.mjs';
 import {readJSON, adapter} from '../bindings/runtime.mjs';
 import {verifyKnowledgeIndex, verifyIndex} from '../bindings/verify-index.mjs';
 import {check as prerequisites} from './check.mjs';
@@ -16,8 +16,7 @@ export async function assess(root, {check = compilerCheck, preflight = prerequis
   if (report.bindings?.model?.status !== "not applicable") await verifyIndex(root, await adapter(root, directory, selection, {offline: true}));
 }} = {}) {
   const directory = path.join(root, '.rhizome/modules/ao-kb/bindings');
-  let config;
-  try { config = await readFile(path.join(root, '.kb/config/vault.md'), 'utf8'); }
+  try { await readFile(path.join(root, '.kb/config/vault.md'), 'utf8'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; return blocked('AO KB needs .kb/config/vault.md at this repository root. Install or open the AO knowledge base first.', [{kind: 'install', label: 'Open repository Settings'}, retry]); }
   let selection = await readJSON(path.join(directory, 'selection.json'));
   if (!selection) {
@@ -34,9 +33,8 @@ export async function assess(root, {check = compilerCheck, preflight = prerequis
     }
     if (candidates.length > 1) return {next: 'needs-input', reason: 'Choose the product this Knowledge Base will show.', recovery: [{kind: 'choice', label: 'Select product', input: 'product', choices: candidates}]};
     if (candidates.length === 1) return {next: 'prepare', reason: `Preparing ${candidates[0]}`, input: {product: candidates[0]}};
-    if ((scalar(config, 'productMode') || 'single') !== 'single' || dirs.length) return blocked(['No unambiguous product is ready. Check the products registry and product markers in .kb/config/vault.md and products/.', ...rejected].join('\n'));
-    // The same domain validator used by refresh must accept single mode first.
-    await knowledge(root, directory, {formatVersion: 1, accountRoot: '.', product: null, toolkit: null});
+    try { await knowledge(root, directory, {formatVersion: 1, accountRoot: '.', product: null, toolkit: null}); }
+    catch (error) { return blocked([error.message, ...rejected].join('\n')); }
     return {next: 'prepare', reason: 'Preparing single-product bindings', input: {single: true}};
   }
   const report = await check({root, directory});

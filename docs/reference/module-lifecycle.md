@@ -10,7 +10,7 @@ code-paths:
 
 # Module lifecycle readiness
 
-An installed module can declare `.rhizome/modules/<id>/lifecycle.yml` with a title, four module-local action names, and one to 32 repository-relative input paths. The fields are `title`, `observe`, `setup`, `index`, `verify`, and `inputs`. Input paths are literal files or directories. Optional `excludes` holds up to 32 relative glob patterns for irrelevant subtrees. AO KB excludes raw evidence archives from readiness fingerprints. Observation includes missing files, rejects symlinks, and is bounded to 20000 files and 64 MiB. Narrow an oversized descriptor before retrying.
+An installed module can declare `.rhizome/modules/<id>/lifecycle.yml` with a title, four module-local action names, and one to 32 repository-relative input paths. The fields are `title`, `observe`, `setup`, `index`, `verify`, and `inputs`. Input paths are literal files or directories. Optional `excludes` holds up to 32 relative glob patterns for irrelevant subtrees. AO KB excludes raw evidence archives from readiness fingerprints. Observation includes missing files, rejects symlinks, checks cancellation during traversal, and is bounded to 20000 visited paths and 64 MiB. Directories count toward the path limit. Narrow an oversized descriptor before retrying.
 
 Input fingerprints include directory names even when directories are empty. Adding, removing, or renaming an artifact phase therefore triggers another assessment without requiring a note-file change.
 

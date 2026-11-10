@@ -3,6 +3,7 @@ package modulelifecycle
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"io/fs"
@@ -105,9 +106,12 @@ func safePath(p string) bool {
 	return p != "" && p != "." && filepath.ToSlash(filepath.Clean(p)) == p && !filepath.IsAbs(p) && p != ".." && !strings.HasPrefix(p, "../") && !strings.ContainsAny(p, `\*?[]`) && p != ".git" && !strings.HasPrefix(p, ".git/")
 }
 
-// Fingerprint reads at most 64 MiB and 20000 files, never following symlinks.
+// Fingerprint reads at most 64 MiB and visits 20000 paths, never following symlinks.
 // Missing inputs are part of the key so installation and removal invalidate it.
-func Fingerprint(root string, d Descriptor) (string, error) {
+func Fingerprint(ctx context.Context, root string, d Descriptor) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	resolvedRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		return "", err
@@ -121,7 +125,7 @@ func Fingerprint(root string, d Descriptor) (string, error) {
 	h := sha256.New()
 	fmt.Fprintf(h, "%+v", d)
 	inputs := append([]string{assetroots.ModuleRoot(d.Module) + "/lifecycle.yml"}, d.Inputs...)
-	files, size := 0, int64(0)
+	entries, size := 0, int64(0)
 	for _, input := range inputs {
 		if !safePath(input) {
 			return "", fmt.Errorf("unsafe input %q", input)
@@ -130,6 +134,9 @@ func Fingerprint(root string, d Descriptor) (string, error) {
 			return "", err
 		}
 		err := fs.WalkDir(fsRoot.FS(), input, func(relative string, e fs.DirEntry, err error) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			p := filepath.Join(root, filepath.FromSlash(relative))
 			if os.IsNotExist(err) {
 				fmt.Fprintf(h, "missing:%s", p)
@@ -137,6 +144,10 @@ func Fingerprint(root string, d Descriptor) (string, error) {
 			}
 			if err != nil {
 				return err
+			}
+			entries++
+			if entries > 20000 {
+				return fmt.Errorf("readiness inputs exceed 20000 paths; narrow lifecycle inputs")
 			}
 			rel, err := paths.ToRel(paths.AbsPath(p), root)
 			if err != nil {
@@ -164,10 +175,9 @@ func Fingerprint(root string, d Descriptor) (string, error) {
 			if err != nil {
 				return err
 			}
-			files++
 			size += info.Size()
-			if files > 20000 || size > 64<<20 {
-				return fmt.Errorf("readiness inputs exceed 20000 files or 64 MiB; narrow lifecycle inputs")
+			if size > 64<<20 {
+				return fmt.Errorf("readiness inputs exceed 64 MiB; narrow lifecycle inputs")
 			}
 			data, err := readRegularFile(fsRoot, rel.String(), (64<<20)-size+info.Size())
 			if err != nil {
