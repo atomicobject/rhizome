@@ -9,14 +9,14 @@ Efforts capture execution against frozen scope. [Review and approval policy](../
 ## Choose a form
 
 - Use Markdown `EffortNote` for simple work, keeping scope, plan, and lifecycle evidence inline. Existing Markdown efforts remain valid without conversion.
-- Use an HTML `EffortWorkspace` folder when separate plan, work log, or supporting materials help. The entry owns identity and frozen scope; its canonical metadata explicitly selects `implementation-plan`, `work-log`, `governing-specs`, and optional `materials`.
+- Use an HTML `EffortWorkspace` folder when separate plan, work log, or supporting materials help. The entry owns identity; its canonical metadata explicitly selects `implementation-plan`, `work-log`, `governing-specs`, optional `frozen-scope`, and optional `materials`.
 - Use exact vault-relative component paths with extensions. The work log must be Markdown. Browser navigation links may be document-relative. `EffortMaterial` classification does not establish membership; only fields marked `@workspaceMember` select components for workspace navigation. Unlinked neighbors, backlinks, and folder proximity do not select components.
 
 ## Create and freeze
 
 - Follow the installed Agentic Engineering effort-setup guidance for live ontology shape, allocation, timestamps, and context-specific escaping. Allocate `EffortNote` or `EffortWorkspace` from the shared `EFF` pool, never the `Effort` interface. Preserve the returned identifier and aliases after creation.
 - Freeze exact selected specs and, where present, ready stories and acceptance criteria. Story increments may help selection but do not replace explicit links to embedded block targets. Requirements-only specs need no invented stories.
-- Markdown keeps governing links in Spec Set (Frozen) and lists the same specs in `governing-specs` frontmatter; story links stay in Stories In Scope (Frozen). Workspaces keep frozen governing specs in entry metadata and exact story links on the overview; the log records the same selections and revisions. Do not add live effort links to selected stories.
+- Markdown keeps governing links in Spec Set (Frozen) and lists the same specs in `governing-specs` frontmatter; story links stay in Stories In Scope (Frozen). Workspaces select an authoritative Markdown `EffortMaterial` through `frozen-scope`. Its Spec Set (Frozen) and Stories In Scope (Frozen) H2 sections retain exact selections and revisions. Entry prose is a summary; `governing-specs` remains separate governing metadata. A different log is a snapshot. When scope and log select the same source, retain both roles and read it once. Missing selectors leave legacy authority unknown without migration. Missing, broken, unsupported, or duplicate sections remain incomplete evidence. Inbound story or criterion effort relations prove mentions, not frozen selection. Do not add live effort links to selected stories.
 - Keep approval absent until a real human grants it for an exact plan revision and scope. For HTML, author `plan-approved-by` metadata through a supported HTML surface or an authorized source edit. No CLI or agent root-metadata writer exists. A populated link, status, or work-log section is not approval.
 
 ## Record lifecycle evidence

@@ -5,6 +5,8 @@ package aokb
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
+	"github.com/atomicobject/rhizome/pkg/vault/version"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
 	"github.com/stretchr/testify/require"
 )
@@ -24,12 +28,23 @@ func TestAOKBLegacyKnowledgeOnlySetup(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the PATH without uv is built from symlinks")
 	}
+	releases := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "synthetic release unavailable", http.StatusForbidden)
+	}))
+	defer releases.Close()
+	t.Setenv("RZM_UPDATE_MANIFEST_URL", releases.URL+"/releases/latest")
+
 	node, err := exec.LookPath("node")
 	require.NoError(t, err, "the AO KB binding compiler needs Node")
 	repo := fixture.RepoRoot(t)
 	kb := &aoKB{t: t, root: filepath.Join(t.TempDir(), "vault"), home: t.TempDir()}
 	require.NoError(t, os.CopyFS(kb.root, os.DirFS(filepath.Join(repo, "testdata/ao-kb-legacy"))))
 	kb.write(".rhizome/config.yml", "notes:\n  includes:\n    - \"**/*.md\"\n    - \".kb/curation/*.md\"\n")
+	pinned := filepath.Join(kb.root, ".rhizome", "bin", appupdate.CurrentPlatformDir(), "rzm")
+	require.NoError(t, os.MkdirAll(filepath.Dir(pinned), 0o755))
+	require.NoError(t, os.Symlink(rzmBinary(t), pinned))
+	require.NoError(t, appupdate.WriteVersionMarker(pinned, version.Version))
+
 	output, err := kb.rzm("init", "--add-addon", "ao-kb", "--agents", "none")
 	require.NoError(t, err, output)
 	kb.authored = kb.files()

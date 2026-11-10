@@ -221,7 +221,7 @@ func nodeRefFromString(raw string) ontology.NodeRef {
 
 func explicitNodePathRefFromString(raw string) (ontology.NodeRef, bool) {
 	raw = strings.TrimSpace(raw)
-	if raw == "" || strings.HasPrefix(raw, "[[") || strings.Contains(raw, "](") || strings.Contains(raw, "://") {
+	if raw == "" || strings.HasPrefix(raw, "{") || strings.HasPrefix(raw, "[[") || strings.Contains(raw, "](") || strings.Contains(raw, "://") {
 		return ontology.NodeRef{}, false
 	}
 	ref := nodeRefFromString(raw)

@@ -74,7 +74,10 @@ export function resolveLinkTarget(href: string | undefined, file: FileView | nul
   return resolveInternalTarget(href, file);
 }
 
-export function resolveRenderedLinkTarget(href: string | undefined, rendered: RenderedFile | null) {
+export function resolveRenderedLinkTarget(
+  href: string | undefined,
+  rendered: LinkCarrier | RenderedFile,
+) {
   return resolveInternalTarget(href, rendered);
 }
 

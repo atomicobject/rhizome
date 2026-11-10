@@ -95,6 +95,8 @@ The most specific level wins, so an experience that lists a type in `types` take
 
 The panel runs in its own frame and keeps one page: a new subject updates that page in place, so the component stays mounted and its own state (find text, lists, scroll) survives navigation. Read the active subject with `useViewLocation()` or `useViewContext()`, and keep what the panel remembers in `useViewPreference`, which is scoped to the panel's experience rather than to the subject. Draw lines and highlighted marks with `--chrome-link` and text with `--chrome-text` and `--chrome-muted`, since the panel sits on the sidebar's chrome.
 
+An experience panel may declare view params to read matching values from the active workspace URL. Keep these params non-identity to preserve the panel's local state as the active subject changes.
+
 ## Tailwind
 
 Every frame loads the kit's precompiled stylesheet, which holds the theme, the kit's components, and every utility the kit and Rhizome's bundled starters use. Set `tailwind: false` when every utility your views use is in that stylesheet or in your own CSS, so the frame skips the runtime compiler and starts faster. Keep the default, `tailwind: true`, when your views use other utilities; with `false` they would not apply.

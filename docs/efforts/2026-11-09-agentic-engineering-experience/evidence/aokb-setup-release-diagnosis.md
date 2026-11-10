@@ -1,0 +1,11 @@
+# AO KB setup release isolation
+
+The final documentation head e61b951bc failed the Linux integration job in TestAOKBLegacyKnowledgeOnlySetup. [The job](https://github.com/atomicobject/rhizome/actions/runs/42808723690/job/129804459316) explicitly reports the missing repo-local binary followed by a GitHub release manifest HTTP 403. This cause is observed, unlike earlier fixture failures whose error bodies were discarded.
+
+The AO KB fixture builds and executes this checkout's real CLI but supplied no matching repo-local pinned binary. Its init call therefore invoked the production pin installer and depended on public release access. This test owns KB setup, bindings, indexing, complete orientation reads and authored-byte preservation. Release downloading is covered separately.
+
+The controlled red keeps the original fixture and points the supported RZM_UPDATE_MANIFEST_URL override at a local /releases/latest service returning HTTP 403. The unchanged init assertion fails with the same manifest-stage error in 7.546 seconds. The route suffix preserves version lookup on the failed service. Evidence is retained in /private/tmp/ae-aokb-release-red.log.
+
+The correction seeds the fixture's exact built CLI as a symlink at the existing platform-specific pin path and writes the current version marker through appupdate.WriteVersionMarker. The test already requires Unix symlinks and has an existing Windows skip; that condition is unchanged. The failed release service stays in the test. The focused race-enabled setup case then passes in 9.299 seconds, including every existing binding, index, orientation completeness and authored-byte assertion. Evidence is retained in /private/tmp/ae-aokb-release-green.log.
+
+Only the integration fixture changes. No production installer behavior, retry, timeout or skip changes. No real vault or installed app is touched. The complete AO KB race suite passed in 11.065 seconds. Required make check and documentation plus frozen-scope validation passed with zero issues. A fresh codex/gpt-6.1-sol high independent fixture review approved the correction with no verified findings. [The review](aokb-release-fixture-review.md) records its scope and limits. New-head CI and manual review remain pending.

@@ -231,8 +231,10 @@ type NodeWorkspaceProjection {
   collections: [NodeCollectionState!]!
   "Source-preserving structural nodes, capped at 200 per workspace selection."
   bodies(first: Int = 200): [NodeBodyProjection!]!
-  "Source-ordered authored links and embeds, capped at 100 per workspace selection."
-  sourceLinks(first: Int = 100): [NodeWorkspaceSourceLink!]!
+  "Source-ordered authored links and embeds, capped at 100 per page. Offset must be nonnegative; nonpositive first returns an empty page."
+  sourceLinks(first: Int = 100, offset: Int = 0): [NodeWorkspaceSourceLink!]!
+  "Total authored occurrences in the focused projection, including duplicates, unresolved links, unsupported targets, and embeds. Requires no target hydration."
+  sourceLinkCount: Int!
   capabilities: NodeCapabilities!
   status: NodeStatus!
   version: String!

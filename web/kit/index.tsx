@@ -22,6 +22,10 @@ import { startView, type ViewConfig, type ViewModule } from "./startView";
 import { postToHost } from "./navigation";
 import { useViewActive, useViewContext } from "./viewContext";
 
+export { resolveRenderedLinkTarget } from "../src/lib/content";
+
+export { getNodePreview } from "../src/api/client";
+
 export { Diagram } from "./Diagram";
 
 export {
@@ -149,7 +153,13 @@ export type { ViewConfig, ViewModule } from "./startView";
 
 export { OPEN_NOTE_MESSAGE };
 
-export { truncation, typedRootCoverage, type Truncation, type TypedRootCoverage } from "./coverage";
+export {
+  responseGeneration,
+  truncation,
+  typedRootCoverage,
+  type Truncation,
+  type TypedRootCoverage,
+} from "./coverage";
 
 /** Run a read-only GraphQL query against the vault. Throws on GraphQL errors. */
 export function graphql<TData>(query: string, variables?: JsonObject): Promise<TData> {

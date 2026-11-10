@@ -234,7 +234,7 @@ const isNotesPath = (pathname: string) =>
 
 type PageProps = {
   layer: NonNullable<ReturnType<typeof useExperienceLayer>>;
-  /** The experience's sidebar panel: its page takes the declared defaults and never the workspace URL. */
+  /** The experience's sidebar panel; declared params follow the active workspace URL. */
   panel?: boolean;
   experienceKey: string;
   view: ViewCatalogEntry;
@@ -265,7 +265,7 @@ export function ExperiencePlaceholder({
   const searchRef = useRef(browser.search);
 
   if (isNotesPath(browser.pathname)) searchRef.current = browser.search;
-  const paramsJSON = JSON.stringify(readViewParams(declarations, panel ? "" : searchRef.current));
+  const paramsJSON = JSON.stringify(readViewParams(declarations, searchRef.current));
   const contextJSON = JSON.stringify(context);
 
   // Messages reach the services this tab last rendered with.

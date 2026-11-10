@@ -10,3 +10,5 @@ Consult `docs/engineering/documentation.md` for which surfaces must carry the ch
 Closed efforts are historical record: append post-closure-prefixed notes rather than rewriting frozen scope, plans, or delivery baselines. Keep original intended delivery intact and reconcile differences in actual-delivered truth.
 
 Separate mechanical clarification from a product or policy change. Record an already-approved change; ask for the accountable decision only when one has not been made. Effort-specific rationale stays in execution notes.
+
+For workspace frozen membership, inspect the explicit `frozen-scope` material and its focused frozen sections. Keep governing links, entry mentions, and a different log snapshot separate. Missing selectors or incomplete section evidence leave authority unknown. Deduplicate canonical source reads when scope and log share a file.

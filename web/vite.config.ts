@@ -38,6 +38,7 @@ export default defineConfig(({ command }) => {
       // Bundled views import the kit by its import-map names, as the browser
       // resolves them; tests resolve those names to the kit sources.
       alias: {
+        "@rhizome/kit/markdown": path.resolve(__dirname, "kit/entries/markdown.ts"),
         "@rhizome/kit": path.resolve(__dirname, "kit/index.tsx"),
         "@rhizome/ui": path.resolve(__dirname, "kit/ui/index.ts"),
       },
