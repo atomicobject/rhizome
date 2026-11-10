@@ -69,6 +69,15 @@ func TestStopWaitsForSpawnedChildBeforeElection(t *testing.T) {
 		t.Fatalf("Stop returned while its child could still write: %v", err)
 	case <-time.After(100 * time.Millisecond):
 	}
+	intent, found, err := registry.StartIntentFor(t.Context(), vault)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.NoError(t, registry.ClearIntent(t.Context(), vault, intent.Token))
+	select {
+	case err := <-stopped:
+		t.Fatalf("Stop returned after its record disappeared while the child could still write: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
 	require.NoError(t, os.WriteFile(filepath.Join(signals, "release"), nil, 0o600))
 	select {
 	case err := <-stopped:
