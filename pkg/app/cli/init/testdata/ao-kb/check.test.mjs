@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readdirSync, readFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { check } from '../../templates/starters/ao-kb/module/scripts/check.mjs';
@@ -300,4 +300,22 @@ test('curation documents beyond the conflict registry need the .kb/curation/*.md
   const covered = 'notes:\n  includes: ["**/*.md", ".kb/curation/*.md"]\n';
   assert.equal(named(fixture(t, { ...docs, '.rhizome/config.yml': covered }), 'note includes').status, 'ok');
   assert.equal(named(fixture(t, { '.kb/curation/report.md': '# Report\n', '.rhizome/config.yml': covered }), 'note includes').status, 'ok');
+});
+
+test('selected product curation needs a literal hidden-path include', t => {
+  const root = fixture(t);
+  cpSync(new URL('../../../../../../testdata/ao-kb-product/account/', import.meta.url), root, { recursive: true });
+  const write = (path, text) => { mkdirSync(join(root, path, '..'), { recursive: true }); writeFileSync(join(root, path), text); };
+  write('.rhizome/modules/ao-kb/bindings/selection.json', JSON.stringify({ formatVersion: 1, product: 'alpha' }));
+  write('products/alpha/.kb/curation/report.md', '# Synthetic product review\n');
+  write('products/beta/.kb/curation/report.md', '# Unselected review\n');
+  const config = 'notes:\n  includes: ["**/*.md", ".kb/curation/*.md"';
+  write('.rhizome/config.yml', config + ']\n');
+  const missing = named(root, 'note includes');
+  assert.equal(missing.status, 'warning');
+  assert.match(missing.message, /products\/alpha\/\.kb\/curation\/\*\.md/);
+  write('.rhizome/config.yml', config + ', "products/alpha/.kb/curation/*.md"]\n');
+  assert.equal(named(root, 'note includes').status, 'ok');
+  write('.rhizome/config.yml', 'notes:\n  includes: ["**/*.md", ".kb/**", "products/alpha/.kb/**"]\n');
+  assert.equal(named(root, 'note includes').status, 'ok', 'literal hidden-root includes still cover curation');
 });

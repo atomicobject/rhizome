@@ -73,11 +73,16 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
     const paths = ['assertions', 'sources', 'concepts', 'artifacts'];
     const knowledge = patterns && paths.every(path => patterns.some(p => ['**/*.md', '**', `${path}/**`, `${path}/**/*.md`].includes(p)));
     // Discovery skips hidden directories unless an include names the hidden path literally.
-    const curation = existsSync(join(root, '.kb/curation')) ? readdirSync(join(root, '.kb/curation'), { withFileTypes: true })
-      .filter(e => e.isFile() && e.name.endsWith('.md')).map(e => `.kb/curation/${e.name}`) : [];
-    const documents = curation.some(path => path !== '.kb/curation/_conflicts.md');
-    const registry = curation.every(path => patterns?.some(p => p.startsWith('.kb/') && globMatch(p, path)));
-    const curationInclude = documents ? '.kb/curation/*.md' : '.kb/curation/_conflicts.md';
+    const product = json(root, `${module}/bindings/selection.json`)?.product;
+    const roots = ['.kb', ...(product ? [`products/${product}/.kb`] : [])];
+    const missingCuration = roots.flatMap(base => {
+      const dir = `${base}/curation`;
+      const files = existsSync(join(root, dir)) ? readdirSync(join(root, dir), { withFileTypes: true })
+        .filter(e => e.isFile() && e.name.endsWith('.md')).map(e => `${dir}/${e.name}`) : [];
+      if (files.every(path => patterns?.some(p => p.startsWith(`${base}/`) && globMatch(p, path)))) return [];
+      return [files.some(path => !path.endsWith('/_conflicts.md')) ? `${dir}/*.md` : `${dir}/_conflicts.md`];
+    });
+    const registry = missingCuration.length === 0;
     // Structured model sources need an include naming their extension; broad globs do not activate them.
     const model = (json(root, `${module}/bindings/manifest.json`)?.sources ?? []).map(s => s.path);
     const unincluded = [...new Set(model)].filter(path => !patterns?.some(p => p === path
@@ -90,7 +95,7 @@ export function check(root, { runCompiler = runCompilerCheck } = {}) {
       ? `Compiled model sources are not included, so they will not be indexed. Append these entries to notes.includes without replacing unrelated rules: ${unincluded.join(', ')}.${first}`
       : !knowledge
       ? 'Simple includes do not cover assertions/, sources/, concepts/, and artifacts/. Inspect notes.includes and ignore rules; append the missing AO paths without replacing unrelated rules.'
-      : `Add the include ${curationInclude}: note discovery skips hidden directories unless an include names the path, so the ${documents ? 'curation registries and reports are' : 'conflict registry is'} not indexed.${first}`, configPath);
+      : `Add the include ${missingCuration.join(', ')}: note discovery skips hidden directories unless an include names the path, so the curation registries and reports are not indexed.${first}`, configPath);
   });
   const ownershipPath = '.rhizome/source-ownership.yml';
   inspect('source ownership', ownershipPath, () => {
