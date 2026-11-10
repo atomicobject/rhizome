@@ -38,6 +38,7 @@ import {
 } from "../views/viewBridge";
 import {
   changedFolder,
+  codeGeneration,
   checkFolder,
   eventGeneration,
   frameKey,
@@ -352,6 +353,7 @@ export class ExperienceFrames {
       params: showing.params,
     };
 
+    frame.codeGeneration ??= codeGeneration(result.generation);
     const folder = checkFolder(result.invocation);
 
     if (folder) frame.folders.add(folder);
@@ -459,8 +461,11 @@ export class ExperienceFrames {
     if (generation === undefined) return;
     this.generation = generation;
 
-    for (const frame of this.frames.values())
-      if (!frame.suspended) this.post(frame, { type: GENERATION_MESSAGE, generation });
+    for (const frame of Array.from(this.frames.values())) {
+      if (!frame.bundled && frame.codeGeneration !== codeGeneration(generation))
+        this.rebuild(frame);
+      else if (!frame.suspended) this.post(frame, { type: GENERATION_MESSAGE, generation });
+    }
   }
 
   /** Records a phase once per frame or navigation, as time since its clock started. */

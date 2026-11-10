@@ -441,6 +441,32 @@ describe("ExperienceFrames", () => {
     expect(services.onOpenNote).toHaveBeenCalledExactlyOnceWith("a.md", "activate");
   });
 
+  it("rebuilds repository frames after missed view changes, including suspended frames", async () => {
+    const { frames, frame, from, fetchGeneration } = harness(
+      "epoch.1.schema.views1.validation.config",
+    );
+
+    frames.show(showing(), null);
+    await vi.advanceTimersByTimeAsync(0);
+    from("exp_kb", { type: FRAME_READY_MESSAGE });
+    const first = frame("exp_kb")!.view.id;
+
+    fetchGeneration.mockResolvedValue("epoch.2.schema.views1.validation.config");
+    frames.vaultEvent({ event: STREAM_RECONNECTED_EVENT });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(frame("exp_kb")!.view.id).toBe(first);
+    fetchGeneration.mockResolvedValue("epoch.2.schema.views2.validation.config");
+    frames.vaultEvent({ event: STREAM_RECONNECTED_EVENT });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(frame("exp_kb")!.view.id).not.toBe(first);
+    frames.hide("home");
+    await vi.advanceTimersByTimeAsync(SUSPEND_GRACE_MS);
+    fetchGeneration.mockResolvedValue("epoch.2.schema.views3.validation.config");
+    frames.vaultEvent({ event: STREAM_RECONNECTED_EVENT });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(frame("exp_kb")).toBeNull();
+  });
+
   it("posts the status generation after a reconnect and rebuilds a frame whose views changed", async () => {
     const { frames, frame, from } = harness();
     frames.show(showing(), null);

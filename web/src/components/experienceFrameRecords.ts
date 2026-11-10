@@ -77,6 +77,7 @@ export type Frame = PhaseClock & {
   /** View definition folders the frame has loaded, as views.changed names them. */
   folders: Set<string>;
   bundled: boolean;
+  codeGeneration?: string;
 };
 
 /** One frame as the layer renders it. */
@@ -236,4 +237,11 @@ export function frameView(frame: Frame): FrameView {
     starting: active && !painted,
     onActivePage: active && frame.acceptedTab === frame.activeTab,
   };
+}
+
+/** A process restart or views change invalidates loaded repository modules. */
+export function codeGeneration(generation: string | undefined) {
+  const parts = generation?.split(".");
+
+  return parts?.length === 6 ? `${parts[0]}.${parts[3]}` : undefined;
 }
