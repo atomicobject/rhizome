@@ -3,7 +3,7 @@ type: TechnicalSpec
 summary: "Defines the read-only GraphQL query contract generated from Rhizome ontology SDL: bounded roots, generated type surfaces, GraphQL variables, NodeRef locators, section resolution, relation semantics, batching, errors, limits, semantic fallback, and regression fixtures."
 id: SPEC-0042
 spec-status: active
-last-updated: 2026-11-04
+last-updated: 2026-11-10
 aliases:
   - SPEC-0042
   - ontology-graphql-query-contract
@@ -51,6 +51,15 @@ Related governing specs:
 - Guaranteeing semantic search availability in vaults that do not configure a semantic searcher; the `search` root degrades to lexical lanes there.
 
 ## Requirements
+
+### Focused source-link pagination
+
+- `Node.workspace.sourceLinks(first: Int = 100, offset: Int = 0)` MUST preserve authored occurrence order in the focused projection, including duplicates, unresolved and unsupported targets, and embeds.
+- `sourceLinkCount: Int!` MUST count those occurrences before pagination without hydrating targets. It MUST use the same projection and edit overlay as the page.
+- Offset MUST be nonnegative. Preparation MUST reject a negative literal or variable. An offset at or beyond the count MUST return an empty page.
+- Nonpositive `first` MUST retain the existing empty-page behavior. Positive values MUST be clamped to 100. Slicing MUST avoid integer overflow and MUST precede target resolution through the existing request scope.
+- Omitting offset MUST retain existing first-page behavior. Count and pages describe authored occurrences, not distinct or resolved targets.
+- Consumers traversing pages MUST compare source revision and graph generation. Changed or missing generation, changed revision, errors, or a short page before the count MUST remain incomplete.
 
 ### Root Selection Bounds
 
