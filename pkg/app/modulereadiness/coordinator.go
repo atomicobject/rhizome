@@ -2,10 +2,10 @@ package modulereadiness
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 	"sync"
 	"time"
@@ -45,7 +45,7 @@ type Coordinator struct {
 
 func New(opts Options) *Coordinator {
 	c := &Coordinator{opts: opts, entries: map[string]entry{}, requests: make(chan recoveryRequest, 32), pending: map[string]bool{}, done: make(chan struct{})}
-	data, _ := os.ReadFile(c.receiptPath())
+	data, _ := modulelifecycle.ReadRegularFile(opts.Root, ".rhizome/state/module-readiness.json", 1<<20)
 	_ = json.Unmarshal(data, &c.entries)
 	if c.entries == nil {
 		c.entries = map[string]entry{}
@@ -222,9 +222,6 @@ func (c *Coordinator) changed() {
 	}
 	c.save()
 }
-func (c *Coordinator) receiptPath() string {
-	return filepath.Join(c.opts.Root, ".rhizome/state/module-readiness.json")
-}
 func (c *Coordinator) save() {
 	c.mu.Lock()
 	terminal := map[string]entry{}
@@ -238,11 +235,31 @@ func (c *Coordinator) save() {
 	if err != nil {
 		return
 	}
-	file := c.receiptPath()
-	if os.MkdirAll(filepath.Dir(file), 0700) != nil {
+	root, err := os.OpenRoot(c.opts.Root)
+	if err != nil {
 		return
 	}
-	if os.WriteFile(file+".tmp", data, 0600) == nil {
-		_ = os.Rename(file+".tmp", file)
+	defer root.Close()
+	if root.MkdirAll(".rhizome/state", 0700) != nil {
+		return
+	}
+	dir, err := root.OpenRoot(".rhizome/state")
+	if err != nil {
+		return
+	}
+	defer dir.Close()
+	temp := "module-readiness." + rand.Text() + ".tmp"
+	file, err := dir.OpenFile(temp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		return
+	}
+	defer dir.Remove(temp)
+	_, writeErr := file.Write(data)
+	if writeErr == nil {
+		writeErr = file.Sync()
+	}
+	closeErr := file.Close()
+	if writeErr == nil && closeErr == nil {
+		_ = dir.Rename(temp, "module-readiness.json")
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -30,10 +29,20 @@ type Descriptor struct {
 }
 
 func Load(root string) ([]Descriptor, error) {
-	entries, err := os.ReadDir(filepath.Join(root, assetroots.ModulesDir))
+	fsRoot, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, err
+	}
+	defer fsRoot.Close()
+	modules, err := fsRoot.OpenRoot(assetroots.ModulesDir)
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
+	if err != nil {
+		return nil, err
+	}
+	defer modules.Close()
+	entries, err := fs.ReadDir(modules.FS(), ".")
 	if err != nil {
 		return nil, err
 	}
@@ -42,8 +51,8 @@ func Load(root string) ([]Descriptor, error) {
 		if !e.IsDir() || !assetroots.ValidModuleName(e.Name()) {
 			continue
 		}
-		file := filepath.Join(root, assetroots.ModuleRoot(e.Name()), "lifecycle.yml")
-		data, err := os.ReadFile(file)
+		file := filepath.Join(assetroots.ModuleRoot(e.Name()), "lifecycle.yml")
+		data, err := readRegularFile(fsRoot, file, 64<<10)
 		if os.IsNotExist(err) {
 			continue
 		}
@@ -104,6 +113,11 @@ func Fingerprint(root string, d Descriptor) (string, error) {
 		return "", err
 	}
 	root = resolvedRoot
+	fsRoot, err := os.OpenRoot(root)
+	if err != nil {
+		return "", err
+	}
+	defer fsRoot.Close()
 	h := sha256.New()
 	fmt.Fprintf(h, "%+v", d)
 	inputs := append([]string{assetroots.ModuleRoot(d.Module) + "/lifecycle.yml"}, d.Inputs...)
@@ -115,7 +129,8 @@ func Fingerprint(root string, d Descriptor) (string, error) {
 		if err := noSymlinks(root, input); err != nil {
 			return "", err
 		}
-		err := filepath.WalkDir(filepath.Join(root, filepath.FromSlash(input)), func(p string, e fs.DirEntry, err error) error {
+		err := fs.WalkDir(fsRoot.FS(), input, func(relative string, e fs.DirEntry, err error) error {
+			p := filepath.Join(root, filepath.FromSlash(relative))
 			if os.IsNotExist(err) {
 				fmt.Fprintf(h, "missing:%s", p)
 				return nil
@@ -153,12 +168,7 @@ func Fingerprint(root string, d Descriptor) (string, error) {
 			if files > 20000 || size > 64<<20 {
 				return fmt.Errorf("readiness inputs exceed 20000 files or 64 MiB; narrow lifecycle inputs")
 			}
-			file, err := os.Open(p)
-			if err != nil {
-				return err
-			}
-			data, err := io.ReadAll(io.LimitReader(file, (64<<20)-size+info.Size()+1))
-			_ = file.Close()
+			data, err := readRegularFile(fsRoot, rel.String(), (64<<20)-size+info.Size())
 			if err != nil {
 				return err
 			}

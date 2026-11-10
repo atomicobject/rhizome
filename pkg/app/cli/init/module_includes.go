@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/noteformat"
@@ -27,17 +26,6 @@ func EnsureModuleSourceIncludes(ctx context.Context, root string, sources []stri
 	if err != nil {
 		return err
 	}
-	cfg, err := repoconfig.LoadLocalConfig(root)
-	if err != nil {
-		return err
-	}
-	if cfg == nil {
-		return fmt.Errorf("repository configuration is missing; run rzm init")
-	}
-	includes := append([]string(nil), cfg.Notes.Includes...)
-	if len(includes) == 0 {
-		includes = []string{"**/*.md"}
-	}
 	for _, p := range sources {
 		if p == "" || p == "." || filepath.IsAbs(p) || filepath.ToSlash(filepath.Clean(p)) != p || p == ".." || strings.HasPrefix(p, "../") || strings.ContainsAny(p, `\*?[]`) {
 			return fmt.Errorf("module source must be an exact repository-relative path: %q", p)
@@ -45,20 +33,25 @@ func EnsureModuleSourceIncludes(ctx context.Context, root string, sources []stri
 		if err := checkModuleSourceLocation(root, p); err != nil {
 			return err
 		}
-		if !moduleSourceIncluded(p, includes, formats) {
-			includes = append(includes, p)
-		}
 	}
-	changed := !slices.Equal(includes, cfg.Notes.Includes)
-	cfg.Notes.Includes = includes
-	guidance, err := prepareModuleGuidance(root, *cfg)
+	var guidance *preparedFiles
+	err = repoconfig.UpdateLocalConfig(ctx, root, func(cfg *repoconfig.LocalConfig) error {
+		includes := append([]string(nil), cfg.Notes.Includes...)
+		if len(includes) == 0 {
+			includes = []string{"**/*.md"}
+		}
+		for _, p := range sources {
+			if !moduleSourceIncluded(p, includes, formats) {
+				includes = append(includes, p)
+			}
+		}
+		cfg.Notes.Includes = includes
+		var err error
+		guidance, err = prepareModuleGuidance(root, *cfg)
+		return err
+	})
 	if err != nil {
 		return err
-	}
-	if changed {
-		if err := repoconfig.SaveLocalConfig(root, *cfg); err != nil {
-			return err
-		}
 	}
 	_, err = guidance.apply(nil)
 	return err
