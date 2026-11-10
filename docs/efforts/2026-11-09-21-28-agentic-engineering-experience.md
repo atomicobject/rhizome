@@ -114,6 +114,10 @@ All eight stories are backported as satisfied. Local `make check` and `make veri
 
 - 2026-11-10 [review] The `83a6195aa` manual review confirmed both earlier findings resolved and identified overbroad field-error coverage. Root reproduced the clean-neighbor failure and scoped field evidence to each owning spec/story while retaining batched hydration. Counterexamples include a clean sibling and clean neighboring specs beside active or archived ambiguous records. Strict template TypeScript, 25 focused tests, make check, make build and all 55 installed Delivery cases pass. A subsequent committed-head review and current-head CI remain required.
 
+- 2026-11-10 [review] The `4d40d2c21` manual review confirmed G3 resolved and found selected-scope refresh risk. Shared live freshness already handled the normal event path; root reproduced the manual fallback failure with the event feed unavailable. The fix refreshes selected evidence explicitly, keys it by inventory generation and blocks incoherent Copy. Both hook callers are updated, and the installed red-before-green test covers held reads, broken scope and recovery. Strict template TypeScript, make check, make build and all 56 installed Delivery cases pass. Committed-head review and CI remain required.
+
+- 2026-11-10 [validation] All active CI jobs passed on `4d40d2c21`, including Windows web/CLI and desktop portability. The earlier newline assertion failure is closed. G4 remains a separate review fix; local checks and all 56 expanded installed cases pass. Push and current-head readiness remain required.
+
 ## Deviations
 
 The initial seven-stage comp becomes five factual primary views plus separate Current contracts and Record review. This is an authorized accuracy refinement that avoids inventing readiness, acceptance, or reconciliation. P1 added explicit frozen-scope source selection for HTML workspaces as a necessary dependency. Existing records are not rewritten. No implementation scope is deferred.

@@ -7,6 +7,7 @@ import {
   groupFor,
   groupResult,
   identity,
+  inventoryComplete,
   promptFor,
   readComplete,
 } from "./lib/index.ts";
@@ -52,8 +53,14 @@ export function DeliveryStage({
   const effortRefs = baselineRows
     .filter((row) => row.kind === "effort" && selected.includes(identity(row.record.ref)))
     .map((row) => row.record.ref);
-  const details = useDeliverySelectedEfforts(effortRefs);
-  const loaded = new Map(details.data?.efforts.map((record) => [identity(record.ref), record]));
+  const details = useDeliverySelectedEfforts(effortRefs, portfolio.effortCoverage.graphGeneration);
+  const coherent =
+    details.data && inventoryComplete([portfolio.effortCoverage, details.data.coverage]);
+  const loaded = new Map(
+    details.data && coherent
+      ? details.data.efforts.map((record) => [identity(record.ref), record])
+      : [],
+  );
   const current = {
     ...portfolio,
     efforts: portfolio.efforts.map((record) => loaded.get(identity(record.ref)) ?? record),
@@ -73,7 +80,7 @@ export function DeliveryStage({
     );
   const composed = promptFor(group.stage, current, selected);
   const loadingScope = effortRefs.length > 0 && (details.isPending || details.isFetching);
-  const incompleteScope = effortRefs.length > 0 && details.data && !details.data.coverage.complete;
+  const incompleteScope = effortRefs.length > 0 && details.data && !coherent;
   const readReasons = [
     ...(stale ? ["Refresh must finish successfully before copying."] : []),
     ...(loadingScope ? ["Reading selected effort scope."] : []),
@@ -236,7 +243,7 @@ export function DeliveryStage({
               <Button onClick={() => details.refetch()}>Read selection again</Button>
             </p>
           )}
-          {!loadingScope && details.data && !details.data.coverage.complete && (
+          {!loadingScope && incompleteScope && (
             <p role="status">
               Some selected scope is incomplete. Inspect the source before copying.
             </p>

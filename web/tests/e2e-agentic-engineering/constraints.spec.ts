@@ -1,4 +1,4 @@
-import { isJsonObject, type JsonValue } from "../../src/api/parse";
+import { isJsonObject, isString, type JsonValue } from "../../src/api/parse";
 import { expect, test } from "@playwright/test";
 import { capture, content, home, noOverflow, record, specPath, specTitle } from "./helpers";
 
@@ -247,4 +247,87 @@ test("ambiguous spec sections disable ready selection while preserving authored 
   await expect(f.getByRole("textbox", { name: /prompt/i })).toHaveValue(/proposed-2\.md/);
   await page.goto(record(specPath, "SPEC-9001-US1"));
   await expect(f.getByText(/harbor confirmation ends here/)).toBeVisible();
+});
+
+test("refresh rereads selected effort scope before allowing Copy and recovers", async ({
+  page,
+}, info) => {
+  const path = "docs/efforts/2026-11-09-10-02-harbor.md";
+  await page.route("**/api/v1/events", (route) => route.abort("blockedbyclient"));
+  await page.goto("/notes?view=agentic-engineering.stage&stage=active");
+  const f = content(page);
+  const copy = f.getByRole("button", { name: "Copy workflow prompt", exact: true });
+  await f.getByRole("checkbox", { name: "Select Active all checked", exact: true }).check();
+  await expect(copy).toBeEnabled();
+  let detailReads = 0;
+  const generations: JsonValue[] = [];
+  let release = () => {};
+
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await page.route("**/api/v1/graphql", async (route) => {
+    const response = await route.fetch();
+    const json: unknown = await response.json();
+
+    if (!isJsonObject(json) || !isJsonObject(json.data))
+      throw new Error("Expected fixture GraphQL data");
+    let ownDetail = false;
+
+    function update(value: JsonValue) {
+      if (Array.isArray(value)) {
+        value.forEach(update);
+
+        return;
+      }
+
+      if (!isJsonObject(value)) return;
+
+      if (isJsonObject(value.ref) && value.ref.notePath === path && isJsonObject(value.workspace)) {
+        if (isString(value.content)) ownDetail = true;
+
+        if (Array.isArray(value.workspace.fields))
+          for (const field of value.workspace.fields) {
+            if (isJsonObject(field) && field.name === "storiesInScopeFrozen") {
+              field.sectionNodes = [];
+              field.issues = [{ code: "unresolved", message: "Frozen section unavailable" }];
+            }
+          }
+      }
+
+      Object.values(value).forEach(update);
+    }
+
+    update(json.data);
+    generations.push({
+      generation: isJsonObject(json.extensions) ? (json.extensions.generation ?? null) : null,
+      ownDetail,
+    });
+
+    if (ownDetail) {
+      detailReads++;
+      await held;
+    }
+
+    await route.fulfill({ response, json });
+  });
+
+  try {
+    await f.getByRole("button", { name: "Refresh records", exact: true }).click();
+    await expect.poll(() => detailReads).toBeGreaterThan(0);
+    await expect(copy).toBeDisabled();
+  } finally {
+    release();
+    await info.attach("refresh-generations", {
+      body: JSON.stringify(generations),
+      contentType: "application/json",
+    });
+  }
+
+  await expect(f.getByText(/Some selected scope is incomplete/)).toBeVisible();
+  await expect(copy).toBeDisabled();
+  await page.unroute("**/api/v1/graphql");
+  await f.getByRole("button", { name: "Refresh records", exact: true }).click();
+  await expect(copy).toBeEnabled();
 });

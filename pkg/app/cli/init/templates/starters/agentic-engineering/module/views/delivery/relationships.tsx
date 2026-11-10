@@ -4,13 +4,14 @@ import { Button } from "@rhizome/ui";
 import { useDeliveryPortfolio, useDeliverySelectedEfforts } from "./data.tsx";
 import type { LiveSpec } from "./data.tsx";
 import { field } from "./reads.ts";
-import { identity } from "./lib/index.ts";
+import { identity, inventoryComplete } from "./lib/index.ts";
 import { RecordLink } from "./presentation.tsx";
 
 function LoadedRelationships({ spec }: { spec: LiveSpec }) {
   const inventory = useDeliveryPortfolio();
   const details = useDeliverySelectedEfforts(
     inventory.data?.portfolio.efforts.map((effort) => effort.ref) ?? [],
+    inventory.data?.portfolio.effortCoverage.graphGeneration ?? null,
   );
   const members = new Set(
     [
@@ -40,8 +41,13 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
   const pending =
     inventory.isPending || (!!inventory.data?.portfolio.efforts.length && details.isPending);
   const complete =
-    inventory.data?.coverage.complete &&
-    (!inventory.data.portfolio.efforts.length || details.data?.coverage.complete);
+    inventory.data &&
+    !inventory.isFetching &&
+    inventoryComplete([spec.coverage, inventory.data.coverage]) &&
+    (!inventory.data.portfolio.efforts.length ||
+      (details.data &&
+        !details.isFetching &&
+        inventoryComplete([inventory.data.coverage, details.data.coverage])));
   return (
     <>
       {pending && <p role="status">Reading authored effort sources…</p>}
