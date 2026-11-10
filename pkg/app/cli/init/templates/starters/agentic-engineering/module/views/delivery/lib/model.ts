@@ -1,5 +1,7 @@
 /** Adapter inputs are facts from public reads, never inferred link membership. */
 export type Ref = {
+  ref?: string;
+  structural?: string | null;
   notePath: string;
   kind: string;
   fragment?: string | null;
@@ -13,7 +15,7 @@ export type Ref = {
 
 export function identity(ref: Ref): string {
   return JSON.stringify([ref.notePath, ref.fragment ?? '', ref.nodeId ?? '', ref.kind,
-    ref.structuralFingerprint ?? '', ref.typeName ?? '']);
+    ref.structural ?? ref.structuralFingerprint ?? '', ref.typeName ?? '']);
 }
 
 export type Coverage = {
