@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/procrun"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/pkg/vault/actiondef"
 )
@@ -138,7 +139,7 @@ func (r *Runner) runCommand(ctx context.Context, a actiondef.Action, input map[s
 	}
 	cmd := exec.Command(name, argv[1:]...)
 	cmd.Dir = r.RepoRoot
-	cmd.Env = procrun.WithPath(os.Environ(), procrun.LoginPath())
+	cmd.Env = r.environment()
 	cmd.Stdin = bytes.NewReader(payload)
 	var stderr tail
 	out, err := procrun.Run(ctx, cmd, &stderr, maxStdout)
@@ -184,7 +185,7 @@ func (r *Runner) runScript(ctx context.Context, a actiondef.Action, input map[st
 	if r.Vault != "" {
 		cmd.Args = append(cmd.Args, "--vault", r.Vault)
 	}
-	cmd.Env = procrun.WithPath(os.Environ(), procrun.LoginPath())
+	cmd.Env = r.environment()
 	var stderr tail
 	out, err := procrun.Run(ctx, cmd, &stderr, maxStdout)
 	if ctx.Err() != nil {
@@ -297,4 +298,22 @@ func (t *tail) lastLine() string {
 		}
 	}
 	return ""
+}
+
+// environment pins nested CLI calls to this repository runtime's selected image.
+func (r *Runner) environment() []string {
+	executable := r.Rzm
+	if executable == "" {
+		executable, _ = os.Executable()
+	}
+	executable = paths.AbsFromInput(r.RepoRoot, executable).String()
+	env := procrun.WithPath(os.Environ(), procrun.LoginPath())
+	filtered := env[:0]
+	for _, value := range env {
+		if strings.HasPrefix(value, "RZM=") || strings.HasPrefix(value, "RZM_SKIP_REPO_DELEGATE=") || strings.HasPrefix(value, "RZM_REPO_DELEGATED=") {
+			continue
+		}
+		filtered = append(filtered, value)
+	}
+	return append(filtered, "RZM="+executable, "RZM_SKIP_REPO_DELEGATE=1", "RZM_REPO_DELEGATED=1")
 }

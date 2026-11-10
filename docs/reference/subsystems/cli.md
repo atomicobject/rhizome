@@ -171,3 +171,5 @@ settings consume the same invocation environment. Child-process environment
 values must be supplied at the process boundary when needed.
 
 Shared graph-path fact preparation and canonical alias lookup live in `pkg/app/graphpresentation/path.go`; CLI and MCP keep their own admission and output behavior. Desktop CLI-link commands quote each POSIX argument with `pkg/shellquote.Quote`, preserving the expected-old-target check before mutation.
+
+Installed modules can declare readiness through `lifecycle.yml`; see [[module-lifecycle]]. The runtime discovers CLI installs without making non-interactive init execute compilers. AO KB reports its own prerequisites and selection choices; init owns exact source include updates.

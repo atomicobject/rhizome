@@ -32,7 +32,7 @@ async function bin(root) {
   await mkdir(dir);
   await symlink(process.execPath, path.join(dir, 'node'));
   const rzm = path.join(dir, 'rzm');
-  await writeFile(rzm, `#!/bin/sh\necho "$*" >> "${dir}/rzm.log"\n[ "$1" = "--version" ] && echo "rzm 0.0.0-test"\nexit 0\n`);
+  await writeFile(rzm, `#!/bin/sh\necho "$*" >> "${dir}/rzm.log"\n[ "$1" = "--version" ] && echo "rzm 0.0.0-test"\nif [ "$1 $2" = "ontology query" ]; then\nnode -e 'const names=["assertion","source","concept","artifact","mapOfContent","submission","curationDocument","conflictRegistry"]; const text=process.argv[1]||"";const nodes=text.includes("nodes(refs:")?JSON.parse(text.slice(text.indexOf("["),text.indexOf("]")+1)).map(notePath=>({ref:{notePath}})):[];console.log(JSON.stringify({data:{...Object.fromEntries(names.map(n=>[n,[]])),nodes},extensions:{typedRoots:Object.fromEntries(names.map(n=>[n,{status:"complete"}]))}}));' "$4"\nfi\nexit 0\n`);
   await chmod(rzm, 0o755);
   return { env: { PATH: dir, HOME: root }, log: () => readFile(path.join(dir, 'rzm.log'), 'utf8').catch(() => '') };
 }

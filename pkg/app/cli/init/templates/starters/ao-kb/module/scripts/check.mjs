@@ -18,7 +18,7 @@ function json(root, path) {
 }
 // Discovery treats an absent notes.includes as every Markdown file.
 const DEFAULT_INCLUDES = ['**/*.md'];
-function includes(text) {
+export function includes(text) {
   if (text !== null && !/^notes:/m.test(text)) return DEFAULT_INCLUDES;
   const notes = text?.match(/^notes:\s*\n((?:[ \t]+[^\n]*\n|\s*\n)*)/m)?.[1];
   if (notes !== undefined && !/^ +includes:/m.test(notes)) return DEFAULT_INCLUDES;

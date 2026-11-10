@@ -44,3 +44,5 @@ The retired `project-kb` starter is no longer offered or bundled. Existing insta
 Stale command and prompt files use the same generated-file removal plan as other owned files. Only recorded direct-child command paths are candidates; preview and apply share the same decisions, edited or unrecorded files stay by default, and accepted removals update the record and result. Filename prefixes alone grant no deletion authority.
 
 Compounding CLI calls record stdin write errors until the child closes. A rejecting child keeps its own diagnostic; a successful exit with undelivered request input is still a failed call.
+
+Optional installed `module/lifecycle.yml` assets participate in normal starter installation and removal. `EnsureModuleSourceIncludes` admits exact module-reported current source paths, preserving existing include rules and unrelated configuration. AO KB readiness reuses compiler preparation, product selection, query checks, and index receipts. It never changes AO-authored knowledge or removes conflicting schemas.

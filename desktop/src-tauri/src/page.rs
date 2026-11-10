@@ -131,9 +131,14 @@ pub struct Request {
 #[serde(tag = "action", rename_all = "camelCase")]
 pub enum Ask {
     /// Opens an item's worktree in a new window.
-    OpenTaskWorktree { path: String },
+    OpenTaskWorktree {
+        path: String,
+    },
     /// Opens Terminal running `rzm tasks start <item>`.
-    StartTask { item: String },
+    StartTask {
+        item: String,
+    },
+    OpenRepositorySettings,
 }
 
 /// Reads a page title as a report, only from a page on the verified runtime

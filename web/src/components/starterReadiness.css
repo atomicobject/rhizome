@@ -1,0 +1,19 @@
+.starter-readiness {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--border-color, #8885);
+  background: var(--surface-secondary, #8881);
+  flex: 0 0 auto;
+  max-height: 35vh;
+  overflow: auto;
+}
+.starter-readiness p {
+  margin: 0.35rem 0;
+  white-space: pre-wrap;
+}
+.starter-readiness button,
+.starter-readiness select {
+  margin: 0.25rem 0.5rem 0.25rem 0;
+}
+.starter-readiness code {
+  display: block;
+}

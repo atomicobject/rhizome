@@ -1,4 +1,6 @@
-import {run} from './runtime.mjs';
+import {run, readJSON} from './runtime.mjs';
+import path from 'node:path';
+import {siteInventory} from './knowledge.mjs';
 import {sourceType} from './render.mjs';
 
 export async function verifyIndex(root, ir, query = text => JSON.parse(run(process.env.RZM || 'rzm', ['ontology', 'query', '--query', text], {cwd: root}))) {
@@ -31,6 +33,35 @@ export async function verifyIndex(root, ir, query = text => JSON.parse(run(proce
         page.offset = coverage.nextOffset;
         next.push(page);
       } else throw new Error(`ao_index_coverage_incomplete: ${page.type} (${coverage.status})`);
+    }
+    pending = next;
+  }
+}
+
+// A complete empty result is valid. Missing roots or pending coverage are not.
+export async function verifyKnowledgeIndex(root, query = text => JSON.parse(run(process.env.RZM || 'rzm', ['ontology', 'query', '--query', text], {cwd: root}))) {
+  const selection = await readJSON(path.join(root, '.rhizome/modules/ao-kb/bindings/selection.json'));
+  const files = await siteInventory(root, selection?.product);
+  for (let offset = 0; offset < files.length; offset += 100) {
+    const batch = files.slice(offset, offset + 100);
+    const response = await query(`{ nodes(refs: ${JSON.stringify(batch)}) { ref { notePath } } }`);
+    if (response.errors?.length) throw new Error(`ao_index_query_failed: ${response.errors[0].message}`);
+    const found = new Set((response.data?.nodes ?? []).map(node => node?.ref?.notePath));
+    const missing = batch.filter(file => !found.has(file));
+    if (missing.length) throw new Error(`ao_index_projection_incomplete: ${missing.join(', ')}. Check note includes and ignore rules.`);
+  }
+  let pending = ['assertion', 'source', 'concept', 'artifact', 'mapOfContent', 'submission', 'curationDocument', 'conflictRegistry'].map(name => ({name, offset: 0}));
+  while (pending.length) {
+    const response = await query(`{${pending.map(p => `${p.name}(first: 5000, offset: ${p.offset}) { nodeId }`).join('\n')}}`);
+    if (response.errors?.length) throw new Error(`ao_index_query_failed: ${response.errors[0].message}`);
+    const next = [];
+    for (const page of pending) {
+      const rows = response.data?.[page.name];
+      const coverage = response.extensions?.typedRoots?.[page.name];
+      if (!Array.isArray(rows) || !coverage) throw new Error(`ao_index_coverage_missing: ${page.name}`);
+      if (coverage.status === 'complete') continue;
+      if (coverage.nextOffset > page.offset) next.push({...page, offset: coverage.nextOffset});
+      else throw new Error(`ao_index_coverage_incomplete: ${page.name} (${coverage.status})`);
     }
     pending = next;
   }

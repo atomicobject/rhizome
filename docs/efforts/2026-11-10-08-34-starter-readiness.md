@@ -28,8 +28,8 @@ Deliver [[starter-readiness|SPEC-0137]] using the existing module-action and run
 
 ## Spec Coverage Checklist
 
-- [ ] Shared readiness and automatic eligible setup, including CLI installation and runtime reopen.
-- [ ] Persistent visible status, concrete recovery actions, conflict and input handling.
+- [x] Shared readiness and automatic eligible setup, including CLI installation and runtime reopen.
+- [x] Persistent visible status, concrete recovery actions, conflict and input handling.
 - [x] Ontology folder-only event refresh and client invalidation.
 - [ ] Regression tests, required gates, and real fixture UI verification.
 
@@ -49,7 +49,7 @@ A starter installation reaches ready automatically when possible, otherwise rema
 
 ## Actual Delivered
 
-Implementation is in progress.
+US1 and US2 are implemented in the shared runtime coordinator, installed AO lifecycle actions, public HTTP recovery API, and persistent shell notice. Parent-owned integrated verification, packaged-app validation, and independent review remain pending. The effort remains active.
 
 ## Execution Notes
 
@@ -81,3 +81,18 @@ None identified yet.
 ## Status
 
 Active on `feat/starter-readiness`.
+
+## Implementation work log
+
+- Design sketch for US1 and US2: a separate runtime-owned module coordinator consumes an optional installed lifecycle descriptor and typed module assessments. Extending startup readiness would be smaller initially, but would couple a monotonic startup gate to repeatable per-module recovery and miss installations after startup. The module owner instead serializes action execution outside the writer lane, fingerprints bounded declared inputs, rejects stale results, and retains terminal failure receipts under ignored local state. Existing actions retain trust and cancellation; the AO index action invokes the normal runtime index command and verifies its receipt. The public HTTP snapshot and shell notice share this owner, including when GraphQL is unavailable.
+- Throughput checkpoint: implement the descriptor/coordinator and its boundary regressions first, then the AO assessment/actions and safe include helper, then HTTP and persistent shell recovery, followed by focused and fast gates. Parent retains integrated full, packaged-app, and independent-review gates. No effort completion is claimed here.
+- Retrieval gap: compounding lookup ran before exploration but the semantic query failed because this worktree has no index database. Checked-in source and owning notes provide implementation evidence.
+
+- US1/US2 delivery: optional installed lifecycle declarations drive one runtime worker outside the index lane. Typed assessments and recovery replace file-presence assumptions. Fingerprinted receipts retain unchanged failures; reopening rechecks ready modules against current queries and index evidence. AO owns product choices and uses existing compilation and index receipts. The shared action runner pins command and script subprocesses to the selected executable.
+- Recovery delivery: a persistent shell notice consumes the same non-GraphQL snapshot after Settings or CLI installation. It reports source/schema/dependency reasons, offers product selection and Retry, and opens the current repository Settings through the verified desktop page bridge. Existing authored schemas and knowledge are preserved. Exact source includes and untouched managed guidance are refreshed through init-owned helpers.
+- Verification: `make check` passed, including Go unit packages and 270 web test files / 2157 tests. `make check-fast` passed after regenerating the subsystem-derived Greptile configuration. Focused race tests passed for the coordinator, descriptor fingerprinting, cancellation/coalescing, and include/guidance helpers. The desktop `npm run check` passed 163 tests, and its added recovery-to-Settings regression passed in the 64-test App suite.
+- Real fixture: `go test -tags 'fts5 integration' ./tests/integration/aokb -run TestInstalledStarterAutomatically -v` passed. An already-open runtime discovered CLI installation, selected single-product setup, verified an empty knowledge base, and reopened without rewriting the index receipt. `playwright test tests/e2e/starter-readiness.spec.ts --project workspace` passed the visible selection, failure, navigation/reload, and retry control path against controlled API states in the real shell. Packaged native and schemaVersion 8 dependency-backed journeys remain with the parent validation owner.
+- Generated surfaces: `make build` passed; built-CLI `init --add-addon ao-kb --agents none --binary-manager external` followed by `init --check --agents none` in a disposable configured fixture reported everything up to date. Built-CLI default validation and `validate frozen-scope-drift` both passed with zero issues and errors.
+- Verification corrections: sandboxed runtime tests could not read macOS process lock identity and were rerun with host permissions. A final path-helper change exposed macOS root aliases in the cancellation regression; the fingerprint owner now canonicalizes its root before converting paths, and the test bounds action startup. Raw AO evidence archives are excluded from readiness fingerprints to keep unrelated recordings outside the bounded input budget.
+- Remaining gates: parent integrates the commits, runs full concurrency/integration/native/packaged checks, performs independent review, and records final closure. No PR, merge, or Rhizome Dev installation was performed by this implementation leaf.
+- Final source verification: all six affected Go packages passed with host permissions, including the added AO script and schema regressions. The final `make check-fast`, source-only rebuild after the root-alias correction, and `cargo fmt --check` passed. The final targeted race suite passed for module readiness, descriptors, and init helpers. Build-generated web index HTML was restored to its pre-task bytes; source and generated API types carry the implementation.

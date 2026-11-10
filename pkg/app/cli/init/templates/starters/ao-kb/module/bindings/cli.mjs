@@ -7,7 +7,7 @@ import {mkdir, realpath, rm} from 'node:fs/promises';
 import {refresh, check, atomic} from './publish.mjs';
 import {json, readJSON, run, adapter} from './runtime.mjs';
 import {indexSignature} from './knowledge.mjs';
-import {verifyIndex} from './verify-index.mjs';
+import {verifyIndex, verifyKnowledgeIndex} from './verify-index.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 try {
@@ -55,6 +55,7 @@ try {
       const signature = await signed();
       run(process.env.RZM || 'rzm', ['index'], {cwd: root, timeout: 0});
       if (model) await verifyIndex(root, await adapter(root, directory, selected, {offline: true}));
+      await verifyKnowledgeIndex(root);
       const after = await check({root, directory});
       const current = await readJSON(path.join(directory, 'manifest.json'));
       const currentKnowledge = await readJSON(path.join(directory, 'knowledge-manifest.json'));
@@ -71,5 +72,6 @@ try {
     knowledgeReady: Boolean(error.knowledgeReady), modelReady: false,
     bindings: {knowledge: {ready: Boolean(error.knowledgeReady), status: error.knowledgeReady ? 'ready' : 'incomplete'}, model: {ready: false, status: 'incomplete'}},
     diagnostics: error.diagnostics || [{code: error.message.split(':')[0], severity: 'error', message: error.message}]}));
+  console.error(error.diagnostics?.map(d => d.message).join("\n") || error.message);
   process.exitCode = 1;
 }

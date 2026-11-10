@@ -1,0 +1,23 @@
+title: AO Knowledge Base
+observe: readiness
+setup: refresh-bindings
+index: index
+verify: readiness
+inputs:
+  - .rhizome/modules
+  - .rhizome/ontology
+  - .rhizome/config.yml
+  - .rhizome/source-ownership.yml
+  - .kb/config
+  - .kb/curation
+  - assertions
+  - sources
+  - concepts
+  - artifacts
+  - products
+  - MOCs
+  - _moc.md
+  - _improvements
+excludes:
+  - sources/_raw
+  - products/*/sources/_raw

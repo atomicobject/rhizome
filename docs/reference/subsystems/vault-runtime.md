@@ -6,6 +6,7 @@ code-paths:
   - pkg/app/runtime
   - pkg/app/bootstrap
   - pkg/app/cli/serve
+  - pkg/app/modulereadiness
 tags: [subsystem/vault-runtime]
 code-anchors:
   go:
@@ -125,3 +126,5 @@ Shared embedding nodes retain physical provider/batch metrics in a bounded runti
 Runtime shutdown drains request handlers, background work, stores, and the election heartbeat before `BeforeOwnershipRelease` finalizes runtime and command diagnostics and closes the headless output capture. All structured recorder writes and elected Go-output capture finish before election ownership is released. The inherited native fallback can still receive process-exit or pre-capture command error prose afterward; it follows the raw-output retention limits above. Attached terminal completion output remains after release. Owner-barrier failures and panics finalize their true error outcome while still releasing the election lock.
 
 Go vault-event names and the reconciliation-failure reason live in `pkg/app/runtime/global_events.go`. Bootstrap producers, HTTP publishers and serve readiness consumers import that vocabulary so validation invalidation and refresh suppression follow the same event identity. Payloads and delivery remain owned by their existing producers and transports.
+
+Installed starter readiness has a separate runtime owner in `pkg/app/modulereadiness`, composed by serve. It discovers installed lifecycle declarations, serializes existing actions outside the indexing lane, reconstructs ready state on reopen, retains fingerprinted terminal failure receipts, and publishes one HTTP snapshot. The existing index command still owns job submission and leases. See [[module-lifecycle]].
