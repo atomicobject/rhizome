@@ -2,6 +2,7 @@ package init
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -204,6 +205,11 @@ func migrateLegacyWorkflowConfigWithSave(startDir string, saveWorkflow func(stri
 		}
 		return "", false, err
 	}
+	release, err := repoconfig.LockLocalConfig(context.Background(), root)
+	if err != nil {
+		return root, false, err
+	}
+	defer release()
 	cfg, legacyPresent, err := repoconfig.LoadLocalConfigForWorkflowMigration(root)
 	if err != nil || !legacyPresent {
 		return root, false, err

@@ -2,6 +2,8 @@
 
 `pkg/app/cli/init` owns `rzm init`: config detection/writes, agent-surface mode resolution, managed agent docs, workflow starter scaffolds, starter ontology schemas, command-backed prompt/command artifacts, skills, and the one ownership rule for generated files.
 
+Init publication and legacy configuration migration hold `repoconfig.LockLocalConfig`, shared with background module include updates and ordinary configuration saves. The publisher checks the configuration captured before planning and refuses a stale plan before writing. Prepared guidance documents are rechecked before publication and before each document write; later edits remain intact and require a fresh plan.
+
 The pure overlay model, strict YAML decoder, Markdown slot parser, and renderer live in `pkg/skilloverlay`. Init retains embedded template discovery and starter resolution, then passes loaded skills/overlays to that engine. `ValidateBundledSkillOverlays` returns the neutral manifest for application-injected validation; `LoadAgentHelperTemplate` reads actual embedded helper bytes for command-composed bootstrap loading. Template sources remain in this package.
 
 Template embeds share `markdownsyntax.FenceState` with skill overlays, while retaining their existing unmatched/escaped backtick protection and expansion in indented text. This template grammar is distinct from the broader Markdown link-protection grammar. The compounding starter resolves its executable through `lib/calls.mjs`: explicit `RZM`, then this repository's `bin/rzm`, then `rzm` on PATH. Its finding loader supplies status, action text, and assignee from one note read.

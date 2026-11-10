@@ -8,7 +8,9 @@ import (
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 )
 
-func lockLocalConfig(ctx context.Context, dir string) (func(), error) {
+// LockLocalConfig serializes repository configuration and init publication.
+// Callers must release it and must not invoke another locking writer while held.
+func LockLocalConfig(ctx context.Context, dir string) (func(), error) {
 	if err := os.MkdirAll(rhizomeDir(dir), 0755); err != nil {
 		return nil, err
 	}
@@ -18,7 +20,7 @@ func lockLocalConfig(ctx context.Context, dir string) (func(), error) {
 // UpdateLocalConfig reads, edits, and saves under the same lock as ordinary saves.
 // The callback must not call another configuration writer.
 func UpdateLocalConfig(ctx context.Context, dir string, edit func(*LocalConfig) error) error {
-	release, err := lockLocalConfig(ctx, dir)
+	release, err := LockLocalConfig(ctx, dir)
 	if err != nil {
 		return err
 	}

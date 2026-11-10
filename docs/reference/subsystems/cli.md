@@ -33,6 +33,8 @@ code-anchors:
 
 ## Design constraints
 
+- **Init publication preserves concurrent edits.** Init's apply and legacy configuration migration share `repoconfig.LockLocalConfig` with background module include reconciliation and ordinary configuration saves. Apply rejects changed settings before any generated-file write. Prepared guidance documents are rechecked before publication and before each document write; a later edit stops the stale plan rather than being overwritten.
+
 - **Native source mutation respects configured ownership.** Create/append/overwrite, delete, metadata/tag batches, heading edits, and namespace operations check the common host-path ownership boundary. Property and tag batches reload the current declaration immediately before each file write (`publishFileMutation`), so a declaration made after admission still refuses that file. The same barrier refuses a file whose bytes changed since the edit read it, so a concurrent save is never overwritten, and it keeps the file's mode. Init tracks `.rhizome/source-ownership.yml` as authored configuration and never derives it from projection.
 
 - Repository checkout identity and trust denial text are owned by `pkg/repositorytrust`. Actions and scheduled tasks use that owner; command parsing and scheduler state do not own trust policy.

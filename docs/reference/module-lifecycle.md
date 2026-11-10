@@ -22,7 +22,7 @@ The runtime serializes execution and coalesces pending recovery for each module.
 
 Source-include updates prepare and classify all existing managed guidance through init's normal file plan before changing configuration. A malformed guidance fence therefore leaves configuration, documents, and ownership records unchanged. The same plan preserves locally edited blocks and unrelated template blocks.
 
-Include reconciliation loads and edits the current configuration under the same cross-process lock used by ordinary configuration saves. It cannot publish an old configuration over a concurrent Settings save. An unchanged update preserves the authored file bytes.
+Include reconciliation loads and edits the current configuration and publishes guidance under the same cross-process lock used by ordinary configuration saves and init publication. Init rechecks its captured configuration under that lock and refuses a stale plan before writing. Guidance documents are rechecked after preparation and before each write; a concurrent edit stops publication and remains intact. An unchanged configuration update preserves the authored file bytes.
 
 `GET /api/v1/starter-readiness` returns the shared snapshot without running actions or requiring GraphQL. Each entry names `module`, `title`, `state`, `reason`, and `recovery`. States are `checking`, `working`, `required_input`, `blocked`, `failed`, and `ready`.
 

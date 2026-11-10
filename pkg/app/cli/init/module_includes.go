@@ -34,7 +34,6 @@ func EnsureModuleSourceIncludes(ctx context.Context, root string, sources []stri
 			return err
 		}
 	}
-	var guidance *preparedFiles
 	err = repoconfig.UpdateLocalConfig(ctx, root, func(cfg *repoconfig.LocalConfig) error {
 		includes := append([]string(nil), cfg.Notes.Includes...)
 		if len(includes) == 0 {
@@ -46,14 +45,13 @@ func EnsureModuleSourceIncludes(ctx context.Context, root string, sources []stri
 			}
 		}
 		cfg.Notes.Includes = includes
-		var err error
-		guidance, err = prepareModuleGuidance(root, *cfg)
+		guidance, err := prepareModuleGuidance(root, *cfg)
+		if err != nil {
+			return err
+		}
+		_, err = guidance.apply(nil)
 		return err
 	})
-	if err != nil {
-		return err
-	}
-	_, err = guidance.apply(nil)
 	return err
 }
 

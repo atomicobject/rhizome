@@ -33,7 +33,7 @@ func testInstalledStarterReadiness(t *testing.T, populated bool) {
 			kb.write(fmt.Sprintf("assertions/additional-%d.md", i), "# Additional assertion\n")
 		}
 	}
-	kb.write(".rhizome/config.yml", "notes:\n  includes: [\"**/*.md\"]\n")
+	kb.write(".rhizome/config.yml", "rhizome:\n  binaryManager: external\nnotes:\n  includes: [\"**/*.md\"]\n")
 	kb.write(".kb/config/vault.md", "---\nschemaVersion: 5\nproductMode: single\n---\n")
 	store, err := repositorytrust.DefaultStore()
 	require.NoError(t, err)

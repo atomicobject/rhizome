@@ -49,7 +49,7 @@ func SaveLocalConfig(dir string, cfg LocalConfig) error {
 	if _, err := cfg.Rhizome.UsesExternalBinaryManager(); err != nil {
 		return err
 	}
-	release, err := lockLocalConfig(context.Background(), dir)
+	release, err := LockLocalConfig(context.Background(), dir)
 	if err != nil {
 		return err
 	}

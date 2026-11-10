@@ -10,6 +10,7 @@ package init
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -28,11 +29,12 @@ var ErrChangesPending = errors.New("rzm init would make changes")
 
 // initRun carries what every step of one init run shares.
 type initRun struct {
-	opts    RunOptions
-	reader  *bufio.Reader
-	session *credentials.Session
-	ui      ownershipUI
-	layout  DetectedLayout
+	opts           RunOptions
+	reader         *bufio.Reader
+	session        *credentials.Session
+	ui             ownershipUI
+	layout         DetectedLayout
+	configSnapshot string
 	// detectedAgents are the agents repository markers show, before
 	// installed commands and choices change the layout's harnesses.
 	detectedAgents AgentHarnesses
@@ -136,6 +138,18 @@ func (r *initRun) resolve(s setup) (resolved, error) {
 // apply writes a resolved setup: generated files first, then config, so a
 // failed run leaves the old config replayable.
 func (r *initRun) apply(s setup, res resolved) (syncReport, error) {
+	release, err := repoconfig.LockLocalConfig(context.Background(), r.layout.ProjectRoot)
+	if err != nil {
+		return syncReport{}, err
+	}
+	defer release()
+	if err := r.checkConfigSnapshot(); err != nil {
+		return syncReport{}, err
+	}
+	return r.applyLocked(s, res)
+}
+
+func (r *initRun) applyLocked(s setup, res resolved) (syncReport, error) {
 	root := r.layout.ProjectRoot
 	if err := ensureRhizomeGitIgnore(root); err != nil {
 		return syncReport{}, err
