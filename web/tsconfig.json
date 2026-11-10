@@ -12,6 +12,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
+      "@rhizome/kit/markdown": ["./kit/entries/markdown.ts"],
       "@rhizome/kit": ["./kit/index.tsx"],
       "@rhizome/ui": ["./kit/ui/index.ts"]
     }

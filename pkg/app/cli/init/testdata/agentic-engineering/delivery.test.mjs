@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { composeCoverage, composePages, identity, frozenScope, distinctTargets, sourceRoles,
-  selectionFor, attributionFor, groups, groupResult, eligibility, promptFor, firstDayPrompt }
+import { composeCoverage, composePages, identity, frozenScope, distinctTargets, groups, groupResult, eligibility, promptFor, firstDayPrompt }
   from '../../templates/starters/agentic-engineering/module/views/delivery/lib/index.ts';
 
 const coverage = (extra = {}) => ({ complete: true, truncated: false, errors: [],
@@ -34,10 +33,7 @@ const keys = result => result.rows.map(row => identity(row.record.ref));
 test('note evidence joins canonical roots without weakening section or criterion identity', () => {
   const canonical = Object.freeze({ notePath: 'spec.md', ref: 'spec.md', kind: 'NOTE', nodeId: 'spec.md', structural: null, typeName: 'ExperienceSpec' });
   const linked = Object.freeze({ ...canonical, structural: 'catalog-fingerprint', structuralFingerprint: 'catalog-fingerprint' });
-  assert.equal(attributionFor({ governing: { coverage: coverage(), occurrences: [] }, entryMentions: { coverage: coverage(), occurrences: [] },
-    frozen: frozenScope({ form: 'EffortNote', inline: { ...material(), specs: section([occurrence(linked, 0, 'spec')]) } }), workLogSnapshot: null }, canonical).frozenSpecs.occurrences.length, 1);
-  const wholeSpec = frozenScope({ form: 'EffortNote', inline: { ...material(), stories: section([occurrence(linked, 0, 'spec')]) } });
-  assert.equal(selectionFor(wholeSpec, canonical).occurrences.length, 1);
+  assert.equal(distinctTargets([occurrence(linked)]).has(identity(canonical)), true);
   assert.equal(distinctTargets([occurrence(linked), occurrence(canonical)]).size, 1);
   assert.equal(identity(linked), identity({ notePath: 'spec.md', kind: 'note' }));
   assert.notEqual(identity(canonical), identity({ ...canonical, notePath: 'other.md', ref: 'other.md' }));
@@ -81,7 +77,14 @@ test('complete effort only observes exact selected pending story or criterion', 
   input.efforts[0].scope = scope([occurrence(criterion.ref, 0, 'criterion')]);
   const result = groupResult('review', input);
   assert.deepEqual(result.rows[0].selected.map(item => item.locator), ['spec.md#ac-1']);
-  assert.equal(selectionFor(input.efforts[0].scope, pending.ref).occurrences.length, 0);
+  const prompt = promptFor('review', input, keys(result));
+  assert.equal(prompt.copyable, true);
+  assert.match(prompt.text, /spec.md#ac-1 \(selected pending contract\)/);
+  assert.doesNotMatch(prompt.text, /spec.md#a \(selected pending contract\)/);
+  criterion.locator = null;
+  assert.equal(promptFor('review', input, keys(result)).copyable, false);
+  criterion.locator = 'spec.md#ac-1';
+  assert.equal(input.efforts[0].scope.selections.some(item => identity(item.target) === identity(pending.ref)), false);
   pending.status = 'satisfied';
   assert.equal(groupResult('review', input).count, 0);
   pending.status = 'ready';
@@ -108,10 +111,7 @@ test('explicit workspace selection preserves A, entry B and separate log C roles
     assert.deepEqual(result.authored, ['scope.md']);
     assert.deepEqual(result.selections, []);
   }
-  const roles = sourceRoles([{ ref: selected.ref, role: 'frozen' }, { ref: selected.ref, role: 'work-log' },
-    { ref: ref('entry.html'), role: 'entry-mention' }, { ref: ref('log.md'), role: 'work-log' }]);
-  assert.equal(roles.length, 3);
-  assert.deepEqual(roles[0].roles, ['frozen', 'work-log']);
+
 });
 
 test('empty scope is known only with present readable sections and coherent selector evidence', () => {
@@ -209,24 +209,6 @@ test('each work group uses its installed workflow route and incomplete selected 
 });
 
 
-test('attribution keeps governing, selected, entry and log facts separate', () => {
-  const a = ref('spec.md', 'a');
-  const b = ref('spec.md', 'b');
-  const c = ref('spec.md', 'c');
-  const evidence = { governing: { coverage: coverage(), occurrences: [occurrence(ref('other-spec.md'), 0, 'spec')] },
-    entryMentions: { coverage: coverage(), occurrences: [occurrence(b)] },
-    frozen: scope([occurrence(a)]), workLogSnapshot: { ...material([occurrence(c)]), ref: ref('log.md') } };
-  assert.equal(attributionFor(evidence, a).selected.occurrences.length, 1);
-  assert.equal(attributionFor(evidence, b).selected.occurrences.length, 0);
-  assert.equal(attributionFor(evidence, b).entryMentions.occurrences.length, 1);
-  assert.equal(attributionFor(evidence, c).workLogSnapshot.selections.length, 1);
-  assert.equal(attributionFor(evidence, c).selected.occurrences.length, 0);
-  evidence.workLogSnapshot = material([occurrence(a)]);
-  assert.equal(attributionFor(evidence, a).sharedSource, true);
-  assert.equal(attributionFor(evidence, a).workLogSnapshot, null);
-});
-
-
 test('inventory generation is sufficient without inventing an inventory source revision', () => {
   const input = portfolio();
   input.specCoverage.sourceRevision = null;
@@ -274,4 +256,27 @@ test('a composed multi-effort prompt requires one graph generation', () => {
   const result = promptFor('active', input, [identity(first.ref), identity(second.ref)]);
   assert.equal(result.copyable, false);
   assert.match(result.reasons.join(' '), /generation/i);
+});
+
+
+test('explicit sorting preserves parent groups and prompt order', () => {
+  const z = { ...spec('active', [{ ...story('z'), title: 'Zebra' }, { ...story('a'), title: 'Apple' }]), title: 'Zulu' };
+  const a = { ...spec('active', [{ ...story('b'), ...record('other.md', 'b'), title: 'Berry' }]), ...record('other.md'), title: 'Alpha' };
+  const input = portfolio([z, a], []);
+  const source = groupResult('ready', input);
+  assert.deepEqual(source.rows.map(row => row.record.title), ['Zebra', 'Apple', 'Berry']);
+  const sorted = groupResult('ready', input, 'title-asc');
+  assert.deepEqual(sorted.rows.map(row => row.record.title), ['Berry', 'Apple', 'Zebra']);
+  const prompt = promptFor('ready', input, keys(source), 'title-asc');
+  assert.ok(prompt.text.indexOf('other.md#b') < prompt.text.indexOf('spec.md#a'));
+  assert.ok(prompt.text.indexOf('spec.md#a') < prompt.text.indexOf('spec.md#z'));
+});
+
+test('summary efforts may be selected before their frozen scope loads, but not copied', () => {
+  const row = { kind: 'effort', record: { ...effort(), scope: frozenScope({ form: 'EffortNote', inline: null }) } };
+  assert.equal(eligibility(row, 'select').eligible, true);
+  assert.equal(eligibility(row).eligible, false);
+  assert.equal(eligibility({ ...row, kind: 'review', observation: 'closure-checklist', selected: [] }, 'select').eligible, false);
+  row.record.coverage.complete = false;
+  assert.equal(eligibility(row, 'select').eligible, false);
 });

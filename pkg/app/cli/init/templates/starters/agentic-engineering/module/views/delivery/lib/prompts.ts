@@ -1,12 +1,12 @@
-import { eligibility, groupResult, type Stage } from './groups.ts';
+import { eligibility, groupResult, type Stage, type RowSort } from './groups.ts';
 import { identity, type Portfolio } from './model.ts';
 import { inventoryComplete } from './coverage.ts';
 
 export type Prompt = { text: string; copyable: boolean; reasons: readonly string[] };
 
 /** Rows arrive in displayed order. Selection keys never supply ordering or scope. */
-export function promptFor(stage: Stage, input: Portfolio, selectedKeys: readonly string[]): Prompt {
-  const result = groupResult(stage, input);
+export function promptFor(stage: Stage, input: Portfolio, selectedKeys: readonly string[], sort: RowSort = 'source'): Prompt {
+  const result = groupResult(stage, input, sort);
   if (result.state !== 'records') return { text: '', copyable: false, reasons: ['Invalid route'] };
   const rows = result.rows;
   const selected = new Set(selectedKeys);
@@ -39,6 +39,9 @@ export function promptFor(stage: Stage, input: Portfolio, selectedKeys: readonly
     if (row.kind === 'story') add(row.parent.locator,
       row.parent.status === 'proposed' ? 'proposed parent spec' : 'parent spec');
     add(row.record.locator, row.kind === 'story' ? 'selected story' : row.record.status ?? 'recorded status unavailable');
+    if (row.kind === 'review') {
+      for (const selected of row.selected) add(selected.locator, 'selected pending contract');
+    }
     if (row.kind === 'effort' || row.kind === 'review') {
       for (const source of row.record.contextSources ?? []) {
         if (source.locator) add(source.locator, source.role);

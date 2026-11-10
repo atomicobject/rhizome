@@ -22,13 +22,9 @@ import { startView, type ViewConfig, type ViewModule } from "./startView";
 import { postToHost } from "./navigation";
 import { useViewActive, useViewContext } from "./viewContext";
 
-export { Markdown } from "../src/components/markdown/Markdown";
-
-export { convertWikilinks, resolveRenderedLinkTarget } from "../src/lib/content";
+export { resolveRenderedLinkTarget } from "../src/lib/content";
 
 export { getNodePreview } from "../src/api/client";
-
-export { markdownChecklist } from "./markdown-checklist";
 
 export { Diagram } from "./Diagram";
 

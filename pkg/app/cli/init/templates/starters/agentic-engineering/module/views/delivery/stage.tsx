@@ -25,7 +25,6 @@ import {
   WorkflowMap,
   unit,
   parentSpecSummary,
-  useAnnounceStage,
 } from "./presentation.tsx";
 import type { PortfolioProps } from "./presentation.tsx";
 
@@ -42,7 +41,6 @@ export function DeliveryStage({
 }: PortfolioProps & { stale?: boolean }) {
   const params = useViewParams();
   const group = groupFor(typeof params.stage === "string" ? params.stage : "");
-  useAnnounceStage(group?.stage ?? null);
   const [sort, setSort] = useState<RowSort>("source");
   const [selectedRecords, setSelectedRecords] = useState<RecordSummary[]>([]);
   const selected = selectedRecords.map((record) => identity(record.ref));

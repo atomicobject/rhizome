@@ -6,5 +6,6 @@
   "@tanstack/react-query": "react-query.js",
   "lucide-react": "lucide-react.js",
   "@rhizome/ui": "ui.js",
-  "@rhizome/kit": "kit.js"
+  "@rhizome/kit": "kit.js",
+  "@rhizome/kit/markdown": "markdown.js"
 }

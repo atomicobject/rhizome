@@ -22,7 +22,9 @@ code-anchors:
 
 ## Design constraints
 
-- The public kit reuses native narrative wikilink conversion and the source-aware preview resolver for inline Markdown links. Authored Markdown versus wikilink syntax stays in the request with its source path; the returned canonical ref supplies navigation. A view iframe URL never supplies relative-link context.
+- The optional `@rhizome/kit/markdown` entry owns Markdown rendering, wikilink conversion, and GFM checklist parsing; the core kit does not load their parser. Both entries use the same stamped import map and React runtime. The public kit reuses native narrative wikilink conversion and the source-aware preview resolver for inline Markdown links. Authored Markdown versus wikilink syntax stays in the request with its source path; the returned canonical ref supplies navigation. A view iframe URL never supplies relative-link context.
+
+- An experience panel reads only its declared params from the active workspace URL, like an experience page. Non-identity params update its existing page and preserve local state.
 
 - Experience node navigation preserves the public GraphQL `structural` selector when normalizing host refs or forming node URLs. The shared global toolbar wraps its section navigation below 980px; narrow experience pages retain access to search and appearance.
 

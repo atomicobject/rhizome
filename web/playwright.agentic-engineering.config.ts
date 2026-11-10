@@ -30,7 +30,8 @@ export default defineConfig({
   },
   projects: states.map((state, index) => ({
     name: state,
-    testMatch: state === "empty" ? /empty\.spec\.ts/ : /(?:delivery|constraints)\.spec\.ts/,
+    testMatch:
+      state === "empty" ? /empty\.spec\.ts/ : /(?:delivery|constraints|fable-cleanup)\.spec\.ts/,
     use: { baseURL: `http://127.0.0.1:${port + index}` },
   })),
   webServer: states.map((state, index) => ({

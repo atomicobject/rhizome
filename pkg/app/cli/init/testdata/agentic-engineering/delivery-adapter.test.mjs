@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { reader, locator } from '../../templates/starters/agentic-engineering/module/views/delivery/reads.ts';
-import { identity, selectionFor, promptFor } from '../../templates/starters/agentic-engineering/module/views/delivery/lib/index.ts';
+import { identity, promptFor } from '../../templates/starters/agentic-engineering/module/views/delivery/lib/index.ts';
 const ref = (notePath, typeName = 'EffortNote', fragment = '') => ({ notePath, typeName, fragment, kind: fragment ? 'section' : 'note', nodeId: fragment || notePath });
 const field = (name, sectionNodes = [], values = null, links = []) => ({ name, present: true, values, sectionNodes, links, issues: [] });
 const node = (r, fields = [], format = 'markdown') => ({ ref: r, title: r.notePath, resolvedType: r.typeName, content: 'Full authored prose', format,
@@ -120,10 +120,13 @@ test('workspace A selection, B mention and C log remain distinct including crite
   assert.equal(result.record.scope.state, 'known');
   assert.equal(result.record.scope.selections.length, 2);
   assert.equal(result.record.scope.selections[0].targetKind, 'criterion');
-  assert.equal(selectionFor(result.record.scope, b).occurrences.length, 0);
+  assert.equal(result.record.scope.selections.some(item => identity(item.target) === identity(b)), false);
   assert.equal(result.entryMentions.occurrences[0].target.fragment, 'b');
   assert.equal(result.workLogSnapshot.stories.occurrences[0].target.fragment, 'c');
   assert.equal(result.node.content, 'Full authored prose');
+  for (const source of nodes.filter(item => ![b, c].some(target => identity(target) === identity(item.ref)))) {
+    assert.equal(h.calls.filter(call => call.targets?.includes(JSON.stringify(source.ref))).length, 1, source.ref.fragment || source.ref.notePath);
+  }
   selected.workspace.fields[1].issues = [{ code: 'cardinality', message: 'Duplicate section' }];
   assert.equal((await h.read.record(own.ref)).record.scope.state, 'incomplete');
   selected.workspace.fields[1].issues = [];
@@ -162,9 +165,15 @@ test('story and criterion collection order and full detail survive typed hydrati
   wrapper.workspace.collections = [{ name: 'stories', items: [{ ref: b.ref }, { ref: a.ref }] }];
   ac.workspace.collections = [{ name: 'criteria', items: [{ ref: criterion.ref }] }];
   const h = harness([own, wrapper, a, b, ac, criterion]);
+  const originalRead = h.api.readNodes;
+  h.api.readNodes = async (...args) => { const result = await originalRead(...args); result.nodes.reverse(); return result; };
   const result = await h.read.record(own.ref);
   assert.deepEqual(result.record.stories.map(s => s.ref.fragment), ['b', 'a']);
   assert.equal(result.record.stories[1].criteria[0].source.content, 'Full authored prose');
+  own.workspace.fields.find(item => item.name === 'userStories').sectionNodes.push(wrapper.ref);
+  const duplicate = await h.read.record(own.ref);
+  assert.equal(duplicate.record.storiesCoverage.complete, false);
+  assert.deepEqual(duplicate.record.stories.map(story => story.ref.fragment), ['b', 'a']);
 });
 
 test('ambiguous spec sections retain prose but cannot supply copied scope', async () => {
@@ -315,7 +324,7 @@ test('workspace checklist uses the exact log independently of unknown frozen aut
   assert.equal(result.record.checklist.state, 'unreadable');
   closureField.sectionNodes = [closureRef];
   const generation = h.api.generation;
-  h.api.generation = data => data.nodes?.length === 1 && data.nodes[0] === closure ? '8' : generation(data);
+  h.api.generation = data => data.nodes?.includes(closure) ? '8' : generation(data);
   result = await h.read.record(own.ref);
   assert.equal(result.record.checklist.state, 'unreadable');
   assert.equal(result.record.coverage.complete, true);
@@ -342,4 +351,61 @@ test('prompt scope hydration reads only the selected efforts and preserves unkno
   assert.equal(result.coverage.complete, false);
   assert.ok(h.calls.every(call => !call.query?.includes('DeliveryInventory')));
   assert.ok(h.calls.every(call => !call.targets?.some(target => target.includes('other.md'))));
+});
+
+
+function inlineFixture(path) {
+  const r = ref(path);
+  const specs = node(ref(path, 'NarrativeSection', 'specs'));
+  const stories = node(ref(path, 'NarrativeSection', 'stories'));
+  const closure = { ...node(ref(path, 'NarrativeSection', 'closure')), content: '- [x] Verified\n- [x] Backported' };
+  const own = node(r, [field('status', [], ['active']), field('specSetFrozen', [specs.ref]),
+    field('storiesInScopeFrozen', [stories.ref]), field('closureChecklist', [closure.ref])]);
+  return { own, nodes: [own, specs, stories, closure] };
+}
+
+test('selected effort failures retain healthy siblings and bounded work', async () => {
+  const fixtures = Array.from({ length: 7 }, (_, i) => inlineFixture(`selected-${i}.md`));
+  const h = harness(fixtures.flatMap(fixture => fixture.nodes));
+  const original = h.api.readNodes;
+  let active = 0;
+  let peak = 0;
+  h.api.readNodes = async (targets, selection) => {
+    active++;
+    peak = Math.max(peak, active);
+    await new Promise(resolve => setImmediate(resolve));
+    try {
+      if (targets.length === 1 && JSON.parse(targets[0]).notePath === 'selected-1.md') throw new Error('Selected subject unavailable');
+      return await original(targets, selection);
+    } finally { active--; }
+  };
+  const result = await h.read.selectedEfforts(fixtures.map(fixture => fixture.own.ref));
+  assert.deepEqual(result.efforts.map(effort => effort.ref.notePath), fixtures.filter((_, i) => i !== 1).map(fixture => fixture.own.ref.notePath));
+  assert.equal(result.coverage.complete, false);
+  assert.match(result.coverage.errors.join(' '), /Selected subject unavailable/);
+  assert.ok(result.efforts.every(effort => effort.scope.state === 'known'));
+  assert.ok(peak > 1 && peak <= 4, `in-flight reads: ${peak}`);
+});
+
+test('inline effort reuses hydrated narrative sections for scope and checklist', async () => {
+  const fixture = inlineFixture('bounded.md');
+  const h = harness(fixture.nodes);
+  const result = await h.read.record(fixture.own.ref);
+  assert.equal(result.record.scope.state, 'known');
+  assert.deepEqual(result.record.checklist, { state: 'recorded', checked: 2, total: 2 });
+  assert.equal(h.calls.length, 5, `requests: ${h.calls.length}`);
+  for (const source of fixture.nodes) assert.equal(h.calls.filter(call => call.targets?.includes(JSON.stringify(source.ref))).length, 1, source.ref.fragment);
+});
+
+test('a failed selected material read is unreadable rather than a broken authored selector', async () => {
+  const scope = ref('scope.md', 'EffortMaterial');
+  const own = node(ref('entry.html', 'EffortWorkspace'), [field('status', [], ['active']),
+    field('frozenScope', [], ['scope.md'], [{ value: 'scope.md', resolved: true, ref: scope }])], 'html');
+  const h = harness([own]);
+  const original = h.api.readNodes;
+  h.api.readNodes = (targets, selection) => targets.includes(JSON.stringify(scope))
+    ? Promise.reject(new Error('Material unavailable')) : original(targets, selection);
+  const result = await h.read.record(own.ref);
+  assert.ok(result.record.scope.reasons.includes('Frozen scope selector unreadable'));
+  assert.equal(result.node.content, own.content);
 });

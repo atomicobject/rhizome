@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { graphql, readNodes, responseGeneration, typedRootCoverage, useViewActive, markdownChecklist } from '@rhizome/kit';
+import { graphql, readNodes, responseGeneration, typedRootCoverage, useViewActive } from '@rhizome/kit';
+import { markdownChecklist } from '@rhizome/kit/markdown';
 import { reader, type ReadAPI } from './reads.ts';
 import { identity, type Coverage, type Ref } from './lib/index.ts';
 export type { LiveNode, FieldState, LiveSpec, LiveStory, LiveCriterion, LiveEffort, RecordDetail, PortfolioRead } from './queries.ts';

@@ -1,4 +1,4 @@
-import { composePages, composeCoverage, frozenScope, identity, inventoryComplete,
+import { composePages, composeCoverage, frozenScope, distinctTargets, identity, inventoryComplete,
   type Coverage, type Ref, type ScopeMaterial, type ScopeSection, type ScopeSelector, type Occurrence,
   type Portfolio, type Checklist } from './lib/index.ts';
 import { NODE_DETAIL, NODE_SUMMARY, SOURCE_PAGE, type LiveNode, type SourcePage,
@@ -35,6 +35,14 @@ const effortStates = ['planned', 'active', 'complete', 'archived'] as const;
 const storyStates = ['draft', 'ready', 'satisfied'] as const;
 function status<T extends string>(node: LiveNode, name: string, allowed: readonly T[]): T | null {
   return allowed.find(item => item === value(node, name)) ?? null;
+}
+function selectorState(state: FieldState | undefined, node: LiveNode | undefined, read: Coverage): ScopeSelector['state'] {
+  if (!state) return 'unreadable';
+  if (!state.present) return 'missing';
+  if ((state.values?.length ?? 0) > 1) return 'duplicate';
+  if (!state.values?.length || state.issues?.length || state.links?.length !== 1 || !state.links[0].resolved) return 'broken';
+  if (!node) return read.complete ? 'broken' : 'unreadable';
+  return node.format === 'markdown' ? 'selected' : 'unsupported';
 }
 export function reader(api: ReadAPI, signal?: AbortSignal) {
   const check = () => signal?.throwIfAborted();
@@ -79,6 +87,11 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     }
     return { nodes: result.nodes, coverage: coverageFor(targets), coverageFor,
       missing: result.unresolved.length > 0 && !result.errors.length && !result.truncated.length && !sharedErrors.length };
+  }
+  type LoadedNodes = Pick<Awaited<ReturnType<typeof hydrate>>, 'nodes' | 'coverageFor'>;
+  function selectedNodes(loaded: LoadedNodes, targets: readonly Ref[]) {
+    const keys = new Set(targets.map(identity));
+    return { nodes: loaded.nodes.filter(node => keys.has(identity(node.ref))), coverage: loaded.coverageFor(targets) };
   }
   async function occurrences(source: LiveNode) {
     const pages = [];
@@ -154,17 +167,23 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     const stories = await children(wrappers.nodes, 'stories', detail);
     const ac = await children(stories.nodes, 'acceptanceCriteria');
     const criteria = await children(ac.nodes, 'criteria', detail);
-    const owned = (parent: LiveNode, name: string, candidates: LiveNode[]) => candidates.filter(node => refs(parent, name).some(ref => identity(ref) === identity(node.ref)));
+    const byIdentity = (items: LiveNode[]) => new Map(items.map(node => [identity(node.ref), node]));
+    const wrapperNodes = byIdentity(wrappers.nodes);
+    const storyNodes = byIdentity(stories.nodes);
+    const acNodes = byIdentity(ac.nodes);
+    const criterionNodes = byIdentity(criteria.nodes);
+    const owned = (parent: LiveNode, name: string, candidates: Map<string, LiveNode>) => [...new Set(refs(parent, name).map(identity))]
+      .flatMap(key => { const node = candidates.get(key); return node ? [node] : []; });
     return nodes.map(node => {
-      const ownWrappers = owned(node, 'userStories', wrappers.nodes);
+      const ownWrappers = owned(node, 'userStories', wrapperNodes);
       const storyCoverage = combine([base, ...[wrappers.coverage(node), ...ownWrappers.map(wrapper => stories.coverage(wrapper))].filter(nonNull)]);
       return { ...summary(node, base), source: node, kind: 'spec', status: status(node, 'specStatus', specStates),
         storiesCoverage: storyCoverage,
-        stories: ownWrappers.flatMap(wrapper => owned(wrapper, 'stories', stories.nodes)).map((story): LiveStory => {
-          const ownCriteria = owned(story, 'acceptanceCriteria', ac.nodes);
+        stories: ownWrappers.flatMap(wrapper => owned(wrapper, 'stories', storyNodes)).map((story): LiveStory => {
+          const ownCriteria = owned(story, 'acceptanceCriteria', acNodes);
           const criteriaCoverage = combine([storyCoverage, ...[ac.coverage(story), ...ownCriteria.map(wrapper => criteria.coverage(wrapper))].filter(nonNull)]);
           return { ...summary(story, storyCoverage), source: story, status: status(story, 'status', storyStates), criteriaCoverage,
-            criteria: ownCriteria.flatMap(wrapper => owned(wrapper, 'criteria', criteria.nodes))
+            criteria: ownCriteria.flatMap(wrapper => owned(wrapper, 'criteria', criterionNodes))
               .map(criterion => ({ ...summary(criterion, criteriaCoverage), source: criterion, story: story.ref })),
           };
         }),
@@ -184,44 +203,43 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     const portfolio: Portfolio = { specs: specRecords, efforts: effortRead.nodes.map(node => effort(node, effortRead.coverage)),
       specCoverage: specRead.coverage, effortCoverage: effortRead.coverage };
     if (review) {
-      const efforts: LiveEffort[] = [];
-      for (const node of effortRead.nodes) {
-        const candidate = effort(node, effortRead.coverage);
-        if (candidate.status !== 'active' && candidate.status !== 'complete') { efforts.push(candidate); continue; }
-        try {
-          const detail = await record(node.ref);
-          efforts.push(detail?.record?.kind === 'effort' ? detail.record : { ...candidate, coverage: absent('Review subject unavailable') });
-        } catch (error) { check(); efforts.push({ ...candidate, coverage: absent(String(error)) }); }
-      }
-      portfolio.efforts = efforts;
+      const candidates = effortRead.nodes.filter(node => ['active', 'complete'].includes(value(node, 'status') ?? ''));
+      const details = new Map((await effortDetails(candidates.map(node => node.ref)))
+        .map((result, index) => [identity(candidates[index].ref), result]));
+      portfolio.efforts = portfolio.efforts.map(candidate => {
+        const result = details.get(identity(candidate.ref));
+        return !result ? candidate : result.detail?.record?.kind === 'effort' ? result.detail.record
+          : { ...candidate, coverage: result.coverage };
+      });
     }
     return { portfolio, coverage: combine([specRead.coverage, effortRead.coverage,
       ...specRecords.flatMap(spec => [spec.storiesCoverage, ...spec.stories.map(story => story.criteriaCoverage)]),
       ...(review ? portfolio.efforts.filter(item => item.status === 'active' || item.status === 'complete').map(item => item.coverage) : [])]), reviewEvidence: review ? 'loaded' : 'deferred' };
   }
-  async function material(node: LiveNode, read: Coverage): Promise<ScopeMaterial> {
+  async function material(node: LiveNode, read: Coverage, loaded?: LoadedNodes): Promise<ScopeMaterial> {
     const supported = node.format === 'markdown';
     async function section(name: string): Promise<ScopeSection> {
       if (!supported) return { state: 'unsupported', coverage: read, occurrences: [] };
       const targets = refs(node, name);
       if (field(node, name)?.issues?.length) return { state: targets.length > 1 ? 'duplicate' : 'unreadable', coverage: read, occurrences: [] };
       if (targets.length !== 1) return { state: targets.length ? 'duplicate' : 'missing', coverage: read, occurrences: [] };
-      const hydrated = await hydrate(targets, true);
+      const hydrated = loaded ? selectedNodes(loaded, targets) : await hydrate(targets, true);
       const child = hydrated.nodes[0];
       if (!child) return { state: 'unreadable', coverage: hydrated.coverage, occurrences: [] };
       const links = await occurrences(child);
       return { state: 'present', coverage: composeCoverage([read, { ...hydrated.coverage, sourceRevision: revision(child) }, links.coverage]), occurrences: links.occurrences };
     }
-    return { ref: node.ref, supported, coverage: read, specs: await section('specSetFrozen'), stories: await section('storiesInScopeFrozen') };
+    const [specs, stories] = await Promise.all([section('specSetFrozen'), section('storiesInScopeFrozen')]);
+    return { ref: node.ref, supported, coverage: read, specs, stories };
   }
-  async function checklist(owner: LiveNode, ownerCoverage: Coverage): Promise<{ checklist: Checklist; nodes: LiveNode[]; coverage: Coverage }> {
+  async function checklist(owner: LiveNode, ownerCoverage: Coverage, loaded: LoadedNodes): Promise<{ checklist: Checklist; nodes: LiveNode[]; coverage: Coverage }> {
     const state = field(owner, 'closureChecklist');
     const targets = refs(owner, 'closureChecklist');
     if (!state || state.issues?.length || targets.length > 1) return {
       checklist: { state: 'unreadable' }, nodes: [], coverage: absent('Closure section unavailable or ambiguous') };
     if (!state.present && !targets.length) return { checklist: { state: 'missing' }, nodes: [], coverage: ownerCoverage };
     if (targets.length !== 1) return { checklist: { state: 'unreadable' }, nodes: [], coverage: absent('Closure section unresolved') };
-    const section = await hydrate(targets, true);
+    const section = selectedNodes(loaded, targets);
     const child = section.nodes[0];
     const read = composeCoverage([ownerCoverage, { ...section.coverage, sourceRevision: child ? revision(child) : null }]);
     const counts = read.complete && child?.content !== undefined ? api.markdownChecklist(child.content) : null;
@@ -248,20 +266,25 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     const componentRefs = node.workspace?.fields.flatMap(item => [...(item.sectionNodes ?? []),
       ...(['implementationPlan', 'workLog', 'frozenScope', 'materials'].includes(item.name)
         ? (item.links ?? []).flatMap(link => link.ref ? [link.ref] : []) : [])]) ?? [];
-    const components = componentRefs.length ? await hydrate(componentRefs, true) : { nodes: [], coverage: ownCoverage };
+    const components = componentRefs.length ? await hydrate(componentRefs, true)
+      : { nodes: [], coverage: ownCoverage, coverageFor: (_targets: readonly Ref[]) => ownCoverage };
     const selectorField = field(node, 'frozenScope');
     const selectedLinks = selectorField?.links ?? [];
     const selectedNode = components.nodes.find(item => selectedLinks.some(link => link.ref && identity(link.ref) === identity(item.ref)));
+    const logRefs = (field(node, 'workLog')?.links ?? []).flatMap(link => link.resolved && link.ref ? [link.ref] : []);
+    const logRead = node.resolvedType === 'EffortWorkspace' && logRefs.length === 1 ? selectedNodes(components, logRefs) : null;
+    const log = logRead?.nodes[0];
+    const logSectionRefs = log?.workspace?.fields.flatMap(item => item.sectionNodes ?? []) ?? [];
+    const logSections = logSectionRefs.length ? await hydrate(logSectionRefs, true)
+      : { nodes: [], coverage: ownCoverage, coverageFor: (_targets: readonly Ref[]) => ownCoverage };
     const selector: ScopeSelector = {
-      state: !selectorField ? 'unreadable' : !selectorField.present ? 'missing'
-        : (selectorField.values?.length ?? 0) > 1 ? 'duplicate'
-          : !selectorField.values?.length ? 'broken'
-          : selectorField.issues?.length || !selectedNode ? 'broken' : selectedNode.format !== 'markdown' ? 'unsupported' : 'selected',
+      state: selectorState(selectorField, selectedNode, components.coverageFor(selectedLinks.flatMap(link => link.ref ? [link.ref] : []))),
       authored: selectorField?.values ?? [], coverage: ownCoverage,
-      material: selectedNode ? await material(selectedNode, { ...components.coverage, sourceRevision: revision(selectedNode) }) : null,
+      material: selectedNode ? await material(selectedNode, { ...components.coverageFor([selectedNode.ref]), sourceRevision: revision(selectedNode) },
+        log && identity(log.ref) === identity(selectedNode.ref) ? logSections : undefined) : null,
     };
     const scope = node.resolvedType === 'EffortNote'
-      ? frozenScope({ form: 'EffortNote', inline: await material(node, ownCoverage) })
+      ? frozenScope({ form: 'EffortNote', inline: await material(node, ownCoverage, components) })
       : frozenScope({ form: 'EffortWorkspace', selector });
     const result = effort(node, ownCoverage, scope);
     result.contextSources = (['implementationPlan', 'workLog'] as const).flatMap(name => {
@@ -280,24 +303,16 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
         target: link.ref, targetKind: link.resolved ? 'spec' : 'unresolved', link: { target: link.value, authoredTarget: link.value,
           text: link.title, kind: 'field', anchor: null, embed: false, targetKind: 'note', resolved: link.resolved,
           resolvedRef: link.ref, title: link.title, preview: null } })) };
-    const logField = field(node, 'workLog');
-    const logRefs = (logField?.links ?? []).flatMap(link => link.resolved && link.ref ? [link.ref] : []);
-    const logRead = node.resolvedType === 'EffortWorkspace' && logRefs.length === 1 ? await hydrate(logRefs, true) : null;
-    const log = logRead?.nodes[0];
     const workLogSnapshot = log && logRead
       ? selectedNode && identity(selectedNode.ref) === identity(log.ref)
-        && revision(selectedNode) === revision(log)
-        && components.coverage.graphGeneration === logRead.coverage.graphGeneration
         ? selector.material
-        : await material(log, { ...logRead.coverage, sourceRevision: revision(log) }) : null;
-    const logSectionRefs = log?.workspace?.fields.flatMap(item => item.name === 'closureChecklist' ? [] : item.sectionNodes ?? []) ?? [];
-    const logSections = logSectionRefs.length ? await hydrate(logSectionRefs, true) : { nodes: [], coverage: ownCoverage };
+        : await material(log, { ...logRead.coverage, sourceRevision: revision(log) }, logSections) : null;
     const checklistRead = node.resolvedType === 'EffortNote'
-      ? await checklist(node, ownCoverage)
-      : log && logRead ? await checklist(log, combine([ownCoverage, logRead.coverage], revision(log)))
+      ? await checklist(node, ownCoverage, components)
+      : log && logRead ? await checklist(log, combine([ownCoverage, logRead.coverage], revision(log)), logSections)
         : { checklist: { state: 'unreadable' } satisfies Checklist, nodes: [], coverage: absent('Work log unavailable or ambiguous') };
     result.checklist = checklistRead.checklist;
-    const targetRefs = [...scope.specs, ...scope.selections].flatMap(item => item.target ? [item.target] : []);
+    const targetRefs = [...distinctTargets([...scope.specs, ...scope.selections]).values()];
     const targets = targetRefs.length ? await hydrate(targetRefs, true) : { nodes: [], coverage: ownCoverage };
     scope.coverage = combine([scope.coverage, targets.coverage], scope.coverage.sourceRevision);
     if (!scope.coverage.complete && scope.state === 'known') {
@@ -311,19 +326,35 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     return { node, record: result, components: uniqueComponents, selectedTargets: targets.nodes, governing, entryMentions,
       workLogSnapshot, coverage: totalCoverage };
   }
+  async function effortDetails(targets: readonly Ref[]) {
+    const results: { detail: RecordDetail | null; coverage: Coverage }[] = new Array(targets.length);
+    let next = 0;
+    async function work() {
+      while (next < targets.length) {
+        const index = next++;
+        check();
+        try {
+          const detail = await record(targets[index]);
+          results[index] = { detail, coverage: detail?.coverage ?? absent('Selected effort unavailable') };
+        } catch (error) {
+          check();
+          results[index] = { detail: null, coverage: absent(String(error)) };
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(4, targets.length) }, work));
+    return results;
+  }
   async function selectedEfforts(targets: readonly Ref[]) {
+    const unique = [...new Map(targets.map(target => [identity(target), target])).values()];
+    const details = await effortDetails(unique);
     const efforts: LiveEffort[] = [];
     const reads: Coverage[] = [];
-    const seen = new Set<string>();
-    for (const target of targets) {
-      if (seen.has(identity(target))) continue;
-      seen.add(identity(target));
-      check();
-      const detail = await record(target);
-      if (detail?.record?.kind === 'effort') {
-        efforts.push(detail.record);
-        reads.push(detail.record.coverage, detail.record.scope.coverage);
-      } else reads.push(absent('Selected effort unavailable'));
+    for (const result of details) {
+      if (result.detail?.record?.kind === 'effort') {
+        efforts.push(result.detail.record);
+        reads.push(result.detail.record.coverage, result.detail.record.scope.coverage);
+      } else reads.push(result.detail ? absent('Selected effort unavailable') : result.coverage);
     }
     const coverage = combine(reads);
     coverage.complete &&= efforts.every(item => item.scope.state === 'known');

@@ -513,17 +513,10 @@ it("counts a frame as hosted only when its parent is the same origin", async () 
   expect((await import("./index")).embedded).toBe(false);
 });
 
-it("exports the existing Markdown renderer without a wrapper", async () => {
-  const kit = await import("./index");
-  const { Markdown } = await import("../src/components/markdown/Markdown");
-  expect(kit.Markdown).toBe(Markdown);
-});
-
-it("exports native Markdown link conversion and source-aware preview resolution", async () => {
+it("exports source-aware preview resolution", async () => {
   const kit = await import("./index");
   const content = await import("../src/lib/content");
   const client = await import("../src/api/client");
-  expect(kit.convertWikilinks).toBe(content.convertWikilinks);
   expect(kit.resolveRenderedLinkTarget).toBe(content.resolveRenderedLinkTarget);
   expect(kit.getNodePreview).toBe(client.getNodePreview);
   expect(kit.resolveRenderedLinkTarget("../plan.html", { links: [] })).toBe("../plan.html");

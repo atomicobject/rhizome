@@ -275,7 +275,9 @@ test("extensionless wikilinks preserve HTML targets and ambiguous names", async 
 for (const colorScheme of ["light", "dark"] as const) {
   test.describe(colorScheme, () => {
     test.use({ colorScheme });
-    test("relative images retain source context and absolute images render", async ({ page }) => {
+    test("relative images retain source context and absolute images render", async ({
+      page,
+    }, info) => {
       await page.goto(record("docs/efforts/2026-11-09-10-04-harbor.md"));
       const f = content(page);
       await expect(
@@ -292,7 +294,7 @@ for (const colorScheme of ["light", "dark"] as const) {
           ),
         )
         .toBe(true);
-      await page.screenshot({ path: test.info().outputPath("relative-image-fallback.png") });
+      await capture(page, info, "relative-image-fallback");
       await f
         .getByRole("button", { name: "Open source for Decision diagram", exact: true })
         .click();
@@ -371,6 +373,13 @@ for (const colorScheme of ["light", "dark"] as const) {
         await expect(f.getByRole("textbox", { name: /prompt/i })).toHaveValue(/SPEC-9001-US3/);
         await expect(f.getByRole("textbox", { name: /prompt/i })).not.toHaveValue(/SPEC-9001-US1/);
         expect(changed).toBeGreaterThan(0);
+
+        if (fault === "unresolved")
+          await expect(
+            f
+              .locator(".ae-select-row")
+              .filter({ has: f.getByRole("checkbox", { name: /Select US1.*Reserve a seat/ }) }),
+          ).toContainText("1 loaded criterion");
         await noOverflow(page);
         await f
           .getByRole("heading", { name: "Ready stories", exact: true })

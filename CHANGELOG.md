@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Refine Agentic Engineering Delivery lists, source notices, sorting, and contextual navigation; load Markdown tooling only in views that use it.
 - Agentic Engineering now includes a Delivery experience: a workflow map, selectable shaping and implementation lists with composed agent prompts, full inline spec criteria, source-grounded effort resume briefs, and a contextual Find and Recent panel. Frozen scope stays separate from governing metadata and mentions; missing evidence never becomes approval or completion.
 - Workspace source-link reads support offset pagination and an occurrence count, so callers can establish complete authored scope without losing repeated or unresolved links.
 - Batched node field errors identify their requested ref when known, so scoped callers can retain healthy sibling evidence while reporting partial reads.

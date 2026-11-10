@@ -1,0 +1,129 @@
+{
+  "claim": "Compare production static module bytes loaded by the core kit using identical dependencies; no latency claim.",
+  "rows": [
+    {
+      "label": "before",
+      "round": 0,
+      "entryBytes": 328998,
+      "entryGzip": 83303,
+      "staticBytes": 686381,
+      "staticGzip": 176570,
+      "markdownModules": 136,
+      "hash": "90bff06299cd04af8ce4590547de80a56de375d5ebecfc385a6c44a1ad425628"
+    },
+    {
+      "label": "after",
+      "round": 0,
+      "entryBytes": 101113,
+      "entryGzip": 29881,
+      "staticBytes": 457867,
+      "staticGzip": 123377,
+      "markdownModules": 0,
+      "hash": "353bee95d877ed9caea10e02fd3f01230f70492847cfa57ff450216d3730ae06"
+    },
+    {
+      "label": "before",
+      "round": 1,
+      "entryBytes": 328998,
+      "entryGzip": 83303,
+      "staticBytes": 686381,
+      "staticGzip": 176570,
+      "markdownModules": 136,
+      "hash": "90bff06299cd04af8ce4590547de80a56de375d5ebecfc385a6c44a1ad425628"
+    },
+    {
+      "label": "after",
+      "round": 1,
+      "entryBytes": 101113,
+      "entryGzip": 29881,
+      "staticBytes": 457867,
+      "staticGzip": 123377,
+      "markdownModules": 0,
+      "hash": "353bee95d877ed9caea10e02fd3f01230f70492847cfa57ff450216d3730ae06"
+    },
+    {
+      "label": "before",
+      "round": 2,
+      "entryBytes": 328998,
+      "entryGzip": 83303,
+      "staticBytes": 686381,
+      "staticGzip": 176570,
+      "markdownModules": 136,
+      "hash": "90bff06299cd04af8ce4590547de80a56de375d5ebecfc385a6c44a1ad425628"
+    },
+    {
+      "label": "after",
+      "round": 2,
+      "entryBytes": 101113,
+      "entryGzip": 29881,
+      "staticBytes": 457867,
+      "staticGzip": 123377,
+      "markdownModules": 0,
+      "hash": "353bee95d877ed9caea10e02fd3f01230f70492847cfa57ff450216d3730ae06"
+    },
+    {
+      "label": "before",
+      "round": 3,
+      "entryBytes": 328998,
+      "entryGzip": 83303,
+      "staticBytes": 686381,
+      "staticGzip": 176570,
+      "markdownModules": 136,
+      "hash": "90bff06299cd04af8ce4590547de80a56de375d5ebecfc385a6c44a1ad425628"
+    },
+    {
+      "label": "after",
+      "round": 3,
+      "entryBytes": 101113,
+      "entryGzip": 29881,
+      "staticBytes": 457867,
+      "staticGzip": 123377,
+      "markdownModules": 0,
+      "hash": "353bee95d877ed9caea10e02fd3f01230f70492847cfa57ff450216d3730ae06"
+    },
+    {
+      "label": "before",
+      "round": 4,
+      "entryBytes": 328998,
+      "entryGzip": 83303,
+      "staticBytes": 686381,
+      "staticGzip": 176570,
+      "markdownModules": 136,
+      "hash": "90bff06299cd04af8ce4590547de80a56de375d5ebecfc385a6c44a1ad425628"
+    },
+    {
+      "label": "after",
+      "round": 4,
+      "entryBytes": 101113,
+      "entryGzip": 29881,
+      "staticBytes": 457867,
+      "staticGzip": 123377,
+      "markdownModules": 0,
+      "hash": "353bee95d877ed9caea10e02fd3f01230f70492847cfa57ff450216d3730ae06"
+    }
+  ],
+  "beforeCommit": "aa830a2b44544a3374ea33909973280df31da8ec",
+  "afterDescription": "Uncommitted Fable cleanup: optional Markdown entry and core caller migration",
+  "mainReference": [
+    {
+      "label": "main",
+      "round": 0,
+      "entryBytes": 102053,
+      "entryGzip": 30389,
+      "staticBytes": 456239,
+      "staticGzip": 122534,
+      "markdownModules": 0,
+      "hash": "ba893c5f9a28fa38c3d25080a58a0b20f9ca9e70af01e19aee0ccf8e814ffc7a"
+    },
+    {
+      "label": "before",
+      "round": 0,
+      "entryBytes": 328998,
+      "entryGzip": 83303,
+      "staticBytes": 686381,
+      "staticGzip": 176570,
+      "markdownModules": 136,
+      "hash": "90bff06299cd04af8ce4590547de80a56de375d5ebecfc385a6c44a1ad425628"
+    }
+  ]
+}

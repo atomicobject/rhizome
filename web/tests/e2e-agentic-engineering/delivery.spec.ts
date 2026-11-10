@@ -34,6 +34,13 @@ for (const colorScheme of ["light", "dark"] as const) {
           .getByText(/^(?:at least )?3 stories in (?:at least )?2 specs$/)
           .first(),
       ).toBeVisible();
+      await expect(
+        content(page).getByText("Some source evidence is unavailable.", { exact: true }),
+      ).toHaveCount(0);
+      const panel = page.frameLocator("iframe.panel-frame[data-shown]");
+      await expect(
+        panel.getByRole("link", { name: /^3 stories in 2 specs Ready stories$/ }),
+      ).toBeVisible();
       await capture(page, info, "home");
     });
 

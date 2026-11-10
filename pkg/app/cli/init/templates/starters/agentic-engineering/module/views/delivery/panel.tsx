@@ -12,7 +12,6 @@ import {
   StageLink,
   WorkflowMap,
   unit,
-  useAnnouncedStage,
 } from "./presentation.tsx";
 import type { PortfolioProps } from "./presentation.tsx";
 
@@ -45,10 +44,9 @@ export function DeliveryPanel({ portfolio, status }: PortfolioProps) {
       ? records.find((record) => identity(record.ref) === identity(context.ref))
       : undefined;
   const currentKey = current ? identity(current.ref) : null;
-  const announced = useAnnouncedStage();
   const stage =
     context.kind === "standalone" && context.view === "agentic-engineering.stage"
-      ? groupFor(announced ?? "")
+      ? groupFor(typeof location.params.stage === "string" ? location.params.stage : "")
       : null;
   useEffect(() => {
     if (current)

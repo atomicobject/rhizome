@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import {
   DisclosureIcon,
   Facts,
@@ -11,7 +11,6 @@ import {
   useMarkReady,
   usePageNavigation,
   useTypeDocs,
-  useViewActive,
   workspaceViewHref,
 } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
@@ -116,12 +115,10 @@ export function sourceLocator(ref: Ref) {
   return `${ref.notePath}${ref.fragment ? `#${ref.fragment}` : ""}`;
 }
 
-/** The recorded status word with the mark the house gives that word. Nothing is inferred. */
 export function RecordedStatus({ status }: { status: string | null | undefined }) {
   return status ? <StatusMark value={status} values={[]} /> : <>Status unavailable</>;
 }
 
-/** A type's human label, with its identifier in the tooltip and as the fallback evidence. */
 export function TypeName({ name }: { name: string }) {
   const doc = useTypeDocs([name]).docs[name];
   return doc ? <span title={name}>{typeLabel(doc)}</span> : <code className="ae-path">{name}</code>;
@@ -129,7 +126,6 @@ export function TypeName({ name }: { name: string }) {
 
 type NoticeTone = "neutral" | "risk";
 
-/** The house status shapes: a neutral ring, or the risk disc with its exclamation cut out. */
 export function NoticeMark({ tone = "neutral" }: { tone?: NoticeTone }) {
   return tone === "risk" ? (
     <svg
@@ -153,7 +149,6 @@ export function NoticeMark({ tone = "neutral" }: { tone?: NoticeTone }) {
   );
 }
 
-/** One treatment for every failed, partial, and changed state. Live-region roles stay on the lines inside unless `role` names the whole notice. */
 export function Notice({
   tone = "neutral",
   role,
@@ -171,7 +166,7 @@ export function Notice({
   );
 }
 
-export function ErrorDetail({ error }: { error: Error }) {
+export function ErrorDetail({ error }: { error: { message: string } }) {
   return (
     <details>
       <summary>
@@ -181,45 +176,6 @@ export function ErrorDetail({ error }: { error: Error }) {
       <code className="ae-path">{error.message}</code>
     </details>
   );
-}
-
-// ponytail: the host gives a panel the active page's subject but not its params, so the stage
-// page names its stage for the panel through this window's session storage. Read the stage from
-// the panel's location instead once a panel invocation carries the page's params.
-const stageKey = "agentic-engineering.current-stage";
-
-function announcedStage() {
-  try {
-    return sessionStorage.getItem(stageKey);
-  } catch {
-    return null;
-  }
-}
-
-function onStageAnnounced(listener: () => void) {
-  window.addEventListener("storage", listener);
-  return () => window.removeEventListener("storage", listener);
-}
-
-/** The stage page on screen names its stage, and withdraws it when it leaves. */
-export function useAnnounceStage(stage: Stage | null) {
-  const active = useViewActive();
-  useEffect(() => {
-    if (!active || !stage) return;
-    try {
-      sessionStorage.setItem(stageKey, stage);
-    } catch {
-      // The panel shows no current stage when browser storage is unavailable.
-      return;
-    }
-    return () => {
-      if (announcedStage() === stage) sessionStorage.removeItem(stageKey);
-    };
-  }, [active, stage]);
-}
-
-export function useAnnouncedStage() {
-  return useSyncExternalStore(onStageAnnounced, announcedStage);
 }
 
 export function parentSpecSummary(result: ReturnType<typeof groupResult>) {
@@ -294,11 +250,7 @@ export function CoverageNotice({ portfolio }: { portfolio: Portfolio }) {
       {partial && (
         <p role="status">Partial inventory. Counts describe loaded records and may omit work.</p>
       )}
-      {errors.map((error) => (
-        <p role="alert" className="ae-path" key={error}>
-          {error}
-        </p>
-      ))}
+      {errors.length > 0 && <ErrorDetail error={{ message: errors.join("\n") }} />}
     </Notice>
   );
 }
@@ -311,7 +263,7 @@ export function RowFacts({ row }: { row: Row }) {
         <Fact value={row.record.stories.length}>
           {row.record.storiesCoverage.complete
             ? unit(row.record.stories.length, "stories")
-            : "loaded stories"}
+            : `loaded ${unit(row.record.stories.length, "stories")}`}
         </Fact>
       )}
       {row.kind === "story" && (
@@ -324,7 +276,7 @@ export function RowFacts({ row }: { row: Row }) {
           <Fact value={row.record.criteria.length}>
             {row.record.criteriaCoverage.complete
               ? unit(row.record.criteria.length, "criteria")
-              : "loaded criteria"}
+              : `loaded ${unit(row.record.criteria.length, "criteria")}`}
           </Fact>
         </>
       )}
@@ -432,11 +384,9 @@ export function ReadState({
               </Button>
             </p>
           )}
-          {errors.map((error, index) => (
-            <p role="status" className="ae-path" key={index}>
-              {error}
-            </p>
-          ))}
+          {errors.length > 0 && (
+            <ErrorDetail error={{ message: [...new Set(errors)].join("\n") }} />
+          )}
           {query.error && <ErrorDetail error={query.error} />}
         </Notice>
       )}

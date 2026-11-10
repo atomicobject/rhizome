@@ -1,8 +1,8 @@
 # Installed Delivery proof
 
-These are screenshots of the real installed starter in disposable synthetic repositories. They are not the static design comps. The mixed fixture deliberately contains missing selectors, unresolved links and incomplete records; the host's Problems count reflects those fixture cases.
+These are screenshots of the real installed starter in disposable synthetic repositories. The fixtures deliberately include incomplete records and unresolved links, which also account for their host Problems count.
 
-The five factual groups retain the visual Shape, Build, Settle orientation. A spec can appear in both Shaping and Ready. A checked closure checklist leaves an active effort active. Planned is an exact recorded state, with an explanatory empty state when a team creates efforts directly as active.
+The current manifest has 68 captures and 44 committed images. Fable 5.2 opened all 63 images in the initial cleanup manifest and all 31 selected before images individually at original resolution, then approved the visual cleanup and final eligibility and identity fixes. Root inspected the five added scenarios, both corrected singular-label captures, the complete home, and the settled first-day panel. The [review record](fable52-final-review.md) separates screenshot findings from behavior tested in the browser.
 
 | Use case | Light | Dark |
 | --- | --- | --- |
@@ -10,25 +10,24 @@ The five factual groups retain the visual Shape, Build, Settle orientation. A sp
 | Select exact stories and copy one prompt | [Selected stories](screenshots/ready-selected-light.png) | [Selected stories](screenshots/ready-selected-dark.png) |
 | Continue healthy work when another criterion read fails | [Partial read](screenshots/healthy-story-partial-unresolved-light.png) | [Partial read](screenshots/healthy-story-partial-unresolved-dark.png) |
 | Read full criteria in their spec | [Spec](screenshots/spec-expanded-light.png) | [Spec](screenshots/spec-expanded-dark.png) |
-| Inspect frozen specs separately from governing metadata and story selection | [Relationships](screenshots/frozen-spec-relationships-light.png) | [Relationships](screenshots/frozen-spec-relationships-dark.png) |
+| Inspect frozen specs separately from other authored links | [Relationships](screenshots/frozen-spec-relationships-light.png) | [Relationships](screenshots/frozen-spec-relationships-dark.png) |
 | Developer resumes an inline effort | [Brief](screenshots/inline-effort-light.png) | [Brief](screenshots/inline-effort-dark.png) |
 | Inspect explicit workspace scope and separate log evidence | [Workspace](screenshots/workspace-provenance-light.png) | [Workspace](screenshots/workspace-provenance-dark.png) |
 | Keep unknown legacy scope visible | [Legacy workspace](screenshots/legacy-workspace-light.png) | [Legacy workspace](screenshots/legacy-workspace-dark.png) |
 | Find a contract and return through actual visits | [Panel](screenshots/panel-find-recent-light.png) | [Panel](screenshots/panel-find-recent-dark.png) |
 | Start with no work recorded | [First day](screenshots/empty-home-light.png) | [First day](screenshots/empty-home-dark.png) |
-| Read narrow content using host sidebar controls | [390px](screenshots/narrow-390-light.png) | [390px](screenshots/narrow-390-dark.png) |
+| Read a narrow home | [390px](screenshots/home-narrow-390-light.png) | [390px](screenshots/home-narrow-390-dark.png) |
+| Select work in a narrow stage | [390px](screenshots/ready-narrow-390-light.png) | [390px](screenshots/ready-narrow-390-dark.png) |
+| Read long criteria at narrow width | [390px](screenshots/narrow-390-light.png) | [390px](screenshots/narrow-390-dark.png) |
 | Recover from a failed refresh without losing the brief | [Retained error](screenshots/retained-error-light.png) | [Retained error](screenshots/retained-error-dark.png) |
-| Read an image source when inline attachment previews are unavailable | [Image fallback](screenshots/relative-image-fallback-light.png) | [Image fallback](screenshots/relative-image-fallback-dark.png) |
+| Inspect a partial-read error without losing the page | [Partial error](screenshots/partial-read-error-light.png) | [Partial error](screenshots/partial-read-error-dark.png) |
+| Read an image source when inline previews are unavailable | [Image fallback](screenshots/relative-image-fallback-light.png) | [Image fallback](screenshots/relative-image-fallback-dark.png) |
 | Recognize loading without false empty counts | [Loading](screenshots/loading-light.png) | [Loading](screenshots/loading-dark.png) |
 
-[Changed selection](screenshots/changed-selection-default.png) shows the explicit acknowledgement required after a selected story becomes ineligible. Copy remains disabled until the user reviews the reduction. Source link navigation, successful and refused clipboard writes, incomplete selected scope, Back/Forward, reload, host tabs and a second window have separate behavioral assertions.
+The additional default-theme captures show [sorted selected rows](screenshots/sorted-ready-selection-default.png), [exact pending review scope](screenshots/pending-review-scope-default.png), [active panel location](screenshots/panel-active-stage-default.png), and [changed selection](screenshots/changed-selection-default.png). Changed selection requires acknowledgement before a reduced prompt can be copied. The panel test checks that Find text survives a stage change.
 
-The full capture manifest records all seven stage pages, selected and incomplete prompts, both effort forms, safe HTML navigation, panel states, 768px and 390px layouts, first-day states, loading and retained failures. An independent Codex GPT-6.1 Sol high review opened all 47 images individually at original resolution and approved them. After exposing the computed parent-spec count, root opened all 40 changed captures again; seven remained byte-identical. [The capture review](final-capture-review.md) records both passes and their limits. Ready counts now show both stories and parent specs. The 390px proof uses the existing Hide sidebar control. The 200 percent layout case uses a 720px viewport equivalent to a 1440px display; it does not exercise browser zoom hardware.
+All 77 installed Delivery cases pass, including source-link navigation, clipboard success and failure, incomplete scope, exact pending locators, sorting, Back/Forward, reload, tab return, a second window, keyboard/focus and 390px/768px overflow. Nominal home captures require complete reads; deliberate fault captures retain their partial notices. The 200-percent layout case uses a 720px viewport equivalent to a 1440px display rather than browser zoom hardware.
 
-Keyboard, accessible-name, focus and overflow checks run in the installed browser tests. House page and sidebar tokens provide theme text colors; screenshots are not a screen-reader or formal contrast audit. Authored HTML previews retain their own document appearance inside the existing isolated viewer, including a white document in a dark host.
+Full `make verify` passed with 2,169 web unit, 159 native browser, 90 Knowledge browser and 77 Delivery browser cases. The final singular-label and capture corrections then passed `make check`, `make build`, strict template TypeScript, the complete installed Delivery suite and both documentation validators. Fresh/update/eject and `init --check` are included in the installer checks. Earlier capture inventories remain historical evidence in the dated review records.
 
-Two additional image-fallback captures bring the manifest to 49 captures, with 25 images committed. Source-relative Markdown images use an explicit fallback with their authored label, exact path and canonical source button because the kit has no public binary attachment URL. Absolute image URLs still render. Both-theme installed cases check a decoded data image and source navigation; the root inspected their fallback screenshots.
-
-Four G8 captures bring the manifest to 53 captures, with 29 images committed. Root opened each new capture individually at original resolution. Explicit missing-target and owned-field failures keep the affected story disabled while a healthy sibling remains selected. The complete 64-case installed suite verifies prompt eligibility, partial notices and overflow in both themes. The held-refresh regression also prevents acknowledgement from reducing selection before the read finishes. These localized changes do not alter the earlier layout proof.
-
-Two G9 relationship captures bring the manifest to 55 captures, with 31 images committed. Root opened both at original resolution. They show exact frozen-spec occurrences alongside governing metadata and story selection after the canonical note-root identity correction. The original 47-state layout evidence remains unchanged; these captures add an expanded relationship state.
+These screenshots do not establish a formal screen-reader or contrast audit. Source-relative images retain their label, path and canonical source button because the kit has no public binary attachment route. Absolute image URLs still render. Authored HTML uses its own appearance inside the isolated viewer, including a white document in a dark host. No unmerged build was installed into Rhizome Dev.

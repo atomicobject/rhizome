@@ -1,6 +1,7 @@
 import { inventoryComplete, isComplete } from './coverage.ts';
 import { identity, type Effort, type Portfolio, type RecordSummary, type Spec, type Story } from './model.ts';
 
+export type RowSort = 'source' | 'title-asc' | 'title-desc';
 export type Stage = 'shaping' | 'ready' | 'planned' | 'active' | 'history' | 'contracts' | 'review';
 export type Row =
   | { kind: 'spec'; record: Spec }
@@ -88,10 +89,18 @@ export function groupFor(stage: string): Group | null {
   return groups.find(group => group.stage === stage) ?? null;
 }
 
-export function groupResult(stage: string, input: Portfolio) {
+export function groupResult(stage: string, input: Portfolio, sort: RowSort = 'source') {
   const group = groupFor(stage);
   if (!group) return { state: 'invalid-route' as const };
   const rows = group.rows(input);
+  if (sort !== 'source') {
+    const compare = (a: string, b: string) => a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' });
+    rows.sort((a, b) => {
+      const parent = a.kind === 'story' && b.kind === 'story'
+        ? compare(a.parent.title, b.parent.title) || compare(identity(a.parent.ref), identity(b.parent.ref)) : 0;
+      return (parent || compare(a.record.title, b.record.title)) * (sort === 'title-desc' ? -1 : 1);
+    });
+  }
   const specReads = [input.specCoverage, ...input.specs.flatMap(spec =>
     [spec.coverage, spec.storiesCoverage, ...spec.stories.map(story => story.coverage)])];
   const effortReads = [input.effortCoverage, ...input.efforts.map(effort => effort.coverage)];
@@ -115,7 +124,7 @@ export function groupResult(stage: string, input: Portfolio) {
       row.kind === 'story' ? [identity(row.parent.ref)] : [])).size : null };
 }
 
-export function eligibility(row: Row): { eligible: boolean; reason: string | null } {
+export function eligibility(row: Row, intent: 'select' | 'copy' = 'copy'): { eligible: boolean; reason: string | null } {
   if (!row.record.locator) return { eligible: false, reason: 'Durable canonical locator unavailable' };
   if (!inventoryComplete([row.record.coverage])) return { eligible: false, reason: 'Record read incomplete' };
   if (row.kind === 'spec' && !inventoryComplete([row.record.coverage, row.record.storiesCoverage])) {
@@ -126,12 +135,11 @@ export function eligibility(row: Row): { eligible: boolean; reason: string | nul
     row.record.criteriaCoverage, ...row.record.criteria.map(criterion => criterion.coverage)]))) {
     return { eligible: false, reason: 'Parent contract read incomplete' };
   }
-  if ((row.kind === 'effort' || row.kind === 'review') && (row.record.scope.state !== 'known' || !inventoryComplete([row.record.coverage, row.record.scope.coverage]))) {
+  if ((row.kind === 'review' || intent === 'copy' && row.kind === 'effort') && (row.record.scope.state !== 'known' || !inventoryComplete([row.record.coverage, row.record.scope.coverage]))) {
     return { eligible: false, reason: 'Selected frozen scope incomplete or unknown' };
   }
+  if (row.kind === 'review' && row.selected.some(record => !record.locator || !inventoryComplete([record.coverage]))) {
+    return { eligible: false, reason: 'Selected pending contract locator or read unavailable' };
+  }
   return { eligible: true, reason: null };
-}
-
-export function linkable(record: RecordSummary): boolean {
-  return !!record.locator;
 }

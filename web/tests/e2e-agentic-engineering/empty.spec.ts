@@ -19,6 +19,11 @@ for (const colorScheme of ["light", "dark"] as const) {
       const outcome = content(page).getByRole("textbox", { name: /outcome/i });
       await outcome.fill("Let a passenger reserve a seat on the harbor ferry.");
       await expect(content(page).getByRole("textbox", { name: /prompt/i })).toHaveValue(/specify/);
+      await expect(
+        page
+          .frameLocator("iframe.panel-frame[data-shown]")
+          .getByRole("link", { name: /^0 specs Shaping specs$/ }),
+      ).toBeVisible();
       await capture(page, info, "empty-home");
       await page.goto(stage("planned"));
       await expect(content(page).getByText(/select.*stor.*effort/i)).toBeVisible();

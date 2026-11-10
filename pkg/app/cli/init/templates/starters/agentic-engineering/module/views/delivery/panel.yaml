@@ -4,3 +4,5 @@ name: Delivery
 source: { kind: custom, entry: panel.tsx }
 mount:
   kind: panel
+params:
+  - { name: stage, kind: string }

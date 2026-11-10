@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { expect, it } from "vitest";
-import { Markdown, markdownChecklist } from "./index";
+import { Markdown, markdownChecklist, convertWikilinks } from "@rhizome/kit/markdown";
 
 it.each([
   ["- [x] Done\n  - [ ] Pending", 1, 2],
@@ -19,5 +19,23 @@ it.each([
   const boxes = [...view.container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
   expect(boxes).toHaveLength(total);
   expect(boxes.filter((box) => box.checked)).toHaveLength(checked);
+
   view.unmount();
+});
+
+it("preserves authored links and code through the public Markdown entry", () => {
+  const source = "[[notes/Plan#Scope|Plan]] and `[[literal]]`";
+
+  const converted = convertWikilinks(source);
+
+  const view = render(
+    <Markdown skipHtml urlTransform={(url) => url}>
+      {converted}
+    </Markdown>,
+  );
+
+  expect(view.getByRole("link", { name: "Plan" }).getAttribute("href")).toBe(
+    "rhizome://note/notes%2FPlan%23Scope",
+  );
+  expect(view.container.querySelector("code")?.textContent).toBe("[[literal]]");
 });

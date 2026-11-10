@@ -9,7 +9,7 @@
     },
     "route": "/notes/group/Delivery",
     "file": "loading-light.png",
-    "sha256": "2520a1ab9e1030c7925de3a4a9358a927613a8310765b4562163e7fbd315c184",
+    "sha256": "b92b0da7380f6ab0ef205650b6306d4b6b099880aa35c1d083225f99e88a6b20",
     "included": true
   },
   {
@@ -22,7 +22,7 @@
     },
     "route": "/notes/group/Delivery",
     "file": "loading-dark.png",
-    "sha256": "d7038024a47d28a7257e61e8c794b24c93b8177559aed1a369f89194e06239f8",
+    "sha256": "70f9761ee5e3345d1352427c36b7f9740a8ca2d269eddcc59bdbbd11684eb01b",
     "included": true
   },
   {
@@ -35,7 +35,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-02-harbor.md",
     "file": "retained-error-light.png",
-    "sha256": "c80e29392d0f2a691fe7c65f404009627b3781e0d51f0d8e617181daeef89e69",
+    "sha256": "39c897c27d7dbab33ade2634818734b381a996291b8bee213d4791a8123c24d8",
     "included": true
   },
   {
@@ -48,7 +48,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-02-harbor.md",
     "file": "retained-error-dark.png",
-    "sha256": "ad6f0e53e0a18e2bb7fa2fb48fc4e499f5927e5daa942948e62a0825bc398b92",
+    "sha256": "22e83e48734253e5fa5b20456d56edfa9679fe3423e54f992741b16e2276c94e",
     "included": true
   },
   {
@@ -61,554 +61,8 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=ready",
     "file": "changed-selection-default.png",
-    "sha256": "64fb9c072fd845fb4fd216b5879deeda7e7c328499fab85319b2757f2d783c79",
+    "sha256": "6e6c51290864fe24b56a4c96c2cf756e23044911c39c1de456bf67f462c3a12c",
     "included": true
-  },
-  {
-    "scenario": "home",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes/group/Delivery",
-    "file": "home-light.png",
-    "sha256": "a5e9c6aa3c7a1dc21d6792162139b61eff79ba6147a2ee45cac52a2e15e1828b",
-    "included": true
-  },
-  {
-    "scenario": "stage-shaping",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=shaping",
-    "file": "stage-shaping-light.png",
-    "sha256": "370fda8d3ac889c71ddd7f4e643ea4c0c3a614929884ff568bd4b3fab861be54",
-    "included": false
-  },
-  {
-    "scenario": "stage-ready",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=ready",
-    "file": "stage-ready-light.png",
-    "sha256": "30e8b2bff78946ea4d1dab85baf4829fa4d70c1b664b324872c4994c5841a2f0",
-    "included": false
-  },
-  {
-    "scenario": "stage-planned",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=planned",
-    "file": "stage-planned-light.png",
-    "sha256": "283ba2a2bfceade58ccd08060281e566000bb1bf17ed13bb40816d0762a78e1b",
-    "included": false
-  },
-  {
-    "scenario": "stage-active",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=active",
-    "file": "stage-active-light.png",
-    "sha256": "abb77cd6bdf2e8204750937679549ffe489abf15cb91991eafd047f10fc3d5b7",
-    "included": false
-  },
-  {
-    "scenario": "stage-history",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=history",
-    "file": "stage-history-light.png",
-    "sha256": "1a2e9a3cba227fa5690172e791d5358941741da18dbb6c80fb2c741eeb219e52",
-    "included": false
-  },
-  {
-    "scenario": "stage-contracts",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=contracts",
-    "file": "stage-contracts-light.png",
-    "sha256": "e6419f084449ba2803c65182c4b173173d2b6a2b9f28142931f565d921872707",
-    "included": false
-  },
-  {
-    "scenario": "stage-review",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=review",
-    "file": "stage-review-light.png",
-    "sha256": "2c32988208233c111433fb404eaab277c57a6ea0ed909cda8bd545353efc7866",
-    "included": false
-  },
-  {
-    "scenario": "ready-selected",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=ready",
-    "file": "ready-selected-light.png",
-    "sha256": "44075464e4771ebdf3e8ca0e0494e154bc65e1eb7542e7e74fd0581037dc47c6",
-    "included": true
-  },
-  {
-    "scenario": "selection-incomplete",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=active",
-    "file": "selection-incomplete-light.png",
-    "sha256": "160a1eb50995f1eb9d4df6e919108bbe4f6e03583b42bb359d43bd4ad817e895",
-    "included": false
-  },
-  {
-    "scenario": "clipboard-error",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=ready",
-    "file": "clipboard-error-light.png",
-    "sha256": "13cd237e08c64a897a890ed4adf899c44a097bf8c02ffa1784ae0e7db83eeebe",
-    "included": false
-  },
-  {
-    "scenario": "spec-expanded",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md&story=SPEC-9001-US1",
-    "file": "spec-expanded-light.png",
-    "sha256": "fc578b57e5fc9b482553fe4f637188080790613469f93a7169b12b0b3096e6ad",
-    "included": true
-  },
-  {
-    "scenario": "workspace-provenance",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?note=docs%2Fefforts%2Fharbor-explicit%2F2026-11-09-11-00-effort.html",
-    "file": "workspace-provenance-light.png",
-    "sha256": "4b750d1ea333e1b15b0b01ff6ae330edb498937f71e3fcc7bf45bc296d93ffa0",
-    "included": true
-  },
-  {
-    "scenario": "inline-effort",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-02-harbor.md",
-    "file": "inline-effort-light.png",
-    "sha256": "b5a288ec6d04ddc7b24cfe632aed138a55fab828758cb04a96a3e3a4dbf59faf",
-    "included": true
-  },
-  {
-    "scenario": "legacy-workspace",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?note=docs%2Fefforts%2Fharbor-legacy%2F2026-11-09-11-02-effort.html",
-    "file": "legacy-workspace-light.png",
-    "sha256": "a364abfd201e42f2cbe81541b39f792613e779ef155c36f21f141644c62ec76a",
-    "included": true
-  },
-  {
-    "scenario": "html-plan",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?presentation=builtin%3Aread&kind=NOTE&note=docs%2Fefforts%2Fharbor-legacy%2Fplan.html",
-    "file": "html-plan-light.png",
-    "sha256": "a5f929c8793e7d78e6fbd56f4d3511f486893f8711654dda492d7bd490bcd5cb",
-    "included": false
-  },
-  {
-    "scenario": "panel-find-recent",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes/group/Delivery?kind=NOTE&note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
-    "file": "panel-find-recent-light.png",
-    "sha256": "3136a705ba2897898915540353143bcc4ac05a9c29c92b0fd4eb204fbb34ab74",
-    "included": true
-  },
-  {
-    "scenario": "narrow-768",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 768,
-      "height": 900
-    },
-    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
-    "file": "narrow-768-light.png",
-    "sha256": "78b8bc992f88ec7daedab1ea190cadc0ae73fa9f724bfd33e76e5f19878d3d32",
-    "included": false
-  },
-  {
-    "scenario": "narrow-390",
-    "theme": "light",
-    "project": "mixed",
-    "viewport": {
-      "width": 390,
-      "height": 900
-    },
-    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
-    "file": "narrow-390-light.png",
-    "sha256": "2bdcecebe231d16b78af5b26e62ee6b956faed0800e8aa6b356e4037eb20aa3b",
-    "included": true
-  },
-  {
-    "scenario": "home",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes/group/Delivery",
-    "file": "home-dark.png",
-    "sha256": "17fce45a7e336d559b736445b36b76cf6f95154f6ab47d34896492ffe776f70a",
-    "included": true
-  },
-  {
-    "scenario": "stage-shaping",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=shaping",
-    "file": "stage-shaping-dark.png",
-    "sha256": "6ab387d0e066013f04f37ca7d81f059fb6f3c6ff819f2c8544b1f9811c04b51f",
-    "included": false
-  },
-  {
-    "scenario": "stage-ready",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=ready",
-    "file": "stage-ready-dark.png",
-    "sha256": "0e66afada20741f86568e9e95d12c610646641daceb302a2c59f434deeb1a8fa",
-    "included": false
-  },
-  {
-    "scenario": "stage-planned",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=planned",
-    "file": "stage-planned-dark.png",
-    "sha256": "0783e8e30658bdd31d001ecc31516f1fca6b3ab91d586fc9126deefd61011899",
-    "included": false
-  },
-  {
-    "scenario": "stage-active",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=active",
-    "file": "stage-active-dark.png",
-    "sha256": "b5e206d6926b51650954c7fedbedf41a4645c6bc29434adc58f70c8960eaa69d",
-    "included": false
-  },
-  {
-    "scenario": "stage-history",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=history",
-    "file": "stage-history-dark.png",
-    "sha256": "8f746a0baaa692eec4041cb39d586bf5678c95a401e429f3a5d7b85cf2c22eec",
-    "included": false
-  },
-  {
-    "scenario": "stage-contracts",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=contracts",
-    "file": "stage-contracts-dark.png",
-    "sha256": "90693025dda161b34ec1736e0b41a2171b9c0413733f9bd73711b950260bd3b4",
-    "included": false
-  },
-  {
-    "scenario": "stage-review",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=review",
-    "file": "stage-review-dark.png",
-    "sha256": "bb8667da7a992415bc59cb783157c311665f884583f9d45c37150f9dd5caab60",
-    "included": false
-  },
-  {
-    "scenario": "ready-selected",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=ready",
-    "file": "ready-selected-dark.png",
-    "sha256": "b45580422290466ff7c7cd1a9d2bbd6ff0cad73b789886aaeaee4da06474b5d6",
-    "included": true
-  },
-  {
-    "scenario": "selection-incomplete",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=active",
-    "file": "selection-incomplete-dark.png",
-    "sha256": "16102bbf912c6b568c80a20b0eef9503538bffc6c330fd85659c08f2f183d8bc",
-    "included": false
-  },
-  {
-    "scenario": "clipboard-error",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=ready",
-    "file": "clipboard-error-dark.png",
-    "sha256": "d621ea9b69b2de21993958f492146321f5abbe051bfec128f15d02a41f93f393",
-    "included": false
-  },
-  {
-    "scenario": "spec-expanded",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md&story=SPEC-9001-US1",
-    "file": "spec-expanded-dark.png",
-    "sha256": "9f4a211a791b35d30d8d8fe47466701e70e27f21aa7218e4e9c5ad1a4c5b8681",
-    "included": true
-  },
-  {
-    "scenario": "workspace-provenance",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?note=docs%2Fefforts%2Fharbor-explicit%2F2026-11-09-11-00-effort.html",
-    "file": "workspace-provenance-dark.png",
-    "sha256": "90c19d3fb62f6ffa569be811185dfd47d40ecc2b5f610ef1db8f2b007eb197e6",
-    "included": true
-  },
-  {
-    "scenario": "inline-effort",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-02-harbor.md",
-    "file": "inline-effort-dark.png",
-    "sha256": "1c896f7552c3c05a079166958a3a0c3540a253df4729c73aaeade544ca35a83e",
-    "included": true
-  },
-  {
-    "scenario": "legacy-workspace",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?note=docs%2Fefforts%2Fharbor-legacy%2F2026-11-09-11-02-effort.html",
-    "file": "legacy-workspace-dark.png",
-    "sha256": "14b8692fdddeec5f062da51a1188dcbdff483e62c0c327f2fdc36027e1368739",
-    "included": true
-  },
-  {
-    "scenario": "html-plan",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes?presentation=builtin%3Aread&kind=NOTE&note=docs%2Fefforts%2Fharbor-legacy%2Fplan.html",
-    "file": "html-plan-dark.png",
-    "sha256": "b123a68fe7643ed5725dfa1d0f83b22a6df82b15507e950ba713a64b1acb0a2a",
-    "included": false
-  },
-  {
-    "scenario": "panel-find-recent",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 1440,
-      "height": 1000
-    },
-    "route": "/notes/group/Delivery?kind=NOTE&note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
-    "file": "panel-find-recent-dark.png",
-    "sha256": "20845a7e457eff02b67410c5931d1cfd9218f20dbc1beffa754348777df14e56",
-    "included": true
-  },
-  {
-    "scenario": "narrow-768",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 768,
-      "height": 900
-    },
-    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
-    "file": "narrow-768-dark.png",
-    "sha256": "24458a672ccd08bc1a9174e46728930235ad1e16c464cce0db71cd5e912f523d",
-    "included": false
-  },
-  {
-    "scenario": "narrow-390",
-    "theme": "dark",
-    "project": "mixed",
-    "viewport": {
-      "width": 390,
-      "height": 900
-    },
-    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
-    "file": "narrow-390-dark.png",
-    "sha256": "581b5be429b5dddfec807b4a025e647083a5a088425ba15ec912bd6d18e37b0e",
-    "included": true
-  },
-  {
-    "scenario": "empty-home",
-    "theme": "light",
-    "project": "empty",
-    "viewport": {
-      "width": 1280,
-      "height": 720
-    },
-    "route": "/notes/group/Delivery",
-    "file": "empty-home-light.png",
-    "sha256": "c7f1a8d40f6324f75166ebca96576895545ff616e9db8133a051677025e4e782",
-    "included": true
-  },
-  {
-    "scenario": "empty-planned",
-    "theme": "light",
-    "project": "empty",
-    "viewport": {
-      "width": 1280,
-      "height": 720
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=planned",
-    "file": "empty-planned-light.png",
-    "sha256": "283ddff8e11092b79a473336c08ab722f6fb055c9f197882fea375dff4154df9",
-    "included": false
-  },
-  {
-    "scenario": "empty-home",
-    "theme": "dark",
-    "project": "empty",
-    "viewport": {
-      "width": 1280,
-      "height": 720
-    },
-    "route": "/notes/group/Delivery",
-    "file": "empty-home-dark.png",
-    "sha256": "0a4b6e415823796c0568eb8a4b21823a480cbf10d8f6ca0633a79c650fdb0cad",
-    "included": true
-  },
-  {
-    "scenario": "empty-planned",
-    "theme": "dark",
-    "project": "empty",
-    "viewport": {
-      "width": 1280,
-      "height": 720
-    },
-    "route": "/notes?view=agentic-engineering.stage&stage=planned",
-    "file": "empty-planned-dark.png",
-    "sha256": "9461cfbd9537c72a9a3d394eb4a8361675b47bc3ae865142a3aff2a07e6f13ad",
-    "included": false
   },
   {
     "scenario": "relative-image-fallback",
@@ -620,7 +74,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-04-harbor.md",
     "file": "relative-image-fallback-light.png",
-    "sha256": "7c5ddbdbb74169dcfa7e761fc5b68f0bff23cdadc1f0c6acbe1d5368515ebf46",
+    "sha256": "db7da4c8e24620077d57313be7236be978cd705f8c453e27aa6b871fe712f7e6",
     "included": true
   },
   {
@@ -633,7 +87,7 @@
     },
     "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-04-harbor.md",
     "file": "relative-image-fallback-dark.png",
-    "sha256": "ed6b1856c92544d6f59e6ec5c0477f3b19de40a55587864a4d5dbffeb898706b",
+    "sha256": "1e3f7641e0763a97d74c753913ef29ce9c7496438bce0309f322fd0b9f6a04cb",
     "included": true
   },
   {
@@ -646,7 +100,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=ready",
     "file": "healthy-story-partial-unresolved-light.png",
-    "sha256": "edbb38106dd1c28c4632abebe32ff68fac0a0dc435692834d8c2cbeb5323f6e2",
+    "sha256": "46c58dc5a72754a705bcc37a40bdb8174224396a6660d5bbcc0781d6ce885b97",
     "included": true
   },
   {
@@ -659,7 +113,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=ready",
     "file": "healthy-story-partial-owned-field-light.png",
-    "sha256": "2f7286b83c5b1ca57145e6af9affb0ef4355bfd6a0ca2d11369160d13d16b1a0",
+    "sha256": "596c3cfeb1e6f89a9a4e07c393b12f604e50fdd0175786e77e84768cf26bdf75",
     "included": true
   },
   {
@@ -672,7 +126,7 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=ready",
     "file": "healthy-story-partial-unresolved-dark.png",
-    "sha256": "a19891442a1129a4a3e5fc5ba6cdfdd6a61bc8db291c3634c1bb34126465c1c1",
+    "sha256": "7eb79d543c64ba9b84698f9d5ec23f541de47eb0996e086e5d288d45f8d50f40",
     "included": true
   },
   {
@@ -685,7 +139,163 @@
     },
     "route": "/notes?view=agentic-engineering.stage&stage=ready",
     "file": "healthy-story-partial-owned-field-dark.png",
-    "sha256": "db3953647cddb3542be7ce3129ce2e8aca8c1199e7962253b7571c659a0f09fb",
+    "sha256": "3e62a471690ec4e6894952365f942154ff342a082b60cf8441b85b8c123920b6",
+    "included": true
+  },
+  {
+    "scenario": "home",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes/group/Delivery",
+    "file": "home-light.png",
+    "sha256": "c8bf7685d58ae81ab8e97785d0363a93ef9ce50f88386e5715954dd66d275415",
+    "included": true
+  },
+  {
+    "scenario": "stage-shaping",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=shaping",
+    "file": "stage-shaping-light.png",
+    "sha256": "4567c9b8e62c6e9c2dfacf6ee73b1155809506ca94f2a9fe8dcab2c49b1d5d87",
+    "included": false
+  },
+  {
+    "scenario": "stage-ready",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "stage-ready-light.png",
+    "sha256": "0c80b20b094cd98a4b561811c52b6ef829d891723f4191f73b152e3ff4103db6",
+    "included": false
+  },
+  {
+    "scenario": "stage-planned",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=planned",
+    "file": "stage-planned-light.png",
+    "sha256": "93433b6fb5cb4c2eead43abb972d396015e37859cde9bfe5a4e02ffbdad99a99",
+    "included": false
+  },
+  {
+    "scenario": "stage-active",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=active",
+    "file": "stage-active-light.png",
+    "sha256": "4160b8b0f645e1defebbc4e3fa2e3d15cb178337efc89dffce6d3a37c5cd8e99",
+    "included": false
+  },
+  {
+    "scenario": "stage-history",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=history",
+    "file": "stage-history-light.png",
+    "sha256": "2c0ea5f77fafcfcd77fe7110348c8efab04d8f854c01aee9e088dfb2a629c654",
+    "included": false
+  },
+  {
+    "scenario": "stage-contracts",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=contracts",
+    "file": "stage-contracts-light.png",
+    "sha256": "7c2581001aabab464f20b4f21ec1dea3348e5958c4b4da812263fe5186d67760",
+    "included": false
+  },
+  {
+    "scenario": "stage-review",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=review",
+    "file": "stage-review-light.png",
+    "sha256": "27846d582d46755e3b7ee0930dc8f7eb40705382db00d43adaaededf800708cc",
+    "included": false
+  },
+  {
+    "scenario": "ready-selected",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "ready-selected-light.png",
+    "sha256": "819da942ba83f66ff08a3243a72f98509b04545059f8a723db1dc180d24f52c2",
+    "included": true
+  },
+  {
+    "scenario": "selection-incomplete",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=active",
+    "file": "selection-incomplete-light.png",
+    "sha256": "dbdac5bb3a8bab058082ee46bab74a01b2e20c17b68188f994487a880431ae36",
+    "included": false
+  },
+  {
+    "scenario": "clipboard-error",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "clipboard-error-light.png",
+    "sha256": "de9d67cbcdc82b9e892b446123e3dc3f9e6090de09e4d0b7e8e57b3ac91d70fc",
+    "included": false
+  },
+  {
+    "scenario": "spec-expanded",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md&story=SPEC-9001-US1",
+    "file": "spec-expanded-light.png",
+    "sha256": "c66531f65681b1982a598f6f24e5bae35900b96b1c4769b2630d11be0562614b",
     "included": true
   },
   {
@@ -698,7 +308,254 @@
     },
     "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md&story=SPEC-9001-US1",
     "file": "frozen-spec-relationships-light.png",
-    "sha256": "53cba6f68104dcb61ec07a77bff4d9d9c5646486e15635b7bc81bcb3df7bed4c",
+    "sha256": "0ba34cd4bffe68689c1c16374d23fcc94e6996a3e2a4f495a9a8c0dab0f806b5",
+    "included": true
+  },
+  {
+    "scenario": "workspace-provenance",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?note=docs%2Fefforts%2Fharbor-explicit%2F2026-11-09-11-00-effort.html",
+    "file": "workspace-provenance-light.png",
+    "sha256": "a05850201cbd043c77d33377d99461e890976ca2110ff3c867e7569f06f6c38f",
+    "included": true
+  },
+  {
+    "scenario": "inline-effort",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-02-harbor.md",
+    "file": "inline-effort-light.png",
+    "sha256": "f89021aebd08fb1f91e1b409457e30111a922b6514b2d6a54cfdc0c05f90d963",
+    "included": true
+  },
+  {
+    "scenario": "legacy-workspace",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?note=docs%2Fefforts%2Fharbor-legacy%2F2026-11-09-11-02-effort.html",
+    "file": "legacy-workspace-light.png",
+    "sha256": "743b5822f0fe03dc4ab9c0f91f242e56c7bf90626a83a1f8b1d9b64ee0634f6c",
+    "included": true
+  },
+  {
+    "scenario": "html-plan",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?presentation=builtin%3Aread&kind=NOTE&note=docs%2Fefforts%2Fharbor-legacy%2Fplan.html",
+    "file": "html-plan-light.png",
+    "sha256": "59d151cde4fe22fead9f6cf78bb45c3345e6ff5b353e7b83eb979b02e9a28423",
+    "included": false
+  },
+  {
+    "scenario": "panel-find-recent",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes/group/Delivery?kind=NOTE&note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
+    "file": "panel-find-recent-light.png",
+    "sha256": "fdfa7305cd867e193355991b17564edd7a4013143e9eb7b60d86a19428c678f2",
+    "included": true
+  },
+  {
+    "scenario": "narrow-768",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 768,
+      "height": 900
+    },
+    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
+    "file": "narrow-768-light.png",
+    "sha256": "ea12e658d5486d535aa68ecf290810c182961d535ce5f861786dd81456e7bccb",
+    "included": false
+  },
+  {
+    "scenario": "narrow-390",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
+    "file": "narrow-390-light.png",
+    "sha256": "77ad5897a67128195eeac275d5a5f6110c9e0f4aa75ad67847fe131ebe797f9f",
+    "included": true
+  },
+  {
+    "scenario": "home",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes/group/Delivery",
+    "file": "home-dark.png",
+    "sha256": "a910c98b5661bc825b934f29e83dc086a0aa35f0107f0c4511f6ba1bd3f7d694",
+    "included": true
+  },
+  {
+    "scenario": "stage-shaping",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=shaping",
+    "file": "stage-shaping-dark.png",
+    "sha256": "c05c47f7479b642bb1df458302eeb626807a8db28b0b5f44995a46b0cc8dfae4",
+    "included": false
+  },
+  {
+    "scenario": "stage-ready",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "stage-ready-dark.png",
+    "sha256": "8298d5093bf31c1eeb748816f25859bc46cb1a2250265afc2c9e24446775052f",
+    "included": false
+  },
+  {
+    "scenario": "stage-planned",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=planned",
+    "file": "stage-planned-dark.png",
+    "sha256": "03c41c48eaefe006cb46108ad50a159759c6f81ed73a2ca0e537b9a42cbe69af",
+    "included": false
+  },
+  {
+    "scenario": "stage-active",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=active",
+    "file": "stage-active-dark.png",
+    "sha256": "01cb3111c93fab3251955b4bc234af8f7a28884a62df6cc0ed7f3d9e2b6d2ef8",
+    "included": false
+  },
+  {
+    "scenario": "stage-history",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=history",
+    "file": "stage-history-dark.png",
+    "sha256": "b5922192f50ad51da37b0ecb16e38c0516f3ec4a0be6add75c66f847c33c3351",
+    "included": false
+  },
+  {
+    "scenario": "stage-contracts",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=contracts",
+    "file": "stage-contracts-dark.png",
+    "sha256": "9c391c56a825cffd00dba72fbd02a3fc33efb2160d2ec23166a9c2e07f295e2f",
+    "included": false
+  },
+  {
+    "scenario": "stage-review",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=review",
+    "file": "stage-review-dark.png",
+    "sha256": "4ba90d5bb6682bd1c8eba034d0dc4520e9dec27daa4c24c1e7b062bebbb2cefe",
+    "included": false
+  },
+  {
+    "scenario": "ready-selected",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "ready-selected-dark.png",
+    "sha256": "28109ebd1464efa9eb22d36637513e1b4f2f9e8c81d072f4edcec2d44262def7",
+    "included": true
+  },
+  {
+    "scenario": "selection-incomplete",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=active",
+    "file": "selection-incomplete-dark.png",
+    "sha256": "70993693f6e6014e104f7f2eac2d8cf6973c354bfaff3ac7a14ab60bd8e14b99",
+    "included": false
+  },
+  {
+    "scenario": "clipboard-error",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "clipboard-error-dark.png",
+    "sha256": "ce256a9d80ef5d35be61ccb1ede2d6ea183765daf30c6acb90571b53df605c6d",
+    "included": false
+  },
+  {
+    "scenario": "spec-expanded",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md&story=SPEC-9001-US1",
+    "file": "spec-expanded-dark.png",
+    "sha256": "3fec9d4fc385ea001e8bd105c1c60b85b15090e062a60791189225e0e1c8730c",
     "included": true
   },
   {
@@ -711,7 +568,319 @@
     },
     "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md&story=SPEC-9001-US1",
     "file": "frozen-spec-relationships-dark.png",
-    "sha256": "fdee01545f8c015c29d6b22a882c89506a8deb606a41102c903e62d867ca36a0",
+    "sha256": "abc05f119683536d934d961f6914e30f7b5099b08a9a068039220d57dc407e03",
     "included": true
+  },
+  {
+    "scenario": "workspace-provenance",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?note=docs%2Fefforts%2Fharbor-explicit%2F2026-11-09-11-00-effort.html",
+    "file": "workspace-provenance-dark.png",
+    "sha256": "48ef3f3ab5e3dc7dc7db051c2a308de7eaba6377f366df0f3cd6846b7fce0f64",
+    "included": true
+  },
+  {
+    "scenario": "inline-effort",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-02-harbor.md",
+    "file": "inline-effort-dark.png",
+    "sha256": "e070811261e07393a2cdbf71377fe88187cbd7957b3792532eb407622adc7b16",
+    "included": true
+  },
+  {
+    "scenario": "legacy-workspace",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?note=docs%2Fefforts%2Fharbor-legacy%2F2026-11-09-11-02-effort.html",
+    "file": "legacy-workspace-dark.png",
+    "sha256": "170f29f61f9e4eaabb03f8c170117e937e287473dece914d147f19180dc548c0",
+    "included": true
+  },
+  {
+    "scenario": "html-plan",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes?presentation=builtin%3Aread&kind=NOTE&note=docs%2Fefforts%2Fharbor-legacy%2Fplan.html",
+    "file": "html-plan-dark.png",
+    "sha256": "dc5a689921aee948ebc3bdcf00d88e269cc67e70bce56a1affe37d659dce9acc",
+    "included": false
+  },
+  {
+    "scenario": "panel-find-recent",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "route": "/notes/group/Delivery?kind=NOTE&note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
+    "file": "panel-find-recent-dark.png",
+    "sha256": "ccda3a52c8850d875199902223dc586b4d532e64a8da9f57fcb0234a31cb9623",
+    "included": true
+  },
+  {
+    "scenario": "narrow-768",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 768,
+      "height": 900
+    },
+    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
+    "file": "narrow-768-dark.png",
+    "sha256": "de37461eb1d4de99ca5c441e6f283b73a203fa2e56e7f34e7ff10829c6bafb87",
+    "included": false
+  },
+  {
+    "scenario": "narrow-390",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "route": "/notes?note=docs%2Fspecs%2Fexperience%2Fharbor-booking.md",
+    "file": "narrow-390-dark.png",
+    "sha256": "9bff721f539c0e5adf6f1b7a69b75dda2e0c0ba86ca08407ebe55fea4cf170de",
+    "included": true
+  },
+  {
+    "scenario": "sorted-ready-selection",
+    "theme": null,
+    "project": "mixed",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "sorted-ready-selection-default.png",
+    "sha256": "5b4b04204d78bff011f53269a40d154eecddfff2017bc0b95c6cbc89d1596f72",
+    "included": true
+  },
+  {
+    "scenario": "pending-review-scope",
+    "theme": null,
+    "project": "mixed",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=review",
+    "file": "pending-review-scope-default.png",
+    "sha256": "3e5a08c9bae4c8669f9997a8db0ec610c84a853db83d04cde2293300f4d9f7fe",
+    "included": true
+  },
+  {
+    "scenario": "panel-active-stage",
+    "theme": null,
+    "project": "mixed",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=active",
+    "file": "panel-active-stage-default.png",
+    "sha256": "48fd4a69d383ea68581448e2992d93fd3237d2d637dd52ee3b40b10ddbec72e9",
+    "included": true
+  },
+  {
+    "scenario": "partial-read-error",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes/group/Delivery",
+    "file": "partial-read-error-light.png",
+    "sha256": "fe139f17d4bdb0ff286f136bdc68fa0f272014274af7415845b4fe3142280ba4",
+    "included": true
+  },
+  {
+    "scenario": "home-narrow-768",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 768,
+      "height": 900
+    },
+    "route": "/notes/group/Delivery",
+    "file": "home-narrow-768-light.png",
+    "sha256": "e0120d23067ee87b2960a61a3fab1db73dcbc67709515afefe31f330af1ce5de",
+    "included": true
+  },
+  {
+    "scenario": "ready-narrow-768",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 768,
+      "height": 900
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "ready-narrow-768-light.png",
+    "sha256": "6b408382167d0cd5eb6f32bb3e16dbbe9f693635729131962ef81def86aec389",
+    "included": true
+  },
+  {
+    "scenario": "home-narrow-390",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "route": "/notes/group/Delivery",
+    "file": "home-narrow-390-light.png",
+    "sha256": "674641c24fdaeec1ae6054e0a099cec96e9c639f7bfd3a8d1690ed0b40d67691",
+    "included": true
+  },
+  {
+    "scenario": "ready-narrow-390",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "ready-narrow-390-light.png",
+    "sha256": "5f3d1a2a06d1ff277af43951442062d41959ee7b2f62a9e3205a610daa9c91d0",
+    "included": true
+  },
+  {
+    "scenario": "partial-read-error",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes/group/Delivery",
+    "file": "partial-read-error-dark.png",
+    "sha256": "5da191bb0dedd213dadd94612e2144dfb2b9889ef251e0c9d2c228b67c541a30",
+    "included": true
+  },
+  {
+    "scenario": "home-narrow-768",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 768,
+      "height": 900
+    },
+    "route": "/notes/group/Delivery",
+    "file": "home-narrow-768-dark.png",
+    "sha256": "58bd8e46289b30091842e2be5b5074cb8ae1d256cab59effec18c31655cc8a73",
+    "included": true
+  },
+  {
+    "scenario": "ready-narrow-768",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 768,
+      "height": 900
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "ready-narrow-768-dark.png",
+    "sha256": "7b198d10531e01408339e61a0d65589f5abffecfec8413ed9060d89f3b451f4c",
+    "included": true
+  },
+  {
+    "scenario": "home-narrow-390",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "route": "/notes/group/Delivery",
+    "file": "home-narrow-390-dark.png",
+    "sha256": "5b4f50266b2c159434f1930d62728be74b68ecb1c6724b18fcf0932f4e74dff9",
+    "included": true
+  },
+  {
+    "scenario": "ready-narrow-390",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 390,
+      "height": 900
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "ready-narrow-390-dark.png",
+    "sha256": "e7da314e0203e404aa1156c301a37db1d163b73b884019e7f4f2a83e33ad2e01",
+    "included": true
+  },
+  {
+    "scenario": "empty-home",
+    "theme": "light",
+    "project": "empty",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes/group/Delivery",
+    "file": "empty-home-light.png",
+    "sha256": "c607d0cf47c71c65b4b399ff0ada4866f0ae71ac244ce6bb9da26ddfdae9f0a4",
+    "included": true
+  },
+  {
+    "scenario": "empty-planned",
+    "theme": "light",
+    "project": "empty",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=planned",
+    "file": "empty-planned-light.png",
+    "sha256": "21ac6bc6deabaa7355d7f1cda01713a92fe7943b04b725ff46be2da2e5a5ea82",
+    "included": false
+  },
+  {
+    "scenario": "empty-home",
+    "theme": "dark",
+    "project": "empty",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes/group/Delivery",
+    "file": "empty-home-dark.png",
+    "sha256": "93ab3b6d28681f7bbc1198f84ce212bd50caa5842d748e3f2b12bc0eb8dc7912",
+    "included": true
+  },
+  {
+    "scenario": "empty-planned",
+    "theme": "dark",
+    "project": "empty",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=planned",
+    "file": "empty-planned-dark.png",
+    "sha256": "d380dfdee7539be4be1e67e725319bfc21736882cfaf57f6fdb166ad812598d8",
+    "included": false
   }
 ]
