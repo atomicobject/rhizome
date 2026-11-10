@@ -52,6 +52,9 @@ export function RepositoryRhizome({
       if ((await action()) !== false) await onReload();
     } catch (cause) {
       setError(failure(cause));
+      // The choice may be saved even when the restart after it failed, so
+      // settings read with the previous executable are stale either way.
+      await onReload().catch(() => {});
     } finally {
       setBusy(false);
       onChanging?.(false);

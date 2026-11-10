@@ -126,7 +126,7 @@ describe("repository Rhizome version", () => {
     },
   );
 
-  it("reports a failed selection without claiming success or reloading", async () => {
+  it("reports a failed selection and reloads settings the saved choice may have made stale", async () => {
     const p = props({
       onSelect: vi.fn().mockRejectedValue({
         code: "runtime_error",
@@ -138,6 +138,6 @@ describe("repository Rhizome version", () => {
       screen.getByRole("button", { name: "Use the app's Rhizome for this repository" }),
     );
     expect(await screen.findByText("Cannot restart an attached runtime.")).toBeVisible();
-    expect(onReload).not.toHaveBeenCalled();
+    await waitFor(() => expect(onReload).toHaveBeenCalledOnce());
   });
 });
