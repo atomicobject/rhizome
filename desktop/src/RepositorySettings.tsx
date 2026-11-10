@@ -241,7 +241,8 @@ export function RepositorySettings({
         trusted: rhizome.worktree.trusted || trustedHere,
       }}
       unsupported={problem?.code === "setup_unsupported"}
-      disabled={running || refreshing}
+      disabled={running || refreshing || rows.length > 0}
+      note={rows.length > 0 ? "Apply or discard your changes to change Rhizome." : undefined}
       onChanging={setChangingVersion}
       onReload={async () => {
         reports.current++;
@@ -333,266 +334,273 @@ export function RepositorySettings({
       </button>
     );
 
+  // Every state renders the version section first in a fragment, so it keeps
+  // its state, such as a restart error, across reloads.
   return (
-    <div className="repo-settings">
+    <>
       {versionSection}
-      <p className="repo-settings-lede">
-        Saved in this worktree's files, so everyone who opens the repository gets the same setup.
-        Commit the changes after you apply them.
-      </p>
-      {result && (
-        <div className="repo-settings-result" role="status">
-          <ul className="setup-summary">
-            {result.summary.map((line) => (
-              <li key={line}>
-                <span className="check" aria-hidden="true">
-                  ✓
-                </span>
-                {line}
-              </li>
+      <div className="repo-settings">
+        <p className="repo-settings-lede">
+          Saved in this worktree's files, so everyone who opens the repository gets the same setup.
+          Commit the changes after you apply them.
+        </p>
+        {result && (
+          <div className="repo-settings-result" role="status">
+            <ul className="setup-summary">
+              {result.summary.map((line) => (
+                <li key={line}>
+                  <span className="check" aria-hidden="true">
+                    ✓
+                  </span>
+                  {line}
+                </li>
+              ))}
+            </ul>
+            {result.kept.length > 0 && (
+              <p className="hint">Left as you edited them: {joinWords(result.kept)}.</p>
+            )}
+            {result.warnings.map((warning) => (
+              <p key={warning} className="warning-text">
+                {warning}
+              </p>
             ))}
-          </ul>
-          {result.kept.length > 0 && (
-            <p className="hint">Left as you edited them: {joinWords(result.kept)}.</p>
-          )}
-          {result.warnings.map((warning) => (
-            <p key={warning} className="warning-text">
-              {warning}
-            </p>
-          ))}
-          {result.pin.error && (
-            <p className="warning-text">
-              Rhizome {result.pin.version} could not be installed for this repository:{" "}
-              {result.pin.error}.
-            </p>
-          )}
-          {result.commit.length > 0 && (
-            <p>Commit {joinWords(result.commit)} so your team shares this setup.</p>
-          )}
-        </div>
-      )}
-      <fieldset
-        className="setup-form"
-        disabled={running || changingVersion || problem?.code === "setup_unsupported"}
-      >
-        <div className={rowClass("workflow")} role="radiogroup" aria-labelledby="repo-workflow">
-          <h2 id="repo-workflow">Workflow {rows.includes("workflow") && <ChangedMark />}</h2>
-          <div className="choices">
-            {current.workflows.map((workflow) => (
-              <label key={workflow.id} className="choice">
-                <input
-                  type="radio"
-                  name="repo-workflow"
-                  checked={draft.workflow === workflow.id}
-                  onChange={() => change({ ...draft, workflow: workflow.id })}
-                />
-                <span className="choice-label">
-                  {workflow.label}
-                  {current.workflow === workflow.id && <span className="recommended">Current</span>}
-                </span>
-                <span className="choice-detail">{workflow.description}</span>
-              </label>
-            ))}
-            {rows.includes("workflow") && (
-              <p className="hint">
-                Rhizome's files for the workflow you leave are removed; your own docs stay. To keep
-                them for your team instead, run <code>rzm init</code> in a terminal.
+            {result.pin.error && (
+              <p className="warning-text">
+                Rhizome {result.pin.version} could not be installed for this repository:{" "}
+                {result.pin.error}.
               </p>
             )}
+            {result.commit.length > 0 && (
+              <p>Commit {joinWords(result.commit)} so your team shares this setup.</p>
+            )}
           </div>
-          {undoButton("workflow", "workflow")}
-        </div>
-
-        <div className={rowClass("addons")} role="group" aria-labelledby="repo-addons">
-          <h2 id="repo-addons">Add-ons {rows.includes("addons") && <ChangedMark />}</h2>
-          <div className="choices">
-            {plan.addons.map((addon) => (
-              <label key={addon.id} className="choice">
-                <input
-                  type="checkbox"
-                  checked={addonOn(addon.id)}
-                  onChange={(e) => toggleAddon(addon.id, e.target.checked)}
-                />
-                <span className="choice-label">{addon.label}</span>
-                <span className="choice-detail">
-                  {addon.description}.
-                  {addon.defaultFor.includes(draft.workflow)
-                    ? " Included with this workflow by default."
-                    : ""}
-                </span>
-              </label>
-            ))}
+        )}
+        <fieldset
+          className="setup-form"
+          disabled={running || changingVersion || problem?.code === "setup_unsupported"}
+        >
+          <div className={rowClass("workflow")} role="radiogroup" aria-labelledby="repo-workflow">
+            <h2 id="repo-workflow">Workflow {rows.includes("workflow") && <ChangedMark />}</h2>
+            <div className="choices">
+              {current.workflows.map((workflow) => (
+                <label key={workflow.id} className="choice">
+                  <input
+                    type="radio"
+                    name="repo-workflow"
+                    checked={draft.workflow === workflow.id}
+                    onChange={() => change({ ...draft, workflow: workflow.id })}
+                  />
+                  <span className="choice-label">
+                    {workflow.label}
+                    {current.workflow === workflow.id && (
+                      <span className="recommended">Current</span>
+                    )}
+                  </span>
+                  <span className="choice-detail">{workflow.description}</span>
+                </label>
+              ))}
+              {rows.includes("workflow") && (
+                <p className="hint">
+                  Rhizome's files for the workflow you leave are removed; your own docs stay. To
+                  keep them for your team instead, run <code>rzm init</code> in a terminal.
+                </p>
+              )}
+            </div>
+            {undoButton("workflow", "workflow")}
           </div>
-          {undoButton("addons", "add-ons")}
-        </div>
 
-        <div className={rowClass("agents")} role="group" aria-labelledby="repo-agents">
-          <h2 id="repo-agents">Agents {rows.includes("agents") && <ChangedMark />}</h2>
-          <div>
-            <div className="inline-choices">
-              {current.agents.map((agent) => (
-                <label key={agent.id}>
+          <div className={rowClass("addons")} role="group" aria-labelledby="repo-addons">
+            <h2 id="repo-addons">Add-ons {rows.includes("addons") && <ChangedMark />}</h2>
+            <div className="choices">
+              {plan.addons.map((addon) => (
+                <label key={addon.id} className="choice">
                   <input
                     type="checkbox"
-                    checked={draft.agents.includes(agent.id)}
-                    onChange={(e) =>
-                      change({
-                        ...draft,
-                        agents: e.target.checked
-                          ? [...without(draft.agents, agent.id), agent.id]
-                          : without(draft.agents, agent.id),
-                      })
-                    }
+                    checked={addonOn(addon.id)}
+                    onChange={(e) => toggleAddon(addon.id, e.target.checked)}
                   />
-                  {agent.label}
-                  {agent.detected && <span className="muted"> · {detected[agent.detected]}</span>}
+                  <span className="choice-label">{addon.label}</span>
+                  <span className="choice-detail">
+                    {addon.description}.
+                    {addon.defaultFor.includes(draft.workflow)
+                      ? " Included with this workflow by default."
+                      : ""}
+                  </span>
                 </label>
               ))}
             </div>
-            <p className="hint">
-              AGENTS.md and shared skills in .agents/ are always written; most agents read them.
-            </p>
+            {undoButton("addons", "add-ons")}
           </div>
-          {undoButton("agents", "agents")}
-        </div>
 
-        <div className={rowClass("search")}>
-          <h2>
-            <label htmlFor="repo-search">Search</label> {rows.includes("search") && <ChangedMark />}
-          </h2>
-          <div>
-            <div className="search-choice">
-              <select
-                id="repo-search"
-                value={draft.search}
-                onChange={(e) => change({ ...draft, search: e.target.value })}
-              >
-                {current.search.providers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
+          <div className={rowClass("agents")} role="group" aria-labelledby="repo-agents">
+            <h2 id="repo-agents">Agents {rows.includes("agents") && <ChangedMark />}</h2>
+            <div>
+              <div className="inline-choices">
+                {current.agents.map((agent) => (
+                  <label key={agent.id}>
+                    <input
+                      type="checkbox"
+                      checked={draft.agents.includes(agent.id)}
+                      onChange={(e) =>
+                        change({
+                          ...draft,
+                          agents: e.target.checked
+                            ? [...without(draft.agents, agent.id), agent.id]
+                            : without(draft.agents, agent.id),
+                        })
+                      }
+                    />
+                    {agent.label}
+                    {agent.detected && <span className="muted"> · {detected[agent.detected]}</span>}
+                  </label>
                 ))}
-              </select>
-              <span className={provider && !provider.ready ? "warning-ink" : "muted"}>
-                {draft.search === "off"
-                  ? "Semantic search is off; keyword search still works."
-                  : provider?.ready
-                    ? provider.key
-                      ? "Key found on this Mac"
-                      : "Installed"
-                    : provider?.key
-                      ? "Needs a key on this Mac"
-                      : "Not installed"}
-              </span>
-            </div>
-            {provider && !provider.ready && provider.key && (
+              </div>
               <p className="hint">
-                Without a key, semantic search stays off.{" "}
-                <button className="link-button" onClick={onProviderSettings}>
-                  Save a key in Rhizome on this Mac
-                </button>
+                AGENTS.md and shared skills in .agents/ are always written; most agents read them.
               </p>
-            )}
-            {provider && !provider.ready && !provider.key && provider.hint && (
-              <p className="hint">{provider.hint}</p>
-            )}
+            </div>
+            {undoButton("agents", "agents")}
           </div>
-          {undoButton("search", "search")}
-        </div>
 
-        <div className="setup-row">
-          <h2>What gets indexed</h2>
-          <dl className="findings">
-            <dt>Docs</dt>
-            <dd>{current.findings.docs}</dd>
-            <dt>Code</dt>
-            <dd>{current.findings.code}</dd>
-          </dl>
-          <button onClick={onEditRules}>Edit rules…</button>
-        </div>
-      </fieldset>
-
-      <p className="repo-settings-foot hint">
-        Other settings live in <span className="path">.rhizome/config.yml</span>.
-      </p>
-
-      {(rows.length > 0 || pending || kept.length > 0 || running || applyError) && (
-        <div className="apply-bar" role="region" aria-label="Unapplied changes">
-          <div className={refreshing ? "writes refreshing" : "writes"} aria-busy={refreshing}>
-            <p className="apply-what">
-              <ChangedMark />
-              {rows.length > 0
-                ? `${plural(rows.length, "change")} not applied`
-                : pending
-                  ? "Rhizome has updates for this repository's files"
-                  : "Files you edited have newer versions"}
-            </p>
-            <details>
-              <summary>
-                {pending
-                  ? `Writes ${plural(plan.writes.files.length, "file")}`
-                  : rows.length > 0
-                    ? "Nothing to write"
-                    : plural(kept.length, "edited file")}
-                {refreshing && <span className="muted"> · updating…</span>}
-              </summary>
-              <ul className="writes-summary">
-                {plan.writes.summary.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-              {plan.writes.files.length > 0 && (
-                <ul className="file-list">
-                  {plan.writes.files.map((file) => (
-                    <li key={file}>{file}</li>
+          <div className={rowClass("search")}>
+            <h2>
+              <label htmlFor="repo-search">Search</label>{" "}
+              {rows.includes("search") && <ChangedMark />}
+            </h2>
+            <div>
+              <div className="search-choice">
+                <select
+                  id="repo-search"
+                  value={draft.search}
+                  onChange={(e) => change({ ...draft, search: e.target.value })}
+                >
+                  {current.search.providers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
                   ))}
-                </ul>
-              )}
-              {kept.length > 0 && (
+                </select>
+                <span className={provider && !provider.ready ? "warning-ink" : "muted"}>
+                  {draft.search === "off"
+                    ? "Semantic search is off; keyword search still works."
+                    : provider?.ready
+                      ? provider.key
+                        ? "Key found on this Mac"
+                        : "Installed"
+                      : provider?.key
+                        ? "Needs a key on this Mac"
+                        : "Not installed"}
+                </span>
+              </div>
+              {provider && !provider.ready && provider.key && (
                 <p className="hint">
-                  Left as you edited them: {joinWords(kept)}. Run <code>rzm init</code> in a
-                  terminal to take their updates.
+                  Without a key, semantic search stays off.{" "}
+                  <button className="link-button" onClick={onProviderSettings}>
+                    Save a key in Rhizome on this Mac
+                  </button>
                 </p>
               )}
-            </details>
-            {applyError && (
-              <p className="error-text" role="alert">
-                Could not apply: {applyError.message}
-              </p>
-            )}
+              {provider && !provider.ready && !provider.key && provider.hint && (
+                <p className="hint">{provider.hint}</p>
+              )}
+            </div>
+            {undoButton("search", "search")}
           </div>
-          <div className="actions">
-            {running ? (
-              <span className="setup-running" role="status" aria-live="polite">
-                <span className="spinner" aria-hidden="true" />
-                Applying… <Elapsed started={started} />
-              </span>
-            ) : (
-              <>
-                {rows.length > 0 && (
-                  <button onClick={() => change(saved)} disabled={running}>
-                    Discard
-                  </button>
-                )}
-                {(rows.length > 0 || pending) && (
-                  <button
-                    className="primary"
-                    disabled={refreshing || changingVersion || !pending || !!problem}
-                    onClick={() => void apply()}
-                  >
-                    {rows.length > 0 ? "Apply changes" : "Update files"}
-                  </button>
-                )}
-              </>
-            )}
+
+          <div className="setup-row">
+            <h2>What gets indexed</h2>
+            <dl className="findings">
+              <dt>Docs</dt>
+              <dd>{current.findings.docs}</dd>
+              <dt>Code</dt>
+              <dd>{current.findings.code}</dd>
+            </dl>
+            <button onClick={onEditRules}>Edit rules…</button>
           </div>
-        </div>
-      )}
-      {problem && (
-        <p className="error-text" role="alert">
-          {problem.message}
+        </fieldset>
+
+        <p className="repo-settings-foot hint">
+          Other settings live in <span className="path">.rhizome/config.yml</span>.
         </p>
-      )}
-    </div>
+
+        {(rows.length > 0 || pending || kept.length > 0 || running || applyError) && (
+          <div className="apply-bar" role="region" aria-label="Unapplied changes">
+            <div className={refreshing ? "writes refreshing" : "writes"} aria-busy={refreshing}>
+              <p className="apply-what">
+                <ChangedMark />
+                {rows.length > 0
+                  ? `${plural(rows.length, "change")} not applied`
+                  : pending
+                    ? "Rhizome has updates for this repository's files"
+                    : "Files you edited have newer versions"}
+              </p>
+              <details>
+                <summary>
+                  {pending
+                    ? `Writes ${plural(plan.writes.files.length, "file")}`
+                    : rows.length > 0
+                      ? "Nothing to write"
+                      : plural(kept.length, "edited file")}
+                  {refreshing && <span className="muted"> · updating…</span>}
+                </summary>
+                <ul className="writes-summary">
+                  {plan.writes.summary.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+                {plan.writes.files.length > 0 && (
+                  <ul className="file-list">
+                    {plan.writes.files.map((file) => (
+                      <li key={file}>{file}</li>
+                    ))}
+                  </ul>
+                )}
+                {kept.length > 0 && (
+                  <p className="hint">
+                    Left as you edited them: {joinWords(kept)}. Run <code>rzm init</code> in a
+                    terminal to take their updates.
+                  </p>
+                )}
+              </details>
+              {applyError && (
+                <p className="error-text" role="alert">
+                  Could not apply: {applyError.message}
+                </p>
+              )}
+            </div>
+            <div className="actions">
+              {running ? (
+                <span className="setup-running" role="status" aria-live="polite">
+                  <span className="spinner" aria-hidden="true" />
+                  Applying… <Elapsed started={started} />
+                </span>
+              ) : (
+                <>
+                  {rows.length > 0 && (
+                    <button onClick={() => change(saved)} disabled={running}>
+                      Discard
+                    </button>
+                  )}
+                  {(rows.length > 0 || pending) && (
+                    <button
+                      className="primary"
+                      disabled={refreshing || changingVersion || !pending || !!problem}
+                      onClick={() => void apply()}
+                    >
+                      {rows.length > 0 ? "Apply changes" : "Update files"}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+        {problem && (
+          <p className="error-text" role="alert">
+            {problem.message}
+          </p>
+        )}
+      </div>
+    </>
   );
 }

@@ -1517,3 +1517,46 @@ it("selects the bundled Rhizome, restarts the runtime, and reloads repository se
   ).toBeVisible();
   expect(call.mock.calls.filter(([op]) => op === "restart")).toHaveLength(2);
 });
+
+it("restarts another repository's running worktree after updating its pin from Settings", async () => {
+  const pinned: Discovery = {
+    ...otherDiscovery,
+    worktrees: otherDiscovery.worktrees.map((w) => ({
+      ...w,
+      authority: "managed",
+      pinnedVersion: "v0.51.0",
+      pinOffer: { state: "advance", pinned: "v0.51.0", available: "v0.52.0" },
+    })),
+  };
+  start(undefined, (operation, args) => {
+    if (operation === "list") return both;
+    if (operation === "discover")
+      return (args as { id: string }).id === other.id ? pinned : discovery;
+    if (operation === "global-status") return null;
+    if (operation === "settings-report") throw { code: "setup_unsupported", message: "Too old" };
+    if (["pin-advance", "restart"].includes(operation)) return null;
+    return undefined;
+  });
+  await waitFor(() => expect(opened()).toHaveLength(1));
+  act(() =>
+    emit({
+      type: "presence",
+      repositories: { [repository.id]: { info: discovery }, [other.id]: { info: pinned } },
+      runtimes: { "/work/other": { state: "running", mode: null } },
+    }),
+  );
+  await showFinder(/^Repository /);
+  choose({ choice: "menu", repository: other.id, x: 120, y: 240 });
+  await waitFor(() =>
+    expect(call).toHaveBeenCalledWith("menu", expect.objectContaining({ x: 120, y: 240 })),
+  );
+  const item = lastMenu().find((entry) => entry.label === "Repository Settings…")!;
+  act(() => emit({ type: "menu", id: item.id! }));
+  const update = () => screen.getByRole("button", { name: "Update other to v0.52.0" });
+  await waitFor(() => expect(update()).toBeEnabled());
+  fireEvent.click(update());
+  await waitFor(() =>
+    expect(call).toHaveBeenCalledWith("restart", { id: other.id, worktree: "/work/other" }),
+  );
+  expect(call).toHaveBeenCalledWith("pin-advance", { id: other.id, worktree: "/work/other" });
+});

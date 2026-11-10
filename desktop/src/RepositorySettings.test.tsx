@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { request, type SettingsChoices, type SetupPlan, type SetupResult } from "./api";
 import { providerAccessChanged } from "./ProviderAccess";
+import type { RepositoryRhizomeProps } from "./RepositoryRhizome";
 import { RepositorySettings } from "./RepositorySettings";
 
 vi.mock("./api", async (importOriginal) => ({
@@ -123,7 +124,10 @@ function serve(overrides: Partial<Record<string, (args: unknown) => unknown>> = 
 function calls(operation: string) {
   return call.mock.calls.filter(([name]) => name === operation).map(([, args]) => args);
 }
-function tab(props: Partial<Parameters<typeof RepositorySettings>[0]> = {}) {
+function tab(
+  props: Partial<Parameters<typeof RepositorySettings>[0]> = {},
+  rhizome: Partial<RepositoryRhizomeProps> = {},
+) {
   const handlers = {
     onEditRules: vi.fn(),
     onProviderSettings: vi.fn(),
@@ -148,6 +152,7 @@ function tab(props: Partial<Parameters<typeof RepositorySettings>[0]> = {}) {
         onSelect: vi.fn().mockResolvedValue(undefined),
         onChoose: vi.fn().mockResolvedValue(false),
         onAdvance: vi.fn().mockResolvedValue(undefined),
+        ...rhizome,
       }}
       {...handlers}
       {...props}
@@ -204,6 +209,23 @@ describe("repository settings", () => {
     ]);
     // Applying reloads the settings as they now are.
     await waitFor(() => expect(calls("settings-report").at(-1)).toEqual({ id, worktree }));
+  });
+
+  it("locks the Rhizome version while settings changes are unapplied", async () => {
+    serve();
+    tab();
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Cursor/ }));
+    expect(screen.getByRole("radio", { name: /The app's Rhizome/ })).toBeDisabled();
+    expect(screen.getByText("Apply or discard your changes to change Rhizome.")).toBeVisible();
+  });
+
+  it("keeps a failed Rhizome change's error after the settings reload", async () => {
+    serve();
+    tab({}, { onSelect: vi.fn().mockRejectedValue(new Error("Could not restart the runtime.")) });
+    fireEvent.click(await screen.findByRole("radio", { name: /The app's Rhizome/ }));
+    await waitFor(() => expect(calls("settings-report").length).toBeGreaterThan(1));
+    expect(await screen.findByRole("checkbox", { name: /Cursor/ })).toBeVisible();
+    expect(screen.getByText("Could not restart the runtime.")).toBeVisible();
   });
 
   it("undoes one row and discards every change", async () => {

@@ -752,6 +752,9 @@ export function App() {
                 await setWorktreeExecutable(repository, target.worktree, null);
               } else if (target.worktree === selection.worktree) {
                 await openWorktree(repository.id, target.worktree, false, undefined, true);
+              } else if (["running", "starting"].includes(runtimes[target.worktree]?.state ?? "")) {
+                // Another worktree's runtime keeps the old pin until replaced.
+                await request("restart", { id: repository.id, worktree: target.worktree });
               }
             },
           }}

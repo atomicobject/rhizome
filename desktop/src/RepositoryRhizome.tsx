@@ -25,11 +25,14 @@ export function RepositoryRhizome({
   unsupported,
   onReload,
   disabled,
+  note,
   onChanging,
 }: RepositoryRhizomeProps & {
   unsupported: boolean;
   onReload: () => Promise<void>;
   disabled: boolean;
+  /** Why the choice is locked, when it is. */
+  note?: string;
   onChanging?: (changing: boolean) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -137,6 +140,7 @@ export function RepositoryRhizome({
             </div>
           </fieldset>
         )}
+        {note && <p className="hint">{note}</p>}
         {version && <p className="hint">Runs Rhizome {version}.</p>}
         {worktree.trusted && <p className="hint">Trusted on this Mac</p>}
         {offer && !unsupported && (
