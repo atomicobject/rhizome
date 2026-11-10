@@ -10,6 +10,7 @@ Work style: direct and readable. Lead with the outcome, include only what the re
 - Keep changes focused and simple. Avoid unrelated edits, unnecessary abstractions, and low-signal tests
 - Test observable behavior, review substantial changes, and validate user-facing work in the real interface when applicable
 - When a test flakes, diagnose and fix the cause before merging. A passing rerun is evidence for diagnosis, not a fix; do not add retries or increase timeouts merely to hide the failure.
+- When waiting for a process or review, use the available completion or watch tool and follow its handoff instructions. Use bounded polling only when no completion signal is available.
 - Preserve unrelated work and never take destructive, production, or external actions beyond what the user authorized
 - Report blockers, outcomes, and evidence. On long tasks, say briefly what you are about to do, and end with a recap that stands on its own
 

@@ -6,6 +6,10 @@ Consulted when choosing what to test, at which layer, and with what. Used during
 
 Confidence should be proportional to the change, with a regression test for any bug that could return. Work red-green: reproduce a defect first, keep the regression test with the fix. Start with the smallest test that demonstrates the intended behavior, prefer behavior-level assertions over implementation details, and avoid low-signal tests that only mirror the implementation.
 
+Ordinary focused Go checks may reuse Go's test cache, as `make check` already does. Report `(cached)` results as cached. Use `-count=1` for red/green evidence, reproductions, stress or flake investigations, and checks that depend on changed external inputs Go cannot track. These include freshly built executables, files read only by child processes or native code, and external network, clock, or persistent state. A cached pass is not evidence that these scenarios ran again. Repository-content checks retain the explicit fresh execution in `make test-content`.
+
+The integration suites build and execute `rzm`. After changes to that executable's inputs, run those suites with `-count=1`, as [CI](../../.github/workflows/ci.yml) does; the local Makefile integration targets allow cached results.
+
 ## Layers
 
 | Change shape | Evidence |
