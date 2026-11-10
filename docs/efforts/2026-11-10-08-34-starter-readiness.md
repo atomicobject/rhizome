@@ -80,7 +80,7 @@ None identified yet.
 
 ## Status
 
-Complete on `feat/starter-readiness`. Implementation through `42a67c3e7d93a26fc20458eb15e08fd65524ea6c` passed the final review. Pull request delivery is recorded below once created. Merge and Rhizome Dev installation remain separate release actions.
+Complete on `feat/starter-readiness`. [PR #125](https://github.com/atomicobject/rhizome/pull/125) carries the delivery. Implementation through `42a67c3e7d93a26fc20458eb15e08fd65524ea6c` passed the final review. Drew authorized squash merge after the required checks pass. Rhizome Dev installation remains a separate release action.
 
 ## Implementation work log
 
