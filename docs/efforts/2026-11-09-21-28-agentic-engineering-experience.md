@@ -150,6 +150,10 @@ The initial seven-stage comp becomes five factual primary views plus separate Cu
 
 - 2026-11-10 [G9 follow-up] Manual review confirmed G8 fixed and identified hidden frozen-spec relationships caused by metadata-only note-ref differences. The shared identity helper now joins only fragment-free NOTE roots by canonical path, preserving exact embedded selectors and raw refs. Both-theme installed and pure counterexamples pass after the minimal correction. Fresh independent Sol high review approves. make check, build, all 64 installed cases, 28 focused tests and strict TypeScript pass. Root inspected paired relationship captures. A separate Windows rest failure in an existing running-deadline fixture remains under isolated diagnosis; current-head readiness stays open.
 
+- 2026-11-10 [Windows fixture integration] An independently reviewed virtual-clock correction guarantees handler entry in the existing running-deadline test while preserving the 20 ms timeout, both outcomes and uncertainty assertions. The original map-shape panic has a controlled expired-receipt reproduction; the exact Windows protocol error remains unknown. No production behavior changed. Worker focused, race, package and make check pass. Root integrated the test-only patch; final root gates and current-head external readiness remain pending.
+
+- 2026-11-10 [final integrated verification] Root deadline/queue/cancellation race tests, make check and both validators passed. The complete installed Delivery proof remains 64 passing cases with 28 pure tests and strict template TypeScript. Both G9 and the Windows fixture correction have fresh independent approval. New-head CI and manual review remain pending before closure.
+
 ## Closure Checklist
 
 - [x] Implemented foundation and independent technical review pass.
