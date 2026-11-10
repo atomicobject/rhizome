@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-11-10-08-34
 name: Starter readiness and recovery
 created-at: 2026-11-10T13:34:58Z
-status: active
+status: complete
 summary: Make installed starters complete their setup and indexing with visible readiness and recovery, and refresh ontology data after folder-only changes.
 aliases: [EFF-2026-11-10-08-34]
 governing-specs:
@@ -49,7 +49,7 @@ A starter installation reaches ready automatically when possible, otherwise rema
 
 ## Actual Delivered
 
-All three stories are implemented. Installed starters reconcile setup and indexing through the runtime and expose persistent recovery through one HTTP/UI contract. AO KB handles product selection, schema conflicts, dependencies, source admission, interrupted work, and unchanged reopen. Folder-only ontology changes refresh typed data. The shell uses the compact notice reviewed and implemented by Opus. Full source, browser, and packaged-app verification passed; final branch review and delivery recording remain.
+All three stories are implemented. Installed starters reconcile setup and indexing through the runtime and expose persistent recovery through one HTTP/UI contract. AO KB handles product selection, schema conflicts, dependencies, source admission, interrupted work, and unchanged reopen. Folder-only ontology changes refresh typed data. The shell uses the compact notice reviewed and implemented by Opus. Full source, browser, and packaged-app verification passed, and the final implementation review returned 5/5 with no remaining findings.
 
 ## Execution Notes
 
@@ -73,14 +73,14 @@ None identified yet.
 
 ## Closure Checklist
 
-- [ ] Approved scope delivered or deviations recorded.
-- [ ] Required gates and UI evidence recorded.
-- [ ] Independent review completed and accepted findings fixed.
-- [ ] Delivery branch and commit recorded.
+- [x] Approved scope delivered or deviations recorded.
+- [x] Required gates and UI evidence recorded.
+- [x] Independent review completed and accepted findings fixed.
+- [x] Delivery branch and commit recorded.
 
 ## Status
 
-Active on `feat/starter-readiness`.
+Complete on `feat/starter-readiness`. Implementation through `42a67c3e7d93a26fc20458eb15e08fd65524ea6c` passed the final review. Pull request delivery is recorded below once created. Merge and Rhizome Dev installation remain separate release actions.
 
 ## Implementation work log
 
@@ -112,3 +112,4 @@ Active on `feat/starter-readiness`.
 - Native verification: `make desktop-deps`, `make desktop-check`, and `make desktop-build` passed on macOS arm64; the native suite passed 145 tests and the final desktop frontend suite passed 166 tests. A separately launched `Rhizome.app` used isolated app data and a disposable legacy AO KB. Installing the add-on through Settings showed the compact trust notice. Its Settings action recorded worktree trust and automatically advanced to the `artifact`/`Artifact` schema conflict. The notice survived navigation and reload, Details showed the schema paths, Escape returned focus, and Retry kept the unresolved conflict visible. Renaming only the fixture's conflicting type resumed setup and indexing without a command. The overview loaded 43 assertions, 4 concepts, 7 sources, and 5 artifacts. Stopping the runtime and reopening the app restored ready state with the same data and an unchanged index-receipt timestamp. Drew's installed Rhizome Dev app and actual KB were not replaced by the test build.
 - Generated surfaces and documentation: built-CLI `init --workflow none --add-addon ao-kb --agents none --binary-manager external`, then `init --check --agents none`, reported everything up to date in a disposable repository. `./scripts/rzm validate` checked 633 identifiers with zero issues and errors; `./scripts/rzm validate frozen-scope-drift` also passed with no drift. The original unrelated `AGENTS.md` and generated index HTML changes remain preserved.
 - The committed-branch Greptile review identified three further issues in automatic setup: receipt writes followed repository-supplied symlinks, descriptor reads allowed unbounded or blocking files before trust, and background include reconciliation could overwrite a concurrent Settings save. Receipt reads and publication now use bounded, repository-confined handles and exclusive temporary files. Descriptor and fingerprint reads reject non-regular files and enforce byte limits. Include reconciliation now loads and edits under the ordinary configuration writer's cross-process lock, preserving unchanged authored bytes. Focused race regressions passed for unsafe receipt paths, oversized/symlinked/FIFO descriptors, concurrent Settings saves, and the existing include/guidance behavior.
+- Final review fixes shipped in `42a67c3e`. `make check-full` passed again after those changes, including the Go race suite, 2172 web tests, all integration packages, and mixed integration tests. `make desktop-build` rebuilt the packaged app; cold reopening the same isolated fixture restored 43 assertions, 4 concepts, 7 sources, and 5 artifacts with no setup notice and an unchanged index receipt. `./scripts/rzm validate` and `./scripts/rzm validate frozen-scope-drift` passed with zero issues and errors. `greptile review --json --branch cd607d89473015aa92f4b2e49c71da6655e62ed0` returned confidence 5/5, no comments, and confirmed all three prior findings resolved.
