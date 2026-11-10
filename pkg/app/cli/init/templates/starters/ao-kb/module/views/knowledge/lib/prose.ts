@@ -47,6 +47,6 @@ export function maskCode(text: string) {
     }
     return mask(line);
   });
-  // An inline span never crosses a blank line.
-  return lines.join("\n").replace(/(`+)(?:(?!\n[ \t]*\n)[^`])+?\1(?!`)/g, mask);
+  // Inline spans pair whole, equal-length backtick runs within a paragraph.
+  return lines.join("\n").replace(/(?<!`)(`+)(?!`)(?:(?!\n[ \t]*\r?\n)[\s\S])*?(?<!`)\1(?!`)/g, mask);
 }

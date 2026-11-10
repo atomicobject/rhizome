@@ -399,3 +399,14 @@ test("layout timing at 21, 48, and 200 concepts", () => {
     console.log(`layout ${n} concepts: first ${runs[0].toFixed(1)} ms, warm median ${warm[2].toFixed(1)} ms`);
   }
 });
+
+test("code spans use complete equal-length backtick runs and preserve paragraph positions", () => {
+  const resolve = (ref) => ref === "claim" ? "claim" : undefined;
+  for (const span of ["``a ` [[claim]] b``", "```a `` [[claim]] ` b```", "``a ``` [[claim]] b``", "``a `\n[[claim]] b``"]) {
+    assert.equal(bodyLinkParagraph(`Use ${span}`, "claim", resolve), -1, span);
+    assert.equal(bodyLinkParagraph(`Use ${span}\n\nAuthored [[claim]].`, "claim", resolve), 1, span);
+  }
+  for (const literal of ["``[[claim]]`", "`[[claim]]``", "``before\n\n[[claim]]``", "``before\r\n\r\n[[claim]]``"]) {
+    assert.notEqual(bodyLinkParagraph(literal, "claim", resolve), -1, literal);
+  }
+});
