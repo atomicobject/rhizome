@@ -5,7 +5,6 @@ import { useMemo } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Markdown,
   NodeLink,
   readNodes,
   typedRootCoverage,
@@ -13,7 +12,9 @@ import {
   usePageNavigation,
   workspaceViewHref,
 } from "@rhizome/kit";
-import type { MarkdownLinkTo, MarkdownMark, ViewNodeRef, ViewParamValue } from "@rhizome/kit";
+import type { ViewNodeRef, ViewParamValue } from "@rhizome/kit";
+import { MarkdownDocument } from "@rhizome/kit/markdown";
+import type { MarkdownLinkTo, MarkdownMark } from "@rhizome/kit/markdown";
 import { CITATION_SELECTION, ORIENTATION_QUERY, RELATED_CONCEPTS_QUERY } from "../lib/queries.ts";
 import { GAPS, buildSite, folderLabel } from "../lib/site.ts";
 import type { CitationRead, OConcept, Orientation, Root, Site } from "../lib/site.ts";
@@ -244,7 +245,7 @@ export function useRecordLinks(site: Site | undefined) {
 export function Body({ text, site, mark }: { text: string; site?: Site; mark?: MarkdownMark }) {
   const resolveLink = useRecordLinks(site);
   if (!text.trim()) return <p className="ak-empty">No body recorded</p>;
-  return <Markdown className="ak-body" source={text} resolveLink={resolveLink} mark={mark} skipTitle />;
+  return <MarkdownDocument className="ak-body" source={text} resolveLink={resolveLink} mark={mark} skipTitle />;
 }
 
 /** The list page's header: its name, the count it shows, and what it says about it. */

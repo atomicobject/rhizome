@@ -171,7 +171,7 @@ List `@reverse` and `@neighbors` fields take `first`, which caps the targets rea
 | `RelativeTime` | `<RelativeTime value={record.updatedAt} />` renders a compact age ("5m", "3h", "12d", then a date) with the exact time as its tooltip; screen readers hear both. It does not tick: the age is computed when the view renders, which vault changes trigger. Pass `now` to set the comparison time. |
 | `Diagram` | `<Diagram label="Ideas by impact" source={source} links={links} />` renders Mermaid text with Pele and the view's theme. `label` is required; `links` maps diagram ids to canonical node refs. Empty or whitespace source renders nothing. Optional `className` styles the container. See [Diagrams](#diagrams) for the API and examples. |
 | `mermaid` | `text(value)` escapes non-CSV labels with Mermaid entities; `csv(value)` produces a quoted Sankey CSV field; `id(key)` produces a deterministic, syntax-safe node id. |
-| `Markdown` / `markdownLinks` | `<Markdown source={record.content} />` renders one whole Markdown document with GitHub-flavored Markdown, highlighted code, and Mermaid. `resolveLink` turns wikilinks and relative Markdown links into node links; `mark` highlights the block holding a link that `markdownLinks(source)` located. See [Markdown](#markdown). |
+| `MarkdownDocument` / `markdownLinks` | `<MarkdownDocument source={record.content} />` renders one whole Markdown document with GitHub-flavored Markdown, highlighted code, and Mermaid. `resolveLink` turns wikilinks and relative Markdown links into node links; `mark` highlights the block holding a link that `markdownLinks(source)` located. See [Markdown](#markdown). |
 | `typeLabel(labels, { count?, plural?, prefix? })` | A type's schema label, plural when `plural` is set or `count` is not 1, with a shared prefix dropped. |
 | `sharedLabelPrefix(labels)` | The first word every label shares, with its trailing space, or `""`. Pass it to `typeLabel` as `prefix` inside a group page. |
 
@@ -266,12 +266,14 @@ For xychart legends, name series, for example `bar "Sales" [1, 2]`. Mermaid fron
 
 ## Markdown
 
-Import `Markdown` and `markdownLinks` from `@rhizome/kit`. `Markdown` renders one complete document through Rhizome's own renderer, so a fence with blank lines, a loose list, a table, emphasis, and a reference-style link read as written. Raw HTML stays literal text, `javascript:` and other unsafe schemes render as plain text, and images never load (their alt text and source show instead).
+The optional `@rhizome/kit/markdown` entry keeps the parser outside the core kit. Its existing `Markdown` renderer, `convertWikilinks`, and `markdownChecklist` exports retain their APIs.
+
+Import `MarkdownDocument` and `markdownLinks` from `@rhizome/kit/markdown`. `MarkdownDocument` renders one complete document through Rhizome's own renderer, so a fence with blank lines, a loose list, a table, emphasis, and a reference-style link read as written. Raw HTML stays literal text, `javascript:` and other unsafe schemes render as plain text, and images never load (their alt text and source show instead).
 
 ```tsx
-import { Markdown, markdownLinks } from "@rhizome/kit";
+import { MarkdownDocument, markdownLinks } from "@rhizome/kit/markdown";
 
-<Markdown source={record.content} className="prose" skipTitle />;
+<MarkdownDocument source={record.content} className="prose" skipTitle />;
 ```
 
 Wikilinks (`[[target]]`, `[[target|label]]`, `![[target]]`) and relative Markdown links, inline or reference-style, are internal links. Pass `resolveLink(target)` to turn each target into `{ node, view? }`; it renders as a `NodeLink` that opens the node in the workspace. Leave `resolveLink` out while its data loads and internal links show as plain labels; return `undefined` from it and the link shows as explicitly unresolved with its raw target in a tooltip. `http`, `https`, and `mailto` links open in a new tab, and `#fragment` links stay in the page. Pass a memoized resolver, because the document renders again when it changes. `skipTitle` hides a leading H1 that repeats the page title, unless that heading holds the selected citation mark.

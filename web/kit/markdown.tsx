@@ -45,7 +45,7 @@ export type MarkdownMark = {
   ref?: Ref<HTMLElement>;
 };
 
-export type MarkdownProps = {
+export type MarkdownDocumentProps = {
   source: string;
   className?: string;
   /**
@@ -151,7 +151,7 @@ const KIT_REMARK: PluggableList = [remarkWikilinks, rhizomeLinks];
 const parser = unified().use(remarkParse).use(remarkGfm).use(remarkWikilinks).use(rhizomeLinks);
 
 /**
- * The document's internal links in source order, as `Markdown` renders them.
+ * The document's internal links in source order, as `MarkdownDocument` renders them.
  * Pure and synchronous. Code spans, fences, indented code, and raw HTML hold
  * no links, and a reference definition by itself is not one.
  */
@@ -236,7 +236,7 @@ type LinkProps = ExtraProps & { children?: ReactNode; href?: string };
 type ImageProps = ExtraProps & { src?: string | Blob; alt?: string };
 
 function useComponents(
-  resolveLink: MarkdownProps["resolveLink"],
+  resolveLink: MarkdownDocumentProps["resolveLink"],
   mark: MarkdownMark | undefined,
   skipTitle: boolean,
 ): Components {
@@ -319,13 +319,13 @@ function useComponents(
  * links are internal links that `resolveLink` turns into node links. Raw HTML
  * stays literal, unsafe URL schemes become plain text, and images never load.
  */
-export function Markdown({
+export function MarkdownDocument({
   source,
   className,
   resolveLink,
   mark,
   skipTitle = false,
-}: MarkdownProps) {
+}: MarkdownDocumentProps) {
   const components = useComponents(resolveLink, mark, skipTitle);
 
   return (

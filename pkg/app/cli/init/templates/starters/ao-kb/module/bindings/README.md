@@ -1,6 +1,6 @@
 # AO KB binding compiler
 
-Node uses its standard library. The model adapter imports the pinned AO `kb-site` reader, version 3.137.0 at `e9dce951ab4cd6aa9ccc734df96590bde25ccde9`, through `uv`. It never invokes AO ingestion, curation, generation, sync, or publishing. Authored Markdown, YAML and JSON stay in place and remain AO-owned.
+Node uses its standard library. The model adapter imports the pinned AO `kb-site` reader, version 3.137.0 at `e9dce951ab4cd6aa9ccc734df96590bde25ccde9`, through `uv`. It never invokes AO ingestion, curation, generation, sync, or publishing. Authored Markdown, YAML and JSON stay in place as the source of truth.
 
 ## Setup and recovery
 

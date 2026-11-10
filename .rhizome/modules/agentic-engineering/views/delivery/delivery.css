@@ -1,0 +1,579 @@
+.ae-page {
+  padding: 20px 24px;
+  font: 14px/1.5 var(--font-sans);
+  color: var(--text);
+  max-width: 1400px;
+  margin: auto;
+  overflow-wrap: anywhere;
+}
+.ae-page h1 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 16px;
+}
+.ae-page li {
+  margin: 6px 0;
+}
+.ae-page pre {
+  max-width: 100%;
+  overflow: auto;
+}
+/* 700 is for view titles only. Authored prose keeps its own emphasis. */
+.ae-page strong:not(.ae-prose *) {
+  font-weight: 600;
+}
+/* The kit spaces only adjacent sections. These pages put notes, fields, and disclosures between them. */
+.ae-page .rz-section:not(:first-child) {
+  margin-top: 22px;
+}
+.ae-page textarea {
+  box-sizing: border-box;
+  width: 100%;
+  font: 14px/1.5 var(--font-sans);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md, 6px);
+  padding: 8px;
+}
+.ae-page label:has(> textarea) {
+  display: grid;
+  gap: 4px;
+}
+
+.ae-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--link);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ae-link:is(:hover, :focus-visible) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ae-note {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.ae-label,
+.ae-page label:has(> textarea),
+.ae-relations > dt {
+  font: var(--label-structure, 500 13px/1.35 var(--font-sans));
+  color: var(--label-color, var(--text-muted));
+}
+/* Paths, identifiers, and locators read as evidence. */
+.ae-path {
+  font: 500 12px/1.4 var(--font-mono);
+  font-variant-numeric: normal;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* One treatment for failed, partial, and changed states: the house mark, then the message. */
+.ae-notice,
+.ae-page [data-record-partial] {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md, 6px);
+  background: var(--surface-sunk);
+  color: var(--text);
+  font-size: 13px;
+}
+.ae-notice:first-child {
+  margin-top: 0;
+}
+.ae-page [data-record-partial] {
+  margin: 12px 0 0;
+}
+.ae-notice-mark {
+  flex: none;
+  color: var(--text-faint);
+}
+.ae-notice-mark[data-tone="risk"] {
+  color: var(--accent);
+}
+.ae-notice-body {
+  flex: 1;
+  min-width: 0;
+}
+.ae-notice-body > :is(p, ul, details) + :is(p, ul, details) {
+  margin-top: 4px;
+}
+.ae-notice-body > ul {
+  margin-bottom: 6px;
+}
+.ae-notice .ae-notice-body > details {
+  border: 0;
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.ae-map {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr;
+  gap: 24px;
+  margin: 18px 0;
+}
+.ae-activity {
+  --ae-tone: var(--type-1);
+  display: flex;
+  flex-direction: column;
+  border-top: 3px solid var(--ae-tone);
+  padding-top: 6px;
+  min-width: 0;
+}
+.ae-activity[data-activity="Build"] {
+  --ae-tone: var(--type-6);
+}
+.ae-activity[data-activity="Settle"] {
+  --ae-tone: var(--type-10);
+}
+.ae-stages {
+  display: flex;
+  flex: 1;
+  gap: 10px;
+  margin-top: 6px;
+}
+.ae-stage {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--ae-tone) 55%, var(--border));
+  background: color-mix(in srgb, var(--ae-tone) 8%, var(--surface));
+  border-radius: 6px;
+  padding: 10px;
+}
+.ae-stage[data-subject] {
+  border-color: var(--text);
+}
+/* The current stage takes the selection fill, so it never reads as keyboard focus. */
+.ae-stage:has([aria-current="page"]) {
+  border-color: var(--selection-edge);
+  background: var(--selection);
+  font-weight: 600;
+}
+.ae-stage .ae-link {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  color: var(--text);
+}
+.ae-number {
+  font-size: 24px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.ae-this-record {
+  font-size: 13px;
+}
+.ae-record-workflow .ae-map {
+  grid-template-columns: 2fr 2fr 1fr;
+  gap: 12px;
+  margin: 12px 0 18px;
+}
+.ae-record-workflow .ae-stage {
+  padding: 6px;
+  font-size: 13px;
+}
+
+.ae-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 36px;
+  margin-top: 24px;
+}
+.ae-home-work > div > h2 {
+  margin: 0 0 2px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.ae-support {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 36px;
+  border-top: 1px solid var(--border);
+  margin-top: 28px;
+  padding-top: 14px;
+}
+
+.ae-row {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ae-select-row {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ae-select-row > div {
+  min-width: 0;
+  flex: 1;
+}
+.ae-select-row > input {
+  align-self: flex-start;
+  margin-top: 5px;
+}
+.ae-story-group > .ae-select-row + .ae-select-row {
+  padding-left: 24px;
+}
+:is(.ae-row, .ae-select-row) [data-record-key] {
+  padding-left: 0;
+  font-size: 14px;
+  font-weight: var(--title-weight, 500);
+}
+/* A row or a record header draws its own rule, so the facts strip inside it draws none. */
+:is(.ae-row, .ae-select-row, .ae-page article > header) .rz-facts {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.ae-list-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.ae-list-tools > span:last-child {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ae-pending > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  margin: 2px 0;
+}
+.ae-with-aside {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 330px);
+  gap: 32px;
+  margin-top: 24px;
+}
+.ae-brief {
+  margin-top: 0;
+}
+.ae-prompt {
+  background: var(--surface-sunk);
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.ae-page .ae-prompt textarea {
+  display: block;
+  margin-bottom: 8px;
+  resize: vertical;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 12px/1.6 var(--font-mono);
+  max-height: 420px;
+  overflow: auto;
+  padding: 10px;
+}
+.ae-prompt p:empty {
+  display: none;
+}
+
+.ae-page details {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 0;
+}
+:is(.ae-page, .ae-read-state) summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+  list-style: none;
+  cursor: pointer;
+}
+:is(.ae-page, .ae-read-state) summary::-webkit-details-marker {
+  display: none;
+}
+:is(.ae-page, .ae-read-state) summary > .rz-disclosure-icon {
+  align-self: center;
+}
+:is(.ae-page, .ae-read-state) details[open] > summary > .rz-disclosure-icon {
+  transform: rotate(90deg);
+}
+.ae-page summary > strong {
+  flex: 1 1 14em;
+  min-width: 0;
+  font-weight: var(--title-weight, 500);
+}
+/* Fixed columns, so recorded statuses line up down a list of stories. */
+.ae-summary-facts {
+  display: grid;
+  grid-template-columns: 9em 9.5em;
+  gap: 8px;
+  margin-left: auto;
+}
+.ae-summary-facts > :last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ae-page article > header > div {
+  flex-wrap: wrap;
+}
+.ae-page article h1 {
+  margin: 0;
+  white-space: normal;
+  overflow: visible;
+  min-width: 180px;
+}
+/* The read state shares the page's column and left edge. */
+.ae-read-state {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 8px 24px 0;
+  font: 14px/1.5 var(--font-sans);
+  color: var(--text);
+}
+.ae-page .ae-read-state {
+  padding: 0 0 8px;
+}
+.ae-read-state > p {
+  margin: 4px 0;
+}
+.ae-saved {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+.ae-occurrences {
+  padding-left: 20px;
+}
+.ae-occurrences > li {
+  padding: 12px 0 18px;
+  border-bottom: 1px solid var(--border);
+}
+.ae-occurrences > li > code {
+  display: block;
+}
+.ae-relations {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 4px 12px;
+  margin-top: 6px;
+}
+.ae-relations > dd {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ae-source {
+  white-space: pre-wrap;
+  font: 12px/1.5 var(--font-mono);
+  overflow: auto;
+  max-height: 420px;
+}
+
+.ae-prose ul {
+  list-style: disc;
+  padding-left: 22px;
+}
+.ae-prose ol {
+  list-style: decimal;
+  padding-left: 24px;
+}
+.ae-prose p {
+  margin: 8px 0;
+}
+.ae-prose pre {
+  padding: 10px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.ae-prose a {
+  color: var(--link);
+  text-decoration: underline;
+}
+.ae-prose ul.contains-task-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+/* The panel sits on the sidebar's chrome: 28px rows, chrome-tinted controls, counts at the right. */
+body:has(.ae-panel-state) {
+  background: var(--chrome-bg);
+}
+.ae-panel-state {
+  --text: var(--chrome-text);
+  --text-muted: var(--chrome-muted);
+  --text-faint: var(--chrome-muted);
+  --label-color: var(--chrome-muted);
+  color: var(--chrome-text);
+}
+.ae-panel-state .ae-read-state {
+  padding: 8px 12px 0;
+}
+.ae-panel-state :is(.ae-saved, .ae-refresh) {
+  display: none;
+}
+.ae-panel-state .ae-notice {
+  border-color: transparent;
+  background: var(--chrome-raised);
+}
+.ae-panel-state .ae-notice-mark[data-tone="risk"] {
+  color: var(--chrome-risk);
+}
+.ae-panel {
+  display: grid;
+  gap: 14px;
+  padding: 6px 8px 12px;
+  font: 14px/1.35 var(--font-sans);
+  color: var(--chrome-muted);
+  overflow-wrap: anywhere;
+}
+.ae-panel .rz-section-head,
+.ae-panel > label,
+.ae-map-compact .ae-activity > strong {
+  margin: 0;
+  padding: 0 8px;
+  font: var(--label-structure, 500 13px/1.35 var(--font-sans));
+  color: var(--chrome-muted);
+}
+.ae-panel :is(.rz-caption, .ae-note) {
+  margin: 0;
+  padding: 2px 8px;
+}
+.ae-panel-here {
+  padding: 2px 8px;
+  color: var(--chrome-text);
+  font-weight: 600;
+}
+.ae-panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ae-panel li {
+  margin: 0;
+}
+.ae-panel > label {
+  display: grid;
+  gap: 4px;
+}
+.ae-panel input {
+  box-sizing: border-box;
+  width: calc(100% + 16px);
+  height: 28px;
+  margin-inline: -8px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-md, 6px);
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
+  font: 400 13px/1 var(--font-sans);
+}
+.ae-panel input:hover {
+  background: var(--chrome-active);
+}
+/* The engine's clear button is an off-palette blue. Escape still clears the field. */
+.ae-panel input::-webkit-search-cancel-button {
+  appearance: none;
+}
+.ae-panel :is(.ae-link, [data-record-key]) {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 28px;
+  padding: 2px 8px;
+  border-radius: var(--r-md, 6px);
+  color: var(--chrome-muted);
+  font-size: 14px;
+  text-decoration: none;
+}
+.ae-panel :is(.ae-link, [data-record-key]):hover {
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
+}
+.ae-panel .ae-link[aria-current="page"] {
+  background: var(--chrome-pill);
+  color: var(--chrome-pill-text);
+  font-weight: 600;
+}
+.ae-panel :focus-visible {
+  outline: 2px solid var(--chrome-text);
+  outline-offset: -2px;
+}
+.ae-map-compact {
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin: 0;
+}
+.ae-map-compact .ae-activity {
+  border-top: 0;
+  padding-top: 0;
+}
+.ae-map-compact .ae-stages {
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 2px;
+}
+.ae-map-compact .ae-stage {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-weight: inherit;
+}
+.ae-map-compact .ae-stage .ae-link {
+  flex-flow: row wrap;
+  align-items: baseline;
+  gap: 0 8px;
+}
+.ae-map-compact .ae-stage-title {
+  order: 1;
+}
+.ae-map-compact .ae-this-record {
+  order: 2;
+}
+.ae-map-compact .ae-stage-count {
+  order: 3;
+  margin-left: auto;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.ae-map-compact .ae-number {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+@media (max-width: 800px) {
+  .ae-columns,
+  .ae-with-aside,
+  .ae-map {
+    grid-template-columns: 1fr;
+  }
+  .ae-map {
+    gap: 14px;
+  }
+  .ae-page {
+    padding: 16px;
+  }
+  .ae-read-state {
+    padding-inline: 16px;
+  }
+  .ae-number {
+    font-size: 20px;
+  }
+}
+@media (max-width: 480px) {
+  .ae-record-workflow .ae-map,
+  .ae-relations {
+    grid-template-columns: 1fr;
+  }
+}

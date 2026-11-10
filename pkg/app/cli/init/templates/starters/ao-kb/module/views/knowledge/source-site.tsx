@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Section, SectionBody, sectionStatus, useGraphQL, useMarkReady } from "@rhizome/kit";
-import type { MarkdownMark } from "@rhizome/kit";
+import type { MarkdownMark } from "@rhizome/kit/markdown";
 import { relationships } from "./lib/knowledge.ts";
 import type { Knowledge } from "./lib/knowledge.ts";
 import { noteBody } from "./lib/locators.ts";

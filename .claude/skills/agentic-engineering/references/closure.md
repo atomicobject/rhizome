@@ -24,3 +24,5 @@ Deliverable: a truthful closure state with delivery and closure evidence under `
 - Set `status: complete` only when required gates are satisfied or explicitly carried forward under repository policy. Completion does not authorize publication.
 - Otherwise record current revision, verified outcomes, next unfinished item, blockers or decisions, and the next useful action.
 - Complete and archived efforts remain historical records, including existing Markdown efforts. New execution belongs in a fresh effort; do not rewrite history to adopt the workspace format.
+
+For workspace frozen membership, inspect the explicit `frozen-scope` material and its focused frozen sections. Keep governing links, entry mentions, and a different log snapshot separate. Missing selectors or incomplete section evidence leave authority unknown. Deduplicate canonical source reads when scope and log share a file.

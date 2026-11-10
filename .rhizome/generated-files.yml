@@ -4,16 +4,16 @@ version: 1
 written:
   .agents/skills/action-items/SKILL.md: d4eb4805c8cb8fda
   .agents/skills/agentic-engineering/SKILL.md: 1f2d046c8f00b7b7
-  .agents/skills/agentic-engineering/references/alignment.md: 5270a7ef418a6feb
+  .agents/skills/agentic-engineering/references/alignment.md: 13e911b572b2b94c
   .agents/skills/agentic-engineering/references/batch-plan-template.md: 67aa63944d698c68
   .agents/skills/agentic-engineering/references/closure-report-contract.md: b44220b007bf0631
-  .agents/skills/agentic-engineering/references/closure.md: f97fa0ad672c4dbd
+  .agents/skills/agentic-engineering/references/closure.md: 1ca792d85005c570
   .agents/skills/agentic-engineering/references/compounding.md: c644f0774ddc342f
-  .agents/skills/agentic-engineering/references/effort-setup.md: 4f34a545c15fd195
+  .agents/skills/agentic-engineering/references/effort-setup.md: 6b278af59837f8a6
   .agents/skills/agentic-engineering/references/implementation.md: 6ad899a4fad8f03d
   .agents/skills/agentic-engineering/references/planning.md: 9932b9eb5605e222
   .agents/skills/agentic-engineering/references/quality-gates.md: 78ecf29c4b62d5e4
-  .agents/skills/agentic-engineering/references/reconciliation.md: f4703cf472bd6c8e
+  .agents/skills/agentic-engineering/references/reconciliation.md: ddc584e5e34ab29e
   .agents/skills/agentic-engineering/references/spec-template.md: 8da172c4ecf7bfbb
   .agents/skills/agentic-engineering/references/specification.md: 22af058c0233d57c
   .agents/skills/agentic-engineering/references/traceability.md: c9afa209aeb33b07
@@ -27,8 +27,8 @@ written:
   .agents/skills/compounding/references/models.md: ba80e96ccd08f5db
   .agents/skills/custom-views/SKILL.md: cf7e4e751cbad65b
   .agents/skills/custom-views/references/example.md: 6c1e54b739c646b9
-  .agents/skills/custom-views/references/experiences.md: 08085e342e2146be
-  .agents/skills/custom-views/references/kit-api.md: 11cac94c7816c014
+  .agents/skills/custom-views/references/experiences.md: 65bd2513a15f3754
+  .agents/skills/custom-views/references/kit-api.md: 4d38d9619bc905e2
   .agents/skills/custom-views/references/module-example.md: 0bcc51feb1c7416c
   .agents/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
   .agents/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
@@ -60,16 +60,16 @@ written:
   .claude/settings.json#rhizome-sandbox: a17fcf0a2f50e2d4
   .claude/skills/action-items/SKILL.md: d4eb4805c8cb8fda
   .claude/skills/agentic-engineering/SKILL.md: 1f2d046c8f00b7b7
-  .claude/skills/agentic-engineering/references/alignment.md: 5270a7ef418a6feb
+  .claude/skills/agentic-engineering/references/alignment.md: 13e911b572b2b94c
   .claude/skills/agentic-engineering/references/batch-plan-template.md: 67aa63944d698c68
   .claude/skills/agentic-engineering/references/closure-report-contract.md: b44220b007bf0631
-  .claude/skills/agentic-engineering/references/closure.md: f97fa0ad672c4dbd
+  .claude/skills/agentic-engineering/references/closure.md: 1ca792d85005c570
   .claude/skills/agentic-engineering/references/compounding.md: c644f0774ddc342f
-  .claude/skills/agentic-engineering/references/effort-setup.md: 4f34a545c15fd195
+  .claude/skills/agentic-engineering/references/effort-setup.md: 6b278af59837f8a6
   .claude/skills/agentic-engineering/references/implementation.md: 6ad899a4fad8f03d
   .claude/skills/agentic-engineering/references/planning.md: 9932b9eb5605e222
   .claude/skills/agentic-engineering/references/quality-gates.md: 78ecf29c4b62d5e4
-  .claude/skills/agentic-engineering/references/reconciliation.md: f4703cf472bd6c8e
+  .claude/skills/agentic-engineering/references/reconciliation.md: ddc584e5e34ab29e
   .claude/skills/agentic-engineering/references/spec-template.md: 8da172c4ecf7bfbb
   .claude/skills/agentic-engineering/references/specification.md: 22af058c0233d57c
   .claude/skills/agentic-engineering/references/traceability.md: c9afa209aeb33b07
@@ -83,8 +83,8 @@ written:
   .claude/skills/compounding/references/models.md: ba80e96ccd08f5db
   .claude/skills/custom-views/SKILL.md: cf7e4e751cbad65b
   .claude/skills/custom-views/references/example.md: 6c1e54b739c646b9
-  .claude/skills/custom-views/references/experiences.md: 08085e342e2146be
-  .claude/skills/custom-views/references/kit-api.md: 11cac94c7816c014
+  .claude/skills/custom-views/references/experiences.md: 65bd2513a15f3754
+  .claude/skills/custom-views/references/kit-api.md: 4d38d9619bc905e2
   .claude/skills/custom-views/references/module-example.md: 0bcc51feb1c7416c
   .claude/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
   .claude/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
@@ -117,8 +117,38 @@ written:
   .rhizome/modules/action-items/ontology/action-items.graphql: b2b177dd9acbd65c
   .rhizome/modules/action-items/recipes/action-items.yaml: 8246a77453eb9071
   .rhizome/modules/action-items/views/action-items.yaml: 8a2b90e98887652d
-  .rhizome/modules/agentic-engineering/ontology/spec-driven.graphql: 08586516cff0bc34
-  .rhizome/modules/agentic-engineering/recipes/spec-driven.yaml: 37f1d4f3aa39dea9
+  .rhizome/modules/agentic-engineering/ontology/spec-driven.graphql: c91dd2268eda1978
+  .rhizome/modules/agentic-engineering/recipes/spec-driven.yaml: abaa87c1fde45376
+  .rhizome/modules/agentic-engineering/views/delivery/README.md: eba8ce94aac50e78
+  .rhizome/modules/agentic-engineering/views/delivery/data.tsx: c102acd91d04df01
+  .rhizome/modules/agentic-engineering/views/delivery/delivery.css: 290335d51a58be25
+  .rhizome/modules/agentic-engineering/views/delivery/effort-note.yaml: 6f8ba81b367e6642
+  .rhizome/modules/agentic-engineering/views/delivery/effort-workspace.yaml: b2925723a67ab90e
+  .rhizome/modules/agentic-engineering/views/delivery/effort.tsx: 0984e04ff006413f
+  .rhizome/modules/agentic-engineering/views/delivery/evidence.tsx: 28e2315e939bde6f
+  .rhizome/modules/agentic-engineering/views/delivery/experience.yml: 1a08473d7d93ec1a
+  .rhizome/modules/agentic-engineering/views/delivery/home.tsx: 9caf3f48aada3368
+  .rhizome/modules/agentic-engineering/views/delivery/home.yaml: a016c92d9f1db535
+  .rhizome/modules/agentic-engineering/views/delivery/lib/coverage.ts: 783e556f745c986c
+  .rhizome/modules/agentic-engineering/views/delivery/lib/groups.ts: 1109cde5c6bcb9c6
+  .rhizome/modules/agentic-engineering/views/delivery/lib/index.ts: dc39c6722000e750
+  .rhizome/modules/agentic-engineering/views/delivery/lib/model.ts: ebf555cb74480b04
+  .rhizome/modules/agentic-engineering/views/delivery/lib/prompts.ts: 01c2eee67317a7ed
+  .rhizome/modules/agentic-engineering/views/delivery/lib/scope.ts: 168bae28a6c7c6d2
+  .rhizome/modules/agentic-engineering/views/delivery/panel.tsx: 4efe070818cd6e1f
+  .rhizome/modules/agentic-engineering/views/delivery/panel.yaml: b6c4f49c1dc2dae6
+  .rhizome/modules/agentic-engineering/views/delivery/presentation.tsx: 7a43966c05d613a4
+  .rhizome/modules/agentic-engineering/views/delivery/queries.ts: 44602b0b66eb95ec
+  .rhizome/modules/agentic-engineering/views/delivery/reads.ts: 4aa0f2b1cac45ccb
+  .rhizome/modules/agentic-engineering/views/delivery/relationships.tsx: be4c0c07bc12b1d5
+  .rhizome/modules/agentic-engineering/views/delivery/spec-experience.yaml: 758c7c2c0a5bf650
+  .rhizome/modules/agentic-engineering/views/delivery/spec-operations.yaml: 32cb9c84d33183fe
+  .rhizome/modules/agentic-engineering/views/delivery/spec-process.yaml: 82c9eb96384b5bc5
+  .rhizome/modules/agentic-engineering/views/delivery/spec-product.yaml: 98de0f26f36e2519
+  .rhizome/modules/agentic-engineering/views/delivery/spec-technical.yaml: 5fed1368d6399e92
+  .rhizome/modules/agentic-engineering/views/delivery/spec.tsx: 344c145902be85cf
+  .rhizome/modules/agentic-engineering/views/delivery/stage.tsx: 5dc6a7d90407fd5e
+  .rhizome/modules/agentic-engineering/views/delivery/stage.yaml: 9a7851aab292c443
   .rhizome/modules/agentic-engineering/views/efforts.yaml: 74e3810c2c89941e
   .rhizome/modules/agentic-engineering/views/feature-areas.yaml: 79a2c23d9da7b18d
   .rhizome/modules/agentic-engineering/views/specs.yaml: 50b804397b2ee138

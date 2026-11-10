@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { Markdown, NodeLink } from "@rhizome/kit";
-import type { MarkdownLinkTo } from "@rhizome/kit";
+import { NodeLink } from "@rhizome/kit";
+import { MarkdownDocument } from "@rhizome/kit/markdown";
+import type { MarkdownLinkTo } from "@rhizome/kit/markdown";
 import { inlineText } from "./lib/prose.ts";
 import type { relationships } from "./lib/knowledge.ts";
 
@@ -49,5 +50,5 @@ export function ClaimProse({ text, graph }: { text: string; graph?: Graph }) {
         <p>None recorded</p>
       </div>
     );
-  return <Markdown className="ak-claim" source={text} resolveLink={resolveLink} />;
+  return <MarkdownDocument className="ak-claim" source={text} resolveLink={resolveLink} />;
 }

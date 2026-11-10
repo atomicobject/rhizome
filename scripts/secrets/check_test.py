@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import subprocess
 import tempfile
 import unittest
@@ -35,6 +36,34 @@ class LocalValueTest(unittest.TestCase):
             findings = check.leaked_values(root, ["leak.go", "unlock.md", "clean.go", "mirror.sh", "bucket.md", "deleted.go"], secrets)
         self.assertEqual(["bucket.md (RZM_INTERNAL_S3_BUCKET)", "leak.go (VOYAGE_API_KEY)", "mirror.sh (RZM_INTERNAL_S3_LEGACY_SUFFIX)", "unlock.md (ATOMIC_RHIZOME_KEY)"], findings)
         self.assertFalse(any("synthetic" in finding for finding in findings))
+
+
+class GeneratedFingerprintTest(unittest.TestCase):
+    def test_only_manifest_checksum_rows_are_exempt_from_the_heuristic(self):
+        fingerprint = "4d38d9619bc905e2"
+        rows = [f"  .{agent}/skills/custom-views/references/kit-api.md: {fingerprint}"
+                for agent in ["agents", "claude"]]
+        manifest = "version: 1\nwritten:\n" + "\n".join(rows) + "\n"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            declaration = root / ".rhizome/generated-files.yml"
+            declaration.parent.mkdir()
+            declaration.write_text(manifest + f"  API_KEY: {fingerprint * 2}\n" + rows[0] + "f\n")
+            (root / "copied.yml").write_text(manifest)
+            report = root / "findings.json"
+            result = subprocess.run([
+                "gitleaks", "dir", "--redact=100", "--no-banner", "--ignore-gitleaks-allow",
+                "--config", str(check.ROOT / ".gitleaks.toml"),
+                "--report-format", "json", "--report-path", str(report), str(root),
+            ], capture_output=True, text=True)
+            self.assertEqual(1, result.returncode, result.stderr)
+            findings = {(Path(item["File"]).relative_to(root).as_posix(), item["StartLine"])
+                        for item in json.loads(report.read_text())}
+            self.assertEqual({(".rhizome/generated-files.yml", 5), (".rhizome/generated-files.yml", 6),
+                              ("copied.yml", 3), ("copied.yml", 4)}, findings)
+            self.assertEqual([".rhizome/generated-files.yml (SYNTHETIC_API_KEY)"],
+                             check.leaked_values(root, [".rhizome/generated-files.yml"],
+                                                 {fingerprint: "SYNTHETIC_API_KEY"}))
 
 
 if __name__ == "__main__":

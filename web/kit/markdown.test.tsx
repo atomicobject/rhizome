@@ -3,7 +3,7 @@ import { createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { renderMermaid } from "../src/components/markdown/mermaid";
-import { Markdown, markdownLinks, type MarkdownLinkTo } from "./markdown";
+import { MarkdownDocument, markdownLinks, type MarkdownLinkTo } from "@rhizome/kit/markdown";
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- Mermaid renders through a lazily loaded boundary.
 vi.mock("../src/components/markdown/mermaid", () => ({ renderMermaid: vi.fn() }));
@@ -113,7 +113,7 @@ describe("markdownLinks", () => {
       expect(markdownLinks(source)).toEqual([{ target: value.split("|")[0], offset: 7 }]);
 
       const { container } = render(
-        <Markdown source={source} resolveLink={(target) => ({ node: node(target) })} />,
+        <MarkdownDocument source={source} resolveLink={(target) => ({ node: node(target) })} />,
       );
 
       expect(container.querySelectorAll("a")).toHaveLength(1);
@@ -125,7 +125,7 @@ describe("markdownLinks", () => {
   it("keeps an escaped embed bang as text before an unescaped wikilink", () => {
     const source = String.raw`\![[claim]]`;
     expect(markdownLinks(source)).toEqual([{ target: "claim", offset: 2 }]);
-    const { container } = render(<Markdown source={source} resolveLink={resolve} />);
+    const { container } = render(<MarkdownDocument source={source} resolveLink={resolve} />);
     expect(container.querySelector("p")?.firstChild?.textContent).toBe("!");
     expect(container.querySelectorAll("a")).toHaveLength(1);
   });
@@ -137,7 +137,7 @@ describe("markdownLinks", () => {
       expect(markdownLinks(source)).toEqual([
         { target: "claim", offset: source.lastIndexOf("[[claim]]") },
       ]);
-      const { container } = render(<Markdown source={source} resolveLink={resolve} />);
+      const { container } = render(<MarkdownDocument source={source} resolveLink={resolve} />);
       expect(container.querySelectorAll("a")).toHaveLength(1);
       expect(container.querySelector("p")?.firstChild?.textContent).toBe("[[claim]] then ");
     },
@@ -147,7 +147,7 @@ describe("markdownLinks", () => {
     const source = "[Read [[claim]] here](notes/guide.md)";
 
     expect(markdownLinks(source)).toEqual([{ target: "notes/guide.md", offset: 0 }]);
-    const { container } = render(<Markdown source={source} resolveLink={resolve} />);
+    const { container } = render(<MarkdownDocument source={source} resolveLink={resolve} />);
 
     expect(container.querySelectorAll("a a")).toHaveLength(0);
     expect(container).toHaveTextContent("Read [[claim]] here");
@@ -161,7 +161,7 @@ describe("markdownLinks", () => {
   );
 });
 
-describe("Markdown", () => {
+describe("MarkdownDocument", () => {
   afterEach(() => {
     mockedRenderMermaid.mockReset();
   });
@@ -173,7 +173,11 @@ describe("Markdown", () => {
       const ref = createRef<HTMLElement>();
 
       const { container } = render(
-        <Markdown source={source} resolveLink={resolve} mark={{ ...mark(link.offset), ref }} />,
+        <MarkdownDocument
+          source={source}
+          resolveLink={resolve}
+          mark={{ ...mark(link.offset), ref }}
+        />,
       );
 
       const marks = container.querySelectorAll(".rz-markdown-mark");
@@ -195,7 +199,7 @@ describe("Markdown", () => {
     const source = "Intro.\n\n```\n[[claim]]\n```\n";
 
     for (const at of [source.indexOf("[[claim"), source.length + 10]) {
-      const { container, unmount } = render(<Markdown source={source} mark={mark(at)} />);
+      const { container, unmount } = render(<MarkdownDocument source={source} mark={mark(at)} />);
 
       expect(container.querySelector(".rz-markdown-mark")).toBeNull();
       unmount();
@@ -208,7 +212,7 @@ describe("Markdown", () => {
     const ref = createRef<HTMLElement>();
 
     const view = (at?: number) => (
-      <Markdown
+      <MarkdownDocument
         source={source}
         resolveLink={resolve}
         mark={at === undefined ? undefined : { ...mark(at), ref }}
@@ -228,7 +232,7 @@ describe("Markdown", () => {
     const source =
       "[[claim]] [[missing|Gone]] [web](https://example.test/) [note](#top) [bad](javascript:alert(1)) [data](data:text/plain,x)";
 
-    const pending = render(<Markdown source={source} />);
+    const pending = render(<MarkdownDocument source={source} />);
 
     expect(pending.container.querySelector("a")).toHaveAttribute("href", "https://example.test/");
     expect(pending.container.querySelectorAll("a")).toHaveLength(2);
@@ -236,7 +240,7 @@ describe("Markdown", () => {
     expect(pending.container).toHaveTextContent("claim Gone web note bad data");
     pending.unmount();
 
-    const { container } = render(<Markdown source={source} resolveLink={resolve} />);
+    const { container } = render(<MarkdownDocument source={source} resolveLink={resolve} />);
     const links = container.querySelectorAll("a");
 
     expect(links).toHaveLength(3);
@@ -260,7 +264,7 @@ describe("Markdown", () => {
 
   it("keeps raw HTML literal and never loads an image", () => {
     const { container } = render(
-      <Markdown
+      <MarkdownDocument
         source={
           "<script>alert(1)</script> <b>bold</b>\n\n![a picture](https://example.test/p.png)\n\n![[pic.png]]"
         }
@@ -302,7 +306,7 @@ describe("Markdown", () => {
       "Done.",
     ].join("\n");
 
-    const { container } = render(<Markdown source={source} />);
+    const { container } = render(<MarkdownDocument source={source} />);
 
     expect(container.querySelector("strong")).toHaveTextContent("bold");
     expect(container.querySelector("em")).toHaveTextContent("italic");
@@ -319,7 +323,7 @@ describe("Markdown", () => {
     const source = "# About [[claim]]\n\nBody.";
 
     const { container } = render(
-      <Markdown
+      <MarkdownDocument
         source={source}
         resolveLink={resolve}
         skipTitle
@@ -336,7 +340,7 @@ describe("Markdown", () => {
     const [link] = markdownLinks(source);
 
     const { container } = render(
-      <Markdown
+      <MarkdownDocument
         source={source}
         resolveLink={resolve}
         mark={mark(link.offset)}
@@ -355,7 +359,9 @@ describe("Markdown", () => {
     mockedRenderMermaid.mockResolvedValue('<svg aria-label="flow"></svg>');
 
     const { container } = render(
-      <Markdown source={"```mermaid\ngraph TD\nA-->B\n```\n\n```ts\nconst value = 1;\n```"} />,
+      <MarkdownDocument
+        source={"```mermaid\ngraph TD\nA-->B\n```\n\n```ts\nconst value = 1;\n```"}
+      />,
     );
 
     await waitFor(() => expect(container.querySelector(".mermaid-block svg")).not.toBeNull());

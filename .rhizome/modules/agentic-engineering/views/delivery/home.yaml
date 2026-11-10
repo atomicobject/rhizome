@@ -1,0 +1,8 @@
+apiVersion: rhizome.view.v1
+id: agentic-engineering.home
+name: Delivery
+source: { kind: custom, entry: home.tsx }
+mount:
+  kind: group
+  group: Delivery
+  default: true

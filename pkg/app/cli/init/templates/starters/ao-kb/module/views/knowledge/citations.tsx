@@ -1,7 +1,8 @@
 // US3 citation states (SPEC-0135): one state per citation, from SPEC-0133's evidence states plus
 // whether the cited source's body links the assertion, and "Open in source", which passes the
 // assertion as the source view's `assertion` param so the target survives tabs and reloads.
-import { markdownLinks, Section, sectionStatus, usePageNavigation, workspaceViewHref } from "@rhizome/kit";
+import { Section, sectionStatus, usePageNavigation, workspaceViewHref } from "@rhizome/kit";
+import { markdownLinks } from "@rhizome/kit/markdown";
 import type { ViewNodeRef } from "@rhizome/kit";
 import { coverage, name } from "./lib/knowledge.ts";
 import type { Assertion, Knowledge, relationships } from "./lib/knowledge.ts";
