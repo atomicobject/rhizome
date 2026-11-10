@@ -512,3 +512,9 @@ it("counts a frame as hosted only when its parent is the same origin", async () 
   vi.resetModules();
   expect((await import("./index")).embedded).toBe(false);
 });
+
+it("exports the existing Markdown renderer without a wrapper", async () => {
+  const kit = await import("./index");
+  const { Markdown } = await import("../src/components/markdown/Markdown");
+  expect(kit.Markdown).toBe(Markdown);
+});
