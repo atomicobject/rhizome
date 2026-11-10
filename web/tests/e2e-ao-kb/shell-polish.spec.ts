@@ -1,16 +1,67 @@
 import { expect, test } from "@playwright/test";
 
-// SPEC-0133 R5 and R7: the shell around AO KB records. Owned notes offer no way into
-// editing, a custom record presentation shares the shell's left edge, and the sidebar's
-// product model lists the kinds that hold records.
+import { chooseView } from "../e2e/workspaceView";
 
-test("an AO-owned Markdown note offers no Edit and says why", async ({ page }) => {
-  await page.goto("/notes?note=assertions%2Fclinic-patient-books-own-slot.md");
-  await expect(page.getByText(/^Managed by AO KB\./)).toBeVisible();
-  await expect(page.getByRole("tab", { name: /clinic-patient-books-own-slot/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Edit", exact: true })).toHaveCount(0);
-  await page.keyboard.press("ControlOrMeta+Shift+E");
+// SPEC-0133 R5 and R7: the shell around AO KB records. KB notes are edited in place
+// from their custom presentation, a custom record presentation shares the shell's left
+// edge, and the sidebar's product model lists the kinds that hold records.
+
+// The fixture is an installation from before editing was enabled; the server's refresh
+// lifted the starter's former read-only declaration, so nothing refuses the edit.
+test("an AO KB note opened in its presentation is edited through the Markdown editor and keeps the edit", async ({
+  page,
+}) => {
+  const fileURL = "/api/v1/files/view?path=assertions%2Fclinic-patient-books-own-slot.md";
+  const before = await (await page.request.get(fileURL)).json();
+
+  const updated = before.content.replace(
+    "\n## Connections\n",
+    "\nEdited through Rhizome.\n\n## Connections\n",
+  );
+
+  expect(updated).not.toBe(before.content);
+  await page.goto(
+    "/notes?note=assertions%2Fclinic-patient-books-own-slot.md&presentation=ao-kb.assertion",
+  );
+  const frame = page.frameLocator("iframe:not(.panel-frame)");
+  await expect(
+    frame.getByRole("heading", { name: "Patients book their own slots", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/^Managed by AO KB\./)).toHaveCount(0);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(page.locator(".ontology-edit-bar")).toBeVisible();
+  await chooseView(page, "Markdown");
+  const editor = page.getByRole("textbox", { name: "Markdown source" });
+  await expect(editor).toBeVisible();
+
+  await editor.click();
+  await editor.press("ControlOrMeta+a");
+  await page.keyboard.insertText(updated);
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
+
+  const committed = page.waitForResponse(
+    (response) => response.url().endsWith("/commit") && response.request().method() === "POST",
+  );
+
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  expect(await (await committed).json()).toMatchObject({
+    outcome: "committed",
+    hasUncommittedChanges: false,
+  });
   await expect(page.locator(".ontology-edit-bar")).toHaveCount(0);
+  await expect
+    .poll(async () => (await (await page.request.get(fileURL)).json()).content)
+    .toBe(updated);
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Assertion", exact: true })).toBeVisible();
+  await chooseView(page, "Structure");
+  await expect(page.getByText("Edited through Rhizome.", { exact: true })).toBeVisible();
+  await chooseView(page, "Assertion");
+  await expect(
+    frame.getByRole("heading", { name: "Patients book their own slots", exact: true }),
+  ).toBeVisible();
+  await expect(frame.getByText("Edited through Rhizome.", { exact: true })).toBeVisible();
 });
 
 test("a model record's node path starts on the presentation's left edge", async ({ page }) => {

@@ -6,7 +6,7 @@ aliases:
   - AO KB Knowledge site
 summary: "Turns the AO KB starter's Knowledge group into a navigable site for newcomers and maintainers: a KB overview with a topic map, sources by date, and a topic-by-kind matrix; record pages that show where a record sits; a Review page of live gaps; a sidebar panel; and a view switcher that puts custom views first. Every mark comes from authored AO data, labelled for what it is, and legacy KBs on AO schema 4 to 7 read and set up without migrating."
 spec-status: active
-last-updated: 2026-11-09
+last-updated: 2026-11-10
 ---
 
 # AO KB Knowledge site
@@ -42,13 +42,13 @@ The site is one experience ([[experiences|SPEC-0136]]): the starter's Knowledge 
 
 ## Non-Goals
 
-- Writing to the KB. AO KB owns every authored file (SPEC-0133 R5).
+- Editors of its own. The site's pages present records and never write them; KB Markdown notes are edited through Rhizome's native editors (SPEC-0133 R5, amended 2026-11-10), and AO's skills keep editing them too.
 - Computing AO judgments: confidence bands, weights, horizons, freshness, importance, or "shakiest" rankings.
 - Inferring links, topics, dates, or relatedness from text, tags, similarity, or link centrality.
 - Concept-to-concept edges from links outside `## Related Concepts`. A labelled "mentions" layer may follow in a later SPEC-0133 amendment.
 - Parsing `CLAUDE.md` or other instruction files for KB identity.
 - A scheduled task, saved analysis, or background job for the site's counts or layout.
-- 3D views, people or speaker views, product-model pages, editing, export, or publishing. AO's own site engine owns publication.
+- 3D views, people or speaker views, product-model pages, export, or publishing. AO's own site engine owns publication.
 - A site router or module manifest. The experience's `experience.yml` (SPEC-0136) is the only declaration.
 - Migrating legacy KBs, and product-model bindings below schemaVersion 8. AO's own migration remains the way to upgrade a KB. Legacy product-mode accounts are not supported; none was observed.
 - Listing archived submissions (`_improvements/_archive/`).
@@ -100,11 +100,11 @@ The site is one experience ([[experiences|SPEC-0136]]): the starter's Knowledge 
 | --- | --- | --- |
 | A recorded locator resolves | "Recorded passage", with the passage | Opens the source at that passage |
 | A recorded locator does not resolve (unsupported, malformed, or out of range) | SPEC-0133's state for that case, unchanged | Opens the source at its top; nothing is highlighted |
-| No locator; the source body links the assertion | "No passage locator recorded" | Opens the source at the first paragraph holding an authored link to the assertion, highlighted and labelled "This source links to the assertion here" |
+| No locator; the source body links the assertion | "No passage locator recorded" | Opens the source at the innermost rendered block (a paragraph, list item, heading, or table row) holding the first authored link to the assertion, highlighted and labelled "This source links to the assertion here" |
 | No locator; the source body never links the assertion | "No passage locator recorded" | Opens the source at its top with "This source does not link to the assertion"; nothing is highlighted |
 | The cited source does not resolve | The unresolved state, with the raw value | Not offered |
 
-- An authored link to the assertion is a wikilink or Markdown link in the source body that the shared resolver (R2) maps to the assertion's record. The highlight is never labelled a passage or evidence, never moves to a nearby paragraph, and never uses extraction IDs. "Open in source" passes the assertion as the source view's `assertion` param (R2), so the source's node reference and fragment are unchanged and the target survives tab switches and reloads (R6a).
+- An authored link to the assertion is a wikilink or Markdown link in the source body that the shared resolver (R2) maps to the assertion's record. The highlight is never labelled a passage or evidence, never moves to a nearby block, and never uses extraction IDs. The source body renders as one Markdown document through the kit's `MarkdownDocument` ([[custom-view-apps|SPEC-0105]] US3), and the same parse that renders it finds the link, so a link inside code or a bare reference definition is never a citation and a reference-style link is one (amended 2026-11-10). "Open in source" passes the assertion as the source view's `assertion` param (R2), so the source's node reference and fragment are unchanged and the target survives tab switches and reloads (R6a).
 - A source page lists "Assertions extracted from it" (from `extractedAssertionIds`) separately from "Assertions that cite it". Extraction IDs that resolve to no assertion are listed with their raw value.
 
 ### US4 - Answer a question from the matrix
@@ -145,7 +145,7 @@ The site is one experience ([[experiences|SPEC-0136]]): the starter's Knowledge 
 
 #### Acceptance Criteria
 
-- The starter's check reports knowledge as supported through a read-only legacy spelling adapter for schemaVersion 4 through 7, and product-model bindings as not applicable below schemaVersion 8, naming AO's migration as the upgrade path.
+- The starter's check reports knowledge as supported through a legacy spelling adapter for schemaVersion 4 through 7, and product-model bindings as not applicable below schemaVersion 8, naming AO's migration as the upgrade path.
 - Setup completes for a single-product legacy KB through the setup skill's route: refresh publishes knowledge bindings; the check reports `bindingsReady` with the model stage `not applicable`; the starter's index command issues a receipt; the check then reports `indexReady`; and a typed knowledge query returns every assertion. No model dependency (uv or Python) is required.
 - A legacy KB whose `.kb/config/manifest.json` records no `siteEngine` entry, as AO's older scaffolds write, is admitted as a KB that never enabled AO's site engine. A recorded `siteEngine` that does not match the pin still fails, and a legacy product-mode account reports `ao_schema_unsupported` with AO's migration named.
 - Kind, source kind, speaker, and supporting-assertion values read from their legacy keys when the current key is absent. The raw kind value is shown as stored; grouping uses AO's retired-name table.
@@ -205,7 +205,7 @@ The site is one experience ([[experiences|SPEC-0136]]): the starter's Knowledge 
 
 ### R2. Data contract
 
-The starter's knowledge-convention adapter (SPEC-0133 R6) gains these read-only fields. Field names are fixed here so the data, library, and page work can proceed in parallel. Every field below that takes several source keys reads the first key present; for a list field, an explicitly empty current list counts as present (verified on the built binary for `supportValues`).
+The starter's knowledge-convention adapter (SPEC-0133 R6) gains these fields. Field names are fixed here so the data, library, and page work can proceed in parallel. Every field below that takes several source keys reads the first key present; for a list field, an explicitly empty current list counts as present (verified on the built binary for `supportValues`).
 
 | Need | Field | Mapping | Rule |
 | --- | --- | --- | --- |
@@ -351,9 +351,10 @@ Every visual is deterministic for the same index, has a text or table equivalent
 
 ## Amendments
 
-- **SPEC-0133.** R6: the knowledge-convention adapter adds the R2 fields, legacy knowledge admission for single-product schemaVersion 4 through 7 with the model stage `not applicable`, the `siteEngine`-absent admission rule, and the three read-only document types. R7: membership becomes the union in R2; KB overview becomes the Knowledge group's default; KB overview, Review, Sources, Artifacts, Concept, and Artifact pages join the workspace; whole-KB reads report coverage instead of a 500-record ceiling. The Related Concepts meaning and the Concepts page's locator-coverage categories are unchanged.
+- **SPEC-0133.** R6: the knowledge-convention adapter adds the R2 fields, legacy knowledge admission for single-product schemaVersion 4 through 7 with the model stage `not applicable`, the `siteEngine`-absent admission rule, and the three document types. R7: membership becomes the union in R2; KB overview becomes the Knowledge group's default; KB overview, Review, Sources, Artifacts, Concept, and Artifact pages join the workspace; whole-KB reads report coverage instead of a 500-record ceiling. The Related Concepts meaning and the Concepts page's locator-coverage categories are unchanged.
 - **SPEC-0110.** Workbench tabs retain declared view params (R6a). The panel, frame reuse, and suspension are SPEC-0136's amendments. The presentation order sentence gains R7's visual order, keeping catalog order and selection precedence. Any ordering language in [[group-views-and-view-platform|SPEC-0111]], [[type-collection-views|SPEC-0112]], [[scope-overview|SPEC-0117]], and [[workbench-redesign|SPEC-0126]] that restates the old visual order is updated with it.
-- **SPEC-0105.** The kit gains typed-root coverage on GraphQL results (R2c), and open-search's `folder` becomes optional (R6). Both are additive; the other kit additions are SPEC-0136's.
+- **SPEC-0105.** The kit gains typed-root coverage on GraphQL results (R2c), and open-search's `folder` becomes optional (R6). Both are additive; the other kit additions are SPEC-0136's. On 2026-11-10 the kit gained `MarkdownDocument` and `markdownLinks` in `@rhizome/kit/markdown`, which the site's record bodies, claims, and US3 source highlight use.
+- **2026-11-10.** Under [[docs/efforts/2026-11-10-10-02-kit-markdown|EFF-2026-11-10-10-02]]: the writing non-goal narrows to the site's own pages, since SPEC-0133 R5 now lets KB Markdown notes be edited through Rhizome; US3's highlight unit becomes the innermost rendered block holding the first authored link.
 
 ## Open Questions
 

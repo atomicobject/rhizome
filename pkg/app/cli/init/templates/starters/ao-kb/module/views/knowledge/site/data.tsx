@@ -2,7 +2,7 @@
 // kit's cached reads, the site library built once per result, and the small pieces every
 // page uses to name what it read and where a link goes.
 import { useMemo } from "react";
-import type { ReactNode, Ref } from "react";
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   NodeLink,
@@ -13,12 +13,13 @@ import {
   workspaceViewHref,
 } from "@rhizome/kit";
 import type { ViewNodeRef, ViewParamValue } from "@rhizome/kit";
+import { MarkdownDocument } from "@rhizome/kit/markdown";
+import type { MarkdownLinkTo, MarkdownMark } from "@rhizome/kit/markdown";
 import { CITATION_SELECTION, ORIENTATION_QUERY, RELATED_CONCEPTS_QUERY } from "../lib/queries.ts";
 import { GAPS, buildSite, folderLabel } from "../lib/site.ts";
 import type { CitationRead, OConcept, Orientation, Root, Site } from "../lib/site.ts";
 import { makeResolver } from "../lib/relations.ts";
 import { NO_KIND, groupOf } from "../lib/kinds.ts";
-import { inlineText, paragraphs } from "../lib/prose.ts";
 import { readVaultText } from "../lib/passage.ts";
 import { BINDING_MANIFESTS } from "../lib/model.ts";
 import "./site.css";
@@ -223,100 +224,28 @@ export function useResolve(site: Site | undefined) {
   );
 }
 
-function Inline({
-  text,
-  site,
-  resolve,
-}: {
-  text: string;
-  site?: Site;
-  resolve?: (t: string) => string | undefined;
-}) {
-  // Until the orientation query answers, a link shows as its plain label, never as unresolved.
-  return (
-    <>
-      {inlineText(text, (t) => resolve?.(t)).map((part, i) => {
-        if (part.kind === "text") return part.text;
-        if (part.kind === "link" && site)
-          return (
-            <RecordTitle key={i} site={site} path={part.path} className="ak-prose-link">
-              {part.label}
-            </RecordTitle>
-          );
-        if (!resolve) return <span key={i}>{part.label}</span>;
-        return (
-          <span
-            key={i}
-            className="ak-unresolved"
-            title={`Unresolved target: ${part.kind === "unresolved" ? part.target : ""}`}
-          >
-            {part.label} <span className="ak-unresolved-label">(unresolved)</span>
-          </span>
-        );
-      })}
-    </>
-  );
+/** Authored links in a record body, resolved to the record's page through the shared resolver
+ * (R2): the canonical AO ID first, then a unique file name. Absent until the orientation query
+ * answers, so a link shows as its plain label, never as unresolved. */
+export function useRecordLinks(site: Site | undefined) {
+  const resolve = useResolve(site);
+  return useMemo(() => {
+    if (!site || !resolve) return undefined;
+    return (target: string): MarkdownLinkTo | undefined => {
+      const record = site.byPath.get(resolve(target) ?? "");
+      const node = record && refOf(record);
+      return node ? { node, view: VIEW_OF[node.typeName ?? ""] } : undefined;
+    };
+  }, [site, resolve]);
 }
 
-/** A record's authored body: headings, list items, and paragraphs, with wikilinks to records.
- * `mark` highlights the paragraph at that index of `paragraphs(text)` under `markLabel`. */
-export function Body({
-  text,
-  site,
-  mark = -1,
-  markLabel,
-  markRef,
-}: {
-  text: string;
-  site?: Site;
-  mark?: number;
-  markLabel?: string;
-  /** The marked paragraph, so its page can scroll to it without a document-wide lookup. */
-  markRef?: Ref<HTMLDivElement>;
-}) {
-  const resolve = useResolve(site);
-  const blocks = paragraphs(text);
-  if (!blocks.length) return <p className="ak-empty">No body recorded</p>;
-  return (
-    <div className="ak-body">
-      {blocks.map((block, i) => {
-        const heading = /^(#{1,6})\s+(.*)$/.exec(block);
-        // A leading H1 is the note's title, which the page header already shows.
-        if (i === 0 && heading?.[1] === "#" && !block.includes("\n")) return null;
-        if (heading && !block.includes("\n")) return <h3 key={i}>{heading[2]}</h3>;
-        const lines = block.split("\n");
-        const content = lines.every((l) => /^\s*[-*]\s+/.test(l)) ? (
-          <ul>
-            {lines.map((l, j) => (
-              <li key={j}>
-                <Inline text={l.replace(/^\s*[-*]\s+/, "")} site={site} resolve={resolve} />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>
-            {lines.map((l, j) => (
-              <span key={j}>
-                {j > 0 && <br />}
-                {/^#{1,6}\s/.test(l) ? (
-                  <b>{l.replace(/^#{1,6}\s+/, "")}</b>
-                ) : (
-                  <Inline text={l} site={site} resolve={resolve} />
-                )}
-              </span>
-            ))}
-          </p>
-        );
-        if (i !== mark) return <div key={i}>{content}</div>;
-        return (
-          <div key={i} className="ak-body-mark" ref={markRef}>
-            <span className="ak-body-mark-label">{markLabel}</span>
-            {content}
-          </div>
-        );
-      })}
-    </div>
-  );
+/** A record's authored body as one Markdown document, with links to records. The leading H1
+ * is the note's title, which the page header already shows. `mark` highlights the block holding
+ * one authored link, at the offset `markdownLinks` reported for it. */
+export function Body({ text, site, mark }: { text: string; site?: Site; mark?: MarkdownMark }) {
+  const resolveLink = useRecordLinks(site);
+  if (!text.trim()) return <p className="ak-empty">No body recorded</p>;
+  return <MarkdownDocument className="ak-body" source={text} resolveLink={resolveLink} mark={mark} skipTitle />;
 }
 
 /** The list page's header: its name, the count it shows, and what it says about it. */

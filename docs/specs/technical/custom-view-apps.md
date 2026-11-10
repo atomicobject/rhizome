@@ -4,7 +4,7 @@ id: SPEC-0105
 aliases: [SPEC-0105, custom-view-apps]
 summary: "A configured view can be custom code: a view definition names a TSX or HTML entry beside it, rzm serves it same-origin with a prebuilt UI kit and per-file TSX transform, and the same URL works mounted in the Rhizome nav or as a standalone tool."
 spec-status: active
-last-updated: 2026-11-09
+last-updated: 2026-11-10
 ---
 
 # Custom view apps
@@ -114,6 +114,8 @@ Two limits keep the choice contained: custom view code runs only when a user or 
   verification:: kit unit tests; browser run.
 - The kit gains SPEC-0136 R7's additions: `useViewLocation`, `useViewActive`, `useViewConfiguration`, `markReady`, `useMarkReady`, `usePageNavigation`, `readNodes`, and `RecordPage`. It reports typed-root coverage with `typedRootCoverage(data)` and capped reads with `truncation(data)` ([[ao-kb-knowledge-site|SPEC-0135]] R2c). `openSearch`'s `folder` is optional, and without it the search covers the whole vault (SPEC-0135 R6). All are additive.
   verification:: kit unit tests.
+- `MarkdownDocument` from `@rhizome/kit/markdown` renders one whole Markdown document through the host's renderer: GitHub-flavored Markdown, highlighted fenced code, and Mermaid. It takes `source`, optional `className`, `resolveLink(target)` returning `{ node, view? }` for wikilinks and relative Markdown links (plain labels until a resolver exists, an explicit unresolved state when it returns nothing), `mark: { at, label, ref? }`, which highlights the innermost rendered block (paragraph, list item, heading, or table row) holding the link at that source offset and hands the element to `ref`, and `skipTitle` for a leading H1. `markdownLinks(source)` lists the document's internal links as `{ target, offset }` in source order, with UTF-16 offsets into the exact input, through the same parse; code, reference definitions by themselves, external links, fragments, and unsafe schemes are not links. Raw HTML stays literal, unsafe schemes render as text, and images never load. Parser trees, plugins, and renderer options stay private (added 2026-11-10).
+  verification:: kit unit tests over a corpus of list, table, heading, fence, reference, and CRLF documents; the AO KB Knowledge site's source highlight journey.
 - A frame loaded with `frame=experience` beside `hosted=1` is an experience or panel frame (SPEC-0136 R2, R3). It posts `rhizome:frame-ready` once it listens, receives `rhizome:location`, `rhizome:suspend`, `rhizome:resume`, `rhizome:generation`, and `rhizome:close-page`, and replies `rhizome:location-accepted` and `rhizome:location-rendered` instead of `rhizome:view-rendered`. Every message from one of its pages carries that page's tab ID and navigation ID.
   verification:: kit and host unit tests; Playwright journeys on the synthetic experience fixture.
 
@@ -172,5 +174,7 @@ Two limits keep the choice contained: custom view code runs only when a user or 
 - The skill template is the agent-facing documentation.
 
 ## Change record
+
+2026-11-10: US3 gains `MarkdownDocument` and `markdownLinks` in the optional `@rhizome/kit/markdown` entry under [[docs/efforts/2026-11-10-10-02-kit-markdown|EFF-2026-11-10-10-02]], additive within `/kit/v1/`.
 
 2026-11-09: Amended for [[experiences|SPEC-0136]] (build-stamped immutable kit path, precompiled stylesheet, runtime Tailwind in its own file, R7's kit additions, the experience frame messages, and experience frames rebuilding on `views.changed`) and [[ao-kb-knowledge-site|SPEC-0135]] (typed-root coverage, optional open-search `folder`).

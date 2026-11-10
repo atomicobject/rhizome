@@ -1,0 +1,275 @@
+/* Rendered Markdown: the prose rules every Markdown renderer shares (the explorer
+   file panel, the ontology note pane, and the custom-view kit's Markdown), the
+   highlight.js roles on the --syntax-* tokens, and the Mermaid block's layout.
+   base.css imports it for the host; kitStylesheet.ts embeds it in kit.css. */
+
+.markdown {
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.markdown a {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+.markdown a:hover {
+  text-decoration-color: currentColor;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  font-family: var(--font-display);
+  margin-top: 1.4em;
+  margin-bottom: 0.5em;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.markdown h1 {
+  font-size: var(--fs-2xl);
+  font-weight: 900;
+}
+
+.markdown h2 {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  border-bottom: 1px solid var(--border-faint);
+  padding-bottom: 0.3em;
+}
+
+.markdown h3 {
+  font-size: var(--fs-lg);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.markdown p {
+  margin: 0.6em 0;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.4em;
+}
+
+.markdown ul {
+  list-style-type: disc;
+}
+
+.markdown ol {
+  list-style-type: decimal;
+}
+
+.markdown li {
+  margin: 0.2em 0;
+}
+
+.markdown pre {
+  background: var(--bg-tint);
+  border: 1px solid var(--border);
+  padding: var(--sp-5);
+  border-radius: var(--r-md);
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+.markdown code {
+  background: var(--bg-tint);
+  padding: 1px 2px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  color: var(--text);
+}
+
+.markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.markdown blockquote {
+  margin: 1em 0;
+  padding: 0.4em var(--sp-5);
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.markdown table {
+  margin: 0.8em 0;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.markdown th,
+.markdown td {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown th {
+  background: var(--bg-tint);
+  font-weight: 600;
+}
+
+.markdown .task-list-item {
+  list-style: none;
+  margin-left: -1.4em;
+}
+
+.markdown .task-list-item input {
+  margin-right: 0.4em;
+  vertical-align: middle;
+}
+
+/* Syntax highlighting (highlight.js classes) on the --syntax-* roles, so code
+   reads the same in both themes and in the editor. */
+.hljs {
+  color: var(--text);
+  background: transparent;
+}
+
+.hljs-keyword,
+.hljs-doctag,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-variable.language_,
+.hljs-operator {
+  color: var(--syntax-keyword);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-meta .hljs-string {
+  color: var(--syntax-string);
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-selector-id,
+.hljs-char.escape_ {
+  color: var(--syntax-number);
+}
+
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+  color: var(--syntax-comment);
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-section {
+  color: var(--syntax-function);
+}
+
+.hljs-type,
+.hljs-built_in,
+.hljs-symbol {
+  color: var(--syntax-type);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-property,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-bullet {
+  color: var(--syntax-property);
+}
+
+.hljs-name,
+.hljs-tag,
+.hljs-selector-tag,
+.hljs-selector-pseudo {
+  color: var(--syntax-tag);
+}
+
+.hljs-meta,
+.hljs-quote,
+.hljs-punctuation {
+  color: var(--syntax-meta);
+}
+
+.hljs-section,
+.hljs-strong {
+  font-weight: 700;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-addition {
+  color: var(--success-ink);
+  background: var(--success-soft);
+}
+
+.hljs-deletion {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+}
+
+.mermaid-block {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+  margin: var(--sp-5) 0;
+  overflow-x: auto;
+  color: var(--text);
+  text-align: center;
+}
+
+.mermaid-block svg {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.mermaid-block--loading {
+  min-height: 3rem;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.mermaid-block--error {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border: 1px solid var(--accent-line);
+  background: var(--surface-alt);
+  color: var(--text);
+  text-align: left;
+}
+
+.mermaid-block--error pre {
+  max-width: 100%;
+  margin: 0;
+  overflow-x: auto;
+}
+
+.mermaid-block--error p {
+  margin: 0;
+  color: var(--accent-ink);
+  font-size: var(--fs-sm);
+}

@@ -242,10 +242,9 @@ test('knowledge admission is generated without Python and survives a model depen
   assert.equal(report.modelReady, false);
 });
 
-test('ownership is enforced before publication and source compatibility is distinct from staleness', async t => {
+test('source compatibility is distinct from staleness, and a model source outside the layout needs no declaration', async t => {
   const options = await fixture(t);
   await refresh(options);
-  const before = await readFile(path.join(options.directory, '../ontology/ao-model.generated.graphql'));
   const incompatible = async () => {
     const ir = await options.exportModel();
     ir.diagnostics.push({code: 'ao_duplicate_record', severity: 'error', kind: 'service', key: 'S1', message: 'Duplicate source records'});
@@ -255,12 +254,25 @@ test('ownership is enforced before publication and source compatibility is disti
   assert.equal(report.bindings.model.status, 'incomplete');
   assert.equal(report.status, 'duplicate IDs');
   assert.ok(report.diagnostics.some(d => d.code === 'ao_duplicate_record'));
-  await assert.rejects(refresh({...options, exportModel: async () => {
+  await refresh({...options, exportModel: async () => {
     const ir = await options.exportModel();
     ir.sources[0].path = 'outside/model.yaml';
     return ir;
-  }}), /ao_ownership_missing:.*outside\/model.yaml/);
-  assert.deepEqual(await readFile(path.join(options.directory, '../ontology/ao-model.generated.graphql')), before);
+  }});
+  assert.ok((await readJSON(path.join(options.directory, 'manifest.json'))).sources.some(s => s.path === 'outside/model.yaml'), 'the source publishes without an ownership declaration');
+});
+
+test('refresh lifts the former starter paths from a flow-style AO KB entry and keeps the rest', async t => {
+  const options = await fixture(t);
+  const file = path.join(options.root, '.rhizome/source-ownership.yml');
+  await refresh(options);
+  assert.equal(await readFile(file, 'utf8'), 'sources:\n  - owner: AO KB\n    reason: Managed by AO KB. Change it with the AO KB skills.\n    paths: [".kb/curation/**"]\n');
+  const notes = (await readJSON(path.join(options.directory, 'knowledge-manifest.json'))).diagnostics;
+  assert.deepEqual(notes.map(d => d.code), ['ao_ownership_lifted']);
+  assert.match(notes[0].message, /artifacts\/\*\*.*assertions\/\*\*/);
+  await refresh(options);
+  assert.equal(await readFile(file, 'utf8'), 'sources:\n  - owner: AO KB\n    reason: Managed by AO KB. Change it with the AO KB skills.\n    paths: [".kb/curation/**"]\n', 'a second refresh changes nothing');
+  assert.deepEqual((await readJSON(path.join(options.directory, 'knowledge-manifest.json'))).diagnostics, []);
 });
 
 test('model publication removes disappeared kind views and keeps authored presentation entries', async t => {
@@ -312,14 +324,12 @@ test('an authored edit expires the index receipt without expiring bindings', asy
   assert.equal(report.indexReady, false);
 });
 
-test('Node preflight refuses incompatible schema, registry, markers, stamp, and ownership', async t => {
+test('Node preflight refuses incompatible schema, registry, markers, and stamp', async t => {
   for (const [file, bytes, code] of [
     ['.kb/config/vault.md', '---\nschemaVersion: 7\n---\n', 'ao_schema_unsupported'],
     ['products/alpha/.kb/config/product.yaml', 'slug: beta\naccount: ../..\n', 'ao_product_invalid'],
     ['products/orphan/.kb/config/product.yaml', 'slug: orphan\naccount: ../..\n', 'ao_product_unregistered'],
     ['products/alpha/.kb/config/manifest.json', '{"siteEngine":{"version":"unsupported"}}', 'ao_toolkit_pin'],
-    ['.rhizome/source-ownership.yml', 'sources:\n  - owner: AO KB\n    reason: AO\n    paths: ["artifacts/**"]\n', 'ao_ownership_missing'],
-    ['.rhizome/source-ownership.yml', 'sources:\n  - owner: AO KB\n reason: invalid indentation\n    paths: ["artifacts/**", "assertions/**", "sources/**", "concepts/**", ".kb/**", "products/*/artifacts/**"]\n', 'ao_ownership_missing'],
   ]) {
     const options = await fixture(t);
     const full = path.join(options.root, file);

@@ -28,7 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const ownerReason = "Managed by AO KB. Change it with the AO KB skills"
+const ownerReason = "Managed by Model tool. Change it in Model tool."
 
 var (
 	binaryOnce sync.Once
@@ -138,7 +138,7 @@ func (kb *aoKB) requireUnchanged() {
 }
 
 // newAOKB copies the selected-product fixture, installs the starter's static
-// knowledge SDL and real ownership declaration, and applies AO-side edits: an
+// knowledge SDL and a repository's explicit ownership declaration, and applies AO-side edits: an
 // owned assertion links into an unowned note, an owned note has malformed
 // frontmatter, and AO added a model file that the compiled bindings predate.
 func newAOKB(t *testing.T, compiled bool) *aoKB {
@@ -156,10 +156,7 @@ func newAOKB(t *testing.T, compiled bool) *aoKB {
 		require.NoError(t, err)
 		kb.write(".rhizome/ontology/"+filepath.Base(file), string(data))
 	}
-	declaration, err := os.ReadFile(filepath.Join(repo, "pkg/app/cli/init/templates/starters/ao-kb/repo/.rhizome/source-ownership.yml"))
-	require.NoError(t, err)
-	require.Contains(t, string(declaration), ownerReason)
-	kb.write(".rhizome/source-ownership.yml", string(declaration))
+	kb.write(".rhizome/source-ownership.yml", "sources:\n  - owner: Model tool\n    reason: "+ownerReason+"\n    paths:\n      - assertions/**\n      - MOCs/**\n      - artifacts/_assets/_model/**\n      - products/*/artifacts/_assets/_model/**\n")
 	kb.write(".rhizome/config.yml", "notes:\n  includes:\n    - \"**/*.md\"\n    - \"artifacts/_assets/_model/*.yaml\"\n    - \"products/alpha/artifacts/_assets/_model/*.yaml\"\n  links: wikilinks\n")
 	kb.write("notes/glossary.md", "# Glossary\n\n## Terms\n\nShared words.\n")
 	kb.write("assertions/selected.md", kb.read("assertions/selected.md")+"\nSee [[glossary#Terms]].\n")
@@ -229,9 +226,9 @@ func post(t *testing.T, url string, body any) (int, map[string]any) {
 
 // SPEC-0133 R5 and the Batch 5 mutation-refusal row: with compiled bindings and
 // after a failed initial binding compile, the real CLI, HTTP edit-session API
-// and GraphQL API refuse native writes to every AO-owned case with the
+// and GraphQL API refuse native writes to every explicitly owned case with the
 // owner's reason, and no authored byte changes.
-func TestAOKBOwnedSourcesRefuseCLIHTTPAndGraphQLWrites(t *testing.T) {
+func TestDeclaredOwnershipRefusesCLIHTTPAndGraphQLWrites(t *testing.T) {
 	owned := map[string]string{
 		"typed assertion":                 "assertions/selected.md",
 		"unselected-product fallback":     "assertions/beta-only.md",

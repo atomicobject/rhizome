@@ -16,6 +16,7 @@ export const kitTheme = [
   path.join(web, "src/tokens.css"),
   path.join(kitDir, "theme.css"),
   path.join(kitDir, "components.css"),
+  path.join(web, "src/markdown.css"),
   path.join(web, "src/diagram.css"),
 ]
   .map((file) => readFileSync(file, "utf8"))

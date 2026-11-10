@@ -4,21 +4,21 @@
 """An AO map of content: `_moc.md` or a note under `MOCs/`."""
 type MapOfContent @node(paths: ["_moc.md", "MOCs/**/*.md", "products/*/_moc.md", "products/*/MOCs/**/*.md"], propertyCase: AS_DEFINED) @display(group: "Knowledge") {
   """AO KB authored id; absent and unknown values are preserved without inferred defaults."""
-  aoId: String @field(source: "id") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  aoId: String @field(source: "id")
   """AO KB authored abstract; absent and unknown values are preserved without inferred defaults."""
-  abstract: String @field(source: "abstract") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  abstract: String @field(source: "abstract")
 }
 
 """An AO submission or finding: Markdown under `_improvements/` that records a `status`, outside `_archive/` and `_pending-attachments/`. Covers nested `<slug>/<slug>.md` submissions, flat `fnd-*.md` findings, and the flat submissions legacy KBs keep. A product root's documents are selected by path; product-mode admission applies the status and folder rules there."""
 type Submission @node(paths: ["products/*/_improvements/**/*.md"], matches: ["_improvements AND has:status AND NOT _improvements/_archive AND NOT _improvements/_pending-attachments"], propertyCase: AS_DEFINED) @display(group: "Knowledge") {
   """AO KB authored status, verbatim; an undocumented value is never mapped."""
-  status: String @field(source: "status") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  status: String @field(source: "status")
   """AO KB authored `type`, verbatim; `finding` marks a finding."""
-  recordType: String @field(source: "type") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  recordType: String @field(source: "type")
 }
 
 """An AO curation registry, log, or report directly under `.kb/curation/`. The conflict registry keeps its own type; Review lists both as one inventory. Discovery requires an explicit include for the hidden folder."""
 type CurationDocument @node(paths: [".kb/curation/*.md", "products/*/.kb/curation/*.md"], propertyCase: AS_DEFINED) @display(group: "Knowledge") {
   """The authored `updatedAt`. The generated updatedAt record fact is a file modification time, not a curation date."""
-  recordedUpdatedAt: String @field(source: "updatedAt") @policy(reason: "AO KB owns this authored value; change it through AO KB.")
+  recordedUpdatedAt: String @field(source: "updatedAt")
 }

@@ -1,4 +1,4 @@
-import { expect, test } from "./fixtures";
+import { expect, test, type APIRequestContext } from "./fixtures";
 
 // SPEC-0136 R5: the kit is served under a build stamp, ships a precompiled
 // stylesheet, and loads Tailwind's runtime compiler unless a page opts out.
@@ -59,14 +59,49 @@ test("custom views can import the optional Markdown entry from the stamped kit",
   const result = await page.evaluate(async () => {
     const moduleName = "@rhizome/kit/markdown";
 
-    const { markdownChecklist, convertWikilinks } = await import(moduleName);
+    const { markdownChecklist, convertWikilinks, markdownLinks } = await import(moduleName);
 
     return {
       tasks: markdownChecklist("- [x] Done\n- [ ] Pending\n\n    - [x] Nested task"),
       link: convertWikilinks("[[plan.md#Scope|Plan]]"),
+      links: markdownLinks("See [[plan.md|Plan]]."),
     };
   });
 
+  expect(result.links).toEqual([{ target: "plan.md", offset: 4 }]);
   expect(result.tasks).toEqual({ checked: 2, total: 3 });
   expect(result.link).toBe("[Plan](rhizome://note/plan.md%23Scope)");
+});
+
+async function staticModules(request: APIRequestContext, entry: string) {
+  const sources = new Map<string, string>();
+  const pending = [entry];
+
+  while (pending.length) {
+    const url = pending.pop()!;
+
+    if (sources.has(url)) continue;
+    const response = await request.get(url);
+    expect(response.ok()).toBe(true);
+    const source = await response.text();
+
+    sources.set(url, source);
+
+    for (const match of source.matchAll(/^(?:import|export) [^\n]*?(?:from )?["'](\.[^"']+)["']/gm))
+      pending.push(new URL(match[1], response.url()).href);
+  }
+
+  return [...sources.values()].join("\n");
+}
+
+test("the core kit leaves the Markdown parser in its optional entry", async ({ page, request }) => {
+  await page.goto("/views/e2e.views.params");
+  await expect(page.getByRole("heading", { name: "Params demo" })).toBeVisible();
+  const boot = await page.locator("script[src$='/boot.js']").getAttribute("src");
+  expect(boot).toBeTruthy();
+  const base = new URL(boot!, page.url()).href.replace(/boot\.js$/, "");
+  const parser = "node_modules/remark-parse/";
+
+  expect(await staticModules(request, `${base}markdown.js`)).toContain(parser);
+  expect(await staticModules(request, `${base}kit.js`)).not.toContain(parser);
 });

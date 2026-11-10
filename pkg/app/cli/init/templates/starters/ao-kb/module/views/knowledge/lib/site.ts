@@ -6,7 +6,6 @@
 import { makeResolver } from "./relations.ts";
 import { citations, dateNumber } from "./knowledge.ts";
 import type { Assertion as EvidenceAssertion, Source as EvidenceSource } from "./knowledge.ts";
-import { maskCode, paragraphs } from "./prose.ts";
 import { KIND_GROUPS, KNOWN_CONFIDENCE, cmp, groupOf, isStored, kindConflict } from "./kinds.ts";
 import type { GroupId } from "./kinds.ts";
 import { neighbourhood } from "./neighbourhood.ts";
@@ -469,19 +468,16 @@ export function scopedPair(site: Site, scope: Scope) {
 // ---- Citation states (US3) ----
 export type CitationState = "passage" | "locator" | "linked" | "not-linked" | "unresolved";
 /** One state per citation. For "locator", the inline label is SPEC-0133's `coverage()` state.
- * `linkedParagraph` is `bodyLinkParagraph`'s result for the cited source. */
-export function citationState(c: { source?: unknown; locator?: string }, passage: { status: string } | undefined, linkedParagraph: number): CitationState {
+ * `linked` is whether `linkedBlock` found an authored link to the assertion in the cited source. */
+export function citationState(c: { source?: unknown; locator?: string }, passage: { status: string } | undefined, linked: boolean): CitationState {
   if (!c.source) return "unresolved";
   if (c.locator) return passage?.status === "resolved" ? "passage" : "locator";
-  return linkedParagraph >= 0 ? "linked" : "not-linked";
+  return linked ? "linked" : "not-linked";
 }
 
-/** Index in `paragraphs(body)` of the first paragraph holding an authored wikilink or Markdown
- * link, outside code, that the resolver maps to the assertion, or -1. Pass the note body without frontmatter. */
-export function bodyLinkParagraph(body: string, assertion: string, resolve: (ref: string) => string | undefined) {
-  const targets = (p: string) => [
-    ...[...p.matchAll(/\[\[([^[\]\n]+)\]\]/g)].map((m) => m[1]),
-    ...[...p.matchAll(/\]\(\s*<?([^)\s>]+)>?[^)]*\)/g)].map((m) => m[1]).filter((t) => !/^[a-z][a-z0-9+.-]*:/i.test(t)).map((t) => { try { return decodeURIComponent(t); } catch { return t; } }),
-  ];
-  return paragraphs(maskCode(body)).findIndex((p) => targets(p).some((t) => resolve(t) === assertion));
+/** The source offset of the first authored link in `links` (a body's links as the kit's
+ * `markdownLinks` lists them) that the resolver maps to `assertion`, or undefined when the body
+ * never links it. The first link wins, so the highlight never moves to a later or nearby block. */
+export function linkedBlock(links: { target: string; offset: number }[], assertion: string, resolve: (ref: string) => string | undefined): number | undefined {
+  return links.find((l) => resolve(l.target) === assertion)?.offset;
 }

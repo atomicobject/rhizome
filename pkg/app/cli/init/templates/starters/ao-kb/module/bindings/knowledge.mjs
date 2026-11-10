@@ -1,7 +1,6 @@
 import {readFile, readdir, realpath} from 'node:fs/promises';
 import path from 'node:path';
 import {hash, json, readJSON, schemaFiles} from './runtime.mjs';
-import {globMatch, ownedPatterns} from '../scripts/lib/bindings-check.mjs';
 
 // AO's registry/marker fields use scalars and scalar lists. Refuse YAML constructs
 // outside that contract rather than interpreting aliases or nested objects.
@@ -34,13 +33,6 @@ const DIRS = ['assertions', 'sources', 'concepts', 'artifacts'];
 async function text(root, name) {
   try { return await readFile(path.join(root, name), 'utf8'); }
   catch (error) { if (error.code === 'ENOENT') return null; throw error; }
-}
-export async function ownership(root, sources = []) {
-  const patterns = ownedPatterns(await text(root, '.rhizome/source-ownership.yml'));
-  const roots = ['assertions', 'sources', 'concepts', 'artifacts', '.kb/curation'];
-  const unowned = roots.filter(dir => !['note.md', 'nested/note.md'].every(name => patterns.some(p => globMatch(p, `${dir}/${name}`)))).map(dir => `${dir}/**`);
-  unowned.push(...sources.filter(name => !patterns.some(p => globMatch(p, name))));
-  if (unowned.length) throw new Error(`ao_ownership_missing: declare these AO paths in .rhizome/source-ownership.yml before refresh: ${[...new Set(unowned)].join(', ')}`);
 }
 export async function knowledge(root, directory, selection) {
   const config = await text(root, '.kb/config/vault.md');
@@ -83,7 +75,6 @@ export async function knowledge(root, directory, selection) {
     if (!engine || ![pin.version, pin.revision].includes(engine.version) || !sources.includes((engine.source || pin.source).replace(/\.git$/, ''))) throw new Error(`ao_toolkit_pin: ${name} must pin ${pin.version} (${pin.revision})`);
     inputs.push({path: name, hash: hash(bytes)});
   }
-  await ownership(root);
   let phases = [];
   try { phases = (await readdir(path.join(root, 'artifacts'), {withFileTypes: true})).filter(e => e.isDirectory() && !registered.includes(e.name) && !e.name.startsWith('_')).map(e => e.name).sort(); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   if (!product) phases = [];
@@ -104,6 +95,7 @@ export async function knowledge(root, directory, selection) {
     lines.push(`extend type ${type} @admit(matches: ${JSON.stringify([...account, ...scoped])})`);
   }
   const sdl = lines.join('\n\n') + '\n';
+  // The declaration stays a fingerprint input: lifting or editing it asks for a refresh.
   for (const name of ['.rhizome/source-ownership.yml']) {
     const bytes = await text(root, name);
     inputs.push({path: name, hash: bytes === null ? null : hash(bytes)});

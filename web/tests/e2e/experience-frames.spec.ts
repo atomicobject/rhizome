@@ -102,3 +102,18 @@ test("a frame no tab shows is suspended and hidden, and comes back without reloa
   await expect(shown(page).getByRole("heading", { name: "Experience home" })).toBeVisible();
   expect(await frameStart(page)).toBe(start);
 });
+
+test("a record page closes its header with one hairline, and facts in its body keep theirs", async ({
+  page,
+}) => {
+  await page.goto("/notes/group/E2E%20Experience");
+  await shown(page).getByRole("button", { name: "Open alpha" }).click();
+  const header = shown(page).locator("article > header");
+  await expect(header).toHaveCSS("border-bottom-width", "1px");
+
+  const facts = header.locator(".rz-facts");
+  await expect(facts).toHaveCSS("border-bottom-width", "0px");
+  await expect(facts).toHaveCSS("margin-bottom", "0px");
+  await expect(facts).toHaveCSS("padding-bottom", "0px");
+  await expect(shown(page).locator(".e2e-body-facts")).toHaveCSS("border-bottom-width", "1px");
+});

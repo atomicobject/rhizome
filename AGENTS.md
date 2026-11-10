@@ -89,15 +89,6 @@ When delegating, assign independent ownership, use the available model appropria
 - Do not infer the current user from chat context, OS usernames, Git authors, or vault names.
 <!-- END RZM INIT TEMPLATE BLOCK: core -->
 
-<!-- BEGIN RZM INIT TEMPLATE BLOCK: action-items -->
-## Action Items
-
-- Use `.agents/skills/action-items/SKILL.md` whenever creating, finding, updating, completing, assigning, or summarizing action items.
-- Query action items through direct `ActionItem` recipes/roots, not through a conversation or meeting type.
-- Use `rzm agent current-user validate` before answering "my action items"; configure with `rzm agent current-user set "<Person title>"` when missing.
-- Add action items to the note where the commitment belongs, using `#action-item`, `assignee::`, and optional ISO `due:: YYYY-MM-DD`.
-<!-- END RZM INIT TEMPLATE BLOCK: action-items -->
-
 <!-- BEGIN RZM INIT TEMPLATE BLOCK: agentic-engineering -->
 ## Agentic Engineering
 
@@ -138,6 +129,15 @@ Phase names are entry points into one task, not mandatory stops. A clear local t
 - `foundation-review`: `.agents/skills/foundation-review/SKILL.md`
 - `ingest-transcript`: `.agents/skills/ingest-transcript/SKILL.md`
 <!-- END RZM INIT TEMPLATE BLOCK: agentic-engineering -->
+
+<!-- BEGIN RZM INIT TEMPLATE BLOCK: action-items -->
+## Action Items
+
+- Use `.agents/skills/action-items/SKILL.md` whenever creating, finding, updating, completing, assigning, or summarizing action items.
+- Query action items through direct `ActionItem` recipes/roots, not through a conversation or meeting type.
+- Use `rzm agent current-user validate` before answering "my action items"; configure with `rzm agent current-user set "<Person title>"` when missing.
+- Add action items to the note where the commitment belongs, using `#action-item`, `assignee::`, and optional ISO `due:: YYYY-MM-DD`.
+<!-- END RZM INIT TEMPLATE BLOCK: action-items -->
 
 <!-- BEGIN RZM INIT TEMPLATE BLOCK: compounding -->
 ## Compounding

@@ -2,6 +2,14 @@ title = "Rhizome credential protection"
 [extend]
 useDefault = true
 
+[[allowlists]]
+description = "Init-generated kit API document fingerprints"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''(?:^|/)\.rhizome/generated-files\.yml$''']
+regexes = ['''(?m)^  \.(?:agents|claude)/skills/custom-views/references/kit-api\.md: [0-9a-f]{16}\r?$''']
+
 [[rules]]
 id = "rhizome-encrypted-bundle"
 description = "Encrypted release bundles must not enter Git"

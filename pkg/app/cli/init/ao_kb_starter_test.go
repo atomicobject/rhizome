@@ -63,7 +63,6 @@ func TestAOKBStarterLifecyclePreservesAOFiles(t *testing.T) {
 				".agents/skills/ao-kb-setup/SKILL.md",
 				".claude/skills/ao-kb-setup/SKILL.md",
 				"docs/reference/guides/ao-kb.md",
-				sourceownership.DeclarationPath,
 				".rhizome/modules/ao-kb/scripts/lib/bindings-check.mjs",
 				".rhizome/modules/ao-kb/actions/refresh-bindings.yaml",
 				".rhizome/modules/ao-kb/bindings/cli.mjs",
@@ -81,13 +80,11 @@ func TestAOKBStarterLifecyclePreservesAOFiles(t *testing.T) {
 			} {
 				require.NoFileExists(t, filepath.Join(root, path))
 			}
-			// Ownership is established at install, before any binding or index exists.
-			var refusal *sourceownership.Refusal
-			for _, owned := range []string{"assertions/claim.md", ".kb/curation/_conflicts.md", "sources/_raw/input.md", "products/billing/concepts/term.md"} {
-				require.ErrorAs(t, sourceownership.Check(root, []string{owned}), &refusal, owned)
-				require.Equal(t, "AO KB", refusal.Owner)
-			}
-			require.NoError(t, sourceownership.Check(root, []string{"docs/reference/guides/ao-kb.md", "notes/team.md"}))
+			// The starter declares no ownership: AO KB notes are edited like any other note.
+			require.NoFileExists(t, filepath.Join(root, sourceownership.DeclarationPath))
+			require.NoError(t, sourceownership.Check(root, []string{"assertions/claim.md", ".kb/curation/_conflicts.md", "products/billing/concepts/term.md", "notes/team.md"}))
+			// A declaration the repository writes for another tool is its own; init never touches it.
+			writeTestFile(t, root, sourceownership.DeclarationPath, repositoryDeclaration)
 			generated := map[string]string{
 				".rhizome/modules/ao-kb/ontology/ao-model.generated.graphql":           "# Synthetic runtime model generation\n",
 				".rhizome/modules/ao-kb/ontology/ao-knowledge.generated.graphql":       "# Synthetic runtime admission generation\n",
@@ -109,13 +106,13 @@ func TestAOKBStarterLifecyclePreservesAOFiles(t *testing.T) {
 				_, err = runInit(t, RunOptions{Dir: root, RemoveAddon: "ao-kb"})
 				require.NoError(t, err)
 				require.NoFileExists(t, filepath.Join(root, ".agents/skills/ao-kb-setup/SKILL.md"))
-				require.FileExists(t, filepath.Join(root, sourceownership.DeclarationPath), "protection ends only when the declaration is deleted explicitly")
+				require.Equal(t, repositoryDeclaration, aoKBFiles(t, root)[sourceownership.DeclarationPath], "removal leaves the repository's own declaration")
 			} else {
 				_, err = runInit(t, RunOptions{Dir: root, Eject: "ao-kb"})
 				require.NoError(t, err)
 				require.Contains(t, loadConfigForTest(t, root).WorkflowTemplateManagement.Ejected, "ao-kb")
 				require.FileExists(t, filepath.Join(root, ".agents/skills/ao-kb-setup/SKILL.md"))
-				require.FileExists(t, filepath.Join(root, sourceownership.DeclarationPath), "ejection keeps protection")
+				require.Equal(t, repositoryDeclaration, aoKBFiles(t, root)[sourceownership.DeclarationPath], "ejection leaves the repository's own declaration")
 				_, err = runInit(t, RunOptions{Dir: root, AddAddon: "ao-kb"})
 				require.ErrorContains(t, err, "use --restore ao-kb")
 			}
@@ -172,20 +169,22 @@ func TestAOKBFreshStaticInstallValidatesBeforeRefresh(t *testing.T) {
 	requireUpToDate(t, root)
 }
 
-func TestAOKBStarterPreservesAnEditedOwnershipDeclaration(t *testing.T) {
+// A declaration a repository writes for a tool of its own, beside the AO KB add-on.
+const repositoryDeclaration = "sources:\n  - owner: Model tool\n    reason: Generated rows. Change them in the model tool.\n    paths:\n      - knowledge/**\n"
+
+func TestAOKBStarterKeepsTheRepositorysOwnDeclaration(t *testing.T) {
 	root := t.TempDir()
 	writeProjectConfig(t, root, "notes:\n  includes: [\"**/*.md\"]\n", repoconfig.LocalWorkflowConfig{})
+	writeTestFile(t, root, sourceownership.DeclarationPath, repositoryDeclaration)
 	_, err := runInit(t, RunOptions{Dir: root, AddAddon: "ao-kb"})
 	require.NoError(t, err)
-	declaration := filepath.Join(root, sourceownership.DeclarationPath)
-	data, err := os.ReadFile(declaration)
-	require.NoError(t, err)
-	edited := string(data) + "      - knowledge/**\n"
-	require.NoError(t, os.WriteFile(declaration, []byte(edited), 0o644))
 	_, err = runInit(t, RunOptions{Dir: root})
 	require.NoError(t, err)
-	data, err = os.ReadFile(declaration)
+	data, err := os.ReadFile(filepath.Join(root, sourceownership.DeclarationPath))
 	require.NoError(t, err)
-	require.Equal(t, edited, string(data))
-	require.Error(t, sourceownership.Check(root, []string{"knowledge/extra.md"}))
+	require.Equal(t, repositoryDeclaration, string(data))
+	var refusal *sourceownership.Refusal
+	require.ErrorAs(t, sourceownership.Check(root, []string{"knowledge/extra.md"}), &refusal)
+	require.Equal(t, "Model tool", refusal.Owner)
+	require.NoError(t, sourceownership.Check(root, []string{"assertions/claim.md"}), "the add-on itself owns nothing")
 }

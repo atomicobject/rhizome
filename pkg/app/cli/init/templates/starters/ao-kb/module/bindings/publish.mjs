@@ -2,9 +2,25 @@ import {mkdir, readFile, rm} from 'node:fs/promises';
 import path from 'node:path';
 import {json, readJSON, hash, fingerprint, adapter, validateSDL, dependencies} from './runtime.mjs';
 import {render} from './render.mjs';
-import {knowledge, ownership, indexSignature, schemaVersion, notApplicable, MODEL_SCHEMA} from './knowledge.mjs';
+import {knowledge, indexSignature, schemaVersion, notApplicable, MODEL_SCHEMA} from './knowledge.mjs';
 import {atomic, failure, manifestPath, publishSet} from './generation.mjs';
+import {liftStarterOwnership} from '../scripts/lib/bindings-check.mjs';
 export {atomic} from './generation.mjs';
+
+const OWNERSHIP = '.rhizome/source-ownership.yml';
+/** Lifts the starter's former read-only declaration from an installation that still carries
+ * it, keeping every other owner's entry, and names the paths it covered. Converges: a second
+ * run finds nothing left to lift. */
+async function liftOwnership(root) {
+  const file = path.join(root, OWNERSHIP);
+  let text;
+  try { text = await readFile(file, 'utf8'); }
+  catch (error) { if (error.code === 'ENOENT') return []; throw error; }
+  const lifted = liftStarterOwnership(text);
+  if (!lifted.legacy.length) return [];
+  if (lifted.text === null) await rm(file); else await atomic(file, lifted.text);
+  return lifted.legacy;
+}
 
 const sdlPath = (directory, stage) => path.join(directory, `../ontology/ao-${stage}.generated.graphql`);
 async function readSDL(directory, stage) {
@@ -26,7 +42,9 @@ export async function refresh({root, directory, selection, exportModel = adapter
   }
   try {
     if (!selection || selection.formatVersion !== 1) throw new Error('ao_selection_required: refresh-bindings --product <slug> (or --single true)');
+    const lifted = await liftOwnership(root);
     const scoped = await knowledge(root, directory, selection);
+    if (lifted.length) scoped.notes.push({code: 'ao_ownership_lifted', severity: 'note', message: `ao_ownership_lifted: the starter's former read-only declaration no longer covers ${lifted.join(', ')}; Rhizome edits these AO KB files natively, and other owners' entries were kept`});
     await validate(root, await readSDL(directory, 'model'), undefined, scoped.sdl);
     const verify = await knowledge(root, directory, selection);
     if (verify.fingerprint !== scoped.fingerprint) throw new Error('ao_input_changed: knowledge configuration changed during compilation');
@@ -37,7 +55,6 @@ export async function refresh({root, directory, selection, exportModel = adapter
     if (scoped.schemaVersion < MODEL_SCHEMA) return await publishSet(directory, 'model', {},
       {formatVersion: 1, compilerVersion: '1', status: 'not applicable', reason: notApplicable(scoped.schemaVersion), context: scoped.context, diagnostics: []}, renameFile);
     const ir = await exportModel(root, directory, selection);
-    await ownership(root, ir.sources.map(s => s.path));
     const snapshot = await fingerprint(root, directory, ir, selection);
     const result = render(ir);
     await validate(root, result.sdl, undefined, scoped.sdl);
@@ -109,7 +126,6 @@ export async function check({root, directory, exportModel = adapter, checkDepend
     if (!selection) throw new Error('ao_selection_required: run rzm ao-kb refresh-bindings --product <slug> (or --single true)');
     if (Object.values(prerequisites).some(p => !p.ready)) throw new Error('ao_dependency_missing: install the reported dependencies');
     const ir = await exportModel(root, directory, selection, {offline: true});
-    await ownership(root, ir.sources.map(s => s.path));
     // Compatibility is re-evaluated on every check, independent of freshness.
     const rendered = render(ir);
     const snapshot = await fingerprint(root, directory, ir, selection);

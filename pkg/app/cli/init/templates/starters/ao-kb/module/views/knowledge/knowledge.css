@@ -235,17 +235,16 @@
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+/* The claim is the kit's Markdown (its prose rules come with kit.css). */
 .ak-claim {
   max-width: 75ch;
   font-size: 16px;
-  line-height: 1.65;
 }
-.ak-claim p {
-  margin: 0;
-  white-space: pre-wrap;
+.ak-claim > :first-child {
+  margin-top: 0;
 }
-.ak-claim p + p {
-  margin-top: 0.75em;
+.ak-claim > :last-child {
+  margin-bottom: 0;
 }
 .ak-unresolved {
   text-decoration: underline dotted var(--text-muted);

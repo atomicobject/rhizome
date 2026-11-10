@@ -2,6 +2,7 @@
 @import "./base-foundation.css";
 @import "./base-controls.css";
 @import "./base-navigation.css";
+@import "./markdown.css";
 @import "./base-prose.css";
 @import "./base-surfaces.css";
 @import "./base-utilities.css";

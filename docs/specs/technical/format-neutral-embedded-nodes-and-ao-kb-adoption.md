@@ -5,7 +5,7 @@ aliases:
   - SPEC-0133
 summary: "Proposes format-neutral embedded nodes and a thin AO KB starter that reads existing knowledge and product-model files while AO KB retains its authoring and publishing workflows."
 spec-status: active
-last-updated: 2026-11-09
+last-updated: 2026-11-10
 ---
 
 # Format-neutral embedded nodes and AO KB adoption
@@ -42,7 +42,6 @@ flowchart LR
 
 - Porting evidence weighting, contradiction resolution, curation, or artifact write-back in this milestone.
 - Creating, editing, reordering, moving, or deleting YAML/JSON records through Rhizome.
-- Making provenance-sensitive AO KB fields editable through the generic property editor.
 - Rebuilding the definition-site, prototype, or publication engine, or changing its audience rules.
 - Adding an external package manager, a provider plugin SDK, a general expression language, or a new scheduler.
 - Migrating authored YAML to Markdown or maintaining generated Markdown copies of YAML records.
@@ -115,13 +114,13 @@ One operation MUST reuse its source capture, provider parse, and resolver per ho
 
 When AO tools change authored files, ordinary Rhizome refresh MUST update the records. When their effective metamodel or product configuration changes, the binding artifact MUST be detected as stale. Old bindings MUST NOT silently be presented as a current interpretation.
 
-### R5. AO KB retains write ownership
+### R5. AO KB notes are edited in place; declared ownership stays enforced
 
-The starter's AO-managed record bindings MUST be read-only in this milestone, including Markdown claims and artifacts. Shared server-side admission MUST refuse native field, body, collection, identifier, and graph-maintenance writes that would alter those records; the UI MUST advertise the same capability and a useful reason. Advisory `@policy` text is insufficient. Unrelated Markdown records retain normal editing.
+Amended 2026-11-10. AO KB's Markdown records (assertions, sources, concepts, artifacts, maps of content, submissions, and curation documents) MUST be editable through Rhizome's native editors like any other Markdown note, on every surface. The starter MUST NOT declare source ownership over them. On a custom presentation, Edit MUST start the existing edit session and make the native Structure and Markdown editors reachable; a save MUST reach the authored file, and binding refresh and indexing MUST never change authored files. YAML and referenced generated JSON model sources remain read-only through the existing format capabilities, not through ownership.
 
-Read-only source ownership MUST be recorded independently of successful type or record projection. Setup establishes the AO-owned source paths before publishing bindings; malformed notes, missing types, failed initial compilation, and stale or invalid bindings MUST NOT turn owned files into editable fallback notes. Retain the last established ownership through failed refreshes. Admission MUST check current ownership at commit as well as staging, including graph-safe operations whose affected files extend beyond their initial target. A previously staged edit cannot bypass a later ownership restriction. The ownership set covers known AO-authored sources even when their product is not selected for typed projection; it does not include unrelated repository notes. Removing this protection requires explicit removal/ejection handling, not a failed parse.
+Source ownership stays a repository decision. A repository MAY declare in `.rhizome/source-ownership.yml` the paths only another tool may write; shared server-side admission MUST refuse native field, body, collection, identifier, and graph-maintenance writes to them with the owner's reason, the UI MUST advertise the same capability and reason, and admission MUST check current ownership at commit as well as staging, including graph-safe operations whose affected files extend beyond their initial target. A declaration is read independently of type or record projection, so malformed notes and stale or failed bindings never change what it refuses.
 
-This is an application mutation boundary, not a filesystem permission system. AO skills and an explicitly chosen external editor can still change the source files. Rhizome MUST not claim those external writes have passed AO validation.
+Installations from before this amendment carry the starter's former declaration, which kept the whole AO KB layout read-only. The starter's refresh MUST lift exactly its former paths from the `AO KB` entry, keep every other owner's entry and any path someone added by hand, and record that it did; its check MUST report a former declaration still in place and name the refresh. Rhizome MUST not claim that an edit made in either tool passed the other's validation.
 
 The common read refactor MUST preserve existing Markdown edit planning, draft overlays, conflict detection, and source transactions. YAML/JSON writes, their draft overlays, and generalized structural edit APIs are deferred. No stub edit API should promise future support.
 
@@ -153,10 +152,10 @@ The product metamodel's assertion kind has no field definitions, so the starter 
 | Assertion `contradicts_rows` and `supports_rows` | Recorded demo-feedback references | Preserve the authored kind/ID values as inspectable source fields in this milestone; do not confuse them with claim-to-claim contradiction or support. Typed traversal and curation of these fields are deferred, not unknown syntax. |
 | Concept `## Related Concepts` | Related-concept relationship | Concept to concept; do not reinterpret as support. |
 | Artifact body references | Artifact references relationship | Artifact to referenced record; derived reverse impact is labeled as navigation, not a new evidence claim. |
-| `.kb/curation/_conflicts.md` entries | Read-only conflict records linked to both assertions | Display AO's recorded State, Winner, Rule, Resolution, overrides, and Updated with their provenance. The registry mixes generated fields with human decisions; preserve it as durable source, not a disposable cache. Recorded impact/dependents are AO results, not Rhizome calculations. |
+| `.kb/curation/_conflicts.md` entries | Conflict records linked to both assertions | Display AO's recorded State, Winner, Rule, Resolution, overrides, and Updated with their provenance. The registry mixes generated fields with human decisions; preserve it as durable source, not a disposable cache. Recorded impact/dependents are AO results, not Rhizome calculations. |
 | Product-model field declarations and references | Model fields and typed edges | Follow effective metamodel direction and strict/tolerant semantics; a checked reference without an edge declaration does not create an edge. |
 
-[[ao-kb-knowledge-site|SPEC-0135]] R2 adds read-only fields to the adapter (`Assertion.legacyKind`, `Artifact.supportValues`, `Source.recordedDate`, `Concept.linkedAssertions`, `Concept.linkingAssertions`, `Source.linkingAssertions`, `recordedUpdatedAt`, and the manifest's `context.profile`) and three read-only document types, `MapOfContent`, `Submission`, and `CurationDocument`. Its R2b admits knowledge for single-product KBs at schemaVersion 4 through 7, with the model stage `not applicable` and model dependencies not required, and reads a `.kb/config/manifest.json` with no `siteEngine` entry like an absent manifest for knowledge admission.
+[[ao-kb-knowledge-site|SPEC-0135]] R2 adds fields to the adapter (`Assertion.legacyKind`, `Artifact.supportValues`, `Source.recordedDate`, `Concept.linkedAssertions`, `Concept.linkingAssertions`, `Source.linkingAssertions`, `recordedUpdatedAt`, and the manifest's `context.profile`) and three document types, `MapOfContent`, `Submission`, and `CurationDocument`. Its R2b admits knowledge for single-product KBs at schemaVersion 4 through 7, with the model stage `not applicable` and model dependencies not required, and reads a `.kb/config/manifest.json` with no `siteEngine` entry like an absent manifest for knowledge admission.
 
 The adapter MUST cover AO's documented frontmatter connection shapes and relation aliases at the supported baseline. This is deterministic syntax/convention translation, not a port of AO truth or curation algorithms. Unknown conventions produce compatibility diagnostics. Record, typed query, and focused graph MUST agree on the translated relationships for the same fixture.
 
@@ -320,7 +319,7 @@ Implemented under [[docs/efforts/2026-11-06-17-07-ao-kb-adoption|EFF-2026-11-06-
 These were the scope choices settled before freezing the implementation effort:
 
 1. **Product context:** recommend one selected product per Rhizome vault for the first release, including that product's shared account records. Simultaneous cross-product browsing would need additional contextual query/navigation behavior.
-2. **Read-only boundary:** recommend all AO-managed records remain read-only through Rhizome in the first release. This includes Markdown evidence and artifacts; AO workflows continue to edit them normally.
+2. **Read-only boundary:** recommend all AO-managed records remain read-only through Rhizome in the first release. This includes Markdown evidence and artifacts; AO workflows continue to edit them normally. Superseded on 2026-11-10 for Markdown by the amended R5; YAML and JSON stay read-only by format capability.
 3. **Compatibility baseline:** recommend the inspected AO versions plus representative current-repository fixtures. Older layouts receive a clear unsupported/upgrade result until deliberately added to the test matrix.
 4. **Setup sequence:** recommend a setup skill that runs existing init, the starter's binding action, and indexing. Direct CLI users can run the same steps. A one-command init experience with compiler execution would be additional platform work.
 5. **Account merge limit:** recommend rejecting model rows whose values merge from overlapping account/product mappings in the first release, with source-located diagnostics. Supporting them faithfully would require contributing-source provenance in the node contract.
@@ -337,5 +336,7 @@ Internal implementation details such as exact Go type names are not user decisio
 - Planning checks: repository documentation validation reported zero ontology, identifier, or broken-link issues; the frozen-scope check reported no drift. These checks validate the proposal as a document, not the feasibility of the unimplemented integration.
 
 ## Change record
+
+2026-11-10: R5 amended under [[docs/efforts/2026-11-10-10-02-kit-markdown|EFF-2026-11-10-10-02]] at Drew's request: AO KB Markdown notes are edited in place through Rhizome, the starter declares no source ownership, refresh lifts the former declaration from existing installations while keeping other owners' entries, and declared ownership stays enforced exactly as before. The former blanket read-only boundary is retained for YAML and JSON by format capability only.
 
 2026-11-09: Amended by [[ao-kb-knowledge-site|SPEC-0135]]: R6's adapter gains the R2 fields, legacy knowledge admission at schemaVersion 4 through 7, the `siteEngine`-absent rule, and three read-only document types; R7's membership becomes the union, KB overview becomes the Knowledge group's default, the site's pages join the workspace, and whole-KB reads report coverage instead of a 500-record ceiling.

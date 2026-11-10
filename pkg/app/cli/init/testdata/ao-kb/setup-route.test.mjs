@@ -57,6 +57,10 @@ test('a schemaVersion 5 KB sets up knowledge-only, without uv, and its files nev
   const { root, directory } = await install(t, legacy);
   const { env, log } = await bin(root);
   const before = await authored(root);
+  // The fixture is an installation from before editing was enabled: it still carries the
+  // starter's former read-only declaration, which refresh lifts and nothing else touches.
+  assert.ok(before['.rhizome/source-ownership.yml'], 'the fixture carries the former declaration');
+  assert.equal(rows(node(root, env, '.rhizome/modules/ao-kb/scripts/check.mjs'))['source ownership'].status, 'warning');
 
   const refreshed = cli(root, env, 'refresh-bindings', '--single');
   assert.equal(refreshed.exit, 0, JSON.stringify(refreshed));
@@ -73,6 +77,9 @@ test('a schemaVersion 5 KB sets up knowledge-only, without uv, and its files nev
   await assert.rejects(readFile(path.join(root, '.rhizome/modules/ao-kb/ontology/ao-model.generated.graphql')), { code: 'ENOENT' });
   const scope = await readJSON(path.join(directory, 'knowledge-manifest.json'));
   assert.equal(scope.context.profile, 'product-discovery');
+  assert.deepEqual(scope.diagnostics.map(d => d.code), ['ao_ownership_lifted']);
+  await assert.rejects(readFile(path.join(root, '.rhizome/source-ownership.yml')), { code: 'ENOENT' }, 'the untouched former declaration lifts to no file');
+  delete before['.rhizome/source-ownership.yml'];
   assert.deepEqual(scope.inputs.find(i => i.path === '.kb/config/manifest.json').hash, hash(await readFile(path.join(root, '.kb/config/manifest.json'))), 'a scaffold manifest without siteEngine stays a fingerprint input');
 
   await writeFile(path.join(root, '.rhizome/config.yml'), 'notes:\n  includes:\n    - "**/*.md"\n');
@@ -82,7 +89,9 @@ test('a schemaVersion 5 KB sets up knowledge-only, without uv, and its files nev
   assert.equal(report.indexReady, false);
   assert.equal(named.schemaVersion.status, 'ok');
   assert.match(named.schemaVersion.message, /legacy spelling adapter.*not applicable below schemaVersion 8.*AO's own migration/);
-  for (const name of ['model compiler dependencies', 'model bindings', 'model source ownership']) {
+  assert.equal(named['source ownership'].status, 'ok');
+  assert.match(named['source ownership'].message, /No source ownership declaration/);
+  for (const name of ['model compiler dependencies', 'model bindings']) {
     assert.equal(named[name].status, 'not applicable', name);
     assert.match(named[name].message, /schemaVersion 5/, name);
   }
@@ -108,7 +117,7 @@ test('a schemaVersion 5 KB sets up knowledge-only, without uv, and its files nev
   assert.equal(report.indexReady, true);
   assert.equal(named['model index'].status, 'ok');
   assert.doesNotMatch(await log(), /uv/);
-  assert.deepEqual(await authored(root), before, 'no file in the KB changes');
+  assert.deepEqual(await authored(root), before, 'no other file in the KB changes');
 });
 
 test('the site source signature stales on every bound document and an underscore-named artifact (schemaVersion 5)', unix, async t => {

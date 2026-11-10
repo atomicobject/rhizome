@@ -4,7 +4,10 @@ import { cpSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, readdirSync, rea
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { check } from '../../templates/starters/ao-kb/module/scripts/check.mjs';
-import { globMatch, ownedPatterns, runCompilerCheck } from '../../templates/starters/ao-kb/module/scripts/lib/bindings-check.mjs';
+import { globMatch, liftStarterOwnership, ownedPatterns, runCompilerCheck, STARTER_PATHS } from '../../templates/starters/ao-kb/module/scripts/lib/bindings-check.mjs';
+
+// The declaration the starter installed before 2026-11-10, as an existing installation still carries it.
+const FORMER = "# Installed by the ao-kb starter. AO KB writes these files; Rhizome reads them and\n# refuses native edits to them. Paths follow AO KB's standard layout for a single-product\n# KB at the vault root and for every product root of a multi-product account\n# (products/<slug>/). Add any other AO-authored location your KB uses. Removing this\n# file (or removing the ao-kb add-on) removes the protection.\nsources:\n  - owner: AO KB\n    reason: Managed by AO KB. Change it with the AO KB skills (/ao-kb:process, /ao-kb:curate, /ao-kb:suggest).\n    paths:\n      - .kb/**\n      - assertions/**\n      - sources/**\n      - concepts/**\n      - artifacts/**\n      - decisions.md\n      - _moc.md\n      - MOCs/**\n      - _improvements/**\n      - products/*/.kb/**\n      - products/*/assertions/**\n      - products/*/sources/**\n      - products/*/concepts/**\n      - products/*/artifacts/**\n      - products/*/decisions.md\n      - products/*/_moc.md\n      - products/*/MOCs/**\n      - products/*/_improvements/**\n";
 
 // The compiler's report on a fresh install: dependencies present, no product selected yet.
 const unselected = () => ({ starterInstalled: true, bindingsReady: false, indexReady: false, status: 'missing',
@@ -37,10 +40,10 @@ test('checks static readiness, limitations and unavailable analysis without writ
   const before = snapshot();
   const result = check(root, { runCompiler: unselected });
   for (const name of ['starter installed', 'AO KB root', 'schemaVersion', 'product mode', 'note includes', 'knowledge bindings']) assert.equal(named(root, name).status, 'ok');
-  assert.equal(named(root, 'source ownership').status, 'error', 'no declaration means no protection');
+  assert.equal(named(root, 'source ownership').status, 'ok', 'the starter declares no ownership; notes are editable');
   assert.equal(named(root, 'product-model bindings'), undefined, 'the knowledge check leaves model bindings to their own check');
   assert.match(named(root, 'saved analysis').message, /unavailable/);
-  assert.equal(result.checks.length, 16);
+  assert.equal(result.checks.length, 15);
   for (const item of result.checks) assert.ok(item.path && item.message);
   assert.deepEqual(snapshot(), before);
 });
@@ -130,13 +133,42 @@ test('product tags AO would read differently from admission are named', t => {
   assert.doesNotMatch(loose.message, /fine\.md/);
 });
 
-test('source ownership is ok only when the AO knowledge paths are declared', t => {
-  const full = "sources:\n  - owner: AO KB\n    reason: AO KB writes these.\n    paths:\n      - .kb/**\n      - assertions/**\n      - sources/**\n      - concepts/**\n      - artifacts/**\n";
-  assert.equal(named(fixture(t, { '.rhizome/source-ownership.yml': full }), 'source ownership').status, 'ok');
-  const partial = full.replace('      - concepts/**\n', '');
-  const result = named(fixture(t, { '.rhizome/source-ownership.yml': partial }), 'source ownership');
-  assert.equal(result.status, 'warning');
-  assert.match(result.message, /concepts\/\*\*/);
+test('source ownership reports the former starter declaration, the repository\'s own entries, and none', t => {
+  const former = named(fixture(t, { '.rhizome/source-ownership.yml': FORMER }), 'source ownership');
+  assert.equal(former.status, 'warning');
+  assert.match(former.message, /former read-only declaration still covers .*assertions\/\*\*.*refresh-bindings/);
+  const own = "sources:\n  - owner: Model tool\n    reason: Generated rows.\n    paths:\n      - model/**\n";
+  const kept = named(fixture(t, { '.rhizome/source-ownership.yml': own }), 'source ownership');
+  assert.equal(kept.status, 'ok');
+  assert.match(kept.message, /model\/\*\* read-only.*starter adds no declaration/);
+  const unreadable = named(fixture(t, { '.rhizome/source-ownership.yml': 'sources:\n  - owner: AO KB\n reason: bad indent\n    paths: [assertions/**]\n' }), 'source ownership');
+  assert.equal(unreadable.status, 'warning');
+  assert.match(unreadable.message, /cannot read the declaration/);
+  assert.equal(named(fixture(t, { '.rhizome/source-ownership.yml': 'sources:\n' }), 'source ownership').status, 'ok');
+  assert.match(named(fixture(t), 'source ownership').message, /No source ownership declaration/);
+});
+
+test('lifting removes exactly the former starter paths and keeps every other line', () => {
+  // The untouched former declaration lifts to no file at all.
+  assert.deepEqual(liftStarterOwnership(FORMER), { legacy: STARTER_PATHS, text: null });
+  // Another owner's entry and a path someone added under AO KB stay byte for byte.
+  const mixed = "# Local note\nsources:\n  - owner: Model tool\n    reason: Generated rows.\n    paths:\n      - model/**\n  - owner: AO KB\n    reason: Managed by AO KB.\n    paths:\n      - assertions/**\n      - 'extra/**' # mine\n      - products/*/sources/**\n  - owner: 'Docs team'\n    reason: \"Reviewed copy.\"\n    paths: [\"docs/**\"]\n";
+  const lifted = liftStarterOwnership(mixed);
+  assert.deepEqual(lifted.legacy, ['assertions/**', 'products/*/sources/**']);
+  assert.equal(lifted.text, "# Local note\nsources:\n  - owner: Model tool\n    reason: Generated rows.\n    paths:\n      - model/**\n  - owner: AO KB\n    reason: Managed by AO KB.\n    paths:\n      - 'extra/**' # mine\n  - owner: 'Docs team'\n    reason: \"Reviewed copy.\"\n    paths: [\"docs/**\"]\n");
+  assert.deepEqual(ownedPatterns(lifted.text), ['model/**', 'extra/**', 'docs/**']);
+  // An AO KB entry with nothing else goes; the other owner remains.
+  const two = "sources:\n  - owner: AO KB\n    reason: Managed by AO KB.\n    paths:\n      - concepts/**\n  - owner: Model tool\n    reason: Generated rows.\n    paths:\n      - model/**\n";
+  assert.equal(liftStarterOwnership(two).text, "sources:\n  - owner: Model tool\n    reason: Generated rows.\n    paths:\n      - model/**\n");
+  // Flow-style lists lift entry by entry, and CRLF stays CRLF.
+  const flow = "sources:\r\n  - owner: AO KB\r\n    reason: AO.\r\n    paths: [\"artifacts/**\", \".kb/curation/**\", 'sources/**']\r\n";
+  assert.deepEqual(liftStarterOwnership(flow), { legacy: ['artifacts/**', 'sources/**'], text: "sources:\r\n  - owner: AO KB\r\n    reason: AO.\r\n    paths: [\".kb/curation/**\"]\r\n" });
+  // Nothing of the starter's, uncertain YAML, and no file all come back unchanged.
+  for (const text of [two.replace('AO KB', 'Someone'), 'sources:\n  - owner: AO KB\n reason: bad indent\n    paths: [assertions/**]\n', 'sources:\n', null]) {
+    assert.deepEqual(liftStarterOwnership(text), { legacy: [], text });
+  }
+  // Lifting converges: a lifted declaration has nothing left to lift.
+  assert.deepEqual(liftStarterOwnership(lifted.text), { legacy: [], text: lifted.text });
 });
 
 test('names assertions whose frontmatter connections are sequences', t => {
@@ -162,7 +194,7 @@ test('reports binding freshness beside the knowledge checks without trusting the
   assert.equal(named(root, 'model bindings').status, 'pending');
   assert.match(named(root, 'model bindings').message, /--product <slug>/);
   assert.equal(named(root, 'model index').status, 'pending');
-  assert.equal(named(root, 'model source ownership').status, 'pending');
+  assert.equal(named(root, 'model source ownership'), undefined, 'ownership is no longer a model row');
 
   const missingUv = () => ({ ...unselected(), dependencies: { uv: { ready: false, message: 'spawn uv ENOENT' }, rzm: { ready: true } },
     diagnostics: [{ code: 'ao_dependency_missing', severity: 'error', message: 'ao_dependency_missing: install the reported dependencies' }] });
@@ -202,19 +234,6 @@ test('reports binding freshness beside the knowledge checks without trusting the
   assert.equal(result.indexReady, true);
   assert.equal(named(root, 'model bindings', ready).status, 'ok');
   assert.equal(named(root, 'model index', ready).status, 'ok');
-});
-
-test('requires every compiled AO source to be declared AO-owned', t => {
-  const manifest = JSON.stringify({ sources: [{ path: 'artifacts/_assets/_model/lane.yaml' }, { path: 'products/alpha/artifacts/_assets/engine-blocks/rows.json' }, { path: 'model/extra.yaml' }],
-    knowledgeSources: [{ path: 'assertions/shared.md' }] });
-  const ownership = "sources:\n  - owner: AO KB\n    reason: AO KB writes these.\n    paths:\n      - .kb/**\n      - assertions/**\n      - sources/**\n      - concepts/**\n      - artifacts/**\n      - products/*/artifacts/**\n";
-  const root = fixture(t, { '.rhizome/modules/ao-kb/bindings/manifest.json': manifest, '.rhizome/source-ownership.yml': ownership });
-  const row = named(root, 'model source ownership');
-  assert.equal(row.status, 'error');
-  assert.match(row.message, /model\/extra\.yaml/);
-  assert.doesNotMatch(row.message, /lane\.yaml|rows\.json|shared\.md/);
-  const covered = fixture(t, { '.rhizome/modules/ao-kb/bindings/manifest.json': manifest, '.rhizome/source-ownership.yml': ownership + "      - model/**\n" });
-  assert.equal(named(covered, 'model source ownership').status, 'ok');
 });
 
 test('ownership patterns match like the declaration', () => {
@@ -272,7 +291,7 @@ test('legacy single-product KBs report knowledge supported and every model row n
     assert.match(row.message, /legacy spelling adapter.*not applicable below schemaVersion 8.*AO's own migration/);
   }
   const root = fixture(t, { '.kb/config/vault.md': '---\nschemaVersion: 5\nproductMode: single\n---\n' });
-  for (const name of ['model compiler dependencies', 'model bindings', 'model source ownership']) {
+  for (const name of ['model compiler dependencies', 'model bindings']) {
     const row = named(root, name, legacy(false));
     assert.equal(row.status, 'not applicable', name);
     assert.equal(row.message, reason, name);

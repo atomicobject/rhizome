@@ -1,5 +1,6 @@
 import { isValidElement, memo, useEffect, useId, useMemo, useState } from "react";
 import ReactMarkdown, { type Components, type Options } from "react-markdown";
+import type { PluggableList } from "unified";
 import remarkGfm from "remark-gfm";
 import { renderMermaid } from "./mermaid";
 
@@ -82,11 +83,13 @@ const defaultComponents: Components = {
 
 type MarkdownProps = Omit<Options, "components" | "rehypePlugins" | "remarkPlugins"> & {
   components?: Components;
+  /** Remark plugins run after GFM. Pass a module constant so the pipeline stays memoized. */
+  remarkPlugins?: PluggableList;
 };
 
 type RehypePlugin = NonNullable<Options["rehypePlugins"]>[number];
 
-const REMARK_PLUGINS = [remarkGfm];
+const REMARK_PLUGINS: PluggableList = [remarkGfm];
 
 const NO_REHYPE_PLUGINS: RehypePlugin[] = [];
 
@@ -143,14 +146,25 @@ function useRehypePlugins(source: string): RehypePlugin[] {
  * again only when the source or a prop changes, so callers pass stable
  * `components` and `urlTransform` values.
  */
-export const Markdown = memo(function Markdown({ components, children, ...props }: MarkdownProps) {
+export const Markdown = memo(function Markdown({
+  components,
+  remarkPlugins: extraPlugins,
+  children,
+  ...props
+}: MarkdownProps) {
   const merged = useMemo(() => ({ ...defaultComponents, ...components }), [components]);
+
+  const remarkPlugins = useMemo(
+    () => (extraPlugins ? [...REMARK_PLUGINS, ...extraPlugins] : REMARK_PLUGINS),
+    [extraPlugins],
+  );
+
   const rehypePlugins = useRehypePlugins(children ?? "");
 
   return (
     <ReactMarkdown
       {...props}
-      remarkPlugins={REMARK_PLUGINS}
+      remarkPlugins={remarkPlugins}
       rehypePlugins={rehypePlugins}
       components={merged}
     >

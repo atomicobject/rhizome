@@ -213,7 +213,28 @@ for (const [slug, inline, landing] of [
     await expect(frame(page).getByRole("status").filter({ hasText: "Opened from" })).toContainText(
       landing,
     );
-    await expect(frame(page).locator(".ak-body-mark")).toHaveCount(slug === "body-linked" ? 1 : 0);
+    const marks = frame(page).locator(".rz-markdown-mark");
+    await expect(marks).toHaveCount(slug === "body-linked" ? 1 : 0);
+
+    if (slug !== "body-linked") return;
+    // The first authored link sits in a loose list item's paragraph, as a reference-style link
+    // after a fence that only mentions the assertion. Exactly that paragraph is marked.
+    await expect(marks).toHaveJSProperty("tagName", "P");
+    await expect(marks.locator("xpath=..")).toHaveJSProperty("tagName", "LI");
+    await expect(
+      marks.getByRole("link", { name: "the boarding claim", exact: true }),
+    ).toHaveAttribute("href", /note=assertions%2Fbody-linked\.md/);
+    await expect(marks).toContainText("This source links to the assertion here");
+    await expect(marks).toBeInViewport();
+    await expect(frame(page).locator(".ak-body pre code")).toContainText("[[body-linked]]");
+    await expect(frame(page).locator(".ak-body pre a")).toHaveCount(0);
+    await expect(frame(page).locator(".ak-body ul")).toHaveCSS("list-style-type", "disc");
+    await expect(frame(page).locator(".ak-body ol")).toHaveCSS("list-style-type", "decimal");
+    const external = frame(page).getByRole("link", { name: "crew reference", exact: true });
+    await expect(external).toHaveCSS("text-decoration-line", "underline");
+    expect(await external.evaluate((el) => getComputedStyle(el).color)).toBe(
+      await marks.getByRole("link").evaluate((el) => getComputedStyle(el).color),
+    );
   });
 }
 
@@ -301,6 +322,22 @@ test("records opened in new tabs share one experience frame, and each tab return
   await expect(recordHeading("ferry handbook")).toBeVisible();
   await expect(landing).toContainText("This source links to the assertion here");
 
+  // Two retained source pages each keep their own citation target and scroll position.
+  await tab(page, /^Timetable/).click();
+  await frame(page).getByRole("link", { name: "winter-schedule-thin", exact: true }).click();
+  await expect(recordHeading("Winter schedule thin")).toBeVisible();
+  await frame(page)
+    .getByRole("region", { name: "Sources", exact: true })
+    .getByRole("link", { name: "Open in source", exact: true })
+    .click();
+  await expect(recordHeading("schedule memo")).toBeVisible();
+  const activeMark = frame(page).locator(".rz-markdown-mark:visible");
+  await expect(activeMark).toHaveCount(1);
+  await expect(
+    activeMark.getByRole("link", { name: "Winter crossings", exact: true }),
+  ).toBeVisible();
+  await expect(activeMark).toBeInViewport();
+
   // From the overview again, Tickets.
   await tab(page, /^Home$/).click();
   await map.getByRole("link").first().focus();
@@ -313,6 +350,16 @@ test("records opened in new tabs share one experience frame, and each tab return
   await tab(page, /ferry handbook/i).click();
   await expect(recordHeading("ferry handbook")).toBeVisible();
   await expect(landing).toContainText("This source links to the assertion here");
+  await expect(activeMark).toHaveCount(1);
+  await expect(
+    activeMark.getByRole("link", { name: "the boarding claim", exact: true }),
+  ).toBeVisible();
+  await expect(activeMark).toBeInViewport();
+  await tab(page, /schedule memo/i).click();
+  await expect(
+    activeMark.getByRole("link", { name: "Winter crossings", exact: true }),
+  ).toBeVisible();
+  await expect(activeMark).toBeInViewport();
   await tab(page, /^Timetable/).click();
   await expect(recordHeading("Timetable")).toBeVisible();
   await tab(page, /Tickets/).click();

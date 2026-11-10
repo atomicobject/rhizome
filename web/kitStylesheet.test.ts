@@ -28,7 +28,16 @@ describe("kit stylesheet", () => {
     const css = await buildKitStylesheet();
 
     // Theme tokens, a kit component, and utilities the AO KB views use.
-    const rules = ["--surface:", ".rz-section-head", ".text-muted-foreground{", ".text-sm{"];
+    const rules = [
+      "--surface:",
+      ".rz-section-head",
+      ".rz-markdown-mark",
+      ".markdown h2",
+      ".hljs-keyword",
+      ".mermaid-block",
+      ".text-muted-foreground{",
+      ".text-sm{",
+    ];
 
     expect(rules.filter((rule) => !css.includes(rule))).toEqual([]);
     expect(["@source", "@apply", "@theme"].filter((rule) => css.includes(rule))).toEqual([]);
