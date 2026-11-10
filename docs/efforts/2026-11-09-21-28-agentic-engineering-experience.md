@@ -4,7 +4,7 @@ id: EFF-2026-11-09-21-28
 aliases: [EFF-2026-11-09-21-28]
 name: Agentic Engineering delivery experience
 created-at: 2026-11-10T02:35:34Z
-status: complete
+status: active
 summary: "Deliver the complete refined Agentic Engineering starter experience with exact authored scope, installed UI proof, and an open unmerged PR."
 governing-specs:
   - "[[docs/specs/experience/agentic-engineering-delivery-experience.md]]"
@@ -90,7 +90,7 @@ A complete accurate Agentic Engineering starter experience for humans and agents
 
 The complete starter-owned Delivery experience is implemented: home and five-group workflow map, seven factual work lists, selected prompts, inline spec criteria, both effort forms' resume briefs, contextual Find and Recent, first-day and incomplete-data states, themes and narrow layouts. Source-link pagination/count, explicit workspace frozen-scope selection, canonical ref navigation, source-aware Markdown links and provider-aware HTML commit reads preserve authored evidence.
 
-All eight stories are backported as satisfied. The full integrated make verify passed, including 158 native, 90 Knowledge and 54 Delivery browser cases; subsequent review fixes passed make check, make build, strict template TypeScript and all 57 expanded installed Delivery cases. Fresh/update/eject and init --check pass. All 47 final captures were individually reviewed, with 23 committed images and a complete hash manifest. No implementation scope is deferred.
+All eight stories are backported as satisfied. The full integrated make verify passed, including 158 native, 90 Knowledge and 54 Delivery browser cases; subsequent review fixes passed make check, make build, strict template TypeScript and all 59 expanded installed Delivery cases. Fresh/update/eject and init --check pass. The 47 major-state captures and two image-fallback captures were individually reviewed, with 25 committed images and a complete hash manifest. No implementation scope is deferred.
 
 [PR #123](https://github.com/atomicobject/rhizome/pull/123) carries the work and remains open and unmerged. Verified implementation head `1ebb77b3077ca48b0af38d47b2f660276fd4616f` passed all active CI checks and manual Greptile 5/5 with zero comments. It is non-draft, mergeable and clean, with auto-merge absent. [The readiness receipt](2026-11-09-agentic-engineering-experience/evidence/implementation-readiness.json), [installed proof](2026-11-09-agentic-engineering-experience/evidence/ui-proof.md) and [integration evidence](2026-11-09-agentic-engineering-experience/evidence/integration-notes.md) retain the source results and limitations. Subsequent documentation heads receive their own CI and manual review before handback.
 
@@ -126,6 +126,10 @@ All eight stories are backported as satisfied. The full integrated make verify p
 
 - 2026-11-10T08:02:40Z [closure] Reconciled the inline plan, all eight frozen story targets, satisfied contract, integrated diff, local and installed gates, final visual review and current implementation-head CI/manual review. This reuses the current equivalent closure evidence; no new closure-drift recipe execution is claimed. Status is complete, and PR #123 remains open and unmerged for Drew. No human approval metadata was invented.
 
+- 2026-11-10 [review follow-up] Reopened readiness after the documentation-head review found source-relative Markdown images resolving against the experience frame. Both-theme installed regressions reproduce the missing fallback. The public kit has no source-relative binary attachment URL; the minimal correction preserves the authored label and path, opens the canonical source, and keeps absolute images rendering. Prior implementation readiness remains a historical receipt until the follow-up passes its own gates and review.
+
+- 2026-11-10 [verification] The G6 follow-up passed strict template TypeScript, make check, make build, all 59 installed Delivery cases and both documentation validators. Root inspected the paired fallback captures; the evidence manifest now includes them alongside the previous 47 reviewed major-state images. Manual review and current-head CI remain pending.
+
 ## Deviations
 
 The initial seven-stage comp becomes five factual primary views plus separate Current contracts and Record review. This is an authorized accuracy refinement that avoids inventing readiness, acceptance, or reconciliation. P1 added explicit frozen-scope source selection for HTML workspaces as a necessary dependency. Existing records are not rewritten. No implementation scope is deferred.
@@ -135,9 +139,9 @@ The initial seven-stage comp becomes five factual primary views plus separate Cu
 - [x] Implemented foundation and independent technical review pass.
 - [x] All eight stories and Requirements are verified in the installed interface.
 - [x] Required local gates, documentation validation and frozen-scope checks pass.
-- [x] Independent implementation review and Greptile 5/5 cover final behavior.
+- [ ] Independent implementation review and Greptile 5/5 cover final behavior.
 - [x] Specs, owning docs, changelog, actual outcomes and deviations are reconciled.
-- [x] PR URL, verified implementation head, passing CI and open unmerged state are recorded.
+- [ ] PR URL, verified implementation head, passing CI and open unmerged state are recorded.
 
 ## Compounding Follow-ups
 
@@ -145,4 +149,4 @@ Record recurring friction with its evidence. Fresh-worktree authoring needed OS/
 
 ## Status
 
-Complete. All frozen scope is delivered and reconciled in [PR #123](https://github.com/atomicobject/rhizome/pull/123). Implementation `1ebb77b3077ca48b0af38d47b2f660276fd4616f` has passing CI and Greptile 5/5 with zero comments. Leave the PR open and unmerged for Drew. The PR checks and final delivery report identify the subsequently verified documentation head.
+Active for the source-relative image follow-up and current-head readiness. All eight frozen stories remain implemented. PR #123 remains open and unmerged; manual review and CI must cover this follow-up before handback.

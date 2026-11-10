@@ -22,7 +22,7 @@ Codex GPT-6.1 Sol, high, deleted six comment blocks (seven lines). Root accepted
 - Browser suites: 158 native cases, 90 Knowledge cases, and 54 installed Delivery cases passed. No retries, longer timeouts, or skips were added.
 - Fresh, managed-update, and ejected-install lifecycle tests passed, including actual `init --check` and preservation of authored records and native view IDs.
 - Strict transitive template TypeScript passed; 24 focused domain/adapter tests and public executable-schema query preparation passed.
-- [UI proof](ui-proof.md) links 23 committed images. [The capture manifest](capture-manifest.json) records all 47 captures and hashes. Root inspected all images, including the final panel-token correction.
+- [UI proof](ui-proof.md) links 25 committed images. [The capture manifest](capture-manifest.json) records all 49 captures and hashes. Root inspected all images, including the final panel-token correction.
 - [Browser diagnosis](browser-failure-diagnosis.md) records the proven HTML cache fix and the preference fixture's unbounded OS-event dependency. [Independent fixture review](native-fixture-review.md) approved the real metadata-save boundary.
 - Impeccable source detector reported zero findings. This is not a formal rendered accessibility audit. No Desktop app installation or screen-reader audit was performed.
 - Compounding retrieval was degraded by provider/authentication failures. No-match output is not complete retrieval evidence.
@@ -48,3 +48,7 @@ Final G5 verification passed strict TypeScript, make check, make build and all 5
 ## Implementation readiness
 
 At `1ebb77b3077ca48b0af38d47b2f660276fd4616f`, PR #123 was open, non-draft, mergeable and clean, with auto-merge absent. All active CI jobs passed; the existing conditional installed-upgrade job was not applicable. Manual Greptile returned 5/5 with no comments, and GitHub had no review or issue comments. Root reviewed the integrated diff and every later source delta. Local final gates and all 57 installed cases passed. This exact receipt is retained in [implementation-readiness.json](implementation-readiness.json). The final documentation head is checked again before handback.
+
+## G6 image follow-up
+
+The review of documentation head `0460bea13` found that source-relative Markdown images inherited the experience frame URL. Delivery now preserves their authored label and path with a source fallback because the kit has no public binary attachment route. Absolute image URLs retain normal rendering. The effort was reopened for this final readiness step. Both-theme installed red-before-green cases verify the fallback, decoded absolute data image and canonical source section navigation. Strict template TypeScript, make check, make build, all 59 installed cases and documentation/frozen-scope validation passed. Root inspected the paired captures; they supplement the earlier 47 approved major-state captures. Current-head external review and CI remain pending.

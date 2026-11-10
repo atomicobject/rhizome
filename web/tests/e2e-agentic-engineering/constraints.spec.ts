@@ -220,6 +220,38 @@ test("extensionless wikilinks preserve HTML targets and ambiguous names", async 
   ).toBeVisible();
 });
 
+for (const colorScheme of ["light", "dark"] as const) {
+  test.describe(colorScheme, () => {
+    test.use({ colorScheme });
+    test("relative images retain source context and absolute images render", async ({ page }) => {
+      await page.goto(record("docs/efforts/2026-11-09-10-04-harbor.md"));
+      const f = content(page);
+      await expect(
+        f.getByText("Image preview unavailable here: Decision diagram.", { exact: true }),
+      ).toBeVisible();
+      await expect(f.getByText("./diagram.svg", { exact: true })).toBeVisible();
+      await expect(f.getByRole("img", { name: "Decision diagram", exact: true })).toHaveCount(0);
+      const inline = f.getByRole("img", { name: "Inline signal", exact: true });
+      await expect
+        .poll(() =>
+          inline.evaluate(
+            (image) =>
+              image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
+          ),
+        )
+        .toBe(true);
+      await page.screenshot({ path: test.info().outputPath("relative-image-fallback.png") });
+      await f
+        .getByRole("button", { name: "Open source for Decision diagram", exact: true })
+        .click();
+      await expect(page.getByRole("textbox", { name: "Note source", exact: true })).toBeVisible();
+      await expect(page.locator(".ontology-source-view")).toContainText(
+        "First authored entry has no structured event date.",
+      );
+    });
+  });
+}
+
 test("ambiguous spec sections disable ready selection while preserving authored criteria", async ({
   page,
 }) => {

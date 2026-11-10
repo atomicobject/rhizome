@@ -609,5 +609,31 @@
     "file": "empty-planned-dark.png",
     "sha256": "9461cfbd9537c72a9a3d394eb4a8361675b47bc3ae865142a3aff2a07e6f13ad",
     "included": false
+  },
+  {
+    "scenario": "relative-image-fallback",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-04-harbor.md",
+    "file": "relative-image-fallback-light.png",
+    "sha256": "7c5ddbdbb74169dcfa7e761fc5b68f0bff23cdadc1f0c6acbe1d5368515ebf46",
+    "included": true
+  },
+  {
+    "scenario": "relative-image-fallback",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes?note=docs%2Fefforts%2F2026-11-09-10-04-harbor.md",
+    "file": "relative-image-fallback-dark.png",
+    "sha256": "ed6b1856c92544d6f59e6ec5c0477f3b19de40a55587864a4d5dbffeb898706b",
+    "included": true
   }
 ]

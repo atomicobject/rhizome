@@ -85,8 +85,29 @@ export function SourceContent({ node }: { node: LiveNode }) {
           {children}
         </SourceAnchor>
       ),
+      img: ({ src, alt, title }) =>
+        src && (src.startsWith("/") || URL.canParse(src)) ? (
+          <img
+            src={src}
+            alt={alt ?? ""}
+            title={title}
+            style={{ maxWidth: "100%", height: "auto" }}
+          />
+        ) : (
+          <span className="ae-note">
+            <span role="status">Image preview unavailable here: {alt || "Recorded image"}.</span>{" "}
+            <code>{src || "Source unavailable"}</code>{" "}
+            <button
+              className="ae-link"
+              aria-label={`Open source for ${alt || "recorded image"}`}
+              onClick={() => nav.openNode(node.ref, { view: "builtin:source" })}
+            >
+              Open source
+            </button>
+          </span>
+        ),
     }),
-    [node.ref.notePath],
+    [node.ref, nav],
   );
   if (node.format === "markdown" || node.sectionType)
     return (

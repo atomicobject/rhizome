@@ -45,3 +45,9 @@ The installed counterexample fails before the fix and passes afterward: a unique
 ## Final implementation verdict
 
 `greptile review --json` at `1ebb77b3077ca48b0af38d47b2f660276fd4616f` returned confidence **5/5**, with **zero comments** and no new actionable findings. G1 through G5 are closed. This was source inspection, not a test run. All active CI checks passed at the same implementation head, including Windows web/CLI, Web E2E and desktop portability. The existing conditional installed-upgrade job was not applicable. [The readiness receipt](implementation-readiness.json) records the exact PR, checks and manual review result.
+
+## G6: source-relative Markdown images
+
+The documentation-head review at `0460bea1315f258b023eff10caf8b0cc2c32dfef` returned confidence 5/5 and one P2 comment: relative image paths resolved against the experience frame. Two installed browser cases reproduce the missing source fallback, one per theme (`/private/tmp/ae-image-fallback-red.log`).
+
+The shared kit exposes no public source-relative binary attachment route. Delivery therefore shows the authored label and exact path with a canonical source button rather than a broken image. Absolute image URLs retain normal rendering. The installed cases verify the relative fallback, decoded absolute data image and source navigation. Strict template TypeScript, `make check`, `make build`, all 59 installed cases and documentation/frozen-scope validation passed. Root inspected both new captures. Current-head manual review and CI remain pending.
