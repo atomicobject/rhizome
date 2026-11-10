@@ -49,3 +49,5 @@ Greptile's P2 root-image finding was reproduced in both installed themes. The so
 The G10 correction passed the complete 77-case installed suite, `make check`, `make build`, strict template TypeScript and both validators. Both refreshed image-fallback captures were inspected.
 
 The final G11 follow-up preserves protocol-relative and absolute external links while keeping canonical note links on the resolver. Both-theme regression and the complete 77-case installed suite pass; refreshed image/source captures include the working external links.
+
+Final implementation `86d16eec39e2604cfca9b8c9ac54b86128906ed6` passed all 25 active CI jobs, with one existing conditional skip. Manual Greptile returned 5/5 and zero comments. `cleanup-readiness.json` preserves the exact response. PR #123 remains open and unmerged.

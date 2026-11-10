@@ -113,3 +113,8 @@ The final run must preserve relative-path fallback, root-path fallback, decoded 
 Greptile reviewed `30ca4b135c1e58df24d4823921c4e372a0d34f30` at 5/5, confirmed G10 fixed, and raised one P2 comment: a Markdown link to `//host/path` was passed to note preview resolution and replaced by unavailable text. Both installed theme regressions reproduced the missing link before correction.
 
 `SourceAnchor` now identifies protocol-relative and parseable absolute URLs as external before note resolution, with an explicit exception for canonical `rhizome://note/` targets. Its actual href and external-link behavior are retained; ordinary note and wikilink handling are unchanged. The shared core resolver is not changed. The fixture keeps protocol-relative links, protocol-relative images, repository-root images, relative images, and a data image together to exercise the boundary. Both theme cases and all 77 installed cases pass. The same fixture confirms mail and telephone hrefs stay clickable, absolute and protocol-relative images decode, repository image fallbacks stay visible, and source navigation works. `make check`, `make build`, strict template TypeScript and both validators pass; a final pre-commit check and current-head manual review follow.
+
+
+## Final cleanup verdict
+
+Manual review of `86d16eec39e2604cfca9b8c9ac54b86128906ed6` returned **5/5**, zero comments, and explicit confirmation that the external-link finding is fixed. All 25 active CI jobs passed; one pre-existing conditional job was skipped. The PR remains open, non-draft, mergeable and clean, with auto-merge absent. See `cleanup-readiness.json`.

@@ -4,7 +4,7 @@ id: EFF-2026-11-09-21-28
 aliases: [EFF-2026-11-09-21-28]
 name: Agentic Engineering delivery experience
 created-at: 2026-11-10T02:35:34Z
-status: active
+status: complete
 summary: "Deliver the complete refined Agentic Engineering starter experience with exact authored scope, installed UI proof, and an open unmerged PR."
 governing-specs:
   - "[[docs/specs/experience/agentic-engineering-delivery-experience.md]]"
@@ -92,7 +92,7 @@ The complete starter-owned Delivery experience is implemented: home and five-gro
 
 All eight stories are backported as satisfied. The latest integrated `make verify` passed, including 2,169 web unit, 159 native browser, 90 Knowledge browser and 77 Delivery browser cases. Final copy and capture corrections passed `make check`, `make build`, strict template TypeScript, the complete installed Delivery suite and both documentation validators. The 32 focused data/domain cases pass. Fresh/update/eject and `init --check` pass. The current proof manifest records 68 captures with 44 committed images; the independent Fable review and root's final additions are recorded with their exact coverage. No implementation scope is deferred.
 
-[PR #123](https://github.com/atomicobject/rhizome/pull/123) carries the work and remains open and unmerged. The earlier [readiness receipt](2026-11-09-agentic-engineering-experience/evidence/final-readiness.json) records the implementation at `2617a908be1c89b9437dba4a5ab056781672cc8d`; it is historical. The Fable cleanup still requires current-head CI and manual Greptile before handback. [Installed proof](2026-11-09-agentic-engineering-experience/evidence/ui-proof.md) and [cleanup review](2026-11-09-agentic-engineering-experience/evidence/fable52-final-review.md) retain current local results and limitations.
+[PR #123](https://github.com/atomicobject/rhizome/pull/123) carries the work and remains open and unmerged. The earlier [readiness receipt](2026-11-09-agentic-engineering-experience/evidence/final-readiness.json) records the implementation at `2617a908be1c89b9437dba4a5ab056781672cc8d`; it is historical. The completed cleanup at `86d16eec39e2604cfca9b8c9ac54b86128906ed6` passed all 25 active CI jobs, with the existing conditional installed-upgrade job not applicable, and manual Greptile returned 5/5 with zero findings. [The cleanup readiness receipt](2026-11-09-agentic-engineering-experience/evidence/cleanup-readiness.json) records the exact result. [Installed proof](2026-11-09-agentic-engineering-experience/evidence/ui-proof.md) and [cleanup review](2026-11-09-agentic-engineering-experience/evidence/fable52-final-review.md) retain current local results and limitations.
 
 ## Execution Notes
 
@@ -150,6 +150,8 @@ The final independent verdict is APPROVE. Root fixed the residual singular label
 
 The cleanup now includes `origin/main` at `a2d49bf19` through merge `3fa4314`. Full `make verify` passed on that integrated tree. Greptile then identified root-relative images bypassing the source fallback. Both-theme installed tests failed before the one-line correction and passed afterward; all 77 installed cases, `make check`, `make build`, strict template TypeScript and both validators pass. Both updated image captures were inspected. The subsequent protocol-relative link finding was also reproduced in both themes and corrected at the SourceAnchor boundary; all 77 installed cases pass with mail and telephone links covered as well. Current-head CI and manual review remain required before closure. The old-head macOS build failure was an external Go dependency DNS error, recorded separately; no test or production workaround was added.
 
+- 2026-11-10T14:43:45Z [cleanup closure] Verified implementation 86d16eec39e2604cfca9b8c9ac54b86128906ed6: 25 active CI jobs passed; one existing conditional job was not applicable. Manual Greptile is 5/5 with zero comments. Fable visual and implementation-quality reviews are resolved; final URL regressions, all 77 installed cases, local gates and validators pass. PR #123 remains open and unmerged.
+
 ## Deviations
 
 The initial seven-stage comp becomes five factual primary views plus separate Current contracts and Record review. This is an authorized accuracy refinement that avoids inventing readiness, acceptance, or reconciliation. P1 added explicit frozen-scope source selection for HTML workspaces as a necessary dependency. Existing records are not rewritten. No implementation scope is deferred.
@@ -175,9 +177,9 @@ The initial seven-stage comp becomes five factual primary views plus separate Cu
 - [x] Implemented foundation and independent technical review pass.
 - [x] All eight stories and Requirements are verified in the installed interface.
 - [x] Required local gates, documentation validation and frozen-scope checks pass.
-- [ ] Independent implementation review and Greptile 5/5 cover final behavior.
+- [x] Independent implementation review and Greptile 5/5 cover final behavior.
 - [x] Specs, owning docs, changelog, actual outcomes and deviations are reconciled.
-- [ ] PR URL, verified implementation head, passing CI and open unmerged state are recorded.
+- [x] PR URL, verified implementation head, passing CI and open unmerged state are recorded.
 
 ## Compounding Follow-ups
 
@@ -185,4 +187,4 @@ Record recurring friction with its evidence. Fresh-worktree authoring needed OS/
 
 ## Status
 
-Active for Fable cleanup current-head readiness. All eight frozen stories remain delivered. The existing final readiness receipt records the passing implementation before this CI follow-up. PR #123 stays open and unmerged; no Rhizome Dev installation is authorized.
+Complete. All eight frozen stories and the Fable cleanup are delivered. Verified implementation `86d16eec39e2604cfca9b8c9ac54b86128906ed6` has passing CI, a clean 5/5 manual review, and an open, non-draft, mergeable PR #123 with no auto-merge. The documentation-only closure head is checked before handback. Rhizome Dev was not installed from this branch.
