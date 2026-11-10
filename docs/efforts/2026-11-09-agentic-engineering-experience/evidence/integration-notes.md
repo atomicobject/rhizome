@@ -27,7 +27,7 @@ Codex GPT-6.1 Sol, high, deleted six comment blocks (seven lines). Root accepted
 - Impeccable source detector reported zero findings. This is not a formal rendered accessibility audit. No Desktop app installation or screen-reader audit was performed.
 - Compounding retrieval was degraded by provider/authentication failures. No-match output is not complete retrieval evidence.
 
-Current-head GitHub CI and manual Greptile review remain the external readiness steps. The effort stays active until they are complete.
+The first committed-head manual Greptile review returned 4/5. [Its two confirmed findings and fixes](greptile-review.md) have red-before-green scope proof, 25 focused tests and 16 explicit recipe cases. Follow-up strict template TypeScript, `make check`, `make build`, documentation/frozen-scope validation, and all 55 installed Delivery cases passed. This follows the earlier full `make verify` run with 54 Delivery cases. Current-head GitHub CI and manual Greptile review remain the external readiness steps. The effort stays active until they are complete.
 
 ## Integrated review ledger
 

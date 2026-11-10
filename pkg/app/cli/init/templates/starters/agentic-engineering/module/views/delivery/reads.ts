@@ -117,7 +117,14 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
   }
   async function children(parents: readonly LiveNode[], name: string, detail = false) {
     const targets = parents.flatMap(node => refs(node, name));
-    return targets.length ? hydrate(targets, detail) : { nodes: [], coverage: null };
+    const errors = parents.flatMap(node => [
+      ...(field(node, name)?.issues ?? []).map(issue => `${node.title}: ${name}: ${issue.message}`),
+      ...(['userStories', 'acceptanceCriteria'].includes(name) && refs(node, name).length > 1
+        ? [`${node.title}: ${name} matches multiple sections`] : []),
+    ]);
+    const result = targets.length ? await hydrate(targets, detail) : { nodes: [], coverage: null };
+    return { nodes: result.nodes, coverage: errors.length
+      ? combine([...[result.coverage].filter(nonNull), absent(errors.join('\n'))]) : result.coverage };
   }
   async function specs(nodes: LiveNode[], base: Coverage, detail = false): Promise<LiveSpec[]> {
     const wrappers = await children(nodes, 'userStories');

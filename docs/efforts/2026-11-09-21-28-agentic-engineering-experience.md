@@ -90,7 +90,7 @@ A complete accurate Agentic Engineering starter experience for humans and agents
 
 The complete starter-owned Delivery experience is implemented: home and five-group workflow map, seven factual work lists, selected prompts, inline spec criteria, both effort forms' resume briefs, contextual Find and Recent, first-day and incomplete-data states, themes and narrow layouts. Source-link pagination/count, explicit workspace frozen-scope selection, canonical ref navigation, source-aware Markdown links and provider-aware HTML commit reads preserve authored evidence.
 
-All eight stories are backported as satisfied. Local `make check` and `make verify` pass, including 158 native, 90 Knowledge and 54 Delivery browser cases. Fresh/update/eject verification passes. [Installed UI proof](2026-11-09-agentic-engineering-experience/evidence/ui-proof.md) and [integration evidence](2026-11-09-agentic-engineering-experience/evidence/integration-notes.md) retain the results and limitations. Current-head CI, manual Greptile review and the ready open PR remain in progress.
+All eight stories are backported as satisfied. Local `make check` and `make verify` pass, including 158 native, 90 Knowledge and 54 Delivery browser cases. Fresh/update/eject verification passes. [Installed UI proof](2026-11-09-agentic-engineering-experience/evidence/ui-proof.md) and [integration evidence](2026-11-09-agentic-engineering-experience/evidence/integration-notes.md) retain the results and limitations. [PR #123](https://github.com/atomicobject/rhizome/pull/123) is open and unmerged. Its five required checks passed on implementation head `46e792283d3781057f247056ed12a247ce0b3460`; remaining CI and a passing manual Greptile review remain required.
 
 ## Execution Notes
 
@@ -107,6 +107,8 @@ All eight stories are backported as satisfied. Local `make check` and `make veri
 
 - 2026-11-10T06:11:02Z [validation] Final make check and make verify passed: 2,169 web unit tests, 158 native browser cases, 90 Knowledge cases and 54 installed Delivery cases. Fresh/update/eject and init --check passed. All 47 accepted captures were inspected; 23 are committed with their manifest. No retry, timeout or skip was added.
 - 2026-11-10T06:11:02Z [review] Integrated Sol-loop approved in three rounds; the diagnosed native preference fixture correction received a separate approved causal review. The HTML cache correction has cached/uncached red-before-green HTTP proof. Eight SPEC-0137 story states are backported to satisfied. External PR readiness remains active.
+
+- 2026-11-10 [review] Manual Greptile returned 4/5 on `46e792283` with two confirmed findings: ambiguous spec-section coverage and recipe-presence assertions. Root fixed both, with red-before-green scope proof and all 16 named recipe cases passing. [The review ledger](2026-11-09-agentic-engineering-experience/evidence/greptile-review.md) records the evidence; strict template TypeScript, make check, make build, all 55 installed Delivery cases and documentation/frozen-scope validation pass. A new committed-head review remains pending.
 
 ## Deviations
 

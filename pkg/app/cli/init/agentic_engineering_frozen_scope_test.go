@@ -114,10 +114,13 @@ status:: ready
 	require.Empty(t, mentionResult.Errors)
 	require.Equal(t, "ready", mentionResult.Data["node"].(map[string]any)["status"])
 	require.Empty(t, mentionResult.Data["node"].(map[string]any)["efforts"], "material-selected A has no inbound Effort mention; this cannot prove absent frozen coverage")
+	byID := make(map[string]queryrecipe.Recipe, len(recipes))
 	for _, recipe := range recipes {
-		if recipe.ID != "effort-execution-context" && recipe.ID != "closure-drift-pack" {
-			continue
-		}
+		byID[recipe.ID] = recipe
+	}
+	for _, id := range []string{"effort-execution-context", "closure-drift-pack"} {
+		recipe, ok := byID[id]
+		require.Truef(t, ok, "missing recipe %s", id)
 		for _, tc := range cases {
 			t.Run(recipe.ID+"/"+tc.name, func(t *testing.T) {
 				compiled, issues := queryrecipe.Compile(recipe, execSchema, map[string]string{"path": folder + tc.name + "-effort.html"})

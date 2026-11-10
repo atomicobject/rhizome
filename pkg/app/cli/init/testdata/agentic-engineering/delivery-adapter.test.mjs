@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { reader, locator } from '../../templates/starters/agentic-engineering/module/views/delivery/reads.ts';
-import { identity, selectionFor } from '../../templates/starters/agentic-engineering/module/views/delivery/lib/index.ts';
+import { identity, selectionFor, promptFor } from '../../templates/starters/agentic-engineering/module/views/delivery/lib/index.ts';
 const ref = (notePath, typeName = 'EffortNote', fragment = '') => ({ notePath, typeName, fragment, kind: fragment ? 'section' : 'note', nodeId: fragment || notePath });
 const field = (name, sectionNodes = [], values = null, links = []) => ({ name, present: true, values, sectionNodes, links, issues: [] });
 const node = (r, fields = [], format = 'markdown') => ({ ref: r, title: r.notePath, resolvedType: r.typeName, content: 'Full authored prose', format,
@@ -165,6 +165,39 @@ test('story and criterion collection order and full detail survive typed hydrati
   const result = await h.read.record(own.ref);
   assert.deepEqual(result.record.stories.map(s => s.ref.fragment), ['b', 'a']);
   assert.equal(result.record.stories[1].criteria[0].source.content, 'Full authored prose');
+});
+
+test('ambiguous spec sections retain prose but cannot supply copied scope', async () => {
+  for (const section of ['userStories', 'acceptanceCriteria']) {
+    for (const fault of ['duplicate', 'issue']) {
+      const wrapper = node(ref('spec.md', 'UserStoriesSection', 'stories'));
+      const ac = node(ref('spec.md', 'AcceptanceCriteriaSection', 'criteria'));
+      const criterion = node(ref('spec.md', 'AcceptanceCriterion', 'criterion'));
+      const story = node(ref('spec.md', 'UserStory', 'story'), [field('status', [], ['ready']), field('acceptanceCriteria', [ac.ref])]);
+      const own = node(ref('spec.md', 'ExperienceSpec'), [field('specStatus', [], ['active']), field('userStories', [wrapper.ref])]);
+      wrapper.workspace.collections = [{ name: 'stories', items: [{ ref: story.ref }] }];
+      ac.workspace.collections = [{ name: 'criteria', items: [{ ref: criterion.ref }] }];
+      const nodes = [own, wrapper, story, ac, criterion];
+      const h = harness(nodes, new Map(), () => {}, { specLike: [own] });
+      const keys = [identity(story.ref)];
+      assert.equal(promptFor('ready', (await h.read.portfolio()).portfolio, keys).copyable, true);
+      const state = (section === 'userStories' ? own : story).workspace.fields.find(item => item.name === section);
+      if (fault === 'duplicate') {
+        const duplicate = node({ ...state.sectionNodes[0], fragment: 'duplicate', nodeId: 'duplicate' });
+        state.sectionNodes.push(duplicate.ref);
+        nodes.push(duplicate);
+      } else {
+        state.issues = [{ code: 'cardinality', message: 'Section must match a single heading' }];
+      }
+      const portfolio = await h.read.portfolio();
+      assert.equal(portfolio.coverage.complete, false, `${section}/${fault}`);
+      assert.equal(promptFor('ready', portfolio.portfolio, keys).copyable, false, `${section}/${fault}`);
+      const detail = await h.read.record(own.ref);
+      assert.equal(detail.coverage.complete, false, `${section}/${fault}`);
+      assert.equal(detail.node.content, 'Full authored prose');
+      assert.equal(detail.record.stories[0].criteria[0].source.content, 'Full authored prose');
+    }
+  }
 });
 
 test('API hydration consumes the canonical public ref and keeps the returned ref object', async () => {

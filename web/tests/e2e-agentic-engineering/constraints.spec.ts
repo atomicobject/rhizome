@@ -189,3 +189,48 @@ test("inline Markdown links resolve from their authored source", async ({ page }
     plan.getByText("Inspect selected sources before implementation.", { exact: true }),
   ).toBeVisible();
 });
+
+test("ambiguous spec sections disable ready selection while preserving authored criteria", async ({
+  page,
+}) => {
+  let changed = 0;
+  await page.route("**/api/v1/graphql", async (route) => {
+    const response = await route.fetch();
+    const json: unknown = await response.json();
+
+    if (!isJsonObject(json) || !isJsonObject(json.data))
+      throw new Error("Expected fixture GraphQL data");
+
+    function update(value: JsonValue) {
+      if (Array.isArray(value)) {
+        value.forEach(update);
+
+        return;
+      }
+
+      if (!isJsonObject(value)) return;
+
+      if (
+        value.name === "userStories" &&
+        Array.isArray(value.sectionNodes) &&
+        value.sectionNodes.length
+      ) {
+        value.sectionNodes.push(value.sectionNodes[0]);
+        value.issues = [{ code: "cardinality", message: "Section must match a single heading" }];
+        changed++;
+      }
+
+      Object.values(value).forEach(update);
+    }
+
+    update(json.data);
+    await route.fulfill({ response, json });
+  });
+  await page.goto("/notes?view=agentic-engineering.stage&stage=ready");
+  const f = content(page);
+  await expect(f.getByRole("checkbox", { name: /Select US1.*Reserve a seat/ })).toBeDisabled();
+  await expect(f.getByRole("button", { name: "Copy workflow prompt", exact: true })).toBeDisabled();
+  expect(changed).toBeGreaterThan(0);
+  await page.goto(record(specPath, "SPEC-9001-US1"));
+  await expect(f.getByText(/harbor confirmation ends here/)).toBeVisible();
+});

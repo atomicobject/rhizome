@@ -24,6 +24,10 @@ func TestAgenticEngineeringDeliveryLibrary(t *testing.T) {
 			return err
 		}))
 	}
+	for _, name := range []string{"reads.ts", "queries.ts"} {
+		_, err = os.ReadFile(filepath.Join("templates/starters/agentic-engineering/module/views/delivery", name))
+		require.NoError(t, err)
+	}
 	tests, err := filepath.Glob("testdata/agentic-engineering/*.test.mjs")
 	require.NoError(t, err)
 	require.NotEmpty(t, tests)
