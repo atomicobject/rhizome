@@ -138,9 +138,15 @@ All eight stories are backported as satisfied. The full integrated make verify p
 
 - 2026-11-10 [CI follow-up] An isolated implementation and fresh causal review on Codex GPT-6.1 Sol high resolved the macOS updater fixture measurement. A deterministic 200 ms setup pause reproduces the old 450 ms total-clock failure despite the correct 250 ms body timeout. Root independently reproduced red/green and integrated the first-byte timestamp event, preserving all thresholds and production behavior. [The diagnosis](2026-11-09-agentic-engineering-experience/evidence/updater-test-clock-diagnosis.md) records the calibrated claim and verification. Root standard make desktop-check passed with actual sidecars: 151 UI tests, six script tests, 145 Rust tests, fmt, clippy and disposable app-instance tests. The exact source was restored after the controlled proof. Current-head CI and manual review remain pending.
 
+- 2026-11-10 [review follow-up] All active CI jobs passed on 22c874a4b, including the macOS clock correction. Manual review confirmed G7 resolved and scored 5/5 but found G8: a failed child criterion read disables healthy sibling prompts. Root reproduced the failure and implemented per-parent coverage with global uncertainty guards; all 26 pure cases and strict template TypeScript pass. The optional per-item field-error ownership metadata is being implemented in an isolated query lane because existing field-only paths cannot identify a batch item safely. Foundation review and full installed/integration readiness remain pending.
+
 ## Deviations
 
 The initial seven-stage comp becomes five factual primary views plus separate Current contracts and Record review. This is an authorized accuracy refinement that avoids inventing readiness, acceptance, or reconciliation. P1 added explicit frozen-scope source selection for HTML workspaces as a necessary dependency. Existing records are not rewritten. No implementation scope is deferred.
+
+- 2026-11-10 [G8 integration] Integrated additive query error ownership and per-parent child coverage. Global, transport, truncation and generation failures still prevent complete evidence; the portfolio stays partial while healthy sibling selection remains usable. All 27 pure tests and 64 installed cases pass. A held-refresh counterexample also closes the acknowledgement race without silently dropping selection. Fresh Sol high foundation and final consumer reviews approve the changes. Root inspected all four new paired captures. The query lane exposed an unrelated SSE admission-timer fixture problem; its test-only correction has controlled red/green and fresh independent approval. Final root gates and new-head review/CI remain pending.
+
+- 2026-11-10 [final root gates] make check, query/pushdown integration tests, 27 pure tests, strict template TypeScript, make build and all 64 installed cases pass. Documentation and frozen-scope validation report zero issues. The first root gate stopped on five test-spacing lint findings; the corrected complete gate passed. Committed-head manual review and CI remain pending.
 
 ## Closure Checklist
 
@@ -157,4 +163,4 @@ Record recurring friction with its evidence. Fresh-worktree authoring needed OS/
 
 ## Status
 
-Active for the Windows settings-test isolation correction and current-head readiness. All eight frozen stories remain delivered. Prior application-head receipts remain historical evidence; PR #123 stays open and unmerged until the follow-up gates and reviews pass.
+Active for G8 child-read ownership, final integration gates and current-head readiness. All eight frozen stories remain delivered. Prior application-head receipts remain historical evidence; PR #123 stays open and unmerged until the follow-up gates and reviews pass.

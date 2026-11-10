@@ -8,7 +8,7 @@ export type ReadAPI = {
   markdownChecklist(source: string): { checked: number; total: number };
   graphql<T>(query: string, variables: Record<string, string | number>): Promise<T>;
   readNodes<T>(refs: readonly string[], selection: string, options: { signal?: AbortSignal }): Promise<{
-    nodes: T[]; complete: boolean; errors: { message: string }[];
+    nodes: T[]; complete: boolean; errors: { message: string; extensions?: { requestedRef?: unknown } }[];
     unresolved: { requestedRef: string; message: string }[]; truncated: readonly unknown[];
   }>;
   generation(data: unknown): string | undefined;
@@ -44,20 +44,41 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
   });
   async function hydrate(targets: readonly Ref[], detail = false) {
     check();
-    if (!targets.length) return { nodes: [], coverage: absent('No hydration requested'), missing: false };
+    if (!targets.length) return { nodes: [], coverage: absent('No hydration requested'), missing: false,
+      coverageFor: (_owned: readonly Ref[]) => absent('No hydration requested') };
     let result: Omit<Awaited<ReturnType<ReadAPI['readNodes']>>, 'nodes'> & { nodes: LiveNode[] };
     try {
       result = await api.readNodes<LiveNode>(targets.map(readRef), detail ? NODE_DETAIL : NODE_SUMMARY, { signal });
     } catch (error) {
       check();
-      return { nodes: [], coverage: absent(String(error)), missing: false };
+      const failed = absent(String(error));
+      return { nodes: [], coverage: failed, missing: false, coverageFor: (_owned: readonly Ref[]) => failed };
     }
     check();
-    const read = coverage(result, [...result.errors.map(error => error.message),
-      ...result.unresolved.map(item => `${item.requestedRef}: ${item.message}`)], result.complete);
-    read.truncated = result.truncated.length > 0;
-    read.complete &&= !read.truncated;
-    return { nodes: result.nodes, coverage: read, missing: result.unresolved.length > 0 && !result.errors.length && !result.truncated.length };
+    const requested = new Set(targets.map(readRef));
+    const diagnostics = new Map<string, string[]>();
+    const sharedErrors: string[] = [];
+    function report(owner: unknown, message: string) {
+      if (typeof owner !== 'string' || !requested.has(owner)) { sharedErrors.push(message); return; }
+      diagnostics.set(owner, [...diagnostics.get(owner) ?? [], message]);
+    }
+    for (const error of result.errors) report(error.extensions?.requestedRef, error.message);
+    for (const item of result.unresolved) report(item.requestedRef, `${item.requestedRef}: ${item.message}`);
+    const returned = new Set(result.nodes.map(node => node.ref.ref));
+    const unresolved = new Set(result.unresolved.map(item => item.requestedRef));
+    const unanswered = targets.filter(target => typeof target.ref === 'string' && !returned.has(target.ref) && !unresolved.has(readRef(target)));
+    if (unanswered.length) sharedErrors.push(`${unanswered.length} requested nodes absent from batch response`);
+    if (!result.complete && !result.errors.length && !result.unresolved.length && !result.truncated.length) {
+      sharedErrors.push('Hydration completeness unavailable');
+    }
+    function coverageFor(owned: readonly Ref[]) {
+      const read = coverage(result, [...sharedErrors, ...owned.flatMap(target => diagnostics.get(readRef(target)) ?? [])]);
+      read.truncated = result.truncated.length > 0;
+      read.complete &&= !read.truncated;
+      return read;
+    }
+    return { nodes: result.nodes, coverage: coverageFor(targets), coverageFor,
+      missing: result.unresolved.length > 0 && !result.errors.length && !result.truncated.length && !sharedErrors.length };
   }
   async function occurrences(source: LiveNode) {
     const pages = [];
@@ -117,14 +138,15 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
   }
   async function children(parents: readonly LiveNode[], name: string, detail = false) {
     const targets = parents.flatMap(node => refs(node, name));
-    const result = targets.length ? await hydrate(targets, detail) : { nodes: [], coverage: null };
+    const result = targets.length ? await hydrate(targets, detail) : { nodes: [], coverageFor: (_owned: readonly Ref[]) => null };
     return { nodes: result.nodes, coverage(parent: LiveNode) {
       const errors = [
         ...(field(parent, name)?.issues ?? []).map(issue => `${parent.title}: ${name}: ${issue.message}`),
         ...(['userStories', 'acceptanceCriteria'].includes(name) && refs(parent, name).length > 1
           ? [`${parent.title}: ${name} matches multiple sections`] : []),
       ];
-      return errors.length ? combine([...[result.coverage].filter(nonNull), absent(errors.join('\n'))]) : result.coverage;
+      const read = result.coverageFor(refs(parent, name));
+      return errors.length ? combine([...[read].filter(nonNull), absent(errors.join('\n'))]) : read;
     } };
   }
   async function specs(nodes: LiveNode[], base: Coverage, detail = false): Promise<LiveSpec[]> {

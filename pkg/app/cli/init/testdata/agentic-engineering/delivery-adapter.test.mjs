@@ -210,6 +210,65 @@ test('ambiguous spec sections retain prose but cannot supply copied scope', asyn
   }
 });
 
+test('child hydration faults preserve healthy criterion neighbors and disclose shared failures', async () => {
+  for (const fault of ['unresolved', 'owned-field', 'global-field', 'foreign-owner', 'transport', 'truncated', 'opaque', 'unreported', 'generation', 'missing-generation']) {
+    const specs = ['spec.md', 'clean.md'].map(path => node(ref(path, 'ExperienceSpec'), [field('specStatus', [], ['active'])]));
+    const wrappers = specs.map(spec => node(ref(spec.ref.notePath, 'UserStoriesSection', 'stories')));
+    specs.forEach((spec, i) => spec.workspace.fields.push(field('userStories', [wrappers[i].ref])));
+    const criteria = ['a', 'b', 'c'].map((id, i) => node(ref(i === 2 ? 'clean.md' : 'spec.md', 'AcceptanceCriterion', id)));
+    const packs = criteria.map(criterion => node(ref(criterion.ref.notePath, 'AcceptanceCriteriaSection', `criteria-${criterion.ref.fragment}`)));
+    packs.forEach((pack, i) => pack.workspace.collections = [{ name: 'criteria', items: [{ ref: criteria[i].ref }] }]);
+    const stories = packs.map((pack, i) => node(ref(pack.ref.notePath, 'UserStory', `story-${i}`), [field('status', [], ['ready']), field('acceptanceCriteria', [pack.ref])]));
+    wrappers[0].workspace.collections = [{ name: 'stories', items: stories.slice(0, 2).map(story => ({ ref: story.ref })) }];
+    wrappers[1].workspace.collections = [{ name: 'stories', items: [{ ref: stories[2].ref }] }];
+    const h = harness([...specs, ...wrappers, ...stories, ...packs, ...criteria], new Map(), () => {}, { specLike: specs });
+    const readNodes = h.api.readNodes;
+    const generation = h.api.generation;
+    let altered;
+    h.api.generation = data => data === altered && fault === 'generation' ? '8'
+      : data === altered && fault === 'missing-generation' ? undefined : generation(data);
+    h.api.readNodes = async (...args) => {
+      const result = await readNodes(...args);
+      if (!args[0].includes(JSON.stringify(criteria[0].ref))) return result;
+      altered = result;
+      result.complete = fault === 'generation' || fault === 'missing-generation';
+      if (fault === 'unresolved') {
+        result.nodes = result.nodes.filter(item => identity(item.ref) !== identity(criteria[0].ref));
+        result.unresolved.push({ requestedRef: JSON.stringify(criteria[0].ref), message: 'Criterion unavailable' });
+      }
+      if (fault === 'unreported') result.nodes = result.nodes.filter(item => identity(item.ref) !== identity(criteria[0].ref));
+      if (fault.endsWith('field') || fault === 'foreign-owner') result.errors.push({ message: 'Criterion field unavailable',
+        extensions: fault === 'owned-field' ? { requestedRef: JSON.stringify(criteria[0].ref) }
+          : fault === 'foreign-owner' ? { requestedRef: 'not-requested' } : {} });
+      if (fault === 'transport') throw new Error('Batch unavailable');
+      if (fault === 'truncated') result.truncated.push({ path: ['nodes'], returned: 2, limit: 2 });
+      return result;
+    };
+    const result = await h.read.portfolio();
+    assert.equal(result.coverage.complete, false, fault);
+    assert.equal(promptFor('ready', result.portfolio, [identity(stories[0].ref)]).copyable, false, `affected: ${fault}`);
+    for (const story of stories.slice(1)) assert.equal(promptFor('ready', result.portfolio, [identity(story.ref)]).copyable,
+      fault === 'unresolved' || fault === 'owned-field', `healthy ${story.ref.notePath}: ${fault}`);
+    assert.equal(result.portfolio.specs[0].stories[1].source.content, 'Full authored prose');
+    assert.equal(h.calls.filter(call => call.targets?.includes(JSON.stringify(criteria[0].ref))).length, 1, `batched: ${fault}`);
+  }
+});
+
+test('hydration honors canonical resolution across enriched refs and refuses omitted canonical replies', async () => {
+  const requested = { notePath: 'effort.md', kind: 'NOTE', typeName: 'EffortNote', ref: 'effort.md', structural: 'source-fingerprint' };
+  const own = node({ ...requested, structural: null });
+  const h = harness();
+  h.api.generation = () => '7';
+  h.api.readNodes = async () => ({ nodes: [own], complete: true, errors: [], unresolved: [], truncated: [] });
+  for (const target of [requested, { notePath: 'effort.md', kind: 'note' }]) {
+    const result = await reader(h.api).hydrate([target], true);
+    assert.equal(result.coverage.complete, true);
+    assert.equal(result.nodes[0].ref, own.ref);
+  }
+  h.api.readNodes = async () => ({ nodes: [], complete: true, errors: [], unresolved: [], truncated: [] });
+  await assert.rejects(reader(h.api).record(requested), /absent from batch response/);
+});
+
 test('API hydration consumes the canonical public ref and keeps the returned ref object', async () => {
   const own = node({ ...ref('spec.md', 'ExperienceSpec'), ref: 'canonical:spec', structural: 'raw', structuralFingerprint: 'raw' });
   const h = harness();

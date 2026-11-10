@@ -120,7 +120,20 @@ test("refresh reports removed selection before allowing a reduced prompt", async
   await f.getByRole("checkbox", { name: /Select US3.*Recover a saved itinerary/ }).check();
   await expect(f.getByRole("textbox", { name: /prompt/i })).toHaveValue(/SPEC-9001-US3/);
   let changed = 0;
+  let holding = false;
+  let heldReads = 0;
+  let release = () => {};
+
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
   await page.route("**/api/v1/graphql", async (route) => {
+    if (holding) {
+      heldReads++;
+      await held;
+    }
+
     const response = await route.fetch();
     const json: unknown = await response.json();
 
@@ -168,7 +181,20 @@ test("refresh reports removed selection before allowing a reduced prompt", async
   expect(changed).toBeGreaterThan(0);
   await expect(f.getByRole("button", { name: "Copy workflow prompt", exact: true })).toBeDisabled();
   await capture(page, info, "changed-selection");
-  await f.getByRole("button", { name: /Use remaining eligible selection/ }).click();
+  const remaining = f.getByRole("button", { name: /Use remaining eligible selection/ });
+  await expect(f.getByRole("checkbox", { name: /Select US1.*Reserve a seat/ })).toBeEnabled();
+  holding = true;
+
+  try {
+    await f.getByRole("button", { name: "Refresh records", exact: true }).click();
+    await expect.poll(() => heldReads).toBeGreaterThan(0);
+    await expect(remaining).toBeDisabled();
+  } finally {
+    release();
+  }
+
+  await expect(remaining).toBeEnabled();
+  await remaining.click();
   await expect(f.getByRole("button", { name: "Copy workflow prompt", exact: true })).toBeEnabled();
   const prompt = await f.getByRole("textbox", { name: /prompt/i }).inputValue();
   expect(prompt).toContain("SPEC-9001-US1");
@@ -275,6 +301,83 @@ for (const colorScheme of ["light", "dark"] as const) {
         "First authored entry has no structured event date.",
       );
     });
+  });
+}
+
+for (const colorScheme of ["light", "dark"] as const) {
+  test.describe(colorScheme, () => {
+    test.use({ colorScheme });
+
+    for (const fault of ["unresolved", "owned-field"] as const) {
+      test(`healthy story selection survives an unrelated ${fault} criterion read`, async ({
+        page,
+      }, info) => {
+        let changed = 0;
+        await page.route("**/api/v1/graphql", async (route) => {
+          const response = await route.fetch();
+          const json: unknown = await response.json();
+
+          if (!isJsonObject(json) || !isJsonObject(json.data))
+            throw new Error("Expected fixture GraphQL data");
+
+          const batch = isJsonObject(json.data.nodes) ? json.data.nodes : null;
+
+          if (Array.isArray(batch?.items))
+            for (const item of batch.items) {
+              if (
+                !isJsonObject(item) ||
+                !isJsonObject(item.node) ||
+                !isJsonObject(item.node.locator) ||
+                !JSON.stringify(item.node.locator).includes("ae-a-confirmation")
+              )
+                continue;
+
+              if (!isString(item.requestedRef)) throw new Error("Expected requested fixture ref");
+
+              if (fault === "unresolved") {
+                item.node = null;
+                item.ref = null;
+                item.error = {
+                  code: "synthetic_unavailable",
+                  message: "Synthetic criterion unavailable",
+                };
+              } else {
+                const errors = Array.isArray(json.errors) ? json.errors : [];
+                errors.push({
+                  message: "Synthetic criterion field unavailable",
+                  path: ["nodes", "items", "node", "workspace"],
+                  extensions: { requestedRef: item.requestedRef },
+                });
+                json.errors = errors;
+              }
+
+              changed++;
+            }
+
+          await route.fulfill({ response, json });
+        });
+        await page.goto("/notes?view=agentic-engineering.stage&stage=ready");
+        const f = content(page);
+        await expect(
+          f.getByRole("status").filter({ hasText: "Some source evidence is unavailable." }),
+        ).toBeVisible();
+        await expect(
+          f.getByRole("checkbox", { name: /Select US1.*Reserve a seat/ }),
+        ).toBeDisabled();
+        await f.getByRole("checkbox", { name: /Select US3.*Recover a saved itinerary/ }).check();
+        await expect(
+          f.getByRole("button", { name: "Copy workflow prompt", exact: true }),
+        ).toBeEnabled();
+        await expect(f.getByRole("textbox", { name: /prompt/i })).toHaveValue(/SPEC-9001-US3/);
+        await expect(f.getByRole("textbox", { name: /prompt/i })).not.toHaveValue(/SPEC-9001-US1/);
+        expect(changed).toBeGreaterThan(0);
+        await noOverflow(page);
+        await f
+          .getByRole("heading", { name: "Ready stories", exact: true })
+          .scrollIntoViewIfNeeded();
+        await capture(page, info, `healthy-story-partial-${fault}`);
+      });
+    }
   });
 }
 

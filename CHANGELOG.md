@@ -4,6 +4,7 @@
 
 - Agentic Engineering now includes a Delivery experience: a workflow map, selectable shaping and implementation lists with composed agent prompts, full inline spec criteria, source-grounded effort resume briefs, and a contextual Find and Recent panel. Frozen scope stays separate from governing metadata and mentions; missing evidence never becomes approval or completion.
 - Workspace source-link reads support offset pagination and an occurrence count, so callers can establish complete authored scope without losing repeated or unresolved links.
+- Batched node field errors identify their requested ref when known, so scoped callers can retain healthy sibling evidence while reporting partial reads.
 - HTML metadata saves preserve the provider's format and saved title in their returned workspaces.
 
 - Rhizome Desktop's Settings has a tab for the repository the window shows, opened from the repository menu's Repository Settings…. It changes a set-up repository's workflow, add-ons, agents, and search provider, lists the files each change writes before anything is written, and applies them in one step. On a set-up folder, `rzm init --check --json` and `rzm init --json` now report and apply those settings instead of failing.

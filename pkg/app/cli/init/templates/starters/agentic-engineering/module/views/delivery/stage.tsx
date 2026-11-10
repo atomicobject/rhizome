@@ -224,6 +224,7 @@ export function DeliveryStage({
                 ))}
               </ul>
               <Button
+                disabled={stale}
                 onClick={() =>
                   setSelectedRecords((previous) =>
                     previous.filter((record) => eligible.includes(identity(record.ref))),

@@ -8,6 +8,7 @@ The five factual groups retain the visual Shape, Build, Settle orientation. A sp
 | --- | --- | --- |
 | Lead or designer chooses the next slice | [Home](screenshots/home-light.png) | [Home](screenshots/home-dark.png) |
 | Select exact stories and copy one prompt | [Selected stories](screenshots/ready-selected-light.png) | [Selected stories](screenshots/ready-selected-dark.png) |
+| Continue healthy work when another criterion read fails | [Partial read](screenshots/healthy-story-partial-unresolved-light.png) | [Partial read](screenshots/healthy-story-partial-unresolved-dark.png) |
 | Read full criteria in their spec | [Spec](screenshots/spec-expanded-light.png) | [Spec](screenshots/spec-expanded-dark.png) |
 | Developer resumes an inline effort | [Brief](screenshots/inline-effort-light.png) | [Brief](screenshots/inline-effort-dark.png) |
 | Inspect explicit workspace scope and separate log evidence | [Workspace](screenshots/workspace-provenance-light.png) | [Workspace](screenshots/workspace-provenance-dark.png) |
@@ -26,3 +27,5 @@ The full capture manifest records all seven stage pages, selected and incomplete
 Keyboard, accessible-name, focus and overflow checks run in the installed browser tests. House page and sidebar tokens provide theme text colors; screenshots are not a screen-reader or formal contrast audit. Authored HTML previews retain their own document appearance inside the existing isolated viewer, including a white document in a dark host.
 
 Two additional image-fallback captures bring the manifest to 49 captures, with 25 images committed. Source-relative Markdown images use an explicit fallback with their authored label, exact path and canonical source button because the kit has no public binary attachment URL. Absolute image URLs still render. Both-theme installed cases check a decoded data image and source navigation; the root inspected their fallback screenshots.
+
+Four G8 captures bring the manifest to 53 captures, with 29 images committed. Root opened each new capture individually at original resolution. Explicit missing-target and owned-field failures keep the affected story disabled while a healthy sibling remains selected. The complete 64-case installed suite verifies prompt eligibility, partial notices and overflow in both themes. The held-refresh regression also prevents acknowledgement from reducing selection before the read finishes. These localized changes do not alter the earlier layout proof.

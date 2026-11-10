@@ -635,5 +635,57 @@
     "file": "relative-image-fallback-dark.png",
     "sha256": "ed6b1856c92544d6f59e6ec5c0477f3b19de40a55587864a4d5dbffeb898706b",
     "included": true
+  },
+  {
+    "scenario": "healthy-story-partial-unresolved",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "healthy-story-partial-unresolved-light.png",
+    "sha256": "edbb38106dd1c28c4632abebe32ff68fac0a0dc435692834d8c2cbeb5323f6e2",
+    "included": true
+  },
+  {
+    "scenario": "healthy-story-partial-owned-field",
+    "theme": "light",
+    "project": "mixed",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "healthy-story-partial-owned-field-light.png",
+    "sha256": "2f7286b83c5b1ca57145e6af9affb0ef4355bfd6a0ca2d11369160d13d16b1a0",
+    "included": true
+  },
+  {
+    "scenario": "healthy-story-partial-unresolved",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "healthy-story-partial-unresolved-dark.png",
+    "sha256": "a19891442a1129a4a3e5fc5ba6cdfdd6a61bc8db291c3634c1bb34126465c1c1",
+    "included": true
+  },
+  {
+    "scenario": "healthy-story-partial-owned-field",
+    "theme": "dark",
+    "project": "mixed",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "route": "/notes?view=agentic-engineering.stage&stage=ready",
+    "file": "healthy-story-partial-owned-field-dark.png",
+    "sha256": "db3953647cddb3542be7ce3129ce2e8aca8c1199e7962253b7571c659a0f09fb",
+    "included": true
   }
 ]

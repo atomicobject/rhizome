@@ -88,3 +88,7 @@ Root opened all 40 changed captures individually at original resolution after th
 ## Root follow-up: relative image fallback
 
 Root opened the two additional light/dark image-fallback captures individually at original resolution. The authored label and path remain legible, and the source button fits inside the effort prose. The paired installed cases verify that source navigation opens the exact Execution Notes section and that an absolute data image decodes. These two captures supplement the previous 47 reviewed major-state captures, whose layouts are unaffected by the localized image renderer. The manifest now contains 49 captures, with 25 committed images. This does not expand the formal accessibility claims above.
+
+## Root follow-up: partial child reads
+
+Root opened all four new captures individually at original resolution: healthy-story-partial-unresolved-light.png, healthy-story-partial-owned-field-light.png, healthy-story-partial-unresolved-dark.png and healthy-story-partial-owned-field-dark.png. Each shows the partial-read notice, disabled affected story and selected healthy sibling without horizontal overflow. The 64-case installed suite verifies that the healthy prompt remains copyable and excludes the affected story. The manifest now contains 53 captures, with 29 committed. No additional formal accessibility or below-the-fold visual claim is made.
