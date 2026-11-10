@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-11-10-08-34
 name: Starter readiness and recovery
 created-at: 2026-11-10T13:34:58Z
-status: complete
+status: active
 summary: Make installed starters complete their setup and indexing with visible readiness and recovery, and refresh ontology data after folder-only changes.
 aliases: [EFF-2026-11-10-08-34]
 governing-specs:
@@ -74,13 +74,13 @@ None identified yet.
 ## Closure Checklist
 
 - [x] Approved scope delivered or deviations recorded.
-- [x] Required gates and UI evidence recorded.
+- [ ] Final CI failures resolved; required gates and UI evidence recorded.
 - [x] Independent review completed and accepted findings fixed.
 - [x] Delivery branch and commit recorded.
 
 ## Status
 
-Complete on `feat/starter-readiness`. [PR #125](https://github.com/atomicobject/rhizome/pull/125) carries the delivery, including the final publication-race fixes. Drew authorized squash merge after the required checks pass. Rhizome Dev installation follows the repository's main-branch installation policy.
+Active while resolving fresh CI race failures. [PR #125](https://github.com/atomicobject/rhizome/pull/125) carries the delivery. Drew authorized squash merge after the required checks pass. Rhizome Dev installation follows the repository's main-branch installation policy.
 
 ## Implementation work log
 
@@ -123,3 +123,8 @@ Complete on `feat/starter-readiness`. [PR #125](https://github.com/atomicobject/
 - Further review found that single-product selection incorrectly rejected unmarked entries in `products/` and that directory visits were not counted or cancellable. Single-mode fallback now uses the existing AO knowledge validator, with regressions for a README/unmarked folder and invalid multi-product fallback. Fingerprints receive the runtime context and count every visited path, including directories. The Node readiness tests and the fingerprint/coordinator race tests passed.
 - `make check-full` passed after the fallback and traversal corrections, including Go race tests, all web tests, and the integration suites.
 - `make build` passed. The rebuilt CLI installed AO KB in a fresh disposable repository with external binary management, then `init --check --agents none` reported everything up to date.
+- A documentation-only main update required another CI run. Fresh Linux integration exposed a startup cleanup race: nonwaiting discovery released the spawn lease without recording the detached child's PID, so stop could return before a pre-election child finished writing. The parent now registers that PID before releasing ownership and kills/reaps a child whose registration fails. A paused-child regression fails without registration and passes with it. This closes the normal spawn handoff gap; it does not add a parent-crash handshake between process creation and PID publication.
+- Windows CI also timed out waiting for starter readiness. Its old assertion printed the initial empty snapshot, so the failure did not identify the final state. Diagnostics now report the last HTTP response, current snapshot, and runtime logs. Five fresh constrained-CPU repetitions passed locally; that is reproduction evidence, not a fix for the Windows timeout. The timeout remains unchanged and diagnostic CI is required.
+- The startup fix also reaps the detached child asynchronously. Without that waiter, a long-lived caller could leave a Unix zombie PID that stop would still consider alive. The regression fails both when PID registration is removed and when only the reaper is removed; it passes with both changes. The complete runtime package passed fresh race tests and vet.
+- Startup-fix verification: `make check-full INTEGRATION_PACKAGES='-count=1 ./tests/integration/...' MIXED_INTEGRATION_PACKAGES='-count=1 ./pkg/vault/cache ./pkg/anchors ./pkg/validate'` passed. It covered the runtime package under the race detector, 2172 web tests, and fresh integration executions, including the populated/empty AO KB readiness and progressive discovery fixtures. Unchanged Go package results reused valid cache entries. Windows diagnosis and final CI remain open.
+- `NO_WEB=1 make build` rebuilt the current CLI. Default documentation validation and frozen-scope-drift validation then passed with zero issues and errors.

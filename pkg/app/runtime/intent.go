@@ -124,6 +124,34 @@ func (r *Registry) CreateSpawnIntent(ctx context.Context, vaultPath, token strin
 	return created, err
 }
 
+// recordSpawnedChild makes pre-election work visible to Stop before the parent
+// releases the spawn lease or exits. Cancellation remains authoritative.
+func (r *Registry) recordSpawnedChild(ctx context.Context, vaultPath, token string, pid int) error {
+	return r.withIntentGate(ctx, vaultPath, func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		intent, err := r.readIntent(vaultPath)
+		if os.IsNotExist(err) {
+			return ErrStartCancelled
+		}
+		if err != nil {
+			return err
+		}
+		if intent.Token != token || (intent.OwnerPID != 0 && intent.OwnerPID != pid) {
+			return ErrStartCancelled
+		}
+		if intent.Cancelled {
+			return ErrStartCancelled
+		}
+		intent.OwnerPID = pid
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		return r.writeIntent(intent)
+	})
+}
+
 // ElectIntent records the owner before startup recovery. A detached child
 // must still own its parent's token; an attached serve creates its own intent.
 func (r *Registry) ElectIntent(ctx context.Context, vaultPath, token string, spawned bool, manifest InstanceManifest) error {

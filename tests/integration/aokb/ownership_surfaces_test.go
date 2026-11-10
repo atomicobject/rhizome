@@ -67,10 +67,11 @@ func rzmBinary(t *testing.T) string {
 }
 
 type aoKB struct {
-	t        *testing.T
-	root     string
-	home     string
-	authored map[string]string
+	t         *testing.T
+	root      string
+	home      string
+	authored  map[string]string
+	serveLogs []string
 }
 
 func (kb *aoKB) env() []string {
@@ -186,6 +187,7 @@ func (kb *aoKB) serve() string {
 	require.NotZero(t, port, "no free port in 7880-7899")
 	log, err := os.Create(filepath.Join(t.TempDir(), "serve.log"))
 	require.NoError(t, err)
+	kb.serveLogs = append(kb.serveLogs, log.Name())
 	command := exec.Command(rzmBinary(t), "serve", "--open=false", "--reuse-discovery-port=false", "--port", strconv.Itoa(port))
 	command.Dir, command.Env, command.Stdout, command.Stderr = kb.root, kb.env(), log, log
 	require.NoError(t, command.Start())

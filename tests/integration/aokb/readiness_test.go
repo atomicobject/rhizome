@@ -5,6 +5,7 @@ package aokb
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/modulereadiness"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/tests/integration/internal/fixture"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,17 +49,28 @@ func testInstalledStarterReadiness(t *testing.T, populated bool) {
 	var states []modulereadiness.Snapshot
 	waitFor := func(state modulereadiness.State) {
 		t.Helper()
-		require.Eventually(t, func() bool {
+		var lastRead string
+		ready := assert.Eventually(t, func() bool {
 			response, err := http.Get(base + "/api/v1/starter-readiness")
 			if err != nil {
+				lastRead = err.Error()
 				return false
 			}
 			defer response.Body.Close()
-			if json.NewDecoder(response.Body).Decode(&states) != nil {
+			data, err := io.ReadAll(io.LimitReader(response.Body, 64<<10))
+			lastRead = fmt.Sprintf("HTTP %d: %s", response.StatusCode, data)
+			if err != nil || json.Unmarshal(data, &states) != nil {
 				return false
 			}
 			return len(states) == 1 && states[0].State == state
-		}, 45*time.Second, 100*time.Millisecond, "readiness: %+v", states)
+		}, 45*time.Second, 100*time.Millisecond)
+		if !ready {
+			for _, file := range kb.serveLogs {
+				data, err := os.ReadFile(file)
+				t.Logf("runtime log %s (%v):\n%s", file, err, data)
+			}
+			t.Fatalf("waiting for %s; readiness: %+v; last response: %s", state, states, lastRead)
+		}
 	}
 	waitFor(modulereadiness.Ready)
 	kb.requireUnchanged()

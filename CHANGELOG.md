@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Stopping a just-started runtime waits for its detached child to exit before repository cleanup.
 - Installed starters now complete eligible setup and indexing automatically through the runtime. Unfinished setup stays visible across navigation and reopening, with product selection, concrete conflict and dependency reasons, Settings recovery, and Retry. CLI installations use the same readiness owner; existing schemas and AO knowledge remain intact.
 - Refine Agentic Engineering Delivery lists, source notices, sorting, and contextual navigation; load Markdown tooling only in views that use it.
 - Agentic Engineering now includes a Delivery experience: a workflow map, selectable shaping and implementation lists with composed agent prompts, full inline spec criteria, source-grounded effort resume briefs, and a contextual Find and Recent panel. Frozen scope stays separate from governing metadata and mentions; missing evidence never becomes approval or completion.
