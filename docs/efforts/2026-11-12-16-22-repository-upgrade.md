@@ -55,6 +55,8 @@ All three stories are implemented. The bridge `upgrade-plan` operation shares th
 - Design review against the worker's captures (plan, progress, failed file update, result, toolbar pill, light and dark) kept the layout and changed two controls in `99e6ad40e`: Cancel is hidden while a step runs instead of shown disabled, and the "Update Rhizome files" pill stays hidden while the upgrade sheet is open.
 - Sol review: round 1 raised one `should` (the restart step completes when native `open` is acknowledged, before startup finishes). Declined with evidence: native open events drive `open.step` to "error" and the workspace's existing error panel offers "Try again", the same behavior the previous `onAdvance` had. Round 2 marked it resolved and approved.
 - Verification on the merged branch: `make check` passed (Go unit tests and 272 web test files, 2224 tests); `cd desktop && npm run check` passed (184 tests); `make desktop-check` passed (184 desktop tests, 146 Rust tests, Clippy). The desktop worker reported `make desktop-build` passing and the packaged app opening a disposable repository on its branch. The Go worker's broad runs on its branch failed `TestStartCommandOpenFlagCanBeDisabled` and `TestRunHeadlessSurvivesUnavailableDiagnosticsCapture` in untouched code while both workers ran concurrently; both passed individually and the merged-branch `make check` passed.
+- Greptile on PR #133: the first pass (3/5) found that a partial `rzm update` failure skipped the file refresh, that the refresh decision belonged below Cobra, and that command tests bypassed the invocation wrapper. A Sol fix worker moved the decision into `update.Result.RepositoryRefreshExecutable`, refreshes completed targets before returning joined errors, runs command tests through the wrapper, and passes native paths, which also fixed the Windows `cmd-validate` failure. The second pass (4/5) found that Retry stuck when `pin-advance` errored after saving the pin; the sheet now checks the saved pin and continues. The third pass (5/5) noted a POSIX-only copied command and a preview from a different build in unbundled bridges; the command is PowerShell-safe on Windows and the preview runs the executable that reports the offered version. The final pass rated 5/5 with no findings.
+- The Windows `web-cli` job failed `TestTheDeadlineBoundsTheWholeInvocation` in the untouched hook package during temp-folder cleanup: the killed handler still held its working directory. It is unrelated to this change and left for a separate fix.
 
 ## Deviations
 
@@ -68,6 +70,8 @@ All three stories are implemented. The bridge `upgrade-plan` operation shares th
 - [ ] Offer per-file keep or take choices for edited generated files in the desktop upgrade sheet. #action-item
   assignee:: [[Drew Colthorp]]
 - [ ] Click through a real pin upgrade in the packaged app once a release newer than a fixture's pin exists, including a failed file update and Retry. #action-item
+  assignee:: [[Drew Colthorp]]
+- [ ] Fix the Windows cleanup race in `TestTheDeadlineBoundsTheWholeInvocation` (`pkg/app/cli/hook`): wait for the killed handler to exit before the test's temp folder is removed. #action-item
   assignee:: [[Drew Colthorp]]
 
 ## Closure Checklist
