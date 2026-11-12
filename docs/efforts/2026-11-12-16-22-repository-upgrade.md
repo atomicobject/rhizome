@@ -78,4 +78,4 @@ All three stories are implemented. The bridge `upgrade-plan` operation shares th
 
 ## Status
 
-Complete on `t3/desktop-skill-init-upgrade`. The pull request number is recorded once it exists.
+Complete on `t3/desktop-skill-init-upgrade` for [PR #133](https://github.com/atomicobject/rhizome/pull/133), left open and unmerged for Drew.
