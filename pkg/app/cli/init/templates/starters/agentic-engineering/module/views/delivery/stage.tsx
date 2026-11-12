@@ -250,7 +250,7 @@ export function DeliveryStage({
             : rows.map(renderRow)}
           {!rows.length && <EmptyGroup stage={group.stage} />}
         </section>
-        {rows.length > 0 && (
+        {(rows.length > 0 || unavailable.length > 0) && (
           <aside>
             {unavailable.length > 0 && (
               <Notice role="alert">

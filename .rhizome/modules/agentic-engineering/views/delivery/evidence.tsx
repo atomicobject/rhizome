@@ -58,6 +58,10 @@ function SourceAnchor({
     return (
       <span title={`Link unavailable in this read: ${target}`}>
         {children}
+        <span className="ae-note" aria-hidden="true">
+          {" "}
+          (unavailable)
+        </span>
         <span className="ae-visually-hidden" role="status">
           (recorded link unavailable in this read: {target})
         </span>

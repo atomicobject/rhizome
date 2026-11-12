@@ -341,10 +341,16 @@ export function RowFacts({
   return (
     <Facts note={hideStatus ? undefined : <RecordedStatus status={record.status} />}>
       {row.kind === "spec" && (
-        <Fact value={row.record.stories.length}>{unit(row.record.stories.length, "stories")}</Fact>
+        <Fact
+          value={`${row.record.storiesCoverage.complete ? "" : "≥"}${row.record.stories.length}`}
+        >
+          {unit(row.record.stories.length, "stories")}
+        </Fact>
       )}
       {row.kind === "story" && (
-        <Fact value={row.record.criteria.length}>
+        <Fact
+          value={`${row.record.criteriaCoverage.complete ? "" : "≥"}${row.record.criteria.length}`}
+        >
           {unit(row.record.criteria.length, "criteria")}
         </Fact>
       )}
