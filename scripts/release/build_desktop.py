@@ -17,13 +17,13 @@ import platform
 import shutil
 import subprocess
 import sys
+import tarfile
 from typing import Any, Callable, Mapping, Sequence
 
 from run_clean import sensitive_name
 from verify_desktop_signing import PUBKEY_PLACEHOLDER, DesktopSigningError, verify_archive
 from apple_signing import APPLE_SIGNING, AppleSigningError, credentials, desktop_credentials, notarizes, notarize_dmg, require_credentials, verify_distribution
-from desktop_candidates import CandidateError
-from join_desktop import join
+from desktop_candidates import CandidateError, MANIFEST, candidate_manifest, mac_sidecar_inventory, sha256
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -33,9 +33,9 @@ DMG = "Rhizome-macos-arm64.dmg"
 ARCHIVE = "Rhizome-macos-arm64.app.tar.gz"
 SIGNATURE = ARCHIVE + ".sig"
 FEED = "latest.json"
-OUTPUTS = (DMG, ARCHIVE, SIGNATURE, FEED,
-           "Rhizome-linux-x64.AppImage", "Rhizome-linux-x64.AppImage.sig", "Rhizome-linux-arm64.AppImage",
-           "Rhizome-linux-arm64.AppImage.sig", "desktop-assembly.json")
+OUTPUTS = (DMG, ARCHIVE, SIGNATURE, FEED)
+# CI release builds stage the unsigned Mac updater candidate here for the Linux coordinator.
+CANDIDATE_DIR = "darwin-aarch64"
 DOWNLOAD_URL = "https://github.com/atomicobject/rhizome/releases/download/v{version}/" + ARCHIVE
 SIGNING_KEY = "TAURI_SIGNING_PRIVATE_KEY"
 # The Tauri CLI reads both from its environment to sign the updater archive.
@@ -59,7 +59,17 @@ def skip_reason(arch: str, snapshot: bool, environ: Mapping[str, str]) -> str | 
     return None
 
 
+def ci_candidate(environ: Mapping[str, str]) -> bool:
+    """A CI release build produces an unsigned updater candidate; the Linux coordinator signs it."""
+    return environ.get("RZM_RELEASE_DESKTOP") == "1" and bool(environ.get("RZM_CI_RELEASE_VERSION"))
+
+
 def signs_updater(environ: Mapping[str, str]) -> bool:
+    if ci_candidate(environ):
+        if any(environ.get(name, "").strip() for name in SIGNING_ENV):
+            raise DesktopBuildError("CI release candidates must not receive the updater signing key; "
+                                    "the protected Linux coordinator signs every updater package")
+        return False
     if environ.get(SIGNING_KEY, "").strip():
         return True
     if environ.get("RZM_RELEASE_DESKTOP") == "1":
@@ -133,6 +143,38 @@ def update_feed(version: str, signature: str, published: datetime) -> dict[str, 
 def clear_outputs(output_dir: Path) -> None:
     for name in OUTPUTS:
         (output_dir / name).unlink(missing_ok=True)
+    shutil.rmtree(output_dir / CANDIDATE_DIR, ignore_errors=True)
+
+
+def updater_archive(app: Path) -> Path:
+    """Pack the stapled app as Tauri's updater bundler does: one gzip tar of Rhizome.app, symlinks kept."""
+    archive = app.with_name(app.name + ".tar.gz")
+    with tarfile.open(archive, "w:gz", format=tarfile.GNU_FORMAT) as bundle:
+        bundle.add(app, arcname=app.name)
+    return archive
+
+
+def stage_candidate(root: Path, rzm: Path, version: str, archive: Path, output: Path, *,
+                    runner: Runner, env: Mapping[str, str]) -> list[Path]:
+    """Record the notarized Mac updater archive as an unsigned same-run candidate."""
+    commit = runner(["git", "rev-parse", "HEAD"], cwd=root, env=env, check=True,
+                    capture_output=True, text=True).stdout.strip()
+    tools = {}
+    for name, command in [("go", ["go", "version"]), ("rust", ["rustc", "--version"]),
+                          ("tauri", ["npm", "run", "tauri", "--", "--version"])]:
+        tools[name] = runner(command, cwd=root / "desktop", env=env, check=True,
+                             capture_output=True, text=True).stdout.strip()
+    inventory = mac_sidecar_inventory(archive)
+    manifest = candidate_manifest(target="darwin-aarch64", version=version, commit=commit, package=archive,
+                                  cli_hash=sha256(rzm), packaged_cli_hash=inventory[0]["sha256"],
+                                  inventory=inventory, native_signature={"status": "notarized"},
+                                  toolchains=tools, production=True)
+    candidate = output / CANDIDATE_DIR
+    candidate.mkdir()
+    shutil.copyfile(rzm, candidate / "rzm")
+    shutil.copyfile(archive, candidate / ARCHIVE)
+    (candidate / MANIFEST).write_text(json.dumps(manifest, indent=2) + "\n")
+    return [candidate / "rzm", candidate / ARCHIVE, candidate / MANIFEST]
 
 
 def clear_bundle(bundle_dir: Path) -> None:
@@ -245,6 +287,9 @@ def build(
         env=env, check=True,
     )
     outputs = bundle_outputs(bundle_dir, updater=updater)
+    candidate = ci_candidate(environ)
+    if candidate:
+        outputs[ARCHIVE] = updater_archive(bundle_dir / "macos/Rhizome.app")
     if updater:
         try:
             verify_archive(root, outputs[ARCHIVE], outputs[SIGNATURE], environ=env, runner=runner)
@@ -255,15 +300,15 @@ def build(
                             environ["APPLE_SIGNING_IDENTITY"], runner=runner, env=env)
     output_dir = root / OUTPUT_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
+    if candidate:
+        shutil.copyfile(outputs[DMG], output_dir / DMG)
+        return [output_dir / DMG, *stage_candidate(root, rzm, version, outputs[ARCHIVE], output_dir,
+                                                   runner=runner, env=env)]
     staged = []
     for name, source in outputs.items():
         shutil.copyfile(source, output_dir / name)
         staged.append(output_dir / name)
-    if environ.get("RZM_RELEASE_DESKTOP") == "1" and environ.get("RZM_CI_RELEASE_VERSION"):
-        staged += [path for path in join(root, rzm, version, output_dir, source=dict(environ), runner=runner,
-                                       candidate_only=environ.get("RZM_CI_RELEASE_CANDIDATE_ONLY") == "true")
-                   if path not in staged]
-    elif updater:
+    if updater:
         signature = (output_dir / SIGNATURE).read_text(encoding="utf-8")
         feed = update_feed(version, signature, now())
         (output_dir / FEED).write_text(json.dumps(feed, indent=2) + "\n", encoding="utf-8")

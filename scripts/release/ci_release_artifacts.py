@@ -25,11 +25,13 @@ from verify_desktop_signing import DesktopSigningError, verify_archive
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGETS = ("darwin-arm64", "darwin-amd64", "linux-arm64", "linux-amd64", "windows-amd64")
-# The linux group builds both Linux CLIs and the unsigned Windows CLI. The
-# linux-arm64 group packages the arm64 one on an Arm host, so it carries a
-# copy of those same canonical bytes. Windows desktop packages are not published.
-GROUPS = {"linux": TARGETS[2:], "linux-arm64": TARGETS[2:3], "macos": TARGETS[:2]}
-NATIVE_GROUPS = {"linux": "linux-x86_64", "linux-arm64": "linux-aarch64"}
+# Each group builds its own CLIs and one unsigned desktop candidate, so the
+# three native jobs run concurrently. The linux group also builds the unsigned
+# Windows CLI; Windows desktop packages are not published.
+GROUPS = {"linux": ("linux-amd64", "windows-amd64"), "linux-arm64": ("linux-arm64",),
+          "macos": ("darwin-arm64", "darwin-amd64")}
+NATIVE_GROUPS = {"linux": "linux-x86_64", "linux-arm64": "linux-aarch64", "macos": "darwin-aarch64"}
+MAC_DMG = "Rhizome-macos-arm64.dmg"
 # The CLI archive whose bytes each desktop package carries as its sidecar.
 DESKTOP_CLI = {"darwin-aarch64": "darwin-arm64", "linux-x86_64": "linux-amd64", "linux-aarch64": "linux-arm64"}
 DESKTOP = ("Rhizome-macos-arm64.dmg", "Rhizome-macos-arm64.app.tar.gz",
@@ -140,11 +142,15 @@ def build_metadata(dist, source, version):
         raise ArtifactError("GoReleaser metadata version or source mismatch")
 
 
+def candidate_files(platform):
+    target = NATIVE_GROUPS[platform]
+    return (CANDIDATE_MANIFEST, DESKTOP_TARGETS[target]["cli"], DESKTOP_TARGETS[target]["asset"])
+
+
 def expected_group(platform):
-    return {f"bin/{target}/{binary_name(target)}" for target in GROUPS[platform]} | (
-        {f"desktop/{name}" for name in DESKTOP} if platform == "macos" else {
-            f"candidate/{name}" for name in (CANDIDATE_MANIFEST, DESKTOP_TARGETS[NATIVE_GROUPS[platform]]["cli"],
-                                            DESKTOP_TARGETS[NATIVE_GROUPS[platform]]["asset"])})
+    return ({f"bin/{target}/{binary_name(target)}" for target in GROUPS[platform]}
+            | {f"candidate/{name}" for name in candidate_files(platform)}
+            | ({f"desktop/{MAC_DMG}"} if platform == "macos" else set()))
 
 
 def write_manifest(directory, source, version, files, platform=None, *, candidate_only=False):
@@ -176,7 +182,7 @@ def validate_manifest(directory, source, version, *, platform=None, candidate_on
     for relative, checksum in value["files"].items():
         if not isinstance(checksum, str) or not re.fullmatch(r"[0-9a-f]{64}", checksum) or digest(regular(directory, directory / relative)) != checksum:
             raise ArtifactError(f"artifact checksum mismatch: {relative}")
-    if platform in NATIVE_GROUPS:
+    if platform:
         target = NATIVE_GROUPS[platform]
         cli_target = DESKTOP_CLI[target]
         canonical = digest(directory / "bin" / cli_target / binary_name(cli_target))
@@ -234,7 +240,7 @@ def collect(platform, source, version, dist, extras, output, *, candidate=None, 
     output.mkdir(parents=True)
     for target in GROUPS[platform]:
         goos, goarch = target.split("-")
-        build_id = {"darwin": "rzm-darwin", "linux": "rzm-linux", "windows": "rzm-windows-amd64"}[goos]
+        build_id = "rzm-darwin" if goos == "darwin" else f"rzm-{target}"
         paths = list(dist.glob(f"{build_id}_{goos}_{goarch}*/{binary_name(target)}"))
         if len(paths) != 1:
             raise ArtifactError(f"expected exactly one GoReleaser binary: {target}")
@@ -247,19 +253,14 @@ def collect(platform, source, version, dist, extras, output, *, candidate=None, 
         destination.chmod(0o755)
     if platform == "macos":
         (output / "desktop").mkdir()
-        for name in DESKTOP:
-            shutil.copyfile(regular(extras, extras / name), output / "desktop" / name)
-        assembly = validate_feed(output / "desktop", version, source, candidate_only=candidate_only)
-        if assembly["canonicalCliSha256"]["darwin-aarch64"] != digest(output / "bin/darwin-arm64/rzm"):
-            raise ArtifactError("Mac desktop sidecar source differs from the canonical archived CLI")
-    else:
-        if candidate is None:
-            raise ArtifactError("native CLI collection requires its final packaged candidate")
-        if inventory(candidate) != {CANDIDATE_MANIFEST, DESKTOP_TARGETS[NATIVE_GROUPS[platform]]["cli"], DESKTOP_TARGETS[NATIVE_GROUPS[platform]]["asset"]}:
-            raise ArtifactError("native candidate contains unexpected producer files")
-        for name in (CANDIDATE_MANIFEST, DESKTOP_TARGETS[NATIVE_GROUPS[platform]]["cli"], DESKTOP_TARGETS[NATIVE_GROUPS[platform]]["asset"]):
-            (output / "candidate").mkdir(exist_ok=True)
-            shutil.copyfile(regular(candidate, candidate / name), output / "candidate" / name)
+        shutil.copyfile(regular(extras, extras / MAC_DMG), output / "desktop" / MAC_DMG)
+    if candidate is None:
+        raise ArtifactError("native CLI collection requires its final packaged candidate")
+    if inventory(candidate) != set(candidate_files(platform)):
+        raise ArtifactError("native candidate contains unexpected producer files")
+    (output / "candidate").mkdir()
+    for name in candidate_files(platform):
+        shutil.copyfile(regular(candidate, candidate / name), output / "candidate" / name)
     write_manifest(output, source, version, expected_group(platform), platform, candidate_only=candidate_only)
     return validate_manifest(output, source, version, platform=platform, candidate_only=candidate_only)
 
@@ -290,8 +291,7 @@ def prepare_native(source, version, inputs, output, *, candidate_only=False):
 def validate_native_inputs(directory, source, version, *, candidate_only=False):
     identity(source, version)
     value = json.loads(regular(directory, directory / "native-inputs.json").read_text())
-    expected = {f"{target}/{name}" for target in NATIVE_GROUPS.values() for name in
-                (CANDIDATE_MANIFEST, DESKTOP_TARGETS[target]["cli"], DESKTOP_TARGETS[target]["asset"])}
+    expected = {f"{NATIVE_GROUPS[platform]}/{name}" for platform in NATIVE_GROUPS for name in candidate_files(platform)}
     if (not isinstance(value, dict) or value.get("source_commit") != source or value.get("version") != version
             or value.get("candidate_only") is not candidate_only
             or not isinstance(value.get("files"), dict) or set(value["files"]) != expected
@@ -323,7 +323,8 @@ def write_archive(path, binary, licenses, root):
                     archive.addfile(entry, content)
 
 
-def assemble(source, version, inputs, output, *, root=ROOT, scanner=scan, verifier=verify_archive, candidate_only=False):
+def assemble(source, version, inputs, desktop, output, *, root=ROOT, scanner=scan, verifier=verify_archive, candidate_only=False):
+    """Combine the native groups with the coordinator's signed desktop feed (join_desktop.py)."""
     identity(source, version)
     groups = {}
     for directory in inputs:
@@ -339,15 +340,17 @@ def assemble(source, version, inputs, output, *, root=ROOT, scanner=scan, verifi
         raise ArtifactError("assembly needs every native build group and a new output directory")
     licenses = license_files(root)
     output.mkdir(parents=True)
+    owners = {target: platform for platform, targets in GROUPS.items() for target in targets}
     for target in TARGETS:
-        directory = groups["macos" if target.startswith("darwin-") else "linux"]
+        directory = groups[owners[target]]
         binary = regular(directory, directory / "bin" / target / binary_name(target))
         scanner(binary)
         write_archive(output / f"rhizome-{target}.tar.gz", binary, licenses, root)
     installer = stage_installer(output, root / "scripts/install/install-rzm.sh")
     scanner(installer)
     for name in DESKTOP:
-        shutil.copyfile(groups["macos"] / "desktop" / name, output / name)
+        shutil.copyfile(regular(groups["macos"], groups["macos"] / "desktop" / name) if name == MAC_DMG
+                        else regular(desktop, desktop / name), output / name)
     desktop = validate_feed(output, version, source, candidate_only=candidate_only)
     for platform, target in NATIVE_GROUPS.items():
         name = DESKTOP_TARGETS[target]["asset"]
@@ -401,6 +404,7 @@ def main(argv=None):
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--candidate-only", action="store_true")
     parser.add_argument("--input", type=Path, action="append", default=[])
+    parser.add_argument("--desktop", type=Path, help="signed desktop feed from join_desktop.py")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
     try:
@@ -408,8 +412,8 @@ def main(argv=None):
             collect(args.platform, args.source, args.version, args.dist, args.extras, args.output, candidate=args.candidate, candidate_only=args.candidate_only)
         elif args.command == "prepare-native" and args.output:
             prepare_native(args.source, args.version, args.input, args.output, candidate_only=args.candidate_only)
-        elif args.command == "assemble" and args.output:
-            assemble(args.source, args.version, args.input, args.output, candidate_only=args.candidate_only)
+        elif args.command == "assemble" and args.desktop and args.output:
+            assemble(args.source, args.version, args.input, args.desktop, args.output, candidate_only=args.candidate_only)
         elif args.command == "verify" and len(args.input) == 1:
             verify_bundle(args.source, args.version, args.input[0], candidate_only=args.candidate_only)
         else:

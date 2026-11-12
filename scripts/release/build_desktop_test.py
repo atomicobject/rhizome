@@ -8,11 +8,13 @@ import json
 from pathlib import Path
 import os
 import subprocess
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
 
 import build_desktop
+from desktop_candidates import read_candidate, sha256
 from build_desktop import (
     NO_UPDATER_ARTIFACTS,
     DesktopBuildError,
@@ -24,6 +26,7 @@ from build_desktop import (
 )
 
 
+COMMIT = "c" * 40
 PUBLISHED = datetime(2026, 10, 17, 18, 30, 5, tzinfo=timezone.utc)
 APPLE = {"APPLE_SIGNING_IDENTITY": "Developer ID Application: Example LLC (ABCDEFGHIJ)",
          "APPLE_API_KEY": "synthetic-id", "APPLE_API_ISSUER": "synthetic-issuer",
@@ -57,13 +60,19 @@ class FakeTauri:
             return subprocess.CompletedProcess(command, code, "", "")
         if command[:3] == ["xcrun", "notarytool", "submit"]:
             return subprocess.CompletedProcess(command, 0, '{"status":"Accepted"}', "")
+        if command[:2] == ["git", "rev-parse"]:
+            return subprocess.CompletedProcess(command, 0, COMMIT + "\n", "")
+        if command[-1] == "--version" or command[:2] == ["go", "version"]:
+            return subprocess.CompletedProcess(command, 0, "synthetic toolchain\n", "")
         if command[:3] == ["npm", "run", "tauri"]:
             if "--no-bundle" in command:
                 return
             bundle = self.root / build_desktop.BUNDLE_DIR
             (bundle / "dmg").mkdir(parents=True)
             (bundle / "dmg/Rhizome_0.51.0_aarch64.dmg").write_text("dmg")
-            (bundle / "macos/Rhizome.app").mkdir(parents=True)
+            (bundle / "macos/Rhizome.app/Contents/MacOS").mkdir(parents=True)
+            (bundle / "macos/Rhizome.app/Contents/MacOS/rzm").write_text("Developer ID signed sidecar")
+            (bundle / "macos/Rhizome.app/Contents/Frameworks").symlink_to("MacOS")
             if NO_UPDATER_ARTIFACTS not in command:
                 (bundle / "macos/Rhizome.app.tar.gz").write_text("archive")
                 (bundle / "macos/Rhizome.app.tar.gz.sig").write_text("c2lnbmF0dXJl\n")
@@ -146,47 +155,39 @@ class BuildTest(unittest.TestCase):
         for command in self.runner.commands():
             self.assertNotIn('{"build":{"beforeBuildCommand":"npm run rzm"}}', command)
 
-    def test_signed_build_stages_stable_names_and_update_feed(self) -> None:
+    def test_ci_release_stages_an_unsigned_notarized_candidate_for_the_coordinator(self) -> None:
         stale = self.root / build_desktop.BUNDLE_DIR / "dmg/Rhizome_0.50.0_aarch64.dmg"
         stale.parent.mkdir(parents=True)
         stale.write_text("old")
 
-        def joined(root, rzm, version, output, **kwargs):
-            (output / "latest.json").write_text(json.dumps(update_feed(version, "c2lnbmF0dXJl", PUBLISHED)))
-            return [output / "latest.json"]
+        with patch.object(build_desktop, "verify_distribution") as verify, patch.object(build_desktop, "notarize_dmg"):
+            staged = self.build({**APPLE, "RZM_RELEASE_DESKTOP": "1", "RZM_CI_RELEASE_VERSION": "0.51.0",
+                                 "GITHUB_TOKEN": "synthetic-github"})
 
-        with patch.object(build_desktop, "verify_distribution") as verify, patch.object(build_desktop, "notarize_dmg"), \
-                patch.object(build_desktop, "join", side_effect=joined) as join:
-            staged = self.build({
-                **APPLE,
-                "RZM_RELEASE_DESKTOP": "1",
-                "RZM_CI_RELEASE_VERSION": "0.51.0",
-                "TAURI_SIGNING_PRIVATE_KEY": "synthetic-key",
-                "TAURI_SIGNING_PRIVATE_KEY_PASSWORD": "synthetic-password",
-                "GITHUB_TOKEN": "synthetic-github",
-            })
-        verify.assert_called_once()
-        join.assert_called_once()
-
-        self.assertEqual(
-            ["Rhizome-macos-arm64.dmg", "Rhizome-macos-arm64.app.tar.gz",
-             "Rhizome-macos-arm64.app.tar.gz.sig", "latest.json"],
-            [path.name for path in staged],
-        )
+        candidate = self.output / build_desktop.CANDIDATE_DIR
+        archive = candidate / "Rhizome-macos-arm64.app.tar.gz"
+        self.assertEqual([self.output / "Rhizome-macos-arm64.dmg", candidate / "rzm", archive,
+                          candidate / "desktop-candidate.json"], staged)
         self.assertEqual("dmg", (self.output / "Rhizome-macos-arm64.dmg").read_text())
-        feed = json.loads((self.output / "latest.json").read_text())
-        self.assertEqual("c2lnbmF0dXJl", feed["platforms"]["darwin-aarch64"]["signature"])
+        # Only the Linux coordinator signs updater packages and writes the feed.
+        self.assertEqual([], [path.name for path in self.output.rglob("*") if path.suffix in {".sig", ".json"}
+                              and path.name != "desktop-candidate.json"])
+        # Gatekeeper checks the exact archive the coordinator will sign.
+        self.assertEqual(self.root / build_desktop.BUNDLE_DIR / "macos/Rhizome.app.tar.gz", verify.call_args.args[2])
+        with tarfile.open(archive) as bundle:
+            self.assertTrue(bundle.getmember("Rhizome.app/Contents/Frameworks").issym())
+            self.assertIn("Rhizome.app/Contents/MacOS/rzm", bundle.getnames())
+        manifest, _ = read_candidate(candidate, version="0.51.0", commit=COMMIT, canonical_hash=sha256(self.rzm),
+                                     production=True)
+        self.assertNotEqual(manifest["canonicalCliSha256"], manifest["packagedCliSha256"])
         compile_env = self.runner.calls[0][1]["env"]
         self.assertNotIn("APPLE_API_PRIVATE_KEY", compile_env)
-        self.assertNotIn("TAURI_SIGNING_PRIVATE_KEY", compile_env)
         tauri, kwargs = self.runner.calls[1]
-        self.assertNotIn(NO_UPDATER_ARTIFACTS, tauri)
+        self.assertEqual(NO_UPDATER_ARTIFACTS, tauri[-1])
         self.assertEqual(self.root / "desktop", kwargs["cwd"])
         env = kwargs["env"]
         self.assertEqual(str(self.rzm.resolve()), env["RZM_DESKTOP_PREBUILT_RZM"])
         self.assertEqual("true", env["CI"])
-        self.assertEqual("synthetic-key", env["TAURI_SIGNING_PRIVATE_KEY"])
-        self.assertEqual("synthetic-password", env["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"])
         self.assertNotIn("GITHUB_TOKEN", env)
         self.assertTrue(env["PATH"].startswith(str(self.home / ".cargo/bin")))
         self.assertEqual(["xcrun", "stapler", "validate"], self.runner.commands()[2][:3])
@@ -198,13 +199,19 @@ class BuildTest(unittest.TestCase):
         self.assertTrue(content_check[1].endswith("scripts/teamkeys/release.py"))
         self.assertTrue(content_check[3].endswith("Rhizome.app/Contents/MacOS/rhizome-desktop"))
 
+    def test_ci_release_refuses_the_updater_signing_key(self) -> None:
+        for name in build_desktop.SIGNING_ENV:
+            with self.subTest(name=name), self.assertRaisesRegex(DesktopBuildError, "must not receive"):
+                self.build({**APPLE, "RZM_RELEASE_DESKTOP": "1", "RZM_CI_RELEASE_VERSION": "0.51.0",
+                            name: "synthetic-key"})
+        self.assertEqual([], self.runner.calls)
+
     def test_existing_notarization_snapshot_does_not_require_native_candidates(self):
-        with patch.object(build_desktop, "verify_distribution"), patch.object(build_desktop, "notarize_dmg"), \
-                patch.object(build_desktop, "join") as join:
+        with patch.object(build_desktop, "verify_distribution"), patch.object(build_desktop, "notarize_dmg"):
             build(self.rzm, "0.51.0-SNAPSHOT-test", environ={"PATH": "/usr/bin", **APPLE,
                 "RZM_RELEASE_DESKTOP": "1", "TAURI_SIGNING_PRIVATE_KEY": "synthetic-key"}, root=self.root,
                 runner=self.runner, machine="arm64", home=self.home)
-        join.assert_not_called()
+        self.assertFalse((self.output / build_desktop.CANDIDATE_DIR).exists())
         self.assertTrue((self.output / "latest.json").is_file())
 
     def test_unstapled_app_rebuilds_the_bundle_once(self) -> None:

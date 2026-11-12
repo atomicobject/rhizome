@@ -64,6 +64,9 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         self.assertIn("retention-days: 30", jobs["assemble"])
         self.assertIn("retention-days: 30", publish)
         self.assertIn("needs: [select, linux, linux-arm64, mac]", jobs["assemble"])
+        # Every platform build waits only for the shared Linux preparation, so all three run concurrently.
+        for name in ("linux", "linux-arm64", "mac"):
+            self.assertIn("needs: [select, common]\n", jobs[name])
         self.assertIn("ci_release_artifacts.py assemble", jobs["assemble"])
         self.assertIn("ci_release_artifacts.py verify", jobs["assemble"])
         for name, job in jobs.items():
@@ -86,30 +89,28 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         self.assertIn("ci_release_frontend.py create", common)
         self.assertIn("GOOS: darwin\n          GOARCH: arm64", common)
         self.assertIn("gitleaks/v8@v8.30.1", common)
-        self.assertIn("--id rzm-linux", linux)
+        self.assertIn("--id rzm-linux-amd64", linux)
+        self.assertNotIn("rzm-linux-arm64", linux)
         # Windows desktop packages are not published; the Linux job builds the unsigned Windows CLI.
         self.assertIn("--id rzm-windows-amd64", linux)
         self.assertIn("gcc-mingw-w64-x86-64", linux)
         self.assertIn("runs-on: ubuntu-24.04", linux)
         self.assertIn("build_native_desktop.py --target linux-x86_64", linux)
-        self.assertIn("needs: [select, common, linux, linux-arm64]", mac)
         arm = jobs["linux-arm64"]
         self.assertIn("runs-on: ubuntu-24.04-arm", arm)
-        self.assertIn("needs: [select, common, linux]", arm)
-        # The Arm job packages the canonical arm64 CLI built by the x64 Linux job.
-        self.assertIn("name: release-linux-arm64-cli", linux)
-        self.assertIn("name: release-linux-arm64-cli", arm)
-        self.assertNotIn("goreleaser", arm)
+        # The Arm job builds the only linux-arm64 CLI, so its archive and AppImage carry the same bytes.
+        self.assertIn("--id rzm-linux-arm64", arm)
+        self.assertNotIn("release-linux-arm64-cli", WORKFLOW.read_text())
         self.assertIn("build_native_desktop.py --target linux-aarch64", arm)
         self.assertIn("collect --platform linux-arm64", arm)
         self.assertIn("ci_release_frontend.py extract", arm)
         self.assertNotIn("npm --prefix desktop run build", arm)
-        self.assertIn("ci_release_artifacts.py prepare-native", mac)
         self.assertIn("--id rzm-darwin", mac)
-        for job in (linux, mac):
+        for job in (linux, arm, mac):
             self.assertIn("ci_release_frontend.py extract", job)
             self.assertIn("goreleaser build --snapshot --clean --skip=before", job)
-        for forbidden in ("npm --prefix web", "npm --prefix desktop run build", "go install", "--id rzm-linux"):
+        for forbidden in ("npm --prefix web", "npm --prefix desktop run build", "go install", "--id rzm-linux",
+                          "release-linux", "prepare-native"):
             self.assertNotIn(forbidden, mac)
         self.assertIn("RZM_DESKTOP_PREBUILT_FRONTEND: '1'", mac)
 
@@ -124,8 +125,7 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         for secret in ("APPLE_CERTIFICATE", "APPLE_CERTIFICATE_PASSWORD", "APPLE_API_PRIVATE_KEY"):
             self.assertIn(f"{secret}: ${{{{ secrets.{secret} }}}}", prepare)
             self.assertNotIn(f"secrets.{secret} }}}}", build)
-        for secret in ("APPLE_SIGNING_IDENTITY", "APPLE_API_KEY", "APPLE_API_ISSUER",
-                       "TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"):
+        for secret in ("APPLE_SIGNING_IDENTITY", "APPLE_API_KEY", "APPLE_API_ISSUER"):
             self.assertIn(f"{secret}: ${{{{ secrets.{secret} }}}}", build)
         self.assertIn("RZM_RELEASE_DESKTOP: '1'", build)
         self.assertIn("RZM_NOTARIZE_DESKTOP: '1'", build)
@@ -136,27 +136,44 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
             with self.subTest(job=name):
                 if name != "mac":
                     self.assertNotIn("secrets.APPLE_", job)
-                    self.assertNotIn("secrets.TAURI_", job)
+                if name != "assemble":
+                    self.assertNotIn("TAURI_SIGNING", job)
                 for forbidden in ("bundle_team_keys", "ATOMIC_RHIZOME_KEY", "OPENAI_API_KEY"):
                     self.assertNotIn(forbidden, job)
 
-    def test_native_credentials_and_same_run_candidates_have_one_coordinator(self):
+    def test_one_protected_linux_coordinator_signs_every_updater_package(self):
         jobs = self.jobs()
-        mac = jobs['mac']
+        assemble = jobs['assemble']
         self.assertNotIn('windows', jobs)
-        self.assertIn('name: release-linux', mac)
         self.assertNotIn('release-windows', WORKFLOW.read_text())
-        self.assertLess(mac.index('ci_release_artifacts.py prepare-native'), mac.index('ci_desktop_signing.py prepare'))
-        self.assertIn('RZM_DESKTOP_CANDIDATES_DIR:', mac)
+        self.assertIn('environment: release', assemble)
+        self.assertIn('runs-on: ubuntu-latest', assemble)
+        for name in ('release-linux', 'release-linux-arm64', 'release-macos'):
+            self.assertIn(f'name: {name}\n', assemble)
+        prepare = assemble.index('ci_release_artifacts.py prepare-native')
+        sign = assemble.split('      - name: Sign every updater package and write the complete feed\n', 1)[1].split('      - name:', 1)[0]
+        self.assertIn('--input .tmp/ci-release/macos', assemble[prepare:])
+        self.assertLess(prepare, assemble.index('secrets.TAURI_SIGNING_PRIVATE_KEY'))
+        self.assertIn('join_desktop.py', sign)
+        for secret in ('TAURI_SIGNING_PRIVATE_KEY', 'TAURI_SIGNING_PRIVATE_KEY_PASSWORD'):
+            self.assertEqual(1, assemble.count(f'secrets.{secret} }}'))
+            self.assertIn(f'{secret}: ${{{{ secrets.{secret} }}}}', sign)
+        self.assertNotIn('secrets.', assemble.replace(sign, ''))
+        self.assertIn('npm --prefix desktop ci', assemble)
+        self.assertIn('--desktop .tmp/ci-release/desktop', assemble)
+        self.assertLess(assemble.index('join_desktop.py'), assemble.index('ci_release_artifacts.py assemble'))
+        # The Mac job hands over an unsigned updater archive and never sees another platform.
+        mac = jobs['mac']
+        self.assertIn('--candidate .tmp/goreleaser-extra/darwin-aarch64', mac)
+        for obsolete in ('RZM_DESKTOP_CANDIDATES_DIR', 'RZM_CI_RELEASE_CANDIDATE_ONLY', 'name: release-linux'):
+            self.assertNotIn(obsolete, mac)
         workflow = WORKFLOW.read_text()
         for obsolete in ('prepare_native_desktop.py', 'desktop-candidates.yml', 'goreleaser release', 'scripts/release/release_publish.py'):
             self.assertNotIn(obsolete, workflow)
         self.assertIn('path: ${{ runner.temp }}/release-state/', jobs['publish'])
-        self.assertIn('name: release-linux-arm64', mac)
-        for job in (jobs['linux'], jobs['linux-arm64'], mac, jobs['assemble']):
+        for job in (jobs['linux'], jobs['linux-arm64'], mac, assemble):
             self.assertIn('CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}', job)
             self.assertIn('--candidate-only', job)
-        self.assertIn('RZM_CI_RELEASE_CANDIDATE_ONLY:', mac)
 
     def test_deployment_uses_trusted_main_controls_and_the_selected_source_image(self) -> None:
         workflow = DEPLOY_WORKFLOW.read_text(encoding="utf-8")
@@ -200,8 +217,8 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
     def test_every_release_build_checks_its_binary_before_publication(self) -> None:
         config = GORELEASER_CONFIG.read_text(encoding="utf-8")
         builds = config.split("\nbuilds:\n", 1)[1].split("\nrelease:\n", 1)[0]
-        self.assertEqual(builds.count("    binary: rzm\n"), 3)
-        self.assertEqual(builds.count('post:\n        - python3 scripts/teamkeys/release.py --check-artifact "{{ .Path }}"'), 3)
+        self.assertEqual(builds.count("    binary: rzm\n"), 4)
+        self.assertEqual(builds.count('post:\n        - python3 scripts/teamkeys/release.py --check-artifact "{{ .Path }}"'), 4)
 
 
 if __name__ == "__main__":
