@@ -2,15 +2,15 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
-	"github.com/atomicobject/rhizome/pkg/app/appbundle"
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
 	"github.com/atomicobject/rhizome/pkg/shellquote"
-	"github.com/atomicobject/rhizome/pkg/vault/version"
 	"github.com/spf13/cobra"
 )
 
@@ -60,62 +60,32 @@ init to refresh generated agent files. With --yes, edited files are kept.`,
 			for _, summary := range result.Summaries() {
 				fmt.Fprintln(cmd.OutOrStdout(), summary)
 			}
-			if err != nil {
-				return err
-			}
-			return refreshUpdatedRepository(cmd, selection, result, commandOptions.updateYes)
+			return errors.Join(err, refreshUpdatedRepository(cmd, selection, result, commandOptions.updateYes))
 		},
 	}
 }
 
 func refreshUpdatedRepository(cmd *cobra.Command, selection repoexec.Plan, result appupdate.Result, yes bool) error {
-	if selection.Config == nil || (selection.Authority != "managed" && selection.Authority != "global") {
+	root := filepath.FromSlash(selection.ConfigDir)
+	retryError := func(err error) error {
+		return fmt.Errorf("Rhizome was updated, but refreshing repository files failed: %w\nRetry with: cd %s && rzm init", err, shellquote.Quote(root))
+	}
+	executable, err := result.RepositoryRefreshExecutable(selection.Config, selection.Authority, selection.Target)
+	if err != nil {
+		return retryError(err)
+	}
+	if executable == "" {
 		return nil
 	}
-	for _, target := range result.Targets {
-		previousVersion := version.Version
-		if selection.Authority == "managed" {
-			if target.Role != appupdate.UpdateTargetRepo || !target.PinWritten {
-				continue
-			}
-			previousVersion = selection.PinnedVersion
-		} else if target.Role != appupdate.UpdateTargetGlobal {
-			continue
-		}
-		if !target.BinaryUpdated || appupdate.NormalizeVersion(target.Version) == appupdate.NormalizeVersion(previousVersion) {
-			continue
-		}
-		retryError := func(err error) error {
-			return fmt.Errorf("Rhizome was updated, but refreshing repository files failed: %w\nRetry with: cd %s && rzm init", err, shellquote.Quote(selection.ConfigDir))
-		}
-		executable := target.Path
-		if target.Role == appupdate.UpdateTargetGlobal {
-			bundle, err := appbundle.Resolve(selection.Target)
-			if err != nil {
-				return retryError(err)
-			}
-			if bundle != nil {
-				executable = bundle.ExecutablePath
-				if bundle.Portable {
-					current, err := appbundle.Read(bundle.Root)
-					if err != nil {
-						return retryError(err)
-					}
-					executable = current.ExecutablePath
-				}
-			}
-		}
-		child := exec.CommandContext(cmd.Context(), executable, "init", "--path", selection.ConfigDir)
-		child.Dir = selection.ConfigDir
-		child.Env = append(os.Environ(), repoDelegatedEnv+"=1", repoSkipDelegateEnv+"=1")
-		child.Stdout, child.Stderr = cmd.OutOrStdout(), cmd.ErrOrStderr()
-		if !yes {
-			child.Stdin = cmd.InOrStdin()
-		}
-		if err := runUpdateInit(child); err != nil {
-			return retryError(err)
-		}
-		return nil
+	child := exec.CommandContext(cmd.Context(), executable, "init", "--path", root)
+	child.Dir = root
+	child.Env = append(os.Environ(), repoDelegatedEnv+"=1", repoSkipDelegateEnv+"=1")
+	child.Stdout, child.Stderr = cmd.OutOrStdout(), cmd.ErrOrStderr()
+	if !yes {
+		child.Stdin = cmd.InOrStdin()
+	}
+	if err := runUpdateInit(child); err != nil {
+		return retryError(err)
 	}
 	return nil
 }
