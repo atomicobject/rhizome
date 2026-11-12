@@ -329,6 +329,7 @@ export default function Page() {
               </div>
               <aside aria-label="Resume and closure" className="ae-brief-aside">
                 <PromptBox
+                  cols={100}
                   prompt={{
                     ...promptFor(
                       record.status === "planned"

@@ -965,3 +965,9 @@ body:has(.ae-panel-state) {
 .ae-page .rz-section-controls .ae-source-link {
   font-weight: 400;
 }
+.ae-page > .ae-map {
+  margin-top: 34px;
+}
+.ae-row-main .rz-facts-note:has(+ .rz-facts-list:empty) {
+  min-width: 0;
+}

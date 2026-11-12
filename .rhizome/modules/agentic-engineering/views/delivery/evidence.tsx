@@ -56,9 +56,9 @@ function SourceAnchor({
     );
   if (query.error || !query.data || !query.data.fragmentResolved)
     return (
-      <span>
-        {children}{" "}
-        <span className="ae-note" role="status">
+      <span title={`Link unavailable in this read: ${target}`}>
+        {children}
+        <span className="ae-visually-hidden" role="status">
           (recorded link unavailable in this read: {target})
         </span>
       </span>

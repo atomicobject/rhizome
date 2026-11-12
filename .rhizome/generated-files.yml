@@ -121,11 +121,11 @@ written:
   .rhizome/modules/agentic-engineering/recipes/spec-driven.yaml: abaa87c1fde45376
   .rhizome/modules/agentic-engineering/views/delivery/README.md: 47bae22169f696aa
   .rhizome/modules/agentic-engineering/views/delivery/data.tsx: 71512c444128e202
-  .rhizome/modules/agentic-engineering/views/delivery/delivery.css: 6e5615ae9e134d04
+  .rhizome/modules/agentic-engineering/views/delivery/delivery.css: 43e6cac061d7156c
   .rhizome/modules/agentic-engineering/views/delivery/effort-note.yaml: 6f8ba81b367e6642
   .rhizome/modules/agentic-engineering/views/delivery/effort-workspace.yaml: b2925723a67ab90e
-  .rhizome/modules/agentic-engineering/views/delivery/effort.tsx: 75a54afe05cf2227
-  .rhizome/modules/agentic-engineering/views/delivery/evidence.tsx: a6e739e9a140a93e
+  .rhizome/modules/agentic-engineering/views/delivery/effort.tsx: 7310fd89ffcce7fc
+  .rhizome/modules/agentic-engineering/views/delivery/evidence.tsx: 24d54aaf8ce845bc
   .rhizome/modules/agentic-engineering/views/delivery/experience.yml: 1a08473d7d93ec1a
   .rhizome/modules/agentic-engineering/views/delivery/home.tsx: c89051f8f57becd8
   .rhizome/modules/agentic-engineering/views/delivery/home.yaml: a016c92d9f1db535
@@ -137,7 +137,7 @@ written:
   .rhizome/modules/agentic-engineering/views/delivery/lib/scope.ts: f8ea51a602dc38f1
   .rhizome/modules/agentic-engineering/views/delivery/panel.tsx: f57ae1ff2ec60c6c
   .rhizome/modules/agentic-engineering/views/delivery/panel.yaml: b6c4f49c1dc2dae6
-  .rhizome/modules/agentic-engineering/views/delivery/presentation.tsx: f77e7efaf746a165
+  .rhizome/modules/agentic-engineering/views/delivery/presentation.tsx: ce10d7bd691cc950
   .rhizome/modules/agentic-engineering/views/delivery/queries.ts: 44602b0b66eb95ec
   .rhizome/modules/agentic-engineering/views/delivery/reads.ts: b3b7a943b3e34546
   .rhizome/modules/agentic-engineering/views/delivery/relationships.tsx: 2c8a5d32b3e1651e

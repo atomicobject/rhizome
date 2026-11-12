@@ -363,9 +363,12 @@ export function RowFacts({
 export function PromptBox({
   prompt,
   title = "Workflow prompt",
+  cols = 44,
 }: {
   prompt: Prompt;
   title?: string;
+  /** About how many characters fit on one preview line, to size the box to its text. */
+  cols?: number;
 }) {
   const [result, setResult] = useState("");
   useEffect(() => setResult(""), [prompt.text]);
@@ -386,7 +389,15 @@ export function PromptBox({
             readOnly
             aria-label="Workflow prompt preview"
             value={prompt.text}
-            rows={Math.min(24, Math.max(6, Math.ceil(prompt.text.length / 44)))}
+            rows={Math.min(
+              24,
+              Math.max(
+                6,
+                prompt.text
+                  .split("\n")
+                  .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / cols)), 0),
+              ),
+            )}
           />
         ) : (
           <ul className="ae-prompt-reasons" aria-label="Prompt unavailable">
