@@ -31,7 +31,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(content(page).getByText(/overlap/i)).toBeVisible();
       await expect(
         content(page)
-          .getByText(/^(?:at least )?3 stories in (?:at least )?2 specs$/)
+          .getByText(/^≥?3 stories · ≥?2 specs$/)
           .first(),
       ).toBeVisible();
       await expect(
@@ -62,7 +62,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         if (value === "ready")
           await expect(
             content(page)
-              .getByText(/^(?:at least )?3 stories in (?:at least )?2 specs$/)
+              .getByText(/^≥?3 stories · ≥?2 specs$/)
               .first(),
           ).toBeVisible();
         await capture(page, info, `stage-${value}`);
@@ -243,7 +243,9 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(
         f.getByRole("heading", { name: "Harbor legacy workspace", exact: true }),
       ).toBeVisible();
-      await expect(f.getByText(/scope unknown/)).toBeVisible();
+      await expect(
+        f.getByRole("region", { name: "Frozen scope" }).getByText("unknown", { exact: true }),
+      ).toBeVisible();
       await capture(page, info, "legacy-workspace");
       await f.getByRole("button", { name: /Open implementation plan:/ }).click();
 
