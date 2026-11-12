@@ -3,7 +3,7 @@
   padding: 20px 24px;
   font: 14px/1.5 var(--font-sans);
   color: var(--text);
-  max-width: 1400px;
+  max-width: 1120px;
   margin: auto;
   overflow-wrap: anywhere;
 }
@@ -20,7 +20,7 @@
   overflow: auto;
 }
 /* 700 is for view titles only. Authored prose keeps its own emphasis. */
-.ae-page strong:not(.ae-prose *) {
+.ae-page strong:not(.ae-prose *, summary > strong) {
   font-weight: 600;
 }
 /* The kit spaces only adjacent sections. These pages put notes, fields, and disclosures between them. */
@@ -270,10 +270,7 @@
   margin-top: 0;
 }
 .ae-prompt {
-  background: var(--surface-sunk);
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  padding: 0;
 }
 .ae-page .ae-prompt textarea {
   display: block;
@@ -285,6 +282,8 @@
   max-height: 420px;
   overflow: auto;
   padding: 10px;
+  background: var(--surface-sunk);
+  border-color: var(--border);
 }
 .ae-prompt p:empty {
   display: none;
@@ -339,7 +338,7 @@
 }
 /* The read state shares the page's column and left edge. */
 .ae-read-state {
-  max-width: 1400px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 8px 24px 0;
   font: 14px/1.5 var(--font-sans);
@@ -776,4 +775,89 @@ body:has(.ae-panel-state) {
 .ae-map-compact .ae-stage-title {
   font-size: inherit;
   color: inherit;
+}
+
+.ae-tabs {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+  gap: 2px 18px;
+  margin: 14px 0 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.ae-tab .ae-link {
+  display: inline-block;
+  padding: 6px 0 7px;
+  margin-bottom: -1px;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+}
+.ae-tab .ae-link:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+.ae-tab .ae-link[aria-current="page"] {
+  color: var(--text);
+  font-weight: 600;
+  border-bottom-color: var(--text);
+}
+.ae-tab[data-supporting] {
+  margin-left: auto;
+}
+.ae-tab[data-supporting] + .ae-tab[data-supporting] {
+  margin-left: 0;
+}
+.ae-tab .ae-count {
+  font-weight: 400;
+}
+.ae-with-aside > aside {
+  align-self: start;
+  position: sticky;
+  top: 12px;
+}
+.ae-page details > ol {
+  list-style: decimal;
+  padding-left: 22px;
+}
+.ae-page details > ol > li > .ae-prose > :first-child {
+  margin-top: 0;
+}
+.ae-page details > ol > li > .ae-prose > ul:only-child {
+  list-style: none;
+  padding-left: 0;
+}
+.ae-page details:has(> summary:focus) {
+  background: color-mix(in srgb, var(--selection) 60%, transparent);
+  border-radius: 4px;
+}
+.ae-page summary:focus-visible {
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.ae-prose .contains-task-list > li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: baseline;
+}
+.ae-prose .contains-task-list input[disabled] {
+  opacity: 1;
+  accent-color: var(--text-muted);
+}
+.ae-prose table {
+  overflow-wrap: normal;
+  font-size: 13px;
+}
+.ae-prose th {
+  white-space: nowrap;
+}
+.ae-prose :is(td, th) {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+@media (max-width: 800px) and (min-width: 561px) {
+  .ae-map {
+    grid-template-columns: 2fr 2fr 1fr;
+  }
 }

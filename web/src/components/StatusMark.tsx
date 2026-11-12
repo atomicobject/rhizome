@@ -62,6 +62,7 @@ export function statusWordTone(word: string, fallback?: string): StatusTone {
     case "complete":
     case "completed":
     case "done":
+    case "satisfied":
     case "success":
       return "success";
     case "unsaved":

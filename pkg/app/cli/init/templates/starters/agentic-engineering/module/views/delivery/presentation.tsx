@@ -276,6 +276,45 @@ export function WorkflowMap({
   );
 }
 
+const tabLabel: Record<Stage, string> = {
+  shaping: "Shaping",
+  ready: "Ready",
+  planned: "Planned",
+  active: "Active",
+  history: "History",
+  contracts: "Contracts",
+  review: "Review",
+};
+
+/** The stage page's own map: one row of groups with bare counts, the current one underlined. */
+export function StageTabs({ portfolio, current }: { portfolio: Portfolio; current: Stage }) {
+  return (
+    <nav className="ae-tabs" aria-label="Delivery workflow">
+      {groups.map((group) => {
+        const result = groupResult(group.stage, portfolio);
+        if (result.state !== "records") return null;
+        return (
+          <span key={group.stage} className="ae-tab" data-supporting={!group.primary || undefined}>
+            <StageLink stage={group.stage} current={current === group.stage}>
+              {tabLabel[group.stage]}
+              {group.primary && (
+                <span
+                  className="ae-count"
+                  aria-label={`, ${result.complete ? "" : "at least "}${result.count} ${unit(result.count, group.unit)}${parentSpecSummary(result)}`}
+                >
+                  {" "}
+                  {result.complete ? "" : "≥"}
+                  {result.count}
+                </span>
+              )}
+            </StageLink>
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function CoverageNotice({ portfolio }: { portfolio: Portfolio }) {
   const reads = [portfolio.specCoverage, portfolio.effortCoverage];
   const errors = [...new Set(reads.flatMap((read) => read.errors))];

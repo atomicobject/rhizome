@@ -22,6 +22,7 @@ import {
   RecordedStatus,
   StoryLink,
   RowFacts,
+  StageTabs,
   unit,
   parentSpecSummary,
 } from "./presentation.tsx";
@@ -169,6 +170,7 @@ export function DeliveryStage({
         </span>
       </header>
       <p className="ae-note ae-rule">{group.rule}</p>
+      <StageTabs portfolio={current} current={group.stage} />
       <div className="ae-with-aside">
         <section aria-label={group.title} className="ae-list">
           {rows.length > 0 && (

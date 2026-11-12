@@ -103,6 +103,7 @@ function Narrative({
       ? detail.components.find((node) => identity(node.ref) === identity(refs[0]))
       : undefined;
   const readable = source && !state?.issues?.length;
+  if (owner && !state?.present && !note) return null;
   return (
     <Section title={title}>
       {readable ? (
@@ -298,7 +299,7 @@ export default function Page() {
                   />
                 </Section>
                 <Section
-                  title="Frozen selected scope"
+                  title="Frozen scope"
                   count={record.scope.state === "known" ? undefined : `scope ${record.scope.state}`}
                 >
                   {record.scope.reasons.length > 0 && (
@@ -351,7 +352,7 @@ export default function Page() {
               <details>
                 <summary>
                   <DisclosureIcon open={false} />
-                  Governing metadata ({detail.governing.occurrences.length} returned links)
+                  Governing specs ({detail.governing.occurrences.length})
                 </summary>
                 <Occurrences occurrences={detail.governing.occurrences} />
               </details>
@@ -384,12 +385,6 @@ export default function Page() {
                   <Occurrences occurrences={detail.entryMentions.occurrences} />
                 </details>
               )}
-              <button
-                className="ae-link"
-                onClick={() => nav.openNode(detail.node.ref, { view: "builtin:source" })}
-              >
-                Open original effort
-              </button>
               {[
                 detail.node,
                 ...detail.components.filter((node) => node.ref.kind.toLowerCase() === "note"),
