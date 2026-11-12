@@ -847,6 +847,13 @@ export function App() {
           name={upgrade.repository.name}
           mode={upgrade.mode}
           onPinned={() => prepareUpgrade(upgrade.repository, upgrade.worktree)}
+          pinSaved={async () => {
+            if (upgrade.mode.kind !== "advance") return false;
+            const plain = (version?: string) => version?.replace(/^v/, "");
+            const info = await discover(upgrade.repository);
+            const pinned = info?.worktrees.find((w) => w.path === upgrade.worktree)?.pinnedVersion;
+            return !!pinned && plain(pinned) === plain(upgrade.mode.offer.available);
+          }}
           onRestart={() => reopenUpgraded(upgrade.repository, upgrade.worktree)}
           onApplied={() => {
             const { id } = upgrade.repository;

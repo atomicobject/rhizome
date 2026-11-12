@@ -26,6 +26,7 @@ export function UpgradeSheet({
   name,
   mode,
   onPinned,
+  pinSaved,
   onRestart,
   onApplied,
   onClose,
@@ -35,6 +36,7 @@ export function UpgradeSheet({
   name: string;
   mode: UpgradeMode;
   onPinned: () => Promise<void>;
+  pinSaved: () => Promise<boolean>;
   onRestart: () => Promise<void>;
   onApplied: () => void;
   onClose: () => void;
@@ -89,7 +91,13 @@ export function UpgradeSheet({
         setState({ kind: "running", step });
         if (step === "install") {
           if (!pinned.current) {
-            await request("pin-advance", { id: repository, worktree });
+            try {
+              await request("pin-advance", { id: repository, worktree });
+            } catch (cause) {
+              // The pin can be saved before a later stage fails, after which
+              // the offer is gone and another advance would be refused.
+              if (!(await pinSaved())) throw cause;
+            }
             pinned.current = true;
           }
           await onPinned();

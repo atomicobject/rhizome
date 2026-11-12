@@ -40,6 +40,7 @@ const advance: UpgradeMode = {
 function show(mode = advance) {
   const callbacks = {
     onPinned: vi.fn().mockResolvedValue(undefined),
+    pinSaved: vi.fn().mockResolvedValue(false),
     onRestart: vi.fn().mockResolvedValue(undefined),
     onApplied: vi.fn(),
     onClose: vi.fn(),
@@ -164,6 +165,39 @@ it("does not advance a saved pin again if clearing its executable override fails
   await screen.findByRole("button", { name: "Done" });
   expect(call.mock.calls.filter(([op]) => op === "pin-advance")).toHaveLength(1);
   expect(callbacks.onPinned).toHaveBeenCalledTimes(2);
+});
+
+it("continues with the files when an advance fails after saving the pin", async () => {
+  call.mockImplementation(async (operation) => {
+    if (operation === "upgrade-plan") return plan;
+    if (operation === "pin-advance")
+      throw { code: "pin_advance_failed", message: "Pin advance inspection stage failed." };
+    if (operation === "settings-apply") return result;
+    throw new Error(operation);
+  });
+  const callbacks = show();
+  callbacks.pinSaved.mockResolvedValue(true);
+  fireEvent.click(await screen.findByRole("button", { name: "Upgrade" }));
+  await screen.findByRole("heading", { name: "Upgraded to v0.52.0" });
+  expect(call.mock.calls.map(([op]) => op)).toEqual([
+    "upgrade-plan",
+    "pin-advance",
+    "settings-apply",
+  ]);
+  expect(callbacks.onPinned).toHaveBeenCalledOnce();
+});
+
+it("reports an advance that fails before saving the pin", async () => {
+  call.mockImplementation(async (operation) => {
+    if (operation === "upgrade-plan") return plan;
+    if (operation === "pin-advance")
+      throw { code: "pin_advance_failed", message: "Pin advance download stage failed." };
+    throw new Error(operation);
+  });
+  const callbacks = show();
+  fireEvent.click(await screen.findByRole("button", { name: "Upgrade" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Pin advance download stage failed.");
+  expect(callbacks.onPinned).not.toHaveBeenCalled();
 });
 
 it("copies the changed pin when the new release has no generated file changes", async () => {
