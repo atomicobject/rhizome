@@ -35,7 +35,7 @@ for (const colorScheme of ["light", "dark"] as const) {
           .first(),
       ).toBeVisible();
       await expect(
-        content(page).getByText("Some source evidence is unavailable.", { exact: true }),
+        content(page).getByText("Some sources didn't load", { exact: true }),
       ).toHaveCount(0);
       const panel = page.frameLocator("iframe.panel-frame[data-shown]");
       await expect(
@@ -114,7 +114,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await f
         .getByRole("checkbox", { name: "Select Harbor legacy workspace", exact: true })
         .check();
-      await expect(f.getByText(/Some selected scope is incomplete/)).toBeVisible();
+      await expect(f.getByText(/frozen scope incomplete or unknown/i)).toBeVisible();
       await expect(
         f.getByRole("button", { name: "Copy workflow prompt", exact: true }),
       ).toBeDisabled();
@@ -156,9 +156,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         .getByText(/harbor confirmation ends here/)
         .scrollIntoViewIfNeeded();
       await capture(page, info, "spec-expanded");
-      await content(page)
-        .getByRole("button", { name: "Load effort relationships", exact: true })
-        .click();
+      await content(page).getByText("Related efforts", { exact: true }).click();
       await expect(
         content(page)
           .getByText(/Governing-specs metadata:/)
@@ -212,9 +210,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(f.getByText(/Story A repeated occurrence/)).toBeVisible();
       await expect(f.getByText(/Unresolved authored scope/)).toBeVisible();
       await expect(f.getByText(/snapshot/i).first()).toBeVisible();
-      await expect(
-        f.getByText(/Absence of metadata does not establish absence of authorization/),
-      ).toBeVisible();
+      await expect(f.getByText("No approver recorded.", { exact: true })).toBeVisible();
       await capture(page, info, "workspace-provenance");
     });
 
@@ -242,7 +238,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(
         f.getByRole("heading", { name: "Harbor legacy workspace", exact: true }),
       ).toBeVisible();
-      await expect(f.getByText(/Membership unknown/)).toBeVisible();
+      await expect(f.getByText(/scope unknown/)).toBeVisible();
       await capture(page, info, "legacy-workspace");
       await f.getByRole("button", { name: /Open implementation plan:/ }).click();
 

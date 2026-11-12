@@ -142,6 +142,7 @@ export function DeliveryStage({
                 {row.selected.map((record) => (
                   <li key={identity(record.ref)}>
                     <RecordLink record={record} />
+                    <code className="ae-path">{record.locator}</code>
                   </li>
                 ))}
               </ul>

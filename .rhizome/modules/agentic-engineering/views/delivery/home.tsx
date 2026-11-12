@@ -61,6 +61,7 @@ export function DeliveryHome({ portfolio, status }: PortfolioProps) {
   return (
     <main className="ae-page">
       <Ready status={status} />
+      <h1 className="ae-visually-hidden">Delivery</h1>
       {
         <>
           <WorkflowMap portfolio={portfolio} />

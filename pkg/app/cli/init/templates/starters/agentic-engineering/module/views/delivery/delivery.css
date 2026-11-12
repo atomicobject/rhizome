@@ -368,6 +368,38 @@
   top: -2px;
   right: 0;
 }
+.ae-saved {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.ae-partial-detail {
+  position: relative;
+  font-size: 13px;
+}
+.ae-page .ae-partial-detail,
+.ae-partial-detail {
+  border: 0;
+  padding: 0;
+}
+.ae-partial-detail > summary {
+  color: var(--text-muted);
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+.ae-partial-detail > code {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  width: 360px;
+  margin-top: 4px;
+  padding: 8px;
+  white-space: pre-wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+}
 .ae-saved .ae-refresh {
   font-size: 13px;
   color: var(--text-muted);

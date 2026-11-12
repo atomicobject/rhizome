@@ -406,7 +406,7 @@ export function EmptyGroup({ stage }: { stage: Stage }) {
   return (
     <p className="ae-note">
       {stage === "planned"
-        ? "No planned efforts. Select ready stories to start one."
+        ? "No planned efforts. Select ready stories to start an effort."
         : "No matching records in the loaded inventory."}
     </p>
   );
@@ -451,20 +451,29 @@ export function ReadState({
         </Notice>
       )}
       {(query.state === "ready" || partial) && (
-        <p className="ae-saved" role={partial ? "status" : undefined}>
-          {partial && <span className="ae-note">Some sources didn't load · </span>}
+        <div className="ae-saved">
+          {partial && (
+            <>
+              <span role="status" className="ae-note">
+                Some sources didn't load
+              </span>
+              {errors.length > 0 && (
+                <details className="ae-partial-detail">
+                  <summary>Error detail</summary>
+                  <code className="ae-path">{[...new Set(errors)].join("\n")}</code>
+                </details>
+              )}
+            </>
+          )}
           <button
             className="ae-link ae-refresh"
             aria-label="Refresh records"
             title="Reload saved records. Unsaved edits are not included."
             onClick={() => query.refresh()}
           >
-            {partial ? "Retry" : "Refresh"}
+            Refresh
           </button>
-          {partial && errors.length > 0 && (
-            <span className="ae-visually-hidden">{[...new Set(errors)].join(". ")}</span>
-          )}
-        </p>
+        </div>
       )}
     </div>
   );

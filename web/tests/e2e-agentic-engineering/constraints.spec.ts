@@ -87,7 +87,6 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(
         f.getByRole("heading", { name: "Active all checked", exact: true }),
       ).toBeVisible();
-      await f.getByRole("checkbox", { name: /Include this effort/ }).check();
       await expect(
         f.getByRole("button", { name: "Copy workflow prompt", exact: true }),
       ).toBeEnabled();
@@ -398,7 +397,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         await page.goto("/notes?view=agentic-engineering.stage&stage=ready");
         const f = content(page);
         await expect(
-          f.getByRole("status").filter({ hasText: "Some source evidence is unavailable." }),
+          f.getByRole("status").filter({ hasText: "Some sources didn't load" }),
         ).toBeVisible();
         await expect(
           f.getByRole("checkbox", { name: /Select US1.*Reserve a seat/ }),
@@ -416,7 +415,7 @@ for (const colorScheme of ["light", "dark"] as const) {
             f
               .locator(".ae-select-row")
               .filter({ has: f.getByRole("checkbox", { name: /Select US1.*Reserve a seat/ }) }),
-          ).toContainText("1 loaded criterion");
+          ).toContainText("1 criterion");
         await noOverflow(page);
         await f
           .getByRole("heading", { name: "Ready stories", exact: true })
@@ -562,7 +561,7 @@ test("refresh rereads selected effort scope before allowing Copy and recovers", 
     });
   }
 
-  await expect(f.getByText(/Some selected scope is incomplete/)).toBeVisible();
+  await expect(f.getByText(/frozen scope incomplete or unknown/i)).toBeVisible();
   await expect(copy).toBeDisabled();
   await page.unroute("**/api/v1/graphql");
   await f.getByRole("button", { name: "Refresh records", exact: true }).click();

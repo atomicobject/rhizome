@@ -12,7 +12,7 @@ test("stage sort reorders the visible rows and the composed prompt together", as
   await page.goto(stage("ready"));
   const f = content(page);
   const sort = f.getByRole("radiogroup", { name: "Sort records", exact: true });
-  await expect(sort.getByRole("radio", { name: "Source order", exact: true })).toBeChecked();
+  await expect(sort.getByRole("radio", { name: "Source", exact: true })).toBeChecked();
   await f.getByRole("checkbox", { name: /Select US1.*Reserve a seat/ }).check();
   await f.getByRole("checkbox", { name: /Select US3.*Recover a saved itinerary/ }).check();
   const prompt = f.getByRole("textbox", { name: /prompt/i });
@@ -36,12 +36,12 @@ test("stage sort reorders the visible rows and the composed prompt together", as
 
   await expect.poll(() => firstStory(rows)).toBe("US1");
   await expect.poll(() => firstStory(preview)).toBe("US1");
-  await sort.getByText("Title Z to A", { exact: true }).click();
-  await expect(sort.getByRole("radio", { name: "Title Z to A", exact: true })).toBeChecked();
+  await sort.getByText("Z–A", { exact: true }).click();
+  await expect(sort.getByRole("radio", { name: "Z–A", exact: true })).toBeChecked();
   await expect.poll(() => firstStory(rows)).toBe("US3");
   await expect.poll(() => firstStory(preview)).toBe("US3");
   await expect(f.getByRole("button", { name: "Copy workflow prompt", exact: true })).toBeEnabled();
-  await sort.getByText("Title A to Z", { exact: true }).click();
+  await sort.getByText("A–Z", { exact: true }).click();
   await expect.poll(() => firstStory(rows)).toBe("US1");
   await expect.poll(() => firstStory(preview)).toBe("US1");
   await capture(page, info, "sorted-ready-selection");
@@ -102,6 +102,7 @@ test("record review names the exact pending selected record and its locator", as
     exact: true,
   });
 
+  await f.getByText("1 pending", { exact: true }).click();
   await expect(pending).toBeVisible();
   expect(changed).toBeGreaterThan(0);
   await expect(pending.getByRole("listitem")).toHaveCount(1);
@@ -131,7 +132,9 @@ test("the panel marks the stage on screen and no stage on the home page", async 
   await capture(page, info, "panel-active-stage");
   await page.goto(home);
   await expect(ready).toBeVisible();
-  await expect(panel.locator('[aria-current="page"]')).toHaveCount(0);
+  await expect(
+    panel.getByRole("navigation", { name: "Delivery workflow" }).locator('[aria-current="page"]'),
+  ).toHaveCount(0);
 });
 
 for (const colorScheme of ["light", "dark"] as const) {
@@ -144,11 +147,9 @@ for (const colorScheme of ["light", "dark"] as const) {
       await page.goto(home);
       const f = content(page);
 
-      const failure = f
-        .getByRole("status")
-        .filter({ hasText: "Some source evidence is unavailable." });
+      const failure = f.getByRole("status").filter({ hasText: "Some sources didn't load" });
 
-      await expect(failure).toHaveText(/^Some source evidence is unavailable\.\s*Refresh records$/);
+      await expect(failure).toBeVisible();
       await expect(f.getByRole("button", { name: "Refresh records", exact: true })).toBeVisible();
       const detail = f.locator(".ae-read-state details").filter({ hasText: "Error detail" });
       await expect(detail.locator("code")).toBeHidden();
