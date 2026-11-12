@@ -27,7 +27,7 @@ class FixtureTests(unittest.TestCase):
                     self.assertNotIn('TARGET', kwargs['env'])
                     self.assertEqual(('windows', 'amd64'), (kwargs['env']['GOOS'], kwargs['env']['GOARCH']))
                     config=Path(command[command.index('--config')+1]).read_text(encoding='utf-8')
-                    self.assertEqual(3, config.count('DefaultOrigin=https://canonical.example.test'))
+                    self.assertEqual(4, config.count('DefaultOrigin=https://canonical.example.test'))
                 Path(command[-1]).write_bytes(command[-1].encode())
                 return subprocess.CompletedProcess(command,0,'','')
             def key(directory,endpoint,**kwargs):

@@ -172,11 +172,11 @@ jobs:
           ./scripts/vendor/ensure_tree_sitter_sources.sh
           npm --prefix desktop ci
           export RZM_CI_RELEASE_VERSION="${RELEASE_VERSION#v}"
-          python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --skip=before,post-hooks --id rzm-linux --id rzm-windows-amd64
+          python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --skip=before,post-hooks --id rzm-linux-amd64 --id rzm-windows-amd64
           python3 - <<'PYCLI'
           import os
           from pathlib import Path
-          files = list(Path('dist').glob('rzm-linux_linux_amd64*/rzm'))
+          files = list(Path('dist').glob('rzm-linux-amd64_linux_amd64*/rzm'))
           if len(files) != 1:
               raise SystemExit('Expected one canonical Linux x64 CLI')
           with open(os.environ['GITHUB_ENV'], 'a') as output:
@@ -198,19 +198,10 @@ jobs:
           retention-days: 1
           if-no-files-found: error
           include-hidden-files: true
-      # The Arm job packages these exact bytes; it never rebuilds the CLI.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-linux-arm64-cli
-          path: |
-            dist/metadata.json
-            dist/rzm-linux_linux_arm64*/rzm
-          retention-days: 1
-          if-no-files-found: error
 
   linux-arm64:
-    name: Package the Linux Arm64 AppImage
-    needs: [select, common, linux]
+    name: Build Linux Arm64 CLI and AppImage
+    needs: [select, common]
     runs-on: ubuntu-24.04-arm
     env:
       SOURCE: ${{ needs.select.outputs.source }}
@@ -230,8 +221,16 @@ jobs:
         with:
           node-version: '22'
       - uses: dtolnay/rust-toolchain@stable
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
       - name: Install native Linux packaging dependencies
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf libfuse2t64
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          install-only: true
       - name: Install credential scanner
         working-directory: ${{ runner.temp }}
         env:
@@ -241,22 +240,19 @@ jobs:
         with:
           name: release-frontend
           path: .tmp/ci-release
-      - uses: actions/download-artifact@v4
-        with:
-          name: release-linux-arm64-cli
-          path: dist
-      - name: Restore verified common assets and the canonical Arm64 CLI
+      - name: Restore verified common assets and build canonical Linux Arm64 CLI
         run: |
           python3 scripts/release/ci_release_frontend.py extract --source "$SOURCE" --version "$RELEASE_VERSION" --archive .tmp/ci-release/frontend.tar.gz
+          ./scripts/vendor/ensure_tree_sitter_sources.sh
           npm --prefix desktop ci
+          export RZM_CI_RELEASE_VERSION="${RELEASE_VERSION#v}"
+          python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --skip=before,post-hooks --id rzm-linux-arm64
           python3 - <<'PYCLI'
           import os
           from pathlib import Path
-          files = list(Path('dist').glob('rzm-linux_linux_arm64*/rzm'))
+          files = list(Path('dist').glob('rzm-linux-arm64_linux_arm64*/rzm'))
           if len(files) != 1:
               raise SystemExit('Expected one canonical Linux Arm64 CLI')
-          # Artifact transfer drops the executable bit, not the bytes.
-          files[0].chmod(0o755)
           with open(os.environ['GITHUB_ENV'], 'a') as output:
               output.write(f'RZM_DESKTOP_PREBUILT_RZM={files[0].resolve()}\n')
           PYCLI
@@ -279,7 +275,7 @@ jobs:
 
   mac:
     name: Build and notarize native Mac assets
-    needs: [select, common, linux, linux-arm64]
+    needs: [select, common]
     runs-on: macos-15
     environment: release
     env:
@@ -332,19 +328,6 @@ jobs:
           python3 scripts/release/ci_release_frontend.py extract --source "$SOURCE" --version "$RELEASE_VERSION" --archive .tmp/ci-release/frontend.tar.gz
           ./scripts/vendor/ensure_tree_sitter_sources.sh
           make desktop-deps
-      - uses: actions/download-artifact@v4
-        with:
-          name: release-linux
-          path: .tmp/ci-release/linux
-      - uses: actions/download-artifact@v4
-        with:
-          name: release-linux-arm64
-          path: .tmp/ci-release/linux-arm64
-      - name: Verify this run's native inputs before signing
-        run: |
-          candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
-          python3 scripts/release/ci_release_artifacts.py prepare-native --source "$SOURCE" --version "$RELEASE_VERSION" \
-            --input .tmp/ci-release/linux --input .tmp/ci-release/linux-arm64 --output .tmp/ci-release/native "${candidate[@]}"
       - name: Prepare desktop signing
         run: python3 scripts/release/ci_desktop_signing.py prepare
         env:
@@ -356,13 +339,9 @@ jobs:
           RZM_RELEASE_DESKTOP: '1'
           RZM_NOTARIZE_DESKTOP: '1'
           RZM_DESKTOP_PREBUILT_FRONTEND: '1'
-          RZM_CI_RELEASE_CANDIDATE_ONLY: ${{ needs.select.outputs.candidate_only }}
-          RZM_DESKTOP_CANDIDATES_DIR: ${{ github.workspace }}/.tmp/ci-release/native
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           export RZM_CI_RELEASE_VERSION="${RELEASE_VERSION#v}"
           python3 scripts/release/run_clean.py build -- goreleaser build --snapshot --clean --skip=before --id rzm-darwin
@@ -372,7 +351,7 @@ jobs:
       - name: Collect verified assets without signing credentials
         run: |
           candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
-          python3 scripts/release/ci_release_artifacts.py collect --platform macos --source "$SOURCE" --version "$RELEASE_VERSION" --dist dist --extras .tmp/goreleaser-extra --output .tmp/ci-release/macos "${candidate[@]}"
+          python3 scripts/release/ci_release_artifacts.py collect --platform macos --source "$SOURCE" --version "$RELEASE_VERSION" --dist dist --extras .tmp/goreleaser-extra --candidate .tmp/goreleaser-extra/darwin-aarch64 --output .tmp/ci-release/macos "${candidate[@]}"
       - uses: actions/upload-artifact@v4
         with:
           name: release-macos
@@ -381,10 +360,12 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
 
+  # The protected coordinator: the only job that receives the updater signing key.
   assemble:
-    name: Assemble and verify complete release on Linux
+    name: Sign updater feed, assemble and verify complete release on Linux
     needs: [select, linux, linux-arm64, mac]
     runs-on: ubuntu-latest
+    environment: release
     env:
       SOURCE: ${{ needs.select.outputs.source }}
       RELEASE_VERSION: ${{ needs.select.outputs.version }}
@@ -398,6 +379,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
       - name: Install credential scanner
         working-directory: ${{ runner.temp }}
         run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
@@ -413,12 +399,28 @@ jobs:
         with:
           name: release-macos
           path: .tmp/ci-release/macos
-      - name: Prepare pinned signature verifier dependencies
-        run: cargo fetch --locked --manifest-path scripts/release/updater-signature/Cargo.toml
-      - name: Assemble and verify the exact built artifacts
+      - name: Prepare the updater signer and pinned signature verifier
+        run: |
+          npm --prefix desktop ci
+          cargo fetch --locked --manifest-path scripts/release/updater-signature/Cargo.toml
+      - name: Verify this run's native candidates before signing
         run: |
           candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
-          python3 scripts/release/ci_release_artifacts.py assemble --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/linux --input .tmp/ci-release/linux-arm64 --input .tmp/ci-release/macos --output .tmp/ci-release/publish "${candidate[@]}"
+          python3 scripts/release/ci_release_artifacts.py prepare-native --source "$SOURCE" --version "$RELEASE_VERSION" \
+            --input .tmp/ci-release/linux --input .tmp/ci-release/linux-arm64 --input .tmp/ci-release/macos \
+            --output .tmp/ci-release/native "${candidate[@]}"
+      - name: Sign every updater package and write the complete feed
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
+          python3 scripts/release/join_desktop.py --source "$SOURCE" --version "$RELEASE_VERSION" \
+            --input .tmp/ci-release/native --output .tmp/ci-release/desktop "${candidate[@]}"
+      - name: Assemble and verify the exact built artifacts without signing credentials
+        run: |
+          candidate=(); if [[ "$CANDIDATE_ONLY" == true ]]; then candidate=(--candidate-only); fi
+          python3 scripts/release/ci_release_artifacts.py assemble --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/linux --input .tmp/ci-release/linux-arm64 --input .tmp/ci-release/macos --desktop .tmp/ci-release/desktop --output .tmp/ci-release/publish "${candidate[@]}"
           python3 scripts/release/ci_release_artifacts.py verify --source "$SOURCE" --version "$RELEASE_VERSION" --input .tmp/ci-release/publish "${candidate[@]}"
       - uses: actions/upload-artifact@v4
         with:

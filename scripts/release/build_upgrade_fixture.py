@@ -48,7 +48,7 @@ def build_fixture(target: str, output: Path, *, root=ROOT, base_url='http://127.
             raise CandidateError('fixture builds require the canonical exact-version snapshot template')
         pattern = r'(?m)^(\s+- -X github\.com/atomicobject/rhizome/pkg/teamapi/session\.DefaultOrigin=)\S+$'
         config, count = re.subn(pattern, lambda match: match[1] + team_api_origin, config)
-        if count != 3:
+        if count != 4:
             raise CandidateError('fixture origin override no longer matches the canonical build definitions')
         fixture_config = work / 'goreleaser-fixture.yml'
         fixture_config.write_text(config, encoding='utf-8')
@@ -62,7 +62,7 @@ def build_fixture(target: str, output: Path, *, root=ROOT, base_url='http://127.
                          'RZM_CI_RELEASE_VERSION': version}
             # GoReleaser's TARGET overrides GOOS/GOARCH; the workflow uses Tauri's spelling.
             build_env.pop('TARGET', None)
-            build_id = 'rzm-windows-amd64' if target.startswith('windows-') else 'rzm-linux'
+            build_id = 'rzm-windows-amd64' if target.startswith('windows-') else 'rzm-linux-' + GOARCH[target.split('-', 1)[1]]
             run(['goreleaser', 'build', '--snapshot', '--clean', '--single-target', '--id', build_id,
                  '--skip=before,post-hooks', '--config', str(fixture_config), '--output', str(cli)],
                 root=root, env=build_env, runner=runner, diagnostic_path=evidence_dir / version / 'goreleaser.log')

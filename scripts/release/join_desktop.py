@@ -1,64 +1,52 @@
-"""Join the existing notarized Mac result with same-run source-bound native producer candidates."""
+#!/usr/bin/env python3
+"""Sign this run's verified Mac and Linux desktop candidates into one complete updater feed.
+
+The protected Linux coordinator is the only process that receives the updater
+signing key. Native jobs hand over unsigned candidates; `prepare-native` binds
+their exact bytes before this step sees the key.
+"""
 from __future__ import annotations
 
+import argparse
 import json
+import os
 from pathlib import Path
-import shutil
-import tempfile
+import subprocess
+import sys
 
 from assemble_desktop import assemble
-from desktop_candidates import (CandidateError, MANIFEST, RELEASE_NATIVE_TARGETS, candidate_manifest,
-                                mac_sidecar_inventory, read_candidate, sha256)
 from ci_release_artifacts import validate_native_inputs
+from desktop_candidates import ROOT, CandidateError, MANIFEST, REQUIRED_TARGETS
+from verify_desktop_signing import DesktopSigningError, verify_archive
 
 
-def join(root: Path, rzm: Path, version: str, output: Path, *, source: dict, runner, candidate_only=False) -> list[Path]:
-    version = version.removeprefix('v')
-    prepared = source.get('RZM_DESKTOP_CANDIDATES_DIR', '').strip()
-    if not prepared:
-        raise CandidateError('production desktop assembly requires the verified same-run native candidates')
-    commit_result = runner(['git', 'rev-parse', 'HEAD'], cwd=root, check=True, capture_output=True, text=True)
-    commit = commit_result.stdout.strip()
-    validate_native_inputs(Path(prepared), commit, 'v' + version, candidate_only=candidate_only)
-    hashes = {}
-    for target in sorted(RELEASE_NATIVE_TARGETS):
-        directory = Path(prepared) / target
-        value = json.loads((directory / MANIFEST).read_text())
-        manifest, _ = read_candidate(directory, version=version, commit=commit,
-                                     canonical_hash=value.get('canonicalCliSha256'), production=not candidate_only)
-        if manifest['target'] != target:
-            raise CandidateError('native candidate target differs from its selected CI group')
-        hashes[target] = manifest['canonicalCliSha256']
-    archive = output / 'Rhizome-macos-arm64.app.tar.gz'
-    inventory = mac_sidecar_inventory(archive)
-    tools = {}
-    for name, command in [('go', ['go', 'version']), ('rust', ['rustc', '--version']),
-                          ('tauri', ['npm', 'run', 'tauri', '--', '--version'])]:
-        value = runner(command, cwd=root / 'desktop', check=True, capture_output=True, text=True)
-        tools[name] = value.stdout.strip()
-    manifest = candidate_manifest(target='darwin-aarch64', version=version, commit=commit, package=archive,
-                                  cli_hash=sha256(rzm), packaged_cli_hash=inventory[0]['sha256'], inventory=inventory,
-                                  native_signature={'status': 'notarized'}, toolchains=tools, production=True)
-    with tempfile.TemporaryDirectory(prefix='.desktop-join-', dir=output.parent) as temporary:
-        temporary = Path(temporary)
-        mac = temporary / 'darwin-aarch64'
-        mac.mkdir()
-        shutil.copyfile(rzm, mac / 'rzm')
-        shutil.copyfile(archive, mac / archive.name)
-        shutil.copyfile(Path(str(archive) + '.sig'), mac / (archive.name + '.sig'))
-        (mac / MANIFEST).write_text(json.dumps(manifest, indent=2) + '\n')
-        canonical = dict(hashes)
-        canonical['darwin-aarch64'] = manifest['canonicalCliSha256']
-        assembled = temporary / 'assembly'
-        assemble([mac, *(Path(prepared) / target for target in sorted(RELEASE_NATIVE_TARGETS))], version, commit,
-                 canonical, assembled, source=source, root=root, runner=runner,
-                 production=not candidate_only, candidate_only=candidate_only)
-        # The joined feed is installed last; failure leaves the prior complete feed usable.
-        paths = sorted(assembled.iterdir(), key=lambda path: path.name == 'latest.json')
-        staged = []
-        for path in paths:
-            pending = output / ('.' + path.name + '.pending')
-            shutil.copyfile(path, pending)
-            pending.replace(output / path.name)
-            staged.append(output / path.name)
-    return staged
+def join(prepared: Path, source: str, version: str, output: Path, *, environ, root: Path = ROOT,
+         runner=subprocess.run, verifier=verify_archive, candidate_only: bool = False) -> Path:
+    validate_native_inputs(prepared, source, version, candidate_only=candidate_only)
+    directories = [prepared / target for target in sorted(REQUIRED_TARGETS)]
+    # prepare-native already bound each candidate's hash to its group's archived CLI bytes.
+    hashes = {directory.name: json.loads((directory / MANIFEST).read_text()).get("canonicalCliSha256")
+              for directory in directories}
+    return assemble(directories, version, source, hashes, output, production=not candidate_only,
+                    candidate_only=candidate_only, root=root, source=environ, runner=runner, verifier=verifier)
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", required=True)
+    parser.add_argument("--version", required=True)
+    parser.add_argument("--input", type=Path, required=True, help="prepare-native output")
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--candidate-only", action="store_true")
+    args = parser.parse_args(argv)
+    try:
+        join(args.input, args.source, args.version, args.output, environ=dict(os.environ),
+             candidate_only=args.candidate_only)
+    except (CandidateError, DesktopSigningError, OSError, ValueError, subprocess.SubprocessError) as error:
+        print(f"desktop join: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -37,8 +37,9 @@ builds:
       - '{{ with index .Env "RZM_INTERNAL_S3_BUCKET" }}-X github.com/atomicobject/rhizome/pkg/app/update.DefaultReleasesURL=https://{{ . }}.s3.amazonaws.com/releases{{ end }}'
       - -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=https://rh-df6936413ece4c13ad5ce75771f3aeb4.ecs.us-east-2.on.aws
 
-  # Linux builds - cross-compiled with zig
-  - id: rzm-linux
+  # Linux builds - cross-compiled with zig. One id per architecture lets each
+  # release job build only the Linux CLI its AppImage packages.
+  - id: rzm-linux-amd64
     binary: rzm
     hooks:
       post:
@@ -47,9 +48,10 @@ builds:
       - linux
     goarch:
       - amd64
-      - arm64
     env:
       - CGO_ENABLED=1
+      - CC=zig cc -target x86_64-linux-gnu
+      - CXX=zig c++ -target x86_64-linux-gnu
     flags:
       - -mod=vendor
       - -tags=fts5
@@ -60,19 +62,30 @@ builds:
       - -X github.com/atomicobject/rhizome/pkg/vault/version.Channel=release
       - '{{ with index .Env "RZM_INTERNAL_S3_BUCKET" }}-X github.com/atomicobject/rhizome/pkg/app/update.DefaultReleasesURL=https://{{ . }}.s3.amazonaws.com/releases{{ end }}'
       - -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=https://rh-df6936413ece4c13ad5ce75771f3aeb4.ecs.us-east-2.on.aws
-    overrides:
-      - goos: linux
-        goarch: amd64
-        env:
-          - CGO_ENABLED=1
-          - CC=zig cc -target x86_64-linux-gnu
-          - CXX=zig c++ -target x86_64-linux-gnu
-      - goos: linux
-        goarch: arm64
-        env:
-          - CGO_ENABLED=1
-          - CC=zig cc -target aarch64-linux-gnu
-          - CXX=zig c++ -target aarch64-linux-gnu
+
+  - id: rzm-linux-arm64
+    binary: rzm
+    hooks:
+      post:
+        - python3 scripts/teamkeys/release.py --check-artifact "{{ .Path }}"
+    goos:
+      - linux
+    goarch:
+      - arm64
+    env:
+      - CGO_ENABLED=1
+      - CC=zig cc -target aarch64-linux-gnu
+      - CXX=zig c++ -target aarch64-linux-gnu
+    flags:
+      - -mod=vendor
+      - -tags=fts5
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/atomicobject/rhizome/pkg/vault/version.Version={{.Version}}
+      - -X github.com/atomicobject/rhizome/pkg/vault/version.Channel=release
+      - '{{ with index .Env "RZM_INTERNAL_S3_BUCKET" }}-X github.com/atomicobject/rhizome/pkg/app/update.DefaultReleasesURL=https://{{ . }}.s3.amazonaws.com/releases{{ end }}'
+      - -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=https://rh-df6936413ece4c13ad5ce75771f3aeb4.ecs.us-east-2.on.aws
 
   # Windows amd64 - cross-compiled with mingw-w64
   - id: rzm-windows-amd64
