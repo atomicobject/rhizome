@@ -89,9 +89,14 @@ def _read_blob(repo: Path, revision: str, path: str) -> str | None:
         ["git", "show", f"{revision}:{path}"],
         cwd=repo,
         capture_output=True,
-        text=True,
     )
-    return result.stdout if result.returncode == 0 else None
+    if result.returncode != 0:
+        return None
+    try:
+        # Effort folders hold binary evidence such as screenshots; they are not notes.
+        return result.stdout.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    except UnicodeDecodeError:
+        return None
 
 
 def _discovery_metadata(text: str) -> dict:
