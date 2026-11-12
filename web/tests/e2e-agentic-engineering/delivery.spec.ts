@@ -213,7 +213,9 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(f.getByText(/Story A repeated occurrence/)).toBeVisible();
       await expect(f.getByText(/Unresolved authored scope/)).toBeVisible();
       await expect(f.getByText(/snapshot/i).first()).toBeVisible();
-      await expect(f.getByText("No approver recorded.", { exact: true })).toBeVisible();
+      await expect(
+        f.locator("p.ae-note").getByText("No approver recorded.", { exact: true }),
+      ).toBeVisible();
       await capture(page, info, "workspace-provenance");
     });
 
