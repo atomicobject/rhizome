@@ -121,9 +121,6 @@ export function SourceContent({ node }: { node: LiveNode }) {
     );
   return (
     <div>
-      <p className="ae-note">
-        {node.format || "Unknown format"} source. This brief shows its source text safely.
-      </p>
       <button
         className="ae-link"
         onClick={() =>

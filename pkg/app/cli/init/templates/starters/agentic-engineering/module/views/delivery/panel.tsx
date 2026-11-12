@@ -5,14 +5,7 @@ import { useEffect, useState } from "react";
 import { Section, useViewLocation, usePageNavigation, getViewInvocation } from "@rhizome/kit";
 import { groupFor, groups, identity } from "./lib/index.ts";
 import type { RecordSummary } from "./lib/index.ts";
-import {
-  CoverageNotice,
-  Ready,
-  RecordLink,
-  StageLink,
-  WorkflowMap,
-  unit,
-} from "./presentation.tsx";
+import { Ready, RecordLink, StageLink, WorkflowMap, unit } from "./presentation.tsx";
 import type { PortfolioProps } from "./presentation.tsx";
 
 function recentStorageKey() {
@@ -77,25 +70,20 @@ export function DeliveryPanel({ portfolio, status }: PortfolioProps) {
   return (
     <aside className="ae-panel">
       <Ready status={status} />
-      <Section title="Where you are" status={status} what="delivery orientation">
-        <p className="ae-panel-here">
-          {current?.title ||
-            (context.kind === "node" ? context.ref.notePath : (stage?.title ?? "Delivery"))}
-        </p>
-        <button
-          className="ae-link"
-          onClick={() =>
-            nav.openView("agentic-engineering.home", { kind: "group", group: "Delivery" })
-          }
-        >
-          Delivery home
-        </button>
-        <CoverageNotice portfolio={portfolio} />
-      </Section>
+      <button
+        className="ae-link"
+        aria-current={context.kind === "group" ? "page" : undefined}
+        onClick={() =>
+          nav.openView("agentic-engineering.home", { kind: "group", group: "Delivery" })
+        }
+      >
+        Delivery home
+      </button>
       <label>
-        Find a spec or effort
+        <span className="ae-visually-hidden">Find a spec or effort</span>
         <input
           type="search"
+          placeholder="Find spec or effort…"
           value={find}
           onChange={(event) => setFind(event.target.value)}
           onKeyDown={(event) => {
@@ -104,11 +92,11 @@ export function DeliveryPanel({ portfolio, status }: PortfolioProps) {
         />
       </label>
       {find.trim() && (
-        <Section title="Find" count={`${matches.length} loaded ${unit(matches.length, "records")}`}>
+        <Section title="Matches" count={matches.length}>
           {matches.map((record) => (
             <RecordLink key={identity(record.ref)} record={record} />
           ))}
-          {!matches.length && <p className="ae-note">No matches in the loaded inventory.</p>}
+          {!matches.length && <p className="ae-note">No matches.</p>}
         </Section>
       )}
       <WorkflowMap portfolio={portfolio} current={stage?.stage} subject={current?.ref} compact />
@@ -121,23 +109,18 @@ export function DeliveryPanel({ portfolio, status }: PortfolioProps) {
             </StageLink>
           ))}
       </nav>
-      <Section title="Recent" caption="Up to 12 visits in this repository and window.">
-        <ul aria-label="Recent">
-          {recent.map((record) => (
-            <li key={identity(record.ref)}>
-              <RecordLink record={record} />
-            </li>
-          ))}
-        </ul>
-        {!recent.length && <p className="ae-note">Open a spec or effort to start this list.</p>}
-        {visits.length > recent.length && (
-          <p className="ae-note">
-            {visits.length - recent.length} recent {unit(visits.length - recent.length, "visits")}{" "}
-            {visits.length - recent.length === 1 ? "is" : "are"} not in the loaded inventory.
-          </p>
-        )}
-      </Section>
-      <Section title="Native collections">
+      {recent.length > 0 && (
+        <Section title="Recent">
+          <ul aria-label="Recent">
+            {recent.map((record) => (
+              <li key={identity(record.ref)}>
+                <RecordLink record={record} />
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+      <Section title="Collections">
         {(
           [
             ["SpecLike", "Specs"],

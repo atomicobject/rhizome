@@ -41,11 +41,31 @@ export function subjectPortfolio(record: Spec | Effort): Portfolio {
   };
 }
 
-export function RecordWorkflow({ record }: { record: Spec | Effort }) {
+/** The groups this record belongs to, as links. Groups overlap, so a spec may name several. */
+export function RecordMemberships({ record }: { record: Spec | Effort }) {
+  const portfolio = subjectPortfolio(record);
+  const member = groups.filter((group) => {
+    const result = groupResult(group.stage, portfolio);
+    return (
+      result.state === "records" &&
+      result.rows.some(
+        (row) =>
+          identity(row.record.ref) === identity(record.ref) ||
+          (row.kind === "story" && identity(row.parent.ref) === identity(record.ref)),
+      )
+    );
+  });
+  if (!member.length) return null;
   return (
-    <div className="ae-record-workflow">
-      <WorkflowMap portfolio={subjectPortfolio(record)} subject={record.ref} showCounts={false} />
-    </div>
+    <span className="ae-memberships">
+      In{" "}
+      {member.map((group, index) => (
+        <span key={group.stage}>
+          {index > 0 && ", "}
+          <StageLink stage={group.stage}>{group.title}</StageLink>
+        </span>
+      ))}
+    </span>
   );
 }
 
@@ -227,16 +247,23 @@ export function WorkflowMap({
                         </span>
                       )}
                       {showCounts && !compact && (
-                        <span className="ae-stage-count">
-                          <span className="ae-number">
-                            {result.complete ? "" : "at least "}
-                            {result.count}
-                          </span>{" "}
-                          {unit(result.count, group.unit)}
-                          {parentSpecSummary(result)}
+                        <span
+                          className="ae-number"
+                          aria-label={`${result.complete ? "" : "at least "}${result.count} ${unit(result.count, group.unit)}${parentSpecSummary(result)}`}
+                        >
+                          {result.complete ? "" : "≥"}
+                          {result.count}
                         </span>
                       )}{" "}
-                      <span className="ae-stage-title">{group.title}</span>{" "}
+                      <span className="ae-stage-title">
+                        {group.title}
+                        {showCounts && !compact && result.parentSpecCount !== null && (
+                          <span className="ae-note">
+                            {" "}
+                            · {result.parentSpecCount} {unit(result.parentSpecCount, "specs")}
+                          </span>
+                        )}
+                      </span>{" "}
                       {contains && <span className="ae-this-record">This record</span>}
                     </StageLink>
                   </div>
@@ -256,38 +283,23 @@ export function CoverageNotice({ portfolio }: { portfolio: Portfolio }) {
   if (!partial && !errors.length) return null;
   return (
     <Notice tone={errors.length ? "risk" : "neutral"}>
-      {partial && (
-        <p role="status">Partial inventory. Counts describe loaded records and may omit work.</p>
-      )}
+      {partial && <p role="status">Some records didn't load. Counts may be low.</p>}
       {errors.length > 0 && <ErrorDetail error={{ message: errors.join("\n") }} />}
     </Notice>
   );
 }
 
-export function RowFacts({ row }: { row: Row }) {
+export function RowFacts({ row, hideStatus = false }: { row: Row; hideStatus?: boolean }) {
   const record = row.record;
   return (
-    <Facts note={<RecordedStatus status={record.status} />}>
+    <Facts note={hideStatus ? undefined : <RecordedStatus status={record.status} />}>
       {row.kind === "spec" && (
-        <Fact value={row.record.stories.length}>
-          {row.record.storiesCoverage.complete
-            ? unit(row.record.stories.length, "stories")
-            : `loaded ${unit(row.record.stories.length, "stories")}`}
-        </Fact>
+        <Fact value={row.record.stories.length}>{unit(row.record.stories.length, "stories")}</Fact>
       )}
       {row.kind === "story" && (
-        <>
-          <Fact>
-            {row.parent.status === "proposed"
-              ? "Proposed parent contract"
-              : "Active parent contract"}
-          </Fact>
-          <Fact value={row.record.criteria.length}>
-            {row.record.criteriaCoverage.complete
-              ? unit(row.record.criteria.length, "criteria")
-              : `loaded ${unit(row.record.criteria.length, "criteria")}`}
-          </Fact>
-        </>
+        <Fact value={row.record.criteria.length}>
+          {unit(row.record.criteria.length, "criteria")}
+        </Fact>
       )}
       {(row.kind === "effort" || row.kind === "review") &&
         row.record.checklist.state !== "deferred" && (
@@ -300,15 +312,21 @@ export function RowFacts({ row }: { row: Row }) {
       {row.kind === "review" && (
         <Fact>
           {row.observation === "closure-checklist"
-            ? "Recorded checklist fully checked; effort remains active"
-            : "Selected contract still records pending stories or criteria"}
+            ? "Checklist done, still active"
+            : "Pending contract"}
         </Fact>
       )}
     </Facts>
   );
 }
 
-export function PromptBox({ prompt }: { prompt: Prompt }) {
+export function PromptBox({
+  prompt,
+  title = "Workflow prompt",
+}: {
+  prompt: Prompt;
+  title?: string;
+}) {
   const [result, setResult] = useState("");
   useEffect(() => setResult(""), [prompt.text]);
   async function copy() {
@@ -321,8 +339,8 @@ export function PromptBox({ prompt }: { prompt: Prompt }) {
   }
   const reasons = [...new Set(prompt.reasons)];
   return (
-    <Section title="Workflow prompt">
-      <div className="ae-prompt">
+    <Section title={title}>
+      <div className="ae-prompt" data-empty={prompt.text ? undefined : true}>
         {prompt.text ? (
           <textarea readOnly aria-label="Workflow prompt preview" value={prompt.text} rows={10} />
         ) : (
@@ -349,7 +367,7 @@ export function EmptyGroup({ stage }: { stage: Stage }) {
   return (
     <p className="ae-note">
       {stage === "planned"
-        ? "No loaded effort has recorded status planned. Select ready stories to propose a slice, then use the effort and plan workflow to record scope and a plan. Approval is established from the full recorded context."
+        ? "No planned efforts. Select ready stories to start one."
         : "No matching records in the loaded inventory."}
     </p>
   );
@@ -379,7 +397,7 @@ export function ReadState({
           Loading delivery records…
         </p>
       )}
-      {(query.error || partial || errors.length > 0) && (
+      {(query.error || query.retained) && (
         <Notice tone={query.error ? "risk" : "neutral"}>
           {query.error && (
             <p role="alert">
@@ -389,30 +407,24 @@ export function ReadState({
           {query.retained && (
             <p role="status">Showing previous saved records after a failed refresh.</p>
           )}
-          {partial && (
-            <p role="status">
-              Some source evidence is unavailable.{" "}
-              <Button className="ae-refresh" onClick={() => query.refresh()}>
-                Refresh records
-              </Button>
-            </p>
-          )}
-          {errors.length > 0 && (
-            <ErrorDetail error={{ message: [...new Set(errors)].join("\n") }} />
-          )}
+
           {query.error && <ErrorDetail error={query.error} />}
         </Notice>
       )}
-      {query.state === "ready" && (
-        <p className="ae-saved">
+      {(query.state === "ready" || partial) && (
+        <p className="ae-saved" role={partial ? "status" : undefined}>
+          {partial && <span className="ae-note">Some sources didn't load · </span>}
           <button
             className="ae-link ae-refresh"
             aria-label="Refresh records"
             title="Reload saved records. Unsaved edits are not included."
             onClick={() => query.refresh()}
           >
-            Refresh
+            {partial ? "Retry" : "Refresh"}
           </button>
+          {partial && errors.length > 0 && (
+            <span className="ae-visually-hidden">{[...new Set(errors)].join(". ")}</span>
+          )}
         </p>
       )}
     </div>

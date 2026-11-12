@@ -1,6 +1,6 @@
 import { useDeliveryPortfolio, useDeliverySelectedEfforts } from "./data.tsx";
 import { useEffect, useState } from "react";
-import { Segmented, useViewParams } from "@rhizome/kit";
+import { DisclosureIcon, Segmented, useViewParams } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import {
   eligibility,
@@ -12,7 +12,6 @@ import {
 } from "./lib/index.ts";
 import type { Row, RecordSummary, RowSort } from "./lib/index.ts";
 import {
-  CoverageNotice,
   EmptyGroup,
   ErrorDetail,
   Notice,
@@ -20,9 +19,9 @@ import {
   Ready,
   ReadState,
   RecordLink,
+  RecordedStatus,
   StoryLink,
   RowFacts,
-  WorkflowMap,
   unit,
   parentSpecSummary,
 } from "./presentation.tsx";
@@ -67,6 +66,9 @@ export function DeliveryStage({
   const eligible = rows
     .filter((row) => eligibility(row, "select").eligible)
     .map((row) => identity(row.record.ref));
+  const allSelected = eligible.length > 0 && eligible.every((key) => selected.includes(key));
+  const someSelected = selected.length > 0;
+  const hideStatus = ["planned", "active", "ready", "contracts"].includes(group?.stage ?? "");
   const unavailable = selectedRecords.filter((record) => !eligible.includes(identity(record.ref)));
   if (!group)
     return (
@@ -118,15 +120,20 @@ export function DeliveryStage({
           onChange={(event) => toggle([key], event.target.checked)}
         />
         <div>
-          {row.kind === "story" ? (
-            <StoryLink story={row.record} parent={row.parent} />
-          ) : (
-            <RecordLink record={row.record} />
-          )}
-          <RowFacts row={row} />
+          <div className="ae-row-main">
+            {row.kind === "story" ? (
+              <StoryLink story={row.record} parent={row.parent} />
+            ) : (
+              <RecordLink record={row.record} />
+            )}
+            <RowFacts row={row} hideStatus={hideStatus} />
+          </div>
           {row.kind === "review" && row.selected.length > 0 && (
-            <>
-              <p className="ae-note">Pending selected records found in this read</p>
+            <details className="ae-pending-details">
+              <summary>
+                <DisclosureIcon open={false} />
+                {row.selected.length} pending
+              </summary>
               <ul
                 className="ae-pending"
                 aria-label={`Pending selected records for ${row.record.title}`}
@@ -134,11 +141,10 @@ export function DeliveryStage({
                 {row.selected.map((record) => (
                   <li key={identity(record.ref)}>
                     <RecordLink record={record} />
-                    <code className="ae-path">{record.locator}</code>
                   </li>
                 ))}
               </ul>
-            </>
+            </details>
           )}
           {allowed.reason && <p className="ae-note">{allowed.reason}</p>}
         </div>
@@ -163,28 +169,33 @@ export function DeliveryStage({
         </span>
       </header>
       <p className="ae-note ae-rule">{group.rule}</p>
-      <WorkflowMap portfolio={current} current={group.stage} />
-      <CoverageNotice portfolio={current} />
       <div className="ae-with-aside">
         <section aria-label={group.title} className="ae-list">
-          <div className="ae-list-tools">
-            <Segmented label="Sort records" value={sort} options={sorts} onChange={setSort} />
-            <span>
-              <Button
-                onClick={() =>
-                  setSelectedRecords(
-                    rows
-                      .filter((row) => eligible.includes(identity(row.record.ref)))
-                      .map((row) => row.record),
-                  )
-                }
-                disabled={!eligible.length || unavailable.length > 0}
-              >
-                Select all
-              </Button>
-              {selected.length > 0 && <Button onClick={() => setSelectedRecords([])}>Clear</Button>}
-            </span>
-          </div>
+          {rows.length > 0 && (
+            <div className="ae-list-tools">
+              <label className="ae-select-all">
+                <input
+                  type="checkbox"
+                  ref={(element) => {
+                    if (element) element.indeterminate = someSelected && !allSelected;
+                  }}
+                  checked={allSelected}
+                  disabled={!eligible.length || unavailable.length > 0}
+                  onChange={() =>
+                    setSelectedRecords(
+                      allSelected
+                        ? []
+                        : rows
+                            .filter((row) => eligible.includes(identity(row.record.ref)))
+                            .map((row) => row.record),
+                    )
+                  }
+                />
+                {selected.length ? `${selected.length} selected` : "Select all"}
+              </label>
+              <Segmented label="Sort records" value={sort} options={sorts} onChange={setSort} />
+            </div>
+          )}
           {group.stage === "ready"
             ? [...parents.values()].map((siblings) => {
                 const parent = siblings[0].parent;
@@ -206,12 +217,16 @@ export function DeliveryStage({
                         disabled={!keys.length}
                         onChange={(event) => toggle(keys, event.target.checked)}
                       />
-                      <div>
+                      <div className="ae-row-main">
                         <RecordLink record={parent} />
-                        <p className="ae-note">
-                          Recorded {parent.status}. {keys.length} visible eligible ready{" "}
-                          {unit(keys.length, "stories")}.
-                        </p>
+                        <span className="ae-note">
+                          {parent.status === "proposed" && (
+                            <>
+                              <RecordedStatus status={parent.status} />{" "}
+                            </>
+                          )}
+                          {keys.length} {unit(keys.length, "stories")}
+                        </span>
                       </div>
                     </div>
                     {siblings.map(renderRow)}

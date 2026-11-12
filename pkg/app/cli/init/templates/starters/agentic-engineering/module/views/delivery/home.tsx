@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Section } from "@rhizome/kit";
 import { groupResult, firstDayPrompt, identity } from "./lib/index.ts";
 import {
-  CoverageNotice,
   EmptyGroup,
   PromptBox,
   Ready,
@@ -25,26 +24,29 @@ function GroupPreview({ stage, portfolio }: { stage: Stage; portfolio: Portfolio
   const { group } = result;
   return (
     <Section
-      title={<StageLink stage={stage}>{group.title}</StageLink>}
+      title={group.title}
       count={`${result.complete ? "" : "at least "}${result.count} ${unit(result.count, group.unit)}${parentSpecSummary(result)}`}
-      caption={group.rule}
     >
       {result.rows.length ? (
         <>
           {result.rows.slice(0, 4).map((row, index) => (
             <div className="ae-row" key={`${identity(row.record.ref)}-${index}`}>
-              {row.kind === "story" ? (
-                <StoryLink story={row.record} parent={row.parent} />
-              ) : (
-                <RecordLink record={row.record} />
-              )}
-              <RowFacts row={row} />
+              <div className="ae-row-main">
+                {row.kind === "story" ? (
+                  <StoryLink story={row.record} parent={row.parent} />
+                ) : (
+                  <RecordLink record={row.record} />
+                )}
+                <RowFacts row={row} hideStatus={stage !== "shaping" && stage !== "history"} />
+              </div>
             </div>
           ))}
-          <p className="ae-note">
-            Showing {Math.min(4, result.count)} of {result.complete ? "" : "at least "}
-            {result.count} {unit(result.count, group.unit)}.{" "}
-            <StageLink stage={stage}>Open group</StageLink>
+          <p className="ae-more">
+            <StageLink stage={stage}>
+              {result.count > 4
+                ? `View all ${result.complete ? "" : "≥"}${result.count} →`
+                : `Open ${group.title.toLowerCase()} →`}
+            </StageLink>
           </p>
         </>
       ) : (
@@ -59,63 +61,46 @@ export function DeliveryHome({ portfolio, status }: PortfolioProps) {
   return (
     <main className="ae-page">
       <Ready status={status} />
-      <Section title="Delivery" status={status} what="delivery records">
-        {() => (
-          <>
-            <WorkflowMap portfolio={portfolio} />
-            <p className="ae-note ae-map-note">Groups can overlap, so counts don't add up.</p>
-            <CoverageNotice portfolio={portfolio} />
-            {portfolio.specCoverage.complete &&
-              portfolio.effortCoverage.complete &&
-              !portfolio.specs.length &&
-              !portfolio.efforts.length && (
-                <Section
-                  title="Start by shaping one spec"
-                  caption="Describe the outcome, who it is for, and the behavior you want. The specify workflow will inspect existing contracts and team policy."
-                >
-                  <label>
-                    Outcome
-                    <textarea
-                      aria-label="Outcome"
-                      value={outcome}
-                      onChange={(event) => setOutcome(event.target.value)}
-                    />
-                  </label>
-                  <PromptBox prompt={firstDayPrompt(outcome)} />
-                </Section>
-              )}
-            <div className="ae-columns ae-home-work">
-              <div>
-                <h2>Shape the next slice</h2>
-                <GroupPreview stage="shaping" portfolio={portfolio} />
-                <GroupPreview stage="ready" portfolio={portfolio} />
-              </div>
-              <div>
-                <h2>Build and finish</h2>
-                <GroupPreview stage="planned" portfolio={portfolio} />
-                <GroupPreview stage="active" portfolio={portfolio} />
-              </div>
+      {
+        <>
+          <WorkflowMap portfolio={portfolio} />
+          <p className="ae-note ae-map-note">Groups can overlap, so counts don't add up.</p>
+          {portfolio.specCoverage.complete &&
+            portfolio.effortCoverage.complete &&
+            !portfolio.specs.length &&
+            !portfolio.efforts.length && (
+              <Section
+                title="Start by shaping one spec"
+                caption="Describe the outcome, who it is for, and the behavior you want. The specify workflow will inspect existing contracts and team policy."
+              >
+                <label>
+                  Outcome
+                  <textarea
+                    aria-label="Outcome"
+                    value={outcome}
+                    onChange={(event) => setOutcome(event.target.value)}
+                  />
+                </label>
+                <PromptBox prompt={firstDayPrompt(outcome)} />
+              </Section>
+            )}
+          <div className="ae-columns ae-home-work">
+            <div>
+              <GroupPreview stage="shaping" portfolio={portfolio} />
+              <GroupPreview stage="ready" portfolio={portfolio} />
             </div>
-            <GroupPreview stage="history" portfolio={portfolio} />
-            <nav className="ae-support" aria-label="Supporting delivery views">
-              <p>
-                <StageLink stage="contracts">Current contracts</StageLink>
-                <br />
-                <span className="ae-note">
-                  Active normative specs and their recorded story states.
-                </span>
-              </p>
-              <p>
-                <StageLink stage="review">Record review</StageLink>
-                <br />
-                <span className="ae-note">
-                  Load exact scope and checklist evidence to inspect recorded discrepancies.
-                </span>
-              </p>
-            </nav>
-          </>
-        )}
-      </Section>
+            <div>
+              <GroupPreview stage="planned" portfolio={portfolio} />
+              <GroupPreview stage="active" portfolio={portfolio} />
+            </div>
+          </div>
+          <GroupPreview stage="history" portfolio={portfolio} />
+          <nav className="ae-support" aria-label="Supporting delivery views">
+            <StageLink stage="contracts">Current contracts →</StageLink>
+            <StageLink stage="review">Record review →</StageLink>
+          </nav>
+        </>
+      }
     </main>
   );
 }

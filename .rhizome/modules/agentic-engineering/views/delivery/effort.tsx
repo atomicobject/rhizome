@@ -23,7 +23,7 @@ import {
   ReadState,
   Ready,
   RecordedStatus,
-  RecordWorkflow,
+  RecordMemberships,
   sourceLocator,
   subjectPortfolio,
 } from "./presentation.tsx";
@@ -202,22 +202,21 @@ export default function Page() {
         }
         facts={
           <Facts note={<RecordedStatus status={record?.status} />}>
-            {record?.locator && (
-              <Fact>
-                <code className="ae-path">{record.locator}</code>
-              </Fact>
-            )}
             <Fact>
               {checklist?.state === "recorded" || checklist?.state === "empty"
                 ? `${checklist.checked} of ${checklist.total} checklist items checked`
                 : `Checklist ${checklist?.state ?? "unavailable"}`}
             </Fact>
+            {record && (
+              <Fact>
+                <RecordMemberships record={record} />
+              </Fact>
+            )}
           </Facts>
         }
       >
         {detail && record ? (
           <>
-            <RecordWorkflow record={record} />
             <div className="ae-with-aside ae-brief">
               <div>
                 <Narrative
@@ -302,17 +301,6 @@ export default function Page() {
                   title="Frozen selected scope"
                   count={record.scope.state === "known" ? undefined : `scope ${record.scope.state}`}
                 >
-                  {record.scope.source && (
-                    <p className="ae-note">
-                      Selected source{" "}
-                      <code className="ae-path">{record.scope.source.notePath}</code>
-                    </p>
-                  )}
-                  {record.scope.authored.map((target, i) => (
-                    <p className="ae-note" key={i}>
-                      Recorded selector <code className="ae-path">{target}</code>
-                    </p>
-                  ))}
                   {record.scope.reasons.length > 0 && (
                     <Notice>
                       {record.scope.reasons.map((reason, i) => (
@@ -337,6 +325,7 @@ export default function Page() {
               </div>
               <aside aria-label="Resume and closure" className="ae-brief-aside">
                 <PromptBox
+                  title="Resume prompt"
                   prompt={{
                     ...promptFor(
                       record.status === "planned"
@@ -358,9 +347,7 @@ export default function Page() {
                 />
               </aside>
             </div>
-            <Section
-              title="Source evidence"
-            >
+            <Section title="Source evidence">
               <details>
                 <summary>
                   <DisclosureIcon open={false} />
@@ -376,7 +363,6 @@ export default function Page() {
                     <DisclosureIcon open={false} />
                     Recorded log scope · separate snapshot
                   </summary>
-                  <p className="ae-note">This snapshot does not establish frozen membership.</p>
                   <Occurrences
                     occurrences={
                       detail.workLogSnapshot
@@ -395,9 +381,6 @@ export default function Page() {
                     <DisclosureIcon open={false} />
                     Entry mentions ({detail.entryMentions.occurrences.length})
                   </summary>
-                  <p className="ae-note">
-                    Links from the HTML entry do not supply frozen membership.
-                  </p>
                   <Occurrences occurrences={detail.entryMentions.occurrences} />
                 </details>
               )}

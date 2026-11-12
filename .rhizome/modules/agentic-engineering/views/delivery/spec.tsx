@@ -10,8 +10,7 @@ import {
   ReadState,
   Ready,
   RecordedStatus,
-  RecordWorkflow,
-  TypeName,
+  RecordMemberships,
   unit,
 } from "./presentation.tsx";
 import { useEffect, useRef, useState } from "react";
@@ -128,20 +127,17 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
         }
         facts={
           <Facts note={<RecordedStatus status={record?.status} />}>
-            {record?.ref.typeName && (
-              <Fact>
-                <TypeName name={record.ref.typeName} />
-              </Fact>
-            )}
             {id && (
               <Fact>
                 <code className="ae-path">{id}</code>
               </Fact>
             )}
-            <Fact>
-              {record?.locator ? <code className="ae-path">{record.locator}</code> : title}
-            </Fact>
             {updated && <Fact>Updated {updated}</Fact>}
+            {record && (
+              <Fact>
+                <RecordMemberships record={record} />
+              </Fact>
+            )}
           </Facts>
         }
       >
@@ -149,11 +145,9 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
           record ? (
             <>
               <p>{field(record.source, "summary")?.values?.[0]}</p>
-              <RecordWorkflow record={record} />
               <Section
                 title="What done means"
                 count={`${record.storiesCoverage.complete ? "" : "at least "}${record.stories.length} ${unit(record.stories.length, "stories")}`}
-                caption="Expand a story to inspect its full recorded criteria. Story status is recorded evidence."
               >
                 {storyParam && !focused && (
                   <Notice role="status">
@@ -178,8 +172,10 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
                   </p>
                 )}
               </Section>
-              {narrative}
               <EffortRelationships spec={record} />
+              <Section title="Source" className="ae-source-section">
+                {narrative}
+              </Section>
             </>
           ) : (
             <Notice>This subject did not resolve to a supported spec.</Notice>

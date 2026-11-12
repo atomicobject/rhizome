@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import { Section } from "@rhizome/kit";
+import { DisclosureIcon } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import { useDeliveryPortfolio, useDeliverySelectedEfforts } from "./data.tsx";
 import type { LiveSpec } from "./data.tsx";
@@ -68,12 +68,7 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
           </Button>
         </Notice>
       )}
-      {!pending && !complete && (
-        <Notice role="status">
-          Relationship evidence is incomplete. These are the links found in the loaded sources;
-          missing links do not establish absent scope.
-        </Notice>
-      )}
+      {!pending && !complete && <Notice role="status">Some effort sources didn't load.</Notice>}
       {rows.map(({ effort, metadata, frozen, selected }) => (
         <div className="ae-row" key={identity(effort.ref)}>
           <RecordLink record={effort} />
@@ -118,10 +113,6 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
       {!pending && !rows.length && (
         <p className="ae-note">No matching authored relationships returned in this read.</p>
       )}
-      <p className="ae-note">
-        General inbound mentions do not establish frozen selection. Open an effort for unresolved
-        occurrences, entry mentions, and separate log snapshots.
-      </p>
     </>
   );
 }
@@ -129,15 +120,16 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
 export function EffortRelationships({ spec }: { spec: LiveSpec }) {
   const [open, setOpen] = useState(false);
   return (
-    <Section
-      title="Effort relationships"
-      caption="Load exact authored sources separately from the contract. This does not decide coverage or delivery."
+    <details
+      className="ae-related"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      {open ? (
-        <LoadedRelationships spec={spec} />
-      ) : (
-        <Button onClick={() => setOpen(true)}>Load effort relationships</Button>
-      )}
-    </Section>
+      <summary>
+        <DisclosureIcon open={false} />
+        Related efforts
+      </summary>
+      {open && <LoadedRelationships spec={spec} />}
+    </details>
   );
 }
