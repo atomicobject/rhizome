@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [v0.52.0] - 2026-11-12
+
+- Experiences: a folder of custom views with an `experience.yml` runs as one site, in one long-lived frame per window that keeps each tab's page, with an optional Notes sidebar panel. Custom views can render Markdown with `@rhizome/kit/markdown`, keep their params across tab switches and reloads, and come first in the view switcher.
+- Agentic Engineering repositories get a Delivery experience: a Shape, Build, and Settle workflow map, selectable story and effort lists that compose one agent prompt, inline spec criteria, and effort resume briefs.
+- The optional `ao-kb` add-on reads an AO KB repository side by side with AO's skills, with a Knowledge site of KB overview, record pages, and Review. KB notes are editable; YAML and JSON model records stay read-only.
+- YAML and JSON files named by an include become read-only typed records with GraphQL and search. `.rhizome/source-ownership.yml` marks paths owned by another tool and refuses writes to them. `@field(path: ...)` and `@link(path: ...)` read nested frontmatter.
+- Rhizome Desktop for Linux: AppImages for Ubuntu 24.04 GNOME on x64 and Arm64, with Secret Service sign-in and signed in-app updates.
+- Desktop Settings has a Repository tab that changes a set-up repository's workflow, add-ons, agents, and search provider after listing the files it will write. Installed starters finish setup and indexing automatically, and folders whose selected Rhizome can't serve them offer a fix instead of a dead end.
+- Sandboxed Claude Code and Codex agents can reach the repository's Rhizome runtime through loopback-only network access that `rzm init` configures.
+- Fixes from an invariant audit: repository custom views and actions require `rzm trust`, `rzm serve --host` rejects spoofed loopback hosts, note and settings writes no longer lose concurrent changes, index writes keep code chunks and embeddings attached to their anchors, and fourteen cancellation and overlap bugs are fixed.
+- `rzm` and the team API gateway build with Go 1.27.4, fixing GO-2026-6859.
+- Contract changes: the status API's `generation` is an opaque string; GraphQL responses carry `extensions.generation` and `extensions.truncated`; filters on unknown fields or computed relations are errors; `frame` is a reserved view param name.
+
 ## [v0.51.0] - 2026-11-06
 
 - Rhizome Desktop for Apple silicon Macs: one window per repository, ⌘O and ⇧⌘O finders for repositories and worktrees, runtime controls, and a bundled `rzm`. The app is signed, notarized, and updates itself.
