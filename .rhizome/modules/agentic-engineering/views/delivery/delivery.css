@@ -359,13 +359,13 @@
 }
 .ae-read-state > .ae-saved {
   position: absolute;
-  top: 18px;
+  top: 30px;
   right: 24px;
   margin: 0;
   z-index: 1;
 }
 .ae-page .ae-read-state > .ae-saved {
-  top: -2px;
+  top: 8px;
   right: 0;
 }
 .ae-saved {
@@ -961,4 +961,7 @@ body:has(.ae-panel-state) {
     grid-template-columns: 3fr 2fr 1fr;
     column-gap: 36px;
   }
+}
+.ae-page .rz-section-controls .ae-source-link {
+  font-weight: 400;
 }

@@ -65,7 +65,7 @@ export function InlineStory({
         <span className="ae-summary-facts ae-note">
           <RecordedStatus status={story.status} />{" "}
           <span>
-            {story.criteriaCoverage.complete ? "" : "at least "}
+            {story.criteriaCoverage.complete ? "" : "≥"}
             {story.criteria.length} {unit(story.criteria.length, "criteria")}
           </span>
         </span>
@@ -116,7 +116,6 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
       <Ready status={status} />
       <RecordPage
         title={record?.title || title}
-        kind="Spec"
         status={status}
         what="this spec"
         partial={
@@ -151,7 +150,7 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
               <p>{field(record.source, "summary")?.values?.[0]}</p>
               <Section
                 title="What done means"
-                count={`${record.storiesCoverage.complete ? "" : "at least "}${record.stories.length} ${unit(record.stories.length, "stories")}`}
+                count={`${record.storiesCoverage.complete ? "" : "≥"}${record.stories.length} ${unit(record.stories.length, "stories")}`}
               >
                 {storyParam && !focused && (
                   <Notice role="status">
@@ -200,7 +199,6 @@ export default function Page() {
       <main className="ae-page">
         <ReadState query={query} />
         <RecordPage
-          kind="Spec"
           title={context.kind === "node" ? context.ref.notePath : "Invalid spec route"}
           status={{ status: query.state === "loading" ? "loading" : "ready" }}
           what="this spec"

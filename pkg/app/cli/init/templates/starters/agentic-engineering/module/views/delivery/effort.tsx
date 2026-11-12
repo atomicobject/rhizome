@@ -105,19 +105,23 @@ function Narrative({
   const readable = source && !state?.issues?.length;
   if (owner && !state?.present && !note) return null;
   return (
-    <Section title={title}>
-      {readable ? (
-        <>
-          <SourceContent node={source} />
+    <Section
+      title={title}
+      controls={
+        readable ? (
           <button
             className="ae-link ae-source-link"
             title={sourceLocator(source.ref)}
-            aria-label={`Open source ${sourceLocator(source.ref)}`}
+            aria-label={`View source ${sourceLocator(source.ref)}`}
             onClick={() => nav.openNode(source.ref, { view: "builtin:read" })}
           >
-            Open source
+            View source
           </button>
-        </>
+        ) : undefined
+      }
+    >
+      {readable ? (
+        <SourceContent node={source} />
       ) : (
         <p className="ae-note">
           {!owner
@@ -191,7 +195,6 @@ export default function Page() {
           detail?.node.title ||
           (context.kind === "node" ? context.ref.notePath : "Invalid effort route")
         }
-        kind="Effort"
         status={{ status: query.state === "loading" ? "loading" : "ready" }}
         partial={
           detail && !detail.coverage.complete ? (
@@ -300,7 +303,7 @@ export default function Page() {
                 </Section>
                 <Section
                   title="Frozen scope"
-                  count={record.scope.state === "known" ? undefined : `scope ${record.scope.state}`}
+                  count={record.scope.state === "known" ? undefined : record.scope.state}
                 >
                   {record.scope.reasons.length > 0 && (
                     <Notice>
@@ -326,7 +329,6 @@ export default function Page() {
               </div>
               <aside aria-label="Resume and closure" className="ae-brief-aside">
                 <PromptBox
-                  title="Resume prompt"
                   prompt={{
                     ...promptFor(
                       record.status === "planned"

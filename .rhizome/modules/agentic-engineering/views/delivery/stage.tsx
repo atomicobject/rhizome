@@ -132,7 +132,7 @@ export function DeliveryStage({
             ) : (
               <RecordLink record={row.record} />
             )}
-            <RowFacts row={row} hideStatus={hideStatus} />
+            <RowFacts row={row} hideStatus={hideStatus} hideChecklist />
           </div>
           {row.kind === "review" && row.selected.length > 0 && (
             <details className="ae-pending-details">
@@ -179,7 +179,7 @@ export function DeliveryStage({
           </span>
         )}
       </header>
-      <p className="ae-note ae-rule">{group.rule}</p>
+      {group.rule && <p className="ae-note ae-rule">{group.rule}</p>}
       <StageTabs portfolio={current} current={group.stage} />
       <div className="ae-with-aside">
         <section aria-label={group.title} className="ae-list">

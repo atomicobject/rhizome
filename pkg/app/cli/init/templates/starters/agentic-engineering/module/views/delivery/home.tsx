@@ -25,7 +25,7 @@ function GroupPreview({ stage, portfolio }: { stage: Stage; portfolio: Portfolio
   return (
     <Section
       title={group.title}
-      count={`${result.complete ? "" : "at least "}${result.count} ${unit(result.count, group.unit)}${parentSpecSummary(result)}`}
+      count={`${result.complete ? "" : "≥"}${result.count} ${unit(result.count, group.unit)}${parentSpecSummary(result)}`}
     >
       {result.rows.length ? (
         <>

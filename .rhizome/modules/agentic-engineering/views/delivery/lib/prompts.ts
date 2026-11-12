@@ -59,11 +59,12 @@ export function promptFor(stage: Stage, input: Portfolio, selectedKeys: readonly
       }
     }
   }
+  const these = chosen.length === 1 ? 'this effort' : 'these efforts';
   const routes: Record<Stage, string> = {
     shaping: 'Use the installed agentic-engineering specify route to shape the selected contracts.',
     ready: 'Use the installed agentic-engineering effort route, then plan, to evaluate this proposed slice and existing frozen selections. Settle any proposed parent through specify before freezing delivery scope. Selection remains proposed until the workflow freezes it. Do not assume one effort per spec.',
-    planned: 'Use the installed agentic-engineering classify route to inspect authority, scope, and the plan before resuming these efforts.',
-    active: 'Use the installed agentic-engineering implement route to inspect authority and resume these efforts from their recorded context.',
+    planned: `Use the installed agentic-engineering classify route to inspect authority, scope, and the plan before resuming ${these}.`,
+    active: `Use the installed agentic-engineering implement route to inspect authority and resume ${these} from ${chosen.length === 1 ? "its" : "their"} recorded context.`,
     history: 'Use the installed agentic-engineering finish or reconcile route to inspect recorded delivery evidence. Preserve historical records.',
     contracts: 'Use the installed agentic-engineering specify route to inspect these normative contracts.',
     review: 'Use the installed agentic-engineering finish or reconcile route to compare actual delivery, deviations, and the exact selected contract. Investigate the recorded observations without presuming acceptance, an error, or a required state edit.',

@@ -200,7 +200,7 @@ export function ErrorDetail({ error }: { error: { message: string } }) {
 
 export function parentSpecSummary(result: ReturnType<typeof groupResult>) {
   if (result.state !== "records" || result.parentSpecCount === null) return "";
-  return ` in ${result.complete ? "" : "at least "}${result.parentSpecCount} ${unit(result.parentSpecCount, "specs")}`;
+  return ` in ${result.complete ? "" : "≥"}${result.parentSpecCount} ${unit(result.parentSpecCount, "specs")}`;
 }
 
 export function WorkflowMap({
@@ -328,7 +328,15 @@ export function CoverageNotice({ portfolio }: { portfolio: Portfolio }) {
   );
 }
 
-export function RowFacts({ row, hideStatus = false }: { row: Row; hideStatus?: boolean }) {
+export function RowFacts({
+  row,
+  hideStatus = false,
+  hideChecklist = false,
+}: {
+  row: Row;
+  hideStatus?: boolean;
+  hideChecklist?: boolean;
+}) {
   const record = row.record;
   return (
     <Facts note={hideStatus ? undefined : <RecordedStatus status={record.status} />}>
@@ -340,7 +348,7 @@ export function RowFacts({ row, hideStatus = false }: { row: Row; hideStatus?: b
           {unit(row.record.criteria.length, "criteria")}
         </Fact>
       )}
-      {(row.kind === "effort" || row.kind === "review") &&
+      {(row.kind === "review" || (row.kind === "effort" && !hideChecklist)) &&
         row.record.checklist.state !== "deferred" && (
           <Fact>
             {row.record.checklist.state === "recorded" || row.record.checklist.state === "empty"
