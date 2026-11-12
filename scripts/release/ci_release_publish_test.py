@@ -14,7 +14,7 @@ from release_advertise import API as PUBLIC_API, DOWNLOAD, AdvertisementError
 from release_homebrew import recipe_contents
 
 ENV = {"GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/main", "GITHUB_REPOSITORY": "atomicobject/rhizome",
-       "GITHUB_SHA": SOURCE, "GITHUB_EVENT_NAME": "pull_request",
+       "GITHUB_SHA": SOURCE, "GITHUB_EVENT_NAME": "push",
        "GITHUB_TOKEN": "synthetic-github-token", "BREW_GITHUB_TOKEN": "synthetic-brew-token",
        "APPLE_API_PRIVATE_KEY": "synthetic-apple-key", "OP_SERVICE_ACCOUNT_TOKEN": "synthetic-op-token"}
 
@@ -197,7 +197,7 @@ class PublisherTests(unittest.TestCase):
 
     def publish(self, **kwargs):
         return publish(self.root, SOURCE, self.assets, self.root / "receipt.json",
-            environment=ENV, runner=self.host.run, validator=lambda root: self.intent,
+            environment=kwargs.pop("environment", ENV), runner=self.host.run, validator=lambda root: self.intent,
             gate=kwargs.pop("gate", self.host.gate), api_factory=lambda commands: self.host,
             signature_verifier=lambda *a, **k: None,
             bundle_verifier=kwargs.pop("bundle_verifier", lambda source, version, assets: verify_bundle(source, version, assets, root=self.root, verifier=lambda *a, **k: None)), **kwargs)
@@ -393,11 +393,16 @@ class PublisherTests(unittest.TestCase):
             publish(self.root, SOURCE, self.assets, self.root / "receipt", environment={}, runner=self.host.run)
         self.assertEqual(self.host.calls, [])
 
-    def test_manual_candidate_or_different_event_sha_cannot_publish(self):
-        for changes in ({"GITHUB_EVENT_NAME": "workflow_dispatch"}, {"GITHUB_SHA": "b" * 40}):
+    def test_other_events_or_a_different_push_sha_cannot_publish(self):
+        for changes in ({"GITHUB_EVENT_NAME": "pull_request"}, {"GITHUB_EVENT_NAME": "schedule"},
+                        {"GITHUB_SHA": "b" * 40}, {"GITHUB_REF": "refs/pull/131/merge"}):
             with self.subTest(changes=changes), self.assertRaisesRegex(PublishError, "only in"):
                 publish(self.root, SOURCE, self.assets, self.root / "receipt", environment={**ENV, **changes}, runner=self.host.run)
         self.assertEqual(self.host.calls, [])
+
+    def test_dispatch_for_a_merged_release_pr_may_run_at_a_later_main_sha(self):
+        self.publish(environment={**ENV, "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_SHA": "b" * 40})
+        self.assertIn("upload", self.host.events)
 
     def test_candidate_bundle_is_refused_before_refs_gateway_or_uploads(self):
         path = self.assets / "release-manifest.json"
