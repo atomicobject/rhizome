@@ -86,7 +86,7 @@ export function DeliveryStage({
     ...(loadingScope ? ["Reading selected efforts…"] : []),
     ...(details.error ? ["A selected effort couldn't be read."] : []),
     ...(incompleteScope && !loadingScope
-      ? ["A selected effort couldn't be read completely. Clear it and select it again to retry."]
+      ? ["A selected effort couldn't be read completely. Refresh to retry."]
       : []),
   ];
   // While anything is still loading, the loading line alone explains the wait.

@@ -31,7 +31,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(content(page).getByText(/overlap/i)).toBeVisible();
       await expect(
         content(page)
-          .getByText(/^≥?3 stories · ≥?2 specs$/)
+          .getByText(/^≥?3 stories in ≥?2 specs$/)
           .first(),
       ).toBeVisible();
       await expect(
