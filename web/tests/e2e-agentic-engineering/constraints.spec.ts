@@ -486,6 +486,45 @@ test("ambiguous spec sections disable ready selection while preserving authored 
   await expect(f.getByText(/harbor confirmation ends here/)).toBeVisible();
 });
 
+test("selecting another effort does not reread efforts already loaded", async ({ page }) => {
+  await page.goto("/notes?view=agentic-engineering.stage&stage=active");
+  const f = content(page);
+  const copy = f.getByRole("button", { name: "Copy workflow prompt", exact: true });
+  await f.getByRole("checkbox", { name: "Select Active all checked", exact: true }).check();
+  await expect(copy).toBeEnabled();
+  const bodies: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/v1/graphql")) bodies.push(request.postData() ?? "");
+  });
+  await f.getByRole("checkbox", { name: "Select Harbor legacy workspace", exact: true }).check();
+  await expect(copy).toBeEnabled();
+  await expect(f.getByRole("textbox", { name: /prompt/i })).toHaveValue(/harbor-legacy/);
+  expect(bodies.some((body) => body.includes("harbor-legacy"))).toBe(true);
+  expect(bodies.filter((body) => body.includes("2026-11-09-10-02-harbor.md"))).toEqual([]);
+});
+
+test("a cached effort from an earlier graph generation is read again", async ({ page }) => {
+  await page.route("**/api/v1/events", (route) => route.abort("blockedbyclient"));
+  await page.goto("/notes?view=agentic-engineering.stage&stage=active");
+  const f = content(page);
+  const copy = f.getByRole("button", { name: "Copy workflow prompt", exact: true });
+  await f.getByRole("checkbox", { name: "Select Active all checked", exact: true }).check();
+  await expect(copy).toBeEnabled();
+  await page.route("**/api/v1/graphql", async (route) => {
+    const response = await route.fetch();
+    const json: unknown = await response.json();
+
+    if (isJsonObject(json) && isJsonObject(json.extensions))
+      json.extensions.generation = "synthetic-later-generation";
+    await route.fulfill({ response, json });
+  });
+  await f.getByRole("checkbox", { name: "Select Harbor legacy workspace", exact: true }).check();
+  await expect(copy).toBeEnabled();
+  await expect(f.getByRole("textbox", { name: /prompt/i })).toHaveValue(
+    /2026-11-09-10-02-harbor\.md[\s\S]*harbor-legacy/,
+  );
+});
+
 test("refresh rereads selected efforts before allowing Copy and recovers", async ({
   page,
 }, info) => {

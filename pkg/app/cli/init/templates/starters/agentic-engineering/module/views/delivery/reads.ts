@@ -324,7 +324,8 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     return { node, record: result, components: uniqueComponents, selectedTargets: targets.nodes, governing, entryMentions,
       workLogSnapshot, coverage: totalCoverage };
   }
-  async function effortDetails(targets: readonly Ref[]) {
+  type Load = (ref: Ref) => Promise<RecordDetail | null>;
+  async function effortDetails(targets: readonly Ref[], load: Load = record) {
     const results: { detail: RecordDetail | null; coverage: Coverage }[] = new Array(targets.length);
     let next = 0;
     async function work() {
@@ -332,7 +333,7 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
         const index = next++;
         check();
         try {
-          const detail = await record(targets[index]);
+          const detail = await load(targets[index]);
           results[index] = { detail, coverage: detail?.coverage ?? absent('Selected effort unavailable') };
         } catch (error) {
           check();
@@ -344,9 +345,9 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     return results;
   }
   /** Coverage is the effort record reads. Each effort's scope state reports its own frozen-scope evidence. */
-  async function selectedEfforts(targets: readonly Ref[]) {
+  async function selectedEfforts(targets: readonly Ref[], load: Load = record) {
     const unique = [...new Map(targets.map(target => [identity(target), target])).values()];
-    const details = await effortDetails(unique);
+    const details = await effortDetails(unique, load);
     const efforts: LiveEffort[] = [];
     const reads: Coverage[] = [];
     for (const result of details) {
