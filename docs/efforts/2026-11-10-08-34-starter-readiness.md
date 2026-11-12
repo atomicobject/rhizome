@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-11-10-08-34
 name: Starter readiness and recovery
 created-at: 2026-11-10T13:34:58Z
-status: active
+status: complete
 summary: Make installed starters complete their setup and indexing with visible readiness and recovery, and refresh ontology data after folder-only changes.
 aliases: [EFF-2026-11-10-08-34]
 governing-specs:
@@ -80,7 +80,7 @@ None identified yet.
 
 ## Status
 
-Implementation is complete on `feat/starter-readiness` for [PR #125](https://github.com/atomicobject/rhizome/pull/125). Code through `f02a48df` passed all 26 CI checks and Greptile review at 5/5 with no findings; subsequent review corrections and their verification are recorded below. The final native Windows first-window failure is under investigation. Drew authorized squash merge and explicitly accepted the documented uncertainty about the earlier readiness timeout; that exception does not cover the newer native failure. Rhizome Dev installation follows the repository's main-branch installation policy.
+Complete. Delivered on `main` in PR #125 (`2c981619e`, merged 2026-11-10). Drew closed this effort on 2026-11-12 after an audit of open efforts. Unchecked items above are carried forward under that decision rather than verified at closure. Follow-up: confirm the native Windows first-window failure is resolved on `main`.
 
 ## Implementation work log
 

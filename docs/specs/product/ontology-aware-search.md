@@ -2,8 +2,8 @@
 type: ProductSpec
 id: SPEC-0065
 summary: "Defines the user-facing ontology-aware search experience: CLI results grouped by note type with frontmatter fields surfaced, type and frontmatter filtering, clear command routing so developers know which search command to use, and remediation of the confusing rzm agent semantic-query surface."
-spec-status: proposed
-last-updated: 2026-07-11
+spec-status: archived
+last-updated: 2026-11-12
 aliases:
   - SPEC-0065
   - ontology-aware-search

@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-10-02-12-13
 name: View manual ordering
 created-at: 2026-10-02T16:13:02Z
-status: active
+status: complete
 summary: Drag rows, cards, and kanban cards into order in views sorted by an editable number, enum, or boolean field, staging ordinary field updates.
 aliases:
   - EFF-2026-10-02-12-13
@@ -103,4 +103,4 @@ None yet.
 
 ## Status
 
-Active. Implementation, checks, review, and dogfood are complete on `drag-reorder`; waiting on Drew's trial feedback and the PR merge.
+Complete. Delivered on `main` in the squashed `7ec4bcb9f` initial commit of the rewritten history (2026-10-05); the PR numbers above predate that rewrite. Drew closed this effort on 2026-11-12 after an audit of open efforts. Unchecked items above are carried forward under that decision rather than verified at closure.

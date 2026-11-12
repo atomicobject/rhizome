@@ -2,8 +2,8 @@
 type: ExperienceSpec
 id: SPEC-0119
 summary: "In Rhizome Desktop, the native toolbar carries the workspace's section tabs, project search, issue badge, and shortcuts, and the web UI hides its own header, so a window has one top bar."
-spec-status: proposed
-last-updated: 2026-11-06
+spec-status: active
+last-updated: 2026-11-12
 aliases:
   - SPEC-0119
 ---

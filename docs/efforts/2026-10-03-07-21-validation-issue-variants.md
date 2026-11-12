@@ -4,7 +4,7 @@ id: EFF-2026-10-03-07-21
 aliases: [EFF-2026-10-03-07-21]
 name: Validation issue variants and case-level resolution
 created-at: 2026-10-03T11:21:30Z
-status: active
+status: complete
 summary: Add an optional variant to validation findings, group Problems by issue kind and variant in three columns, and resolve an ambiguous-type variant or every safe repair with one staged review.
 ---
 
@@ -118,4 +118,4 @@ None yet.
 
 ## Status
 
-Active. Delivered in PR #6 (https://github.com/atomicobject/rhizome/pull/6), awaiting review and merge. Closure follows merge.
+Complete. Delivered on `main` in the squashed `7ec4bcb9f` initial commit of the rewritten history (2026-10-05); the PR numbers above predate that rewrite. Drew closed this effort on 2026-11-12 after an audit of open efforts. Unchecked items above are carried forward under that decision rather than verified at closure.

@@ -2,8 +2,8 @@
 type: TechnicalSpec
 summary: "Defines the policy for Obsidian-compatible block identifiers on embedded ontology nodes across source shapes: preferred identifier fields double as block anchors, standalone generated anchors are fallback locators, and validation/autofix keeps links migrated."
 id: SPEC-0023
-spec-status: proposed
-last-updated: 2026-07-16
+spec-status: active
+last-updated: 2026-11-12
 aliases:
   - SPEC-0023
   - Linkable embedded node identifiers

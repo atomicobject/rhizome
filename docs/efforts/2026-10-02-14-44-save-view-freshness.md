@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-10-02-14-44
 name: Save and view freshness
 created-at: 2026-10-02T18:44:34Z
-status: active
+status: complete
 summary: Implement the measured save latency and view lifecycle fixes, review the integrated change, and open a pull request above drag-reorder.
 aliases:
   - EFF-2026-10-02-14-44
@@ -100,7 +100,7 @@ The follow-up `make web-e2e` passed all 53 browser tests. Documentation and froz
 
 ## Status
 
-Active. Implementation, latest-main integration, local verification, and independent review are complete. PR #3 targets `main` and is open for maintainer review; merging is outside this effort's authorization.
+Complete. Delivered on `main` in the squashed `7ec4bcb9f` initial commit of the rewritten history (2026-10-05); the PR numbers above predate that rewrite. Drew closed this effort on 2026-11-12 after an audit of open efforts. Unchecked items above are carried forward under that decision rather than verified at closure.
 
 ## Latest main integration
 

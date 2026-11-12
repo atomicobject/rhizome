@@ -4,7 +4,7 @@ id: EFF-2026-09-05-11-42
 name: Agent experience integration
 created-at: 2026-09-05T15:42:54Z
 plan-approved-by:
-status: active
+status: archived
 summary: "Coordinate the base Rhizome, Agentic Engineering, Complex Domain, behavioral evaluation, and progressive code-mode efforts in one staging PR."
 aliases:
   - EFF-2026-09-05-11-42
@@ -91,4 +91,4 @@ None yet.
 
 ## Status
 
-Active delivery coordination. All five supervisors were resumed under Drew's explicit delivery instruction. See the delivery coordination record for current decisions, thread/PR IDs, and bounded evaluation authority. Main integration remains a separate decision.
+Archived. Drew archived this coordination effort on 2026-11-12 after an audit of open efforts. Its scope was never frozen, and the work it coordinated shipped through other efforts or no longer applies.

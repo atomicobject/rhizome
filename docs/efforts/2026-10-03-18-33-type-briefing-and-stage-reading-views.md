@@ -4,7 +4,7 @@ id: EFF-2026-10-03-18-33
 aliases: [EFF-2026-10-03-18-33]
 name: Type Briefing and stage-reading views
 created-at: 2026-10-03T22:34:34Z
-status: active
+status: complete
 summary: "Replace Overview with a type Briefing built on the bundled-view platform, and make the group views and the kit read lifecycle stages and type profiles from the server instead of deriving them from tones and field names."
 ---
 
@@ -97,4 +97,4 @@ Not yet delivered.
 
 ## Status
 
-Active. Batches 1 and 2 are complete; batch 3 review fixes are in, and the pull request is next.
+Complete. Delivered on `main` in the squashed `7ec4bcb9f` initial commit of the rewritten history (2026-10-05); the PR numbers above predate that rewrite. Drew closed this effort on 2026-11-12 after an audit of open efforts. Unchecked items above are carried forward under that decision rather than verified at closure.

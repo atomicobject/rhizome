@@ -4,7 +4,7 @@ id: EFF-2026-10-04-10-01
 aliases: [EFF-2026-10-04-10-01]
 name: Persistent view preferences
 created-at: 2026-10-04T14:01:47Z
-status: active
+status: complete
 summary: "Deliver instance-scoped SQLite preferences, native and custom view persistence, clear shared-save controls, updated authoring guidance, and a reviewed PR with Greptile 5/5."
 governing-specs: ["[[view-preferences]]"]
 ---
@@ -78,7 +78,7 @@ None identified yet.
 
 ## Status
 
-Active implementation on `t3code/view-settings-evaluation`, starting from `0839691`. No unrelated changes were present before the initial build. The build regenerated the tracked asset entry; it will be handled with the final build output.
+Complete. Delivered on `main` in the squashed `7ec4bcb9f` initial commit of the rewritten history (2026-10-05); the PR numbers above predate that rewrite. Drew closed this effort on 2026-11-12 after an audit of open efforts. Unchecked items above are carried forward under that decision rather than verified at closure.
 
 ## Execution Notes
 

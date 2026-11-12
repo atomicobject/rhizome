@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-11-06-19-46
 name: Linux team session storage
 created-at: 2026-11-07T00:47:44Z
-status: active
+status: complete
 summary: Enable Atomic Object sign-in on Linux through the native Secret Service keyring.
 aliases: [EFF-2026-11-06-19-46]
 governing-specs:
@@ -80,4 +80,4 @@ No shard proposed; retain the platform procedure beside the adapter documentatio
 
 ## Status
 
-Local implementation and installation are verified. Source delivery is commit `2d432b56` on `linux-secret-service` in [draft PR #110](https://github.com/atomicobject/rhizome/pull/110). The effort remains active while the full-suite Explorer timeout and required Greptile review are unresolved; merging also awaits green CI. Native Mac visual acceptance remains unverified. No merge or publication is authorized.
+Complete. Delivered on `main` in PR #110 (`fb5583449`, merged 2026-11-07). Drew closed this effort on 2026-11-12 after an audit of open efforts. Unchecked items above are carried forward under that decision rather than verified at closure. Follow-up: native Mac visual acceptance.

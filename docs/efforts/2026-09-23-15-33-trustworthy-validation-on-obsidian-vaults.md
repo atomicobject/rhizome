@@ -5,7 +5,7 @@ aliases:
   - EFF-2026-09-23-15-33
 name: Trustworthy Validation On Obsidian Vaults
 created-at: 2026-09-23T19:33:00Z
-status: active
+status: complete
 summary: "Make rzm validate trustworthy on a long-lived Obsidian vault: resolve links the way Obsidian does, stop link-hygiene from corrupting valid links, report each broken link once, tighten retarget suggestions, allow applying a reviewed subset of fixes, and separate links that broke from deliberate placeholders."
 ---
 
@@ -169,7 +169,7 @@ The audit suite now reports 924 `placeholder_note_link`. All 16 remaining `broke
 
 ## Status
 
-Active.
+Complete. Delivered on `main` in the squashed `7ec4bcb9f` initial commit of the rewritten history (2026-10-05); the PR numbers above predate that rewrite. Drew closed this effort on 2026-11-12 after an audit of open efforts. Unchecked items above are carried forward under that decision rather than verified at closure. Follow-up: the web gates recorded as not run.
 
 ## Execution Notes
 

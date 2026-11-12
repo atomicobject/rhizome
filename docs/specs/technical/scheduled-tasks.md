@@ -5,8 +5,8 @@ aliases:
   - SPEC-0127
   - Scheduled tasks
 summary: "Repositories declare periodic agent tasks: an optional free pre-flight check that decides whether work is needed, then a prompt run by each person's own agent harness. A repository sets whether tasks run automatically or only notify, and each person can override that per task. Background runs work in their own worktree, never push, and report back with a message and the changed files. Git history is the team's shared clock, and run records stay in each person's ignored local state, so teammates using different harnesses need no coordination."
-spec-status: proposed
-last-updated: 2026-11-03
+spec-status: active
+last-updated: 2026-11-12
 ---
 
 # Scheduled tasks

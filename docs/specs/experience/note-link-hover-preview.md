@@ -2,8 +2,8 @@
 type: ExperienceSpec
 summary: "Hovering a link to a note in the web workspace opens an index-backed preview card showing the target's type, identifier, summary, and interesting properties, shaped by a field-level @display annotation that schema authors use to mark properties as key, detail, or hidden from previews. The same importance orders the properties panel and picks configured-view default columns."
 id: SPEC-0106
-spec-status: proposed
-last-updated: 2026-09-19
+spec-status: active
+last-updated: 2026-11-12
 aliases:
   - SPEC-0106
 ---
