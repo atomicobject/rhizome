@@ -1098,10 +1098,10 @@ export function App() {
               !worktree.trustRequired &&
               worktree.pinOffer?.state !== "advance" &&
               open?.step === "ready" &&
+              !upgrade &&
               !!filePlans[worktree.path]?.writes.files.length && (
                 <button
                   className="toolbar-pill"
-                  disabled={!!upgrade}
                   onClick={() => {
                     const plan = filePlans[worktree.path];
                     if (plan)

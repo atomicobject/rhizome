@@ -290,9 +290,7 @@ export function UpgradeSheet({
             </>
           ) : (
             <>
-              <button disabled={state.kind === "running"} onClick={onClose}>
-                Cancel
-              </button>
+              {state.kind !== "running" && <button onClick={onClose}>Cancel</button>}
               {state.kind === "review" && (
                 <button className="primary" onClick={() => void run(advance ? "install" : "files")}>
                   {advance ? "Upgrade" : "Update files"}

@@ -130,7 +130,7 @@ it("keeps the sheet open during an apply and retries only a failed restart", asy
   callbacks.onRestart.mockRejectedValueOnce(new Error("Runtime is attached."));
   fireEvent.click(await screen.findByRole("button", { name: "Upgrade" }));
   await waitFor(() => expect(call).toHaveBeenCalledWith("settings-apply", expect.anything()));
-  expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
   await act(async () => finish(result));
   expect(await screen.findByRole("alert")).toHaveTextContent("Runtime is attached.");
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
