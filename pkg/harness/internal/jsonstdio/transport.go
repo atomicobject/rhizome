@@ -178,6 +178,14 @@ func (t *Transport[M]) Send(ctx context.Context, message M) error {
 	case err := <-written:
 		return err
 	case <-ctx.Done():
+		// select picks randomly when both are ready. A write that already
+		// finished must not close stdin: that ends the child instead of
+		// letting the caller interrupt it.
+		select {
+		case err := <-written:
+			return err
+		default:
+		}
 		t.closeInput()
 		return ctx.Err()
 	case <-t.done:
