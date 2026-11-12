@@ -83,14 +83,19 @@ export function DeliveryStage({
   const incompleteScope = effortRefs.length > 0 && details.data && !coherent;
   const readReasons = [
     ...(stale && selected.length ? ["Refreshing records…"] : []),
-    ...(loadingScope ? ["Reading selected effort scope."] : []),
-    ...(details.error ? ["Selected effort read failed."] : []),
-    ...(incompleteScope
-      ? ["Selected effort evidence is incomplete or spans different graph generations."]
+    ...(loadingScope ? ["Reading selected efforts…"] : []),
+    ...(details.error ? ["A selected effort couldn't be read."] : []),
+    ...(incompleteScope && !loadingScope
+      ? ["A selected effort couldn't be read completely. Clear it and select it again to retry."]
       : []),
   ];
+  // While anything is still loading, the loading line alone explains the wait.
   const prompt = readReasons.length
-    ? { text: "", reasons: [...readReasons, ...composed.reasons], copyable: false }
+    ? {
+        text: "",
+        reasons: loadingScope || stale ? readReasons : [...readReasons, ...composed.reasons],
+        copyable: false,
+      }
     : composed;
   function toggle(keys: string[], checked: boolean) {
     setSelectedRecords((previous) =>

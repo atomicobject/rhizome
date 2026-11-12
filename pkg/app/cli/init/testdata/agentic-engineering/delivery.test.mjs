@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { composeCoverage, composePages, identity, frozenScope, distinctTargets, groups, groupResult, eligibility, promptFor, firstDayPrompt }
+import { composeCoverage, composePages, identity, frozenScope, deferredScope, distinctTargets, groups, groupResult, eligibility, promptFor, firstDayPrompt }
   from '../../templates/starters/agentic-engineering/module/views/delivery/lib/index.ts';
 
 const coverage = (extra = {}) => ({ complete: true, truncated: false, errors: [],
@@ -273,10 +273,37 @@ test('explicit sorting preserves parent groups and prompt order', () => {
 });
 
 test('summary efforts may be selected before their frozen scope loads, but not copied', () => {
-  const row = { kind: 'effort', record: { ...effort(), scope: frozenScope({ form: 'EffortNote', inline: null }) } };
+  const row = { kind: 'effort', record: { ...effort(), scope: deferredScope() } };
   assert.equal(eligibility(row, 'select').eligible, true);
   assert.equal(eligibility(row).eligible, false);
   assert.equal(eligibility({ ...row, kind: 'review', observation: 'closure-checklist', selected: [] }, 'select').eligible, false);
   row.record.coverage.complete = false;
   assert.equal(eligibility(row, 'select').eligible, false);
+});
+
+test('unknown or incomplete frozen scope is noted once per effort and never blocks copy', () => {
+  const unknown = { ...effort('active'), ...record('legacy.html'), scope: frozenScope({ form: 'EffortWorkspace',
+    selector: { state: 'missing', authored: [], material: null, coverage: coverage() } }) };
+  const incomplete = { ...effort('active'), ...record('bare.md'), scope: frozenScope({ form: 'EffortNote', inline: null }) };
+  const input = portfolio([], [effort('active'), unknown, incomplete]);
+  const prompt = promptFor('active', input, keys(groupResult('active', input)));
+  assert.equal(prompt.copyable, true, prompt.reasons.join('\n'));
+  assert.match(prompt.text, /^- effort\.md \(active\)$/m);
+  assert.match(prompt.text, /^- legacy\.html \(active; frozen scope not recorded, inspect the effort\)$/m);
+  assert.match(prompt.text, /^- bare\.md \(active; frozen scope incomplete in this read, inspect the effort\)$/m);
+  unknown.locator = null;
+  incomplete.locator = null;
+  const blocked = promptFor('active', input, keys(groupResult('active', input)));
+  assert.equal(blocked.copyable, false);
+  assert.deepEqual(blocked.reasons, ['Durable canonical locator unavailable']);
+});
+
+test('an unrecorded workspace selector is unknown scope, not a failed read', () => {
+  const selector = { state: 'missing', authored: [], material: null, coverage: coverage() };
+  const unknown = frozenScope({ form: 'EffortWorkspace', selector });
+  assert.equal(unknown.state, 'unknown');
+  assert.equal(unknown.coverage.complete, true);
+  const broken = frozenScope({ form: 'EffortWorkspace', selector: { ...selector, state: 'broken' } });
+  assert.equal(broken.state, 'incomplete');
+  assert.equal(broken.coverage.complete, false);
 });

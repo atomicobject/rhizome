@@ -485,7 +485,46 @@ test("ambiguous spec sections disable ready selection while preserving authored 
   await expect(f.getByText(/harbor confirmation ends here/)).toBeVisible();
 });
 
-test("refresh rereads selected effort scope before allowing Copy and recovers", async ({
+test("selecting another effort does not reread efforts already loaded", async ({ page }) => {
+  await page.goto("/notes?view=agentic-engineering.stage&stage=active");
+  const f = content(page);
+  const copy = f.getByRole("button", { name: "Copy workflow prompt", exact: true });
+  await f.getByRole("checkbox", { name: "Select Active all checked", exact: true }).check();
+  await expect(copy).toBeEnabled();
+  const bodies: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/v1/graphql")) bodies.push(request.postData() ?? "");
+  });
+  await f.getByRole("checkbox", { name: "Select Harbor legacy workspace", exact: true }).check();
+  await expect(copy).toBeEnabled();
+  await expect(f.getByRole("textbox", { name: /prompt/i })).toHaveValue(/harbor-legacy/);
+  expect(bodies.some((body) => body.includes("harbor-legacy"))).toBe(true);
+  expect(bodies.filter((body) => body.includes("2026-11-09-10-02-harbor.md"))).toEqual([]);
+});
+
+test("a cached effort from an earlier graph generation is read again", async ({ page }) => {
+  await page.route("**/api/v1/events", (route) => route.abort("blockedbyclient"));
+  await page.goto("/notes?view=agentic-engineering.stage&stage=active");
+  const f = content(page);
+  const copy = f.getByRole("button", { name: "Copy workflow prompt", exact: true });
+  await f.getByRole("checkbox", { name: "Select Active all checked", exact: true }).check();
+  await expect(copy).toBeEnabled();
+  await page.route("**/api/v1/graphql", async (route) => {
+    const response = await route.fetch();
+    const json: unknown = await response.json();
+
+    if (isJsonObject(json) && isJsonObject(json.extensions))
+      json.extensions.generation = "synthetic-later-generation";
+    await route.fulfill({ response, json });
+  });
+  await f.getByRole("checkbox", { name: "Select Harbor legacy workspace", exact: true }).check();
+  await expect(copy).toBeEnabled();
+  await expect(f.getByRole("textbox", { name: /prompt/i })).toHaveValue(
+    /2026-11-09-10-02-harbor\.md[\s\S]*harbor-legacy/,
+  );
+});
+
+test("refresh rereads selected efforts before allowing Copy and recovers", async ({
   page,
 }, info) => {
   const path = "docs/efforts/2026-11-09-10-02-harbor.md";
@@ -520,17 +559,13 @@ test("refresh rereads selected effort scope before allowing Copy and recovers", 
 
       if (!isJsonObject(value)) return;
 
-      if (isJsonObject(value.ref) && value.ref.notePath === path && isJsonObject(value.workspace)) {
-        if (isString(value.content)) ownDetail = true;
-
-        if (Array.isArray(value.workspace.fields))
-          for (const field of value.workspace.fields) {
-            if (isJsonObject(field) && field.name === "storiesInScopeFrozen") {
-              field.sectionNodes = [];
-              field.issues = [{ code: "unresolved", message: "Frozen section unavailable" }];
-            }
-          }
-      }
+      if (
+        isJsonObject(value.ref) &&
+        value.ref.notePath === path &&
+        isJsonObject(value.workspace) &&
+        isString(value.content)
+      )
+        ownDetail = true;
 
       Object.values(value).forEach(update);
     }
@@ -543,6 +578,10 @@ test("refresh rereads selected effort scope before allowing Copy and recovers", 
 
     if (ownDetail) {
       detailReads++;
+      json.errors = [
+        ...(Array.isArray(json.errors) ? json.errors : []),
+        { message: "Synthetic effort detail unavailable", path: ["nodes", "items", "0", "node"] },
+      ];
       await held;
     }
 
@@ -561,7 +600,7 @@ test("refresh rereads selected effort scope before allowing Copy and recovers", 
     });
   }
 
-  await expect(f.getByText(/frozen scope incomplete or unknown/i)).toBeVisible();
+  await expect(f.getByText(/A selected effort couldn.t be read completely/)).toBeVisible();
   await expect(copy).toBeDisabled();
   await page.unroute("**/api/v1/graphql");
   await f.getByRole("button", { name: "Refresh records", exact: true }).click();

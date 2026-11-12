@@ -135,8 +135,8 @@ export function eligibility(row: Row, intent: 'select' | 'copy' = 'copy'): { eli
     row.record.criteriaCoverage, ...row.record.criteria.map(criterion => criterion.coverage)]))) {
     return { eligible: false, reason: 'Parent contract read incomplete' };
   }
-  if ((row.kind === 'review' || intent === 'copy' && row.kind === 'effort') && (row.record.scope.state !== 'known' || !inventoryComplete([row.record.coverage, row.record.scope.coverage]))) {
-    return { eligible: false, reason: 'Selected frozen scope incomplete or unknown' };
+  if ((row.kind === 'review' || intent === 'copy' && row.kind === 'effort') && row.record.scope.state === 'deferred') {
+    return { eligible: false, reason: 'Selected effort details not read' };
   }
   if (row.kind === 'review' && row.selected.some(record => !record.locator || !inventoryComplete([record.coverage]))) {
     return { eligible: false, reason: 'Selected pending contract locator or read unavailable' };
