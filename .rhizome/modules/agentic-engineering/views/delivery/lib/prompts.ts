@@ -1,8 +1,16 @@
 import { eligibility, groupResult, type Stage, type RowSort } from './groups.ts';
-import { identity, type Portfolio } from './model.ts';
+import { identity, type FrozenScope, type Portfolio } from './model.ts';
 import { inventoryComplete } from './coverage.ts';
 
 export type Prompt = { text: string; copyable: boolean; reasons: readonly string[] };
+
+/** Unrecorded or partly read frozen scope is context for the agent to inspect, not a reason to refuse. */
+const scopeNotes: Record<FrozenScope['state'], string> = {
+  known: '',
+  unknown: 'frozen scope not recorded, inspect the effort',
+  incomplete: 'frozen scope incomplete in this read, inspect the effort',
+  deferred: '',
+};
 
 /** Rows arrive in displayed order. Selection keys never supply ordering or scope. */
 export function promptFor(stage: Stage, input: Portfolio, selectedKeys: readonly string[], sort: RowSort = 'source'): Prompt {
@@ -17,10 +25,10 @@ export function promptFor(stage: Stage, input: Portfolio, selectedKeys: readonly
     seen.add(key);
     return true;
   });
-  const reasons = chosen.flatMap(row => {
+  const reasons = [...new Set(chosen.flatMap(row => {
     const result = eligibility(row);
     return result.reason ? [result.reason] : [];
-  });
+  }))];
   if (!chosen.length) reasons.push('Select eligible records');
   if (chosen.length && !inventoryComplete(chosen.map(row => row.record.coverage))) {
     reasons.push('Selected records do not share complete evidence from one graph generation');
@@ -38,7 +46,9 @@ export function promptFor(stage: Stage, input: Portfolio, selectedKeys: readonly
   for (const row of chosen) {
     if (row.kind === 'story') add(row.parent.locator,
       row.parent.status === 'proposed' ? 'proposed parent spec' : 'parent spec');
-    add(row.record.locator, row.kind === 'story' ? 'selected story' : row.record.status ?? 'recorded status unavailable');
+    const status = row.kind === 'story' ? 'selected story' : row.record.status ?? 'recorded status unavailable';
+    const scope = row.kind === 'effort' || row.kind === 'review' ? scopeNotes[row.record.scope.state] : '';
+    add(row.record.locator, scope ? `${status}; ${scope}` : status);
     if (row.kind === 'review') {
       for (const selected of row.selected) add(selected.locator, 'selected pending contract');
     }

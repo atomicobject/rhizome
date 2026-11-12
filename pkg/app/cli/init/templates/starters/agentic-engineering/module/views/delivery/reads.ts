@@ -1,4 +1,4 @@
-import { composePages, composeCoverage, frozenScope, distinctTargets, identity, inventoryComplete,
+import { composePages, composeCoverage, deferredScope, frozenScope, distinctTargets, identity, inventoryComplete,
   type Coverage, type Ref, type ScopeMaterial, type ScopeSection, type ScopeSelector, type Occurrence,
   type Portfolio, type Checklist } from './lib/index.ts';
 import { NODE_DETAIL, NODE_SUMMARY, SOURCE_PAGE, type LiveNode, type SourcePage,
@@ -190,9 +190,7 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
       };
     });
   }
-  function effort(node: LiveNode, read: Coverage, scope = node.resolvedType === 'EffortWorkspace'
-    ? frozenScope({ form: 'EffortWorkspace', selector: { state: 'unreadable', authored: [], material: null, coverage: absent('Frozen scope deferred') } })
-    : frozenScope({ form: 'EffortNote', inline: null })): LiveEffort {
+  function effort(node: LiveNode, read: Coverage, scope = deferredScope()): LiveEffort {
     return { ...summary(node, read), source: node, kind: 'effort', form: node.resolvedType === 'EffortWorkspace' ? 'EffortWorkspace' : 'EffortNote',
       status: status(node, 'status', effortStates), checklist: { state: 'deferred' }, scope };
   }
@@ -345,6 +343,7 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     await Promise.all(Array.from({ length: Math.min(4, targets.length) }, work));
     return results;
   }
+  /** Coverage is the effort record reads. Each effort's scope state reports its own frozen-scope evidence. */
   async function selectedEfforts(targets: readonly Ref[]) {
     const unique = [...new Map(targets.map(target => [identity(target), target])).values()];
     const details = await effortDetails(unique);
@@ -353,12 +352,10 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     for (const result of details) {
       if (result.detail?.record?.kind === 'effort') {
         efforts.push(result.detail.record);
-        reads.push(result.detail.record.coverage, result.detail.record.scope.coverage);
+        reads.push(result.detail.record.coverage);
       } else reads.push(result.detail ? absent('Selected effort unavailable') : result.coverage);
     }
-    const coverage = combine(reads);
-    coverage.complete &&= efforts.every(item => item.scope.state === 'known');
-    return { efforts, coverage };
+    return { efforts, coverage: combine(reads) };
   }
   return { portfolio, record, occurrences, hydrate, selectedEfforts };
 }

@@ -43,6 +43,12 @@ export function frozenScope(input:
   };
 }
 
+export function deferredScope(): FrozenScope {
+  const reason = 'Frozen scope not read';
+  return { state: 'deferred', source: null, authored: [], specs: [], selections: [], reasons: [reason],
+    coverage: { complete: false, errors: [reason], truncated: false, sourceRevision: null, graphGeneration: null } };
+}
+
 /** Navigation lookup only. Ordered occurrences remain the authority for provenance. */
 export function distinctTargets(occurrences: readonly Occurrence[]): Map<string, Ref> {
   const targets = new Map<string, Ref>();

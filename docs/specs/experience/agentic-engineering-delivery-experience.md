@@ -4,7 +4,7 @@ id: SPEC-0137
 aliases: [SPEC-0137]
 summary: "A complete source-grounded Delivery experience for shaping specifications, selecting work, resuming efforts, and inspecting delivery evidence."
 spec-status: active
-last-updated: 2026-11-10
+last-updated: 2026-11-12
 ---
 
 # Agentic Engineering delivery experience
@@ -59,7 +59,7 @@ Agent invocation, automatic approval or acceptance, lifecycle writes, a policy b
 - One prompt includes all selected records once in displayed spec and story order, with exact canonical paths and durable story locators. It does not create one unrelated prompt per row or silently select every story in a spec.
 - Ready prompts use the agentic-engineering effort and plan routes, ask the agent to evaluate the proposed slice and existing frozen selections, and preserve the user's actual authority and team policy. Selection is proposed scope until frozen by the workflow. A proposed parent spec is identified as proposed and must be settled before freezing a delivery contract.
 - Shaping prompts use specify. Planned and active effort prompts use classify or implement as appropriate to inspect authority and resume context. History prompts use finish or reconcile to inspect recorded evidence. Prompts never infer missing approval or instruct unconditional semantic changes.
-- The visible preview and clipboard contents match. Copy is disabled with no eligible selection or incomplete selected scope. Clipboard failure leaves selectable prompt text and an announced error. Success is announced only after the clipboard write succeeds.
+- The visible preview and clipboard contents match. Copy is disabled with no eligible selection, a selected record without a durable locator, or a failed selected record read. Unrecorded or incomplete frozen scope does not disable Copy; the prompt notes it once for each affected effort so the agent inspects that scope. Each blocking reason appears once. Clipboard failure leaves selectable prompt text and an announced error. Success is announced only after the clipboard write succeeds.
 
 ### US3 - Read the complete spec contract
 
@@ -90,7 +90,7 @@ Agent invocation, automatic approval or acceptance, lifecycle writes, a policy b
 - The selected contract expands full story criteria and selected criterion details inline. A criterion-only selection remains criterion-only. A whole-spec selection shows that scope explicitly and links the full contract. Missing selection is unknown scope, not a claim of no obligations.
 - The page exposes the inline or linked plan, Original Intended Delivery, Actual Delivered, Deviations, Closure Checklist, and supporting materials. HTML plans use the supported safe rendering route. Broken or unsupported components show the exact reference and a readable failure state.
 - Checkbox progress is labeled as recorded checklist items checked, with the denominator and missing or empty states. All boxes checked on an active effort leaves it active. There is no acceptance-ready badge, automatic acceptance action, or inferred approval judgment.
-- Copy resume prompt contains the exact effort entry and explicit plan and log references when applicable. It asks the skill to inspect the recorded status, frozen scope, execution notes, deviations, and authority before continuing. The first unchecked closure item is optional recorded context, never asserted to be the actual next implementation task.
+- Copy resume prompt contains the exact effort entry and explicit plan and log references when applicable. It asks the skill to inspect the recorded status, frozen scope, execution notes, deviations, and authority before continuing. The first unchecked closure item is optional recorded context, never asserted to be the actual next implementation task. Unrecorded or incomplete frozen scope is stated in the prompt rather than blocking Copy.
 
 ### US5 - Navigate with a contextual panel and find
 

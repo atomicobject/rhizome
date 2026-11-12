@@ -92,7 +92,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(content(page).getByRole("button", { name: /copy/i })).toBeDisabled();
     });
 
-    test("effort stage selection loads exact scope and refuses incomplete authority", async ({
+    test("effort stage selection loads exact scope and notes unrecorded scope", async ({
       page,
     }, info) => {
       const f = content(page);
@@ -114,10 +114,13 @@ for (const colorScheme of ["light", "dark"] as const) {
       await f
         .getByRole("checkbox", { name: "Select Harbor legacy workspace", exact: true })
         .check();
-      await expect(f.getByText(/Some selected scope is incomplete/)).toBeVisible();
       await expect(
         f.getByRole("button", { name: "Copy workflow prompt", exact: true }),
-      ).toBeDisabled();
+      ).toBeEnabled();
+      await expect(f.getByRole("textbox", { name: /prompt/i })).toHaveValue(
+        /\(active; frozen scope not recorded, inspect the effort\)/,
+      );
+      await expect(f.getByText(/Some selected scope is incomplete/)).toHaveCount(0);
       await capture(page, info, "selection-incomplete");
     });
 

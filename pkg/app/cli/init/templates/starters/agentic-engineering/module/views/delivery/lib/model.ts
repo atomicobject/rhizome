@@ -98,7 +98,8 @@ export type ScopeSelector = {
   material: ScopeMaterial | null;
 };
 export type FrozenScope = {
-  state: 'known' | 'unknown' | 'incomplete';
+  /** Deferred: a summary read that has not read the effort's frozen scope yet. */
+  state: 'known' | 'unknown' | 'incomplete' | 'deferred';
   source: Ref | null;
   authored: readonly string[];
   specs: readonly Occurrence[];

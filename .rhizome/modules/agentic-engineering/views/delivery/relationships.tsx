@@ -47,7 +47,8 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
     (!inventory.data.portfolio.efforts.length ||
       (details.data &&
         !details.isFetching &&
-        inventoryComplete([inventory.data.coverage, details.data.coverage])));
+        inventoryComplete([inventory.data.coverage, details.data.coverage]) &&
+        details.data.efforts.every((effort) => effort.scope.state === "known")));
   return (
     <>
       {pending && (

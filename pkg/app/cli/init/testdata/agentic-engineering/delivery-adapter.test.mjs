@@ -348,7 +348,7 @@ test('prompt scope hydration reads only the selected efforts and preserves unkno
   const result = await h.read.selectedEfforts([chosen.ref, chosen.ref]);
   assert.deepEqual(result.efforts.map(item => item.ref.notePath), ['chosen.md']);
   assert.equal(result.efforts[0].scope.state, 'incomplete');
-  assert.equal(result.coverage.complete, false);
+  assert.equal(result.coverage.complete, true);
   assert.ok(h.calls.every(call => !call.query?.includes('DeliveryInventory')));
   assert.ok(h.calls.every(call => !call.targets?.some(target => target.includes('other.md'))));
 });
@@ -363,6 +363,29 @@ function inlineFixture(path) {
     field('storiesInScopeFrozen', [stories.ref]), field('closureChecklist', [closure.ref])]);
   return { own, nodes: [own, specs, stories, closure] };
 }
+
+
+test('selected efforts with unrecorded or incomplete frozen scope stay copyable with one note each', async () => {
+  const known = inlineFixture('known.md');
+  const workspace = node(ref('legacy/entry.html', 'EffortWorkspace'), [field('status', [], ['active']),
+    { ...field('frozenScope'), present: false }], 'html');
+  const bare = node(ref('bare.md'), [field('status', [], ['active'])]);
+  const efforts = [known.own, workspace, bare];
+  const h = harness([...known.nodes, workspace, bare], new Map(), () => {}, { specLike: [], effort: efforts });
+  const { portfolio } = await h.read.portfolio();
+  const selection = await h.read.selectedEfforts(efforts.map(item => item.ref));
+  assert.deepEqual(selection.efforts.map(item => item.scope.state), ['known', 'unknown', 'incomplete']);
+  assert.equal(selection.coverage.complete, true, selection.coverage.errors.join('\n'));
+  assert.equal(selection.coverage.graphGeneration, portfolio.effortCoverage.graphGeneration);
+  const loaded = new Map(selection.efforts.map(item => [identity(item.ref), item]));
+  const current = { ...portfolio, efforts: portfolio.efforts.map(item => loaded.get(identity(item.ref)) ?? item) };
+  const prompt = promptFor('active', current, efforts.map(item => identity(item.ref)));
+  assert.equal(prompt.copyable, true, prompt.reasons.join('\n'));
+  assert.match(prompt.text, /^- known\.md \(active\)$/m);
+  assert.match(prompt.text, /^- legacy\/entry\.html \(active; frozen scope not recorded, inspect the effort\)$/m);
+  assert.match(prompt.text, /^- bare\.md \(active; frozen scope incomplete in this read, inspect the effort\)$/m);
+  assert.equal(prompt.text.match(/frozen scope/g).length, 2);
+});
 
 test('selected effort failures retain healthy siblings and bounded work', async () => {
   const fixtures = Array.from({ length: 7 }, (_, i) => inlineFixture(`selected-${i}.md`));

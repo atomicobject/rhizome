@@ -486,7 +486,7 @@ test("ambiguous spec sections disable ready selection while preserving authored 
   await expect(f.getByText(/harbor confirmation ends here/)).toBeVisible();
 });
 
-test("refresh rereads selected effort scope before allowing Copy and recovers", async ({
+test("refresh rereads selected efforts before allowing Copy and recovers", async ({
   page,
 }, info) => {
   const path = "docs/efforts/2026-11-09-10-02-harbor.md";
@@ -521,17 +521,13 @@ test("refresh rereads selected effort scope before allowing Copy and recovers", 
 
       if (!isJsonObject(value)) return;
 
-      if (isJsonObject(value.ref) && value.ref.notePath === path && isJsonObject(value.workspace)) {
-        if (isString(value.content)) ownDetail = true;
-
-        if (Array.isArray(value.workspace.fields))
-          for (const field of value.workspace.fields) {
-            if (isJsonObject(field) && field.name === "storiesInScopeFrozen") {
-              field.sectionNodes = [];
-              field.issues = [{ code: "unresolved", message: "Frozen section unavailable" }];
-            }
-          }
-      }
+      if (
+        isJsonObject(value.ref) &&
+        value.ref.notePath === path &&
+        isJsonObject(value.workspace) &&
+        isString(value.content)
+      )
+        ownDetail = true;
 
       Object.values(value).forEach(update);
     }
@@ -544,6 +540,10 @@ test("refresh rereads selected effort scope before allowing Copy and recovers", 
 
     if (ownDetail) {
       detailReads++;
+      json.errors = [
+        ...(Array.isArray(json.errors) ? json.errors : []),
+        { message: "Synthetic effort detail unavailable", path: ["nodes", "items", "0", "node"] },
+      ];
       await held;
     }
 
