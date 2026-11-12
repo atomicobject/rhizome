@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -135,6 +136,27 @@ func TestSendCancellationClosesBlockedInput(t *testing.T) {
 	defer cancel()
 	require.ErrorIs(t, connection.Send(ctx, json.RawMessage(`{}`)), context.DeadlineExceeded)
 	require.NoError(t, connection.Close(context.Background()))
+}
+
+func TestSendCancellationKeepsInputOpenAfterCompletedWrite(t *testing.T) {
+	closer := &countingCloser{}
+	connection := New[json.RawMessage]("fixture", strings.NewReader(""), io.Discard, closer)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	// Both cases are ready; select picks randomly, so repeat to cover each pick.
+	for range 100 {
+		written := make(chan error, 1)
+		written <- nil
+		require.NoError(t, connection.awaitWrite(ctx, written))
+	}
+	require.Zero(t, closer.closes.Load())
+}
+
+type countingCloser struct{ closes atomic.Int32 }
+
+func (c *countingCloser) Close() error {
+	c.closes.Add(1)
+	return nil
 }
 
 func startChild(t *testing.T, mode string) (*Transport[json.RawMessage], string) {
