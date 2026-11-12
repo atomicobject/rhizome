@@ -312,6 +312,13 @@ test("legacy and invalid frozen sources remain visibly incomplete", async ({ pag
         .getByText(/unavailable|incomplete|unresolved|unsupported|duplicate|missing/i)
         .first(),
     ).toBeVisible();
+
+    if (variant === "broken")
+      await expect(
+        content(page)
+          .getByRole("region", { name: "Frozen scope" })
+          .getByText(/materials\/missing\.md/),
+      ).toBeVisible();
   }
 });
 

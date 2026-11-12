@@ -312,6 +312,11 @@ export default function Page() {
                           {reason}
                         </p>
                       ))}
+                      {record.scope.authored.map((target, i) => (
+                        <p key={`selector-${i}`}>
+                          Recorded selector <code className="ae-path">{target}</code>
+                        </p>
+                      ))}
                     </Notice>
                   )}
                   <Occurrences occurrences={record.scope.selections} detail={detail} />
