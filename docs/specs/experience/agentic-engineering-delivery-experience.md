@@ -13,7 +13,7 @@ last-updated: 2026-11-12
 
 Give designers and leads a clear view of intended behavior, selectable work, and delivery evidence. Give developers and agents an exact brief they can resume without reconstructing intent. The Agentic Engineering starter installs a Delivery experience comparable in completeness to Knowledge, using the existing experience host, node workspaces, view kit, and contextual panel.
 
-The workflow map is the organizing picture across home, lists, spec pages, effort pages, and the panel. Shape, Build, and Settle explain activities. Lists show recorded facts and may overlap. The experience copies prompts for the installed skills. It does not start agents, grant approval, change lifecycle states, or decide that delivery is accepted.
+The workflow map is the organizing picture: home and the panel show it in full, stage lists show it as a tab strip, and spec and effort pages name the groups a record belongs to. Shape, Build, and Settle explain activities. Lists show recorded facts and may overlap. The experience copies prompts for the installed skills. It does not start agents, grant approval, change lifecycle states, or decide that delivery is accepted.
 
 ## Goals
 
@@ -38,7 +38,7 @@ Agent invocation, automatic approval or acceptance, lifecycle writes, a policy b
 #### Acceptance Criteria
 
 - Delivery opens a custom home page with the repository context, a visible Shape, Build, Settle map, five primary groups, and separate current-contract and record-review navigation.
-- Each map group is an actionable link with a nearby rule and count unit. Rules are available by keyboard and touch as well as hover. The map explains that lists overlap and that records do not all move through one sequence.
+- Each map group is an actionable link with a count. A group whose membership is not obvious from its title (Shaping, Ready, Current contracts, Record review) states its rule as visible text on its list page, never only on hover. Home says once that groups overlap, so counts don't add up.
 - Shaping specs includes every proposed spec and every active spec with at least one draft story. Ready stories includes every ready story under proposed or active specs, grouped by spec. An active spec with draft and ready stories appears in both groups.
 - Planned efforts includes effort status planned. Active efforts includes effort status active, regardless of checklist state. Delivery history includes complete and archived efforts with those states visibly distinct. Counts name specs, stories, or efforts explicitly. Ready counts show both stories and parent specs.
 - Current contracts lists every active spec independently of stories and efforts. Its explanation says active means the normative contract is in force. It makes no delivered or no-work-remaining claim.
@@ -101,7 +101,7 @@ Agent invocation, automatic approval or acceptance, lifecycle writes, a policy b
 #### Acceptance Criteria
 
 - The Delivery panel mounts through the existing experience panel host. It shows the same map groups and counts as the page, the current location, and links to home, current contracts, evidence review, and native alternate views.
-- Spec and effort pages retain a compact version of the map with text explaining all applicable memberships. The location trail follows navigation context and never fabricates a single parent stage for an overlapping spec.
+- Spec and effort pages name every group the record belongs to as links in the record header. The location trail follows navigation context and never fabricates a single parent stage for an overlapping spec.
 - Find searches loaded spec and effort titles, identifiers, and paths with deterministic ranking. It distinguishes no match from incomplete inventory. Results navigate through canonical node refs to the correct record page.
 - Back, forward, direct links, refresh, and workbench tabs retain route parameters and focused story targets. Recent entries record actual visits per repository and window and contain no hardcoded demo names.
 - Panel minimize, expand, resize, and narrow-screen disclosure reuse host behavior. Keyboard controls remain reachable, focus returns on dismissal, and the panel cannot cover the only path back to the page.
@@ -158,7 +158,7 @@ MUST read frozen scope from focused section workspace.sourceLinks and resolved r
 
 MUST retain authored occurrence order before producing any deduplicated display summary. MUST label the provenance of every relation and the unit and scope of every count. Missing approval metadata means no approver recorded. It does not mean unapproved. Missing dates never become filesystem modification dates.
 
-MUST keep the workflow map visible across all five page families. It is an activity map with independently selectable factual groups, not a state machine for the portfolio. Approval and acceptance remain decisions owned by the user's workflow and policy.
+MUST keep the workflow map reachable on all five page families: in full on home and the panel, as a tab strip on lists, and as membership links on records. It is an activity map with independently selectable factual groups, not a state machine for the portfolio. Approval and acceptance remain decisions owned by the user's workflow and policy.
 
 ## Open Questions
 
