@@ -174,13 +174,17 @@ func (t *Transport[M]) Send(ctx context.Context, message M) error {
 		_, writeErr := t.stdin.Write(encoded)
 		written <- writeErr
 	}()
+	return t.awaitWrite(ctx, written)
+}
+
+// awaitWrite closes stdin only when a write is still blocked, so a
+// cancellation never cuts off a child whose input arrived in full.
+func (t *Transport[M]) awaitWrite(ctx context.Context, written <-chan error) error {
 	select {
 	case err := <-written:
 		return err
 	case <-ctx.Done():
-		// select picks randomly when both are ready. A write that already
-		// finished must not close stdin: that ends the child instead of
-		// letting the caller interrupt it.
+		// select picks randomly when both are ready; prefer a finished write.
 		select {
 		case err := <-written:
 			return err
