@@ -2,6 +2,6 @@
   "base_tag": "v0.51.0",
   "release_date": "2026-11-12",
   "schema_version": 1,
-  "source_commit": "3ed5f4bee548939b1b5c5f7f28c393fba527c75d",
-  "version": "v0.52.0"
+  "source_commit": "5de2293822ea8d43bed55729a61eb781fd35184e",
+  "version": "v0.52.1"
 }

@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [v0.52.0] - 2026-11-12
+## [v0.52.1] - 2026-11-12
 
 - Experiences: a folder of custom views with an `experience.yml` runs as one site, in one long-lived frame per window that keeps each tab's page, with an optional Notes sidebar panel. Custom views can render Markdown with `@rhizome/kit/markdown`, keep their params across tab switches and reloads, and come first in the view switcher.
 - Agentic Engineering repositories get a Delivery experience: a Shape, Build, and Settle workflow map, selectable story and effort lists that compose one agent prompt, inline spec criteria, and effort resume briefs.
