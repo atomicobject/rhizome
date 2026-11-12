@@ -2,8 +2,10 @@ package desktop
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
@@ -106,24 +108,46 @@ func (s *Service) availableVersion() (string, bool) {
 	return available, false
 }
 
-// PinAdvance uses this bridge's updater and existing checkout trust. Runtime
-// replacement remains the normal Open operation after a successful advance.
-func (s *Service) PinAdvance(ctx context.Context, path string) (PinAdvanceResult, error) {
+func (s *Service) pinAdvanceFolder(path string) (FolderInfo, error) {
 	info, plan, err := s.inspect(path)
-	result := PinAdvanceResult{PinnedVersion: info.PinnedVersion}
 	if err != nil {
-		return result, err
+		return info, err
 	}
 	if plan.Authority != "managed" || plan.SourceRoot != "" {
-		return result, problem("pin_unsupported", "Only Rhizome-managed repository pins can be advanced by the app.")
+		return info, problem("pin_unsupported", "Only Rhizome-managed repository pins can be advanced by the app.")
 	}
 	if !info.Trusted {
-		return result, problem("trust_required", "Confirm trust for this folder before advancing its Rhizome pin.")
+		return info, problem("trust_required", "Confirm trust for this folder before advancing its Rhizome pin.")
 	}
 	// The offer may be stale, for example after a pull moved the pin past the
 	// app; advancing then would be a downgrade.
 	if info.PinOffer == nil || info.PinOffer.State != "advance" {
-		return result, problem("pin_unsupported", "This repository's pin is not older than the app's Rhizome.")
+		return info, problem("pin_unsupported", "This repository's pin is not older than the app's Rhizome.")
+	}
+	return info, nil
+}
+
+func (s *Service) UpgradePlan(ctx context.Context, path string) (json.RawMessage, error) {
+	ctx, cancel := context.WithTimeout(vaultconfig.WithEnv(ctx, s.env), 2*time.Minute)
+	defer cancel()
+	info, err := s.pinAdvanceFolder(path)
+	if err != nil {
+		return nil, err
+	}
+	executable, err := desktopExecutable()
+	if err != nil {
+		return nil, problem("upgrade_plan_failed", fmt.Sprintf("Upgrade plan executable stage failed: %v", err))
+	}
+	return runSetupJSON(ctx, executable, info.Path, []string{"init", "--path", info.Path, "--check", "--json"}, "", "upgrade_plan_failed", false)
+}
+
+// PinAdvance uses this bridge's updater and existing checkout trust. Runtime
+// replacement remains the normal Open operation after a successful advance.
+func (s *Service) PinAdvance(ctx context.Context, path string) (PinAdvanceResult, error) {
+	info, err := s.pinAdvanceFolder(path)
+	result := PinAdvanceResult{PinnedVersion: info.PinnedVersion}
+	if err != nil {
+		return result, err
 	}
 	executable, err := desktopExecutable()
 	if err != nil {

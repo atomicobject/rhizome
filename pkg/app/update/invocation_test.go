@@ -83,6 +83,7 @@ func TestResolveInvocationIgnoresLocationWithoutPin(t *testing.T) {
 		{"binary path", repoconfig.LocalRhizomeConfig{BinaryPath: "tools/rzm-custom"}},
 		{"binary directory", repoconfig.LocalRhizomeConfig{BinaryDir: "tools/rhizome"}},
 		{"development directory", repoconfig.LocalRhizomeConfig{DevBinaryDir: "bin"}},
+		{"latest follows global", repoconfig.LocalRhizomeConfig{Version: "latest", BinaryPath: "tools/rzm-custom"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			executable := filepath.Join(t.TempDir(), "rzm")
