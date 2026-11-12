@@ -21,7 +21,7 @@ export function promptFor(stage: Stage, input: Portfolio, selectedKeys: readonly
     const result = eligibility(row);
     return result.reason ? [result.reason] : [];
   });
-  if (!chosen.length) reasons.push('Select eligible records');
+  if (!chosen.length) reasons.push('Select records to compose a prompt.');
   if (chosen.length && !inventoryComplete(chosen.map(row => row.record.coverage))) {
     reasons.push('Selected records do not share complete evidence from one graph generation');
   }

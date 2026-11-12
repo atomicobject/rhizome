@@ -1,6 +1,6 @@
 import { useDeliveryPortfolio, useDeliverySelectedEfforts } from "./data.tsx";
 import { useEffect, useState } from "react";
-import { Section, Segmented, useViewParams } from "@rhizome/kit";
+import { Segmented, useViewParams } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import {
   eligibility,
@@ -29,9 +29,9 @@ import {
 import type { PortfolioProps } from "./presentation.tsx";
 
 const sorts: readonly { value: RowSort; label: string }[] = [
-  { value: "source", label: "Source order" },
-  { value: "title-asc", label: "Title A to Z" },
-  { value: "title-desc", label: "Title Z to A" },
+  { value: "source", label: "Source" },
+  { value: "title-asc", label: "A–Z" },
+  { value: "title-desc", label: "Z–A" },
 ];
 
 export function DeliveryStage({
@@ -79,7 +79,7 @@ export function DeliveryStage({
   const loadingScope = effortRefs.length > 0 && (details.isPending || details.isFetching);
   const incompleteScope = effortRefs.length > 0 && details.data && !coherent;
   const readReasons = [
-    ...(stale ? ["Refresh must finish successfully before copying."] : []),
+    ...(stale && selected.length ? ["Refreshing records…"] : []),
     ...(loadingScope ? ["Reading selected effort scope."] : []),
     ...(details.error ? ["Selected effort read failed."] : []),
     ...(incompleteScope
@@ -87,11 +87,7 @@ export function DeliveryStage({
       : []),
   ];
   const prompt = readReasons.length
-    ? {
-        text: [...readReasons, composed.text || composed.reasons.join(". ")].join("\n\n"),
-        reasons: [...readReasons, ...composed.reasons],
-        copyable: false,
-      }
+    ? { text: "", reasons: [...readReasons, ...composed.reasons], copyable: false }
     : composed;
   function toggle(keys: string[], checked: boolean) {
     setSelectedRecords((previous) =>
@@ -160,25 +156,19 @@ export function DeliveryStage({
   return (
     <main className="ae-page">
       <Ready status={status} />
-      <h1>{group.title}</h1>
+      <header className="ae-title-row">
+        <h1>{group.title}</h1>
+        <span className="ae-count">
+          {`${result?.state === "records" && !result.complete ? "at least " : ""}${rows.length} ${unit(rows.length, group.unit)}${result ? parentSpecSummary(result) : ""}`}
+        </span>
+      </header>
+      <p className="ae-note ae-rule">{group.rule}</p>
       <WorkflowMap portfolio={current} current={group.stage} />
       <CoverageNotice portfolio={current} />
       <div className="ae-with-aside">
-        <Section
-          title={group.title}
-          count={`${result?.state === "records" && !result.complete ? "at least " : ""}${rows.length} ${unit(rows.length, group.unit)}${result ? parentSpecSummary(result) : ""}`}
-          caption={group.rule}
-          status={status}
-          what={group.title}
-        >
+        <section aria-label={group.title} className="ae-list">
           <div className="ae-list-tools">
-            <Segmented
-              label="Sort records"
-              showLabel
-              value={sort}
-              options={sorts}
-              onChange={setSort}
-            />
+            <Segmented label="Sort records" value={sort} options={sorts} onChange={setSort} />
             <span>
               <Button
                 onClick={() =>
@@ -190,11 +180,9 @@ export function DeliveryStage({
                 }
                 disabled={!eligible.length || unavailable.length > 0}
               >
-                Select all visible eligible {group.unit}
+                Select all
               </Button>
-              {selected.length > 0 && (
-                <Button onClick={() => setSelectedRecords([])}>Clear selection</Button>
-              )}
+              {selected.length > 0 && <Button onClick={() => setSelectedRecords([])}>Clear</Button>}
             </span>
           </div>
           {group.stage === "ready"
@@ -232,7 +220,7 @@ export function DeliveryStage({
               })
             : rows.map(renderRow)}
           {!rows.length && <EmptyGroup stage={group.stage} />}
-        </Section>
+        </section>
         <aside>
           {unavailable.length > 0 && (
             <Notice role="alert">
@@ -261,11 +249,6 @@ export function DeliveryStage({
               </Button>
             </Notice>
           )}
-          {loadingScope && (
-            <p role="status" className="ae-note">
-              Reading selected effort scope…
-            </p>
-          )}
           {details.error && (
             <Notice tone="risk">
               <p role="alert">
@@ -273,11 +256,6 @@ export function DeliveryStage({
                 <Button onClick={() => details.refetch()}>Read selection again</Button>
               </p>
               <ErrorDetail error={details.error} />
-            </Notice>
-          )}
-          {!loadingScope && incompleteScope && (
-            <Notice role="status">
-              Some selected scope is incomplete. Inspect the source before copying.
             </Notice>
           )}
           <PromptBox prompt={prompt} />

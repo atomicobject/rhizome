@@ -63,10 +63,7 @@ export function DeliveryHome({ portfolio, status }: PortfolioProps) {
         {() => (
           <>
             <WorkflowMap portfolio={portfolio} />
-            <p className="ae-note">
-              Groups use recorded facts and may overlap. Counts are not added together. People own
-              intent, authorization, and completion truth.
-            </p>
+            <p className="ae-note ae-map-note">Groups can overlap, so counts don't add up.</p>
             <CoverageNotice portfolio={portfolio} />
             {portfolio.specCoverage.complete &&
               portfolio.effortCoverage.complete &&
@@ -90,13 +87,11 @@ export function DeliveryHome({ portfolio, status }: PortfolioProps) {
             <div className="ae-columns ae-home-work">
               <div>
                 <h2>Shape the next slice</h2>
-                <p className="ae-note">For designers and development leads.</p>
                 <GroupPreview stage="shaping" portfolio={portfolio} />
                 <GroupPreview stage="ready" portfolio={portfolio} />
               </div>
               <div>
                 <h2>Build and finish</h2>
-                <p className="ae-note">For developers and implementing agents.</p>
                 <GroupPreview stage="planned" portfolio={portfolio} />
                 <GroupPreview stage="active" portfolio={portfolio} />
               </div>

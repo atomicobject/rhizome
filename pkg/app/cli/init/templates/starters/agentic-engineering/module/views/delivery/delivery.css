@@ -1,4 +1,5 @@
 .ae-page {
+  container-type: inline-size;
   padding: 20px 24px;
   font: 14px/1.5 var(--font-sans);
   color: var(--text);
@@ -345,11 +346,27 @@
 .ae-read-state > p {
   margin: 4px 0;
 }
-.ae-saved {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
+/* A quiet refresh in the page's top-right corner; it takes no row of its own. */
+.ae-read-state {
+  position: relative;
+}
+.ae-page .ae-read-state:not(:has(.ae-notice, [role="status"])) {
+  padding: 0;
+}
+.ae-read-state > .ae-saved {
+  position: absolute;
+  top: 18px;
+  right: 24px;
+  margin: 0;
+  z-index: 1;
+}
+.ae-page .ae-read-state > .ae-saved {
+  top: -2px;
+  right: 0;
+}
+.ae-saved .ae-refresh {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 .ae-occurrences {
   padding-left: 20px;
@@ -575,5 +592,70 @@ body:has(.ae-panel-state) {
   .ae-record-workflow .ae-map,
   .ae-relations {
     grid-template-columns: 1fr;
+  }
+}
+
+.ae-prompt-reasons {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.ae-prompt-reasons > li {
+  margin: 0;
+}
+.ae-prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ae-prompt-actions > p {
+  margin: 0;
+}
+
+.ae-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.ae-page .ae-title-row h1 {
+  margin: 0;
+}
+.ae-count {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.ae-page .ae-rule {
+  margin: 2px 0 0;
+}
+.ae-list-tools {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The resume aside stays in view beside a long brief. */
+.ae-brief-aside {
+  align-self: start;
+  position: sticky;
+  top: 12px;
+}
+.ae-brief-aside .rz-section:first-child {
+  margin-top: 0;
+}
+
+.ae-source-link {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+/* Split only when the frame leaves the main column room to read. */
+@container (max-width: 980px) {
+  .ae-with-aside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ae-brief-aside {
+    position: static;
   }
 }

@@ -217,7 +217,16 @@ export function WorkflowMap({
                 return (
                   <div key={group.stage} className="ae-stage" data-subject={contains || undefined}>
                     <StageLink stage={group.stage} current={current === group.stage}>
-                      {showCounts && (
+                      {showCounts && compact && (
+                        <span
+                          className="ae-stage-count"
+                          aria-label={`${result.complete ? "" : "at least "}${result.count} ${unit(result.count, group.unit)}${parentSpecSummary(result)}`}
+                        >
+                          {result.complete ? "" : "≥"}
+                          {result.count}
+                        </span>
+                      )}
+                      {showCounts && !compact && (
                         <span className="ae-stage-count">
                           <span className="ae-number">
                             {result.complete ? "" : "at least "}
@@ -280,15 +289,14 @@ export function RowFacts({ row }: { row: Row }) {
           </Fact>
         </>
       )}
-      {(row.kind === "effort" || row.kind === "review") && (
-        <Fact>
-          {row.record.checklist.state === "recorded" || row.record.checklist.state === "empty"
-            ? `${row.record.checklist.checked} of ${row.record.checklist.total} checklist items checked`
-            : row.record.checklist.state === "deferred"
-              ? "Open brief for checklist evidence"
+      {(row.kind === "effort" || row.kind === "review") &&
+        row.record.checklist.state !== "deferred" && (
+          <Fact>
+            {row.record.checklist.state === "recorded" || row.record.checklist.state === "empty"
+              ? `${row.record.checklist.checked} of ${row.record.checklist.total} checked`
               : `Checklist ${row.record.checklist.state}`}
-        </Fact>
-      )}
+          </Fact>
+        )}
       {row.kind === "review" && (
         <Fact>
           {row.observation === "closure-checklist"
@@ -311,22 +319,27 @@ export function PromptBox({ prompt }: { prompt: Prompt }) {
       setResult("Could not copy. Select the preview text and copy it manually.");
     }
   }
+  const reasons = [...new Set(prompt.reasons)];
   return (
-    <Section
-      title="Workflow prompt"
-      caption="Copy this prompt into your coding agent. It follows the installed workflow and preserves selected scope."
-    >
+    <Section title="Workflow prompt">
       <div className="ae-prompt">
-        <textarea
-          readOnly
-          aria-label="Workflow prompt preview"
-          value={prompt.text || prompt.reasons.join(". ")}
-          rows={12}
-        />
-        <Button disabled={!prompt.copyable} onClick={copy}>
-          Copy workflow prompt
-        </Button>
-        <p role="status">{result}</p>
+        {prompt.text ? (
+          <textarea readOnly aria-label="Workflow prompt preview" value={prompt.text} rows={10} />
+        ) : (
+          <ul className="ae-prompt-reasons" aria-label="Prompt unavailable">
+            {reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        )}
+        <div className="ae-prompt-actions">
+          <Button disabled={!prompt.copyable} onClick={copy}>
+            Copy workflow prompt
+          </Button>
+          <p role="status" className="ae-note">
+            {result}
+          </p>
+        </div>
       </div>
     </Section>
   );
@@ -390,14 +403,18 @@ export function ReadState({
           {query.error && <ErrorDetail error={query.error} />}
         </Notice>
       )}
-      <p className="ae-note ae-saved">
-        Saved records. Unsaved workspace edits are not included.{" "}
-        {query.state === "ready" && (
-          <Button className="ae-refresh" onClick={() => query.refresh()}>
-            Refresh records
-          </Button>
-        )}
-      </p>
+      {query.state === "ready" && (
+        <p className="ae-saved">
+          <button
+            className="ae-link ae-refresh"
+            aria-label="Refresh records"
+            title="Reload saved records. Unsaved edits are not included."
+            onClick={() => query.refresh()}
+          >
+            Refresh
+          </button>
+        </p>
+      )}
     </div>
   );
 }
