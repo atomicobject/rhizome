@@ -254,7 +254,7 @@ export default function Page() {
                     ] as const
                   ).flatMap(([name, label]) =>
                     (field(detail.node, name)?.links ?? []).map((link, index) => (
-                      <p key={`${name}-${index}`}>
+                      <p key={`${name}-${index}`} className="ae-plan-link">
                         <span className="ae-label">
                           {label.charAt(0).toUpperCase() + label.slice(1)}
                         </span>

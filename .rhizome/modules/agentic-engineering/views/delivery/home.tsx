@@ -93,9 +93,9 @@ export function DeliveryHome({ portfolio, status }: PortfolioProps) {
             <div>
               <GroupPreview stage="planned" portfolio={portfolio} />
               <GroupPreview stage="active" portfolio={portfolio} />
+              <GroupPreview stage="history" portfolio={portfolio} />
             </div>
           </div>
-          <GroupPreview stage="history" portfolio={portfolio} />
           <nav className="ae-support" aria-label="Supporting delivery views">
             <StageLink stage="contracts">Current contracts →</StageLink>
             <StageLink stage="review">Record review →</StageLink>

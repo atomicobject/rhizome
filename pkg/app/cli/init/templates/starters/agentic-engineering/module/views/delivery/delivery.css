@@ -262,7 +262,7 @@
 }
 .ae-with-aside {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 330px);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
   gap: 32px;
   margin-top: 24px;
 }
@@ -607,7 +607,6 @@ body:has(.ae-panel-state) {
 
 @media (max-width: 800px) {
   .ae-columns,
-  .ae-with-aside,
   .ae-map {
     grid-template-columns: 1fr;
   }
@@ -688,7 +687,7 @@ body:has(.ae-panel-state) {
 }
 /* Split only when the frame leaves the main column room to read. */
 @container (max-width: 980px) {
-  .ae-with-aside {
+  .ae-brief {
     grid-template-columns: minmax(0, 1fr);
   }
   .ae-brief-aside {
@@ -869,9 +868,14 @@ body:has(.ae-panel-state) {
   border-radius: 4px;
 }
 .ae-prose .contains-task-list > li {
-  display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
-  align-items: baseline;
+  position: relative;
+  padding-left: 24px;
+}
+.ae-prose .contains-task-list > li > input[type="checkbox"] {
+  position: absolute;
+  left: 2px;
+  top: 4px;
+  margin: 0;
 }
 .ae-prose .contains-task-list input[disabled] {
   opacity: 1;
@@ -891,5 +895,70 @@ body:has(.ae-panel-state) {
 @media (max-width: 800px) and (min-width: 561px) {
   .ae-map {
     grid-template-columns: 2fr 2fr 1fr;
+  }
+}
+
+/* Stage lists keep the prompt beside them down to a narrow frame, then dock it. */
+@container (max-width: 640px) {
+  .ae-with-aside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ae-with-aside:not(.ae-brief) > aside {
+    position: sticky;
+    top: auto;
+    bottom: 0;
+    padding: 8px 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .ae-with-aside:not(.ae-brief) > aside textarea {
+    max-height: 120px;
+  }
+  .ae-tabs {
+    flex-wrap: wrap;
+    overflow: visible;
+    white-space: normal;
+  }
+  .ae-tab[data-supporting] {
+    margin-left: 0;
+  }
+}
+/* 4 fact columns line up down a list. */
+.ae-row-main .rz-facts-list:empty {
+  display: none;
+}
+.ae-row-main .rz-facts-note {
+  min-width: 6.5em;
+}
+.ae-row-main .rz-facts-list {
+  min-width: 5.5em;
+  justify-content: flex-end;
+}
+.ae-story-group > .ae-select-row:first-child [data-record-key] {
+  font-weight: 600;
+}
+.ae-page details[data-arrived] > summary:focus-visible {
+  outline: none;
+}
+.ae-page textarea {
+  max-height: min(60vh, 560px);
+}
+.ae-page .ae-prompt textarea {
+  max-height: min(60vh, 560px);
+}
+.ae-saved:has([role="status"]) .ae-refresh {
+  color: var(--link);
+}
+.ae-plan-link {
+  margin: 6px 0;
+}
+.ae-plan-link + :not(.ae-plan-link) {
+  margin-top: 10px;
+}
+@container (min-width: 561px) {
+  .ae-home-map.ae-map,
+  .ae-page > .ae-map {
+    grid-template-columns: 3fr 2fr 1fr;
+    column-gap: 36px;
   }
 }

@@ -348,13 +348,6 @@ export function RowFacts({ row, hideStatus = false }: { row: Row; hideStatus?: b
               : `Checklist ${row.record.checklist.state}`}
           </Fact>
         )}
-      {row.kind === "review" && (
-        <Fact>
-          {row.observation === "closure-checklist"
-            ? "Checklist done, still active"
-            : "Pending contract"}
-        </Fact>
-      )}
     </Facts>
   );
 }
@@ -381,7 +374,12 @@ export function PromptBox({
     <Section title={title}>
       <div className="ae-prompt" data-empty={prompt.text ? undefined : true}>
         {prompt.text ? (
-          <textarea readOnly aria-label="Workflow prompt preview" value={prompt.text} rows={10} />
+          <textarea
+            readOnly
+            aria-label="Workflow prompt preview"
+            value={prompt.text}
+            rows={Math.min(24, Math.max(6, Math.ceil(prompt.text.length / 44)))}
+          />
         ) : (
           <ul className="ae-prompt-reasons" aria-label="Prompt unavailable">
             {reasons.map((reason) => (
@@ -405,9 +403,14 @@ export function PromptBox({
 export function EmptyGroup({ stage }: { stage: Stage }) {
   return (
     <p className="ae-note">
-      {stage === "planned"
-        ? "No planned efforts. Select ready stories to start an effort."
-        : "No matching records in the loaded inventory."}
+      {stage === "planned" ? (
+        <>
+          No planned efforts. Select <StageLink stage="ready">ready stories</StageLink> to start an
+          effort.
+        </>
+      ) : (
+        "No matching records in the loaded inventory."
+      )}
     </p>
   );
 }
@@ -454,6 +457,7 @@ export function ReadState({
         <div className="ae-saved">
           {partial && (
             <>
+              <NoticeMark />
               <span role="status" className="ae-note">
                 Some sources didn't load
               </span>

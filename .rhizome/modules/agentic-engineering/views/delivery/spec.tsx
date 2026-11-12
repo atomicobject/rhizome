@@ -50,8 +50,12 @@ export function InlineStory({
   useEffect(() => {
     if (!focus || !details.current) return;
     setOpen(true);
-    details.current.scrollIntoView({ block: "nearest" });
-    details.current.querySelector("summary")?.focus();
+    const element = details.current;
+    element.scrollIntoView({ block: "nearest" });
+    element.dataset.arrived = "";
+    const summary = element.querySelector("summary");
+    summary?.addEventListener("blur", () => delete element.dataset.arrived, { once: true });
+    summary?.focus();
   }, [focus]);
   return (
     <details ref={details} open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>

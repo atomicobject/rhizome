@@ -81,7 +81,7 @@ export const groups: readonly Group[] = [
     rule: 'Active specs are normative contracts in force. This does not establish delivery.',
     rows: input => input.specs.filter(spec => spec.status === 'active').map(record => ({ kind: 'spec', record })) },
   { stage: 'review', title: 'Record review', activity: 'Settle', primary: false, unit: 'observations',
-    rule: 'Inspect active efforts with recorded fully checked checklists, or complete efforts with exact selected pending contract.',
+    rule: 'Active efforts with every checklist item checked, and complete efforts whose selected contract is still pending.',
     rows: observations },
 ];
 

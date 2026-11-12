@@ -153,12 +153,14 @@ export function DeliveryStage({
               </ul>
             </details>
           )}
-          {allowed.reason && <p className="ae-note">{allowed.reason}</p>}
+          {allowed.reason && !sharedReason && <p className="ae-note">{allowed.reason}</p>}
         </div>
       </div>
     );
   }
   const parents = new Map<string, Extract<Row, { kind: "story" }>[]>();
+  const reasons = new Set(rows.map((row) => eligibility(row, "select").reason));
+  const sharedReason = rows.length > 1 && reasons.size === 1 ? [...reasons][0] : null;
   for (const row of rows)
     if (row.kind === "story") {
       const key = identity(row.parent.ref);
@@ -171,9 +173,11 @@ export function DeliveryStage({
       <Ready status={status} />
       <header className="ae-title-row">
         <h1>{group.title}</h1>
-        <span className="ae-count">
-          {`${result?.state === "records" && !result.complete ? "at least " : ""}${rows.length} ${unit(rows.length, group.unit)}${result ? parentSpecSummary(result) : ""}`}
-        </span>
+        {result?.state === "records" && result.parentSpecCount !== null && (
+          <span className="ae-count">
+            {`${result.complete ? "" : "≥"}${rows.length} ${unit(rows.length, group.unit)} · ${result.complete ? "" : "≥"}${result.parentSpecCount} ${unit(result.parentSpecCount, "specs")}`}
+          </span>
+        )}
       </header>
       <p className="ae-note ae-rule">{group.rule}</p>
       <StageTabs portfolio={current} current={group.stage} />
@@ -204,6 +208,11 @@ export function DeliveryStage({
               <Segmented label="Sort records" value={sort} options={sorts} onChange={setSort} />
             </div>
           )}
+          {sharedReason && (
+            <Notice role="status">
+              Selection is off until every source loads. {sharedReason}.
+            </Notice>
+          )}
           {group.stage === "ready"
             ? [...parents.values()].map((siblings) => {
                 const parent = siblings[0].parent;
@@ -227,14 +236,11 @@ export function DeliveryStage({
                       />
                       <div className="ae-row-main">
                         <RecordLink record={parent} />
-                        <span className="ae-note">
-                          {parent.status === "proposed" && (
-                            <>
-                              <RecordedStatus status={parent.status} />{" "}
-                            </>
-                          )}
-                          {keys.length} {unit(keys.length, "stories")}
-                        </span>
+                        {parent.status === "proposed" && (
+                          <span className="ae-note">
+                            <RecordedStatus status={parent.status} />
+                          </span>
+                        )}
                       </div>
                     </div>
                     {siblings.map(renderRow)}
@@ -244,45 +250,47 @@ export function DeliveryStage({
             : rows.map(renderRow)}
           {!rows.length && <EmptyGroup stage={group.stage} />}
         </section>
-        <aside>
-          {unavailable.length > 0 && (
-            <Notice role="alert">
-              <p>
-                {unavailable.length} selected{" "}
-                {unavailable.length === 1 ? "record is" : "records are"} no longer eligible or
-                visible. Review this change before copying.
-              </p>
-              <ul>
-                {unavailable.map((record) => (
-                  <li key={identity(record.ref)}>
-                    Previously selected: {record.title} ·{" "}
-                    <code className="ae-path">{record.locator}</code>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                disabled={stale}
-                onClick={() =>
-                  setSelectedRecords((previous) =>
-                    previous.filter((record) => eligible.includes(identity(record.ref))),
-                  )
-                }
-              >
-                Use remaining eligible selection
-              </Button>
-            </Notice>
-          )}
-          {details.error && (
-            <Notice tone="risk">
-              <p role="alert">
-                Selected effort read failed.{" "}
-                <Button onClick={() => details.refetch()}>Read selection again</Button>
-              </p>
-              <ErrorDetail error={details.error} />
-            </Notice>
-          )}
-          <PromptBox prompt={prompt} />
-        </aside>
+        {rows.length > 0 && (
+          <aside>
+            {unavailable.length > 0 && (
+              <Notice role="alert">
+                <p>
+                  {unavailable.length} selected{" "}
+                  {unavailable.length === 1 ? "record is" : "records are"} no longer eligible or
+                  visible. Review this change before copying.
+                </p>
+                <ul>
+                  {unavailable.map((record) => (
+                    <li key={identity(record.ref)}>
+                      Previously selected: {record.title} ·{" "}
+                      <code className="ae-path">{record.locator}</code>
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  disabled={stale}
+                  onClick={() =>
+                    setSelectedRecords((previous) =>
+                      previous.filter((record) => eligible.includes(identity(record.ref))),
+                    )
+                  }
+                >
+                  Use remaining eligible selection
+                </Button>
+              </Notice>
+            )}
+            {details.error && (
+              <Notice tone="risk">
+                <p role="alert">
+                  Selected effort read failed.{" "}
+                  <Button onClick={() => details.refetch()}>Read selection again</Button>
+                </p>
+                <ErrorDetail error={details.error} />
+              </Notice>
+            )}
+            <PromptBox prompt={prompt} />
+          </aside>
+        )}
       </div>
     </main>
   );
