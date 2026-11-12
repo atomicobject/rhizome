@@ -134,9 +134,11 @@ func (s *Service) UpgradePlan(ctx context.Context, path string) (json.RawMessage
 	if err != nil {
 		return nil, err
 	}
-	executable, err := desktopExecutable()
-	if err != nil {
-		return nil, problem("upgrade_plan_failed", fmt.Sprintf("Upgrade plan executable stage failed: %v", err))
+	// The executable that reported the offered version, as availableVersion
+	// resolves it, so the preview shows that release's files.
+	executable, err := s.globalExecutable("")
+	if err != nil || executable == "" {
+		return nil, problem("upgrade_plan_failed", fmt.Sprintf("Upgrade plan executable stage failed: no Rhizome executable found (%v)", err))
 	}
 	return runSetupJSON(ctx, executable, info.Path, []string{"init", "--path", info.Path, "--check", "--json"}, "", "upgrade_plan_failed", false)
 }

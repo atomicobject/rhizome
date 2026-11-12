@@ -122,14 +122,18 @@ export function UpgradeSheet({
 
   async function copyCommit(done: SetupResult) {
     const paths = done.commit.length ? done.commit : [".rhizome/config.yml"];
-    const quote = (path: string) => `'${path.replaceAll("'", "'\\''")}'`;
+    // Windows terminals open PowerShell, whose single quotes escape by
+    // doubling and whose Windows edition has no `&&`.
+    const windows = window.__RHIZOME_PLATFORM__ === "windows";
+    const quote = (path: string) =>
+      windows ? `'${path.replaceAll("'", "''")}'` : `'${path.replaceAll("'", "'\\''")}'`;
     const message = advance
       ? `chore: upgrade Rhizome to ${version}`
       : "chore: update Rhizome files";
+    const add = `git add -- ${paths.map(quote).join(" ")}`;
+    const commit = `git commit -m "${message}"`;
     try {
-      await navigator.clipboard.writeText(
-        `git add -- ${paths.map(quote).join(" ")} && git commit -m "${message}"`,
-      );
+      await navigator.clipboard.writeText(windows ? `${add}\n${commit}` : `${add} && ${commit}`);
       setCopyError("");
       setCopied(true);
     } catch (cause) {

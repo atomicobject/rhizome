@@ -354,8 +354,9 @@ through `open` after success. No Go operation or field persists dismissals.
 
 Request: `{"protocol":1,"operation":"upgrade-plan","folder":"/repo"}`.
 
-Result: the untouched `SetupPlan` JSON document from the app's bundled
-executable running `init --path /repo --check --json`, including `writes.summary`,
+Result: the untouched `SetupPlan` JSON document from the executable that
+reports the offered version (the bundled one in an app, otherwise the global
+one) running `init --path /repo --check --json`, including `writes.summary`,
 `writes.files`, and `writes.kept`. The pin change comes from Inspect's `pinOffer`.
 Planning shares PinAdvance's managed-pin, non-source, existing-trust, and
 `advance` offer checks. Errors are `pin_unsupported`, `trust_required`, or

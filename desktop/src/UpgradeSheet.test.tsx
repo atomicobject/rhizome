@@ -82,6 +82,22 @@ it("reviews files and kept edits before writing, then reports the result and cop
   expect(callbacks.onClose).toHaveBeenCalledOnce();
 });
 
+it("copies a PowerShell commit command on Windows", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+  window.__RHIZOME_PLATFORM__ = "windows";
+  try {
+    show();
+    fireEvent.click(await screen.findByRole("button", { name: "Upgrade" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Copy commit command" }));
+    expect(writeText).toHaveBeenCalledWith(
+      `git add -- '.rhizome/config.yml' 'docs/Drew''s notes.md' '$(touch nope).md'\ngit commit -m "chore: upgrade Rhizome to v0.52.0"`,
+    );
+  } finally {
+    delete window.__RHIZOME_PLATFORM__;
+  }
+});
+
 it("retries a failed plan without writing", async () => {
   call.mockRejectedValueOnce({
     code: "upgrade_plan_failed",
