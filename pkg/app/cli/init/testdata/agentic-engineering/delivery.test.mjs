@@ -297,3 +297,13 @@ test('unknown or incomplete frozen scope is noted once per effort and never bloc
   assert.equal(blocked.copyable, false);
   assert.deepEqual(blocked.reasons, ['Durable canonical locator unavailable']);
 });
+
+test('an unrecorded workspace selector is unknown scope, not a failed read', () => {
+  const selector = { state: 'missing', authored: [], material: null, coverage: coverage() };
+  const unknown = frozenScope({ form: 'EffortWorkspace', selector });
+  assert.equal(unknown.state, 'unknown');
+  assert.equal(unknown.coverage.complete, true);
+  const broken = frozenScope({ form: 'EffortWorkspace', selector: { ...selector, state: 'broken' } });
+  assert.equal(broken.state, 'incomplete');
+  assert.equal(broken.coverage.complete, false);
+});

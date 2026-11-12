@@ -306,7 +306,7 @@ test('workspace checklist uses the exact log independently of unknown frozen aut
   assert.deepEqual(result.record.checklist, { state: 'recorded', checked: 2, total: 2 });
   assert.equal(result.record.status, 'active');
   assert.equal(result.record.coverage.complete, true);
-  assert.equal(result.coverage.complete, false);
+  assert.equal(result.coverage.complete, true, result.coverage.errors.join('\n'));
   assert.equal(result.record.scope.state, 'unknown');
   assert.equal(result.components.find(item => identity(item.ref) === identity(statusRef)).content, status.content);
   assert.equal(new Set(result.components.map(item => identity(item.ref))).size, result.components.length);
