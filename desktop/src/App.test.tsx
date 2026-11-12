@@ -13,6 +13,8 @@ import {
   type Message,
   type OpenState,
   type Repository,
+  type SetupPlan,
+  type SetupResult,
   type WindowSession,
   type Worktree,
 } from "./api";
@@ -36,6 +38,32 @@ const repository: Repository = {
   acknowledged: [main, feature],
 };
 const library: Library = { version: 3, repositories: [repository], revision: 1 };
+const upgradePlan: SetupPlan = {
+  root: main,
+  name: "project",
+  configured: true,
+  findings: { docs: "Markdown", code: "Go" },
+  workflow: "none",
+  workflows: [],
+  addons: [],
+  agents: [],
+  ignoredRepositories: [],
+  pin: "v0.51.0",
+  search: { provider: "off", ready: true, providers: [] },
+  scope: { builtInApplies: false, rules: [], keepIndexed: [] },
+  writes: { summary: ["Update agent guidance"], files: ["AGENTS.md"], kept: ["CLAUDE.md"] },
+};
+const upgradeResult: SetupResult = {
+  root: main,
+  created: [],
+  updated: ["AGENTS.md"],
+  summary: ["Updated agent guidance"],
+  kept: ["CLAUDE.md"],
+  warnings: [],
+  commit: ["AGENTS.md", ".rhizome/config.yml"],
+  pin: { version: "v0.51.0" },
+};
+
 const worktree = (path: string, branch: string): Worktree => ({
   path,
   branch,
@@ -88,6 +116,8 @@ function start(
     if (result !== undefined) return result;
     if (operation === "list") return library;
     if (operation === "discover") return discovery;
+    if (operation === "upgrade-plan") return upgradePlan;
+    if (operation === "settings-apply") return upgradeResult;
     if (operation === "open") return { generation: ++generation, library };
     if (operation === "update-status") return { state: "idle" };
     if (operation === "cli-link-status")
@@ -730,12 +760,24 @@ describe("desktop shell", () => {
     await waitFor(() => expect(opened()).toHaveLength(1));
     const items = await pinMenu();
     expect(items.map((item) => item.label)).toContain("Changes .rhizome/config.yml from v0.50.5");
-    const advance = items.find((item) => item.label === "Update Pin to v0.51.0")!;
+    const advance = items.find((item) => item.label === "Update to v0.51.0")!;
     act(() => emit({ type: "menu", id: advance.id! }));
+    await screen.findByRole("heading", { name: "Upgrade project to Rhizome v0.51.0" });
+    fireEvent.click(await screen.findByRole("button", { name: "Upgrade" }));
     await waitFor(() =>
       expect(call).toHaveBeenCalledWith("pin-advance", { id: repository.id, worktree: main }),
     );
     await waitFor(() => expect(opened()).toHaveLength(2));
+    const operations = call.mock.calls.map(([operation]) => operation);
+    expect(operations.indexOf("upgrade-plan")).toBeLessThan(operations.indexOf("pin-advance"));
+    expect(operations.indexOf("pin-advance")).toBeLessThan(operations.indexOf("settings-apply"));
+    expect(operations.indexOf("settings-apply")).toBeLessThan(operations.lastIndexOf("open"));
+    expect(call).toHaveBeenCalledWith("settings-apply", {
+      id: repository.id,
+      worktree: main,
+      choices: {},
+    });
+    expect(await screen.findByRole("heading", { name: "Upgraded to v0.51.0" })).toBeVisible();
   });
 
   it("does not pull the user back after a pin advance finishes elsewhere", async () => {
@@ -748,8 +790,10 @@ describe("desktop shell", () => {
           : undefined,
     );
     await waitFor(() => expect(opened()).toHaveLength(1));
-    const advance = (await pinMenu()).find((item) => item.label === "Update Pin to v0.51.0")!;
+    const advance = (await pinMenu()).find((item) => item.label === "Update to v0.51.0")!;
     act(() => emit({ type: "menu", id: advance.id! }));
+    await screen.findByRole("heading", { name: "Upgrade project to Rhizome v0.51.0" });
+    fireEvent.click(await screen.findByRole("button", { name: "Upgrade" }));
     await waitFor(() =>
       expect(call).toHaveBeenCalledWith("pin-advance", { id: repository.id, worktree: main }),
     );
@@ -760,6 +804,7 @@ describe("desktop shell", () => {
     await waitFor(() =>
       expect(call.mock.calls.filter(([op]) => op === "discover").length).toBeGreaterThan(1),
     );
+    await screen.findByRole("heading", { name: "Upgraded to v0.51.0" });
     expect(opened()).toHaveLength(count);
   });
 
@@ -780,6 +825,7 @@ describe("desktop shell", () => {
     ]);
     expect(actions[0]).toHaveClass("primary");
     fireEvent.click(actions[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Upgrade" }));
     await waitFor(() =>
       expect(call).toHaveBeenCalledWith("pin-advance", { id: repository.id, worktree: main }),
     );
@@ -910,7 +956,7 @@ describe("desktop shell", () => {
     const labels = lastMenu().map((item) => item.label);
     expect(labels).toContain(reason);
     expect(labels).toContain("Check for App Updates");
-    expect(labels.some((label) => label?.startsWith("Update Pin"))).toBe(false);
+    expect(labels.some((label) => label?.startsWith("Update to "))).toBe(false);
     report({ step: "error", code: "pinned_version_unavailable", message: "gone" });
     expect(
       within(screen.getByRole("alert"))
@@ -1570,8 +1616,182 @@ it("restarts another repository's running worktree after updating its pin from S
   const update = () => screen.getByRole("button", { name: "Update other to v0.52.0" });
   await waitFor(() => expect(update()).toBeEnabled());
   fireEvent.click(update());
+  fireEvent.click(await screen.findByRole("button", { name: "Upgrade" }));
   await waitFor(() =>
     expect(call).toHaveBeenCalledWith("restart", { id: other.id, worktree: "/work/other" }),
   );
   expect(call).toHaveBeenCalledWith("pin-advance", { id: other.id, worktree: "/work/other" });
+});
+
+describe("Rhizome file updates", () => {
+  it("checks after ready, opens the files review, applies and rechecks", async () => {
+    let applied = false;
+    start(undefined, (operation) => {
+      if (operation === "settings-report")
+        return applied ? { ...upgradePlan, writes: { summary: [], files: [] } } : upgradePlan;
+      if (operation === "settings-apply") {
+        applied = true;
+        return upgradeResult;
+      }
+      return undefined;
+    });
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    expect(call.mock.calls.filter(([op]) => op === "settings-report")).toHaveLength(0);
+    report({ step: "ready" });
+    fireEvent.click(await screen.findByRole("button", { name: "Update Rhizome files" }));
+    expect(
+      await screen.findByRole("heading", { name: "Update Rhizome files for project" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Update files" }));
+    await screen.findByRole("heading", { name: "Rhizome files updated" });
+    await waitFor(() =>
+      expect(call.mock.calls.filter(([op]) => op === "settings-report")).toHaveLength(2),
+    );
+    expect(call).not.toHaveBeenCalledWith("pin-advance", expect.anything());
+    expect(opened()).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("button", { name: "Update Rhizome files" })).toBeNull();
+  });
+
+  it.each(["empty", "kept", "unsupported", "failed"])(
+    "quietly omits the files pill for a %s check",
+    async (state) => {
+      start(undefined, (operation) => {
+        if (operation !== "settings-report") return undefined;
+        if (state === "unsupported" || state === "failed")
+          throw {
+            code: state === "unsupported" ? "setup_unsupported" : "settings_failed",
+            message: "Silent background failure",
+          };
+        return {
+          ...upgradePlan,
+          writes: { summary: [], files: [], kept: state === "kept" ? ["AGENTS.md"] : [] },
+        };
+      });
+      await waitFor(() => expect(opened()).toHaveLength(1));
+      report({ step: "ready" });
+      await waitFor(() =>
+        expect(call).toHaveBeenCalledWith("settings-report", { id: repository.id, worktree: main }),
+      );
+      await act(async () => {});
+      expect(screen.queryByRole("button", { name: "Update Rhizome files" })).toBeNull();
+      expect(screen.queryByText("Silent background failure")).toBeNull();
+    },
+  );
+
+  it.each(["advance", "untrusted", "unconfigured"])(
+    "does not check a worktree with %s",
+    async (state) => {
+      const info = {
+        ...discovery,
+        worktrees: discovery.worktrees.map((w) =>
+          w.path === main
+            ? {
+                ...w,
+                ...(state === "advance"
+                  ? {
+                      pinOffer: {
+                        state: "advance" as const,
+                        pinned: "v0.50.0",
+                        available: "v0.51.0",
+                      },
+                    }
+                  : {}),
+                trusted: state !== "untrusted",
+                configured: state !== "unconfigured",
+              }
+            : w,
+        ),
+      };
+      start(undefined, (operation) =>
+        operation === "discover" ? info : operation === "settings-report" ? upgradePlan : undefined,
+      );
+      await waitFor(() => expect(opened()).toHaveLength(1));
+      report({ step: "ready" });
+      await act(async () => {});
+      expect(call.mock.calls.filter(([op]) => op === "settings-report")).toHaveLength(0);
+      expect(screen.queryByRole("button", { name: "Update Rhizome files" })).toBeNull();
+    },
+  );
+
+  it("runs only one background check per worktree while status keeps arriving", async () => {
+    let finish!: (plan: SetupPlan) => void;
+    start(undefined, (operation) =>
+      operation === "settings-report"
+        ? new Promise<SetupPlan>((resolve) => {
+            finish = resolve;
+          })
+        : undefined,
+    );
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "ready" });
+    report({ step: "ready" });
+    present();
+    expect(call.mock.calls.filter(([op]) => op === "settings-report")).toHaveLength(1);
+    await act(async () => finish(upgradePlan));
+    expect(await screen.findByRole("button", { name: "Update Rhizome files" })).toBeVisible();
+    report({ step: "ready" });
+    expect(call.mock.calls.filter(([op]) => op === "settings-report")).toHaveLength(1);
+  });
+
+  it("clears the executable override before applying and reopens after the file update", async () => {
+    const overridden = { ...repository, executables: { [main]: "/custom/rzm" } };
+    const offer = { state: "advance" as const, pinned: "v0.50.0", available: "v0.51.0" };
+    start(undefined, (operation) => {
+      if (operation === "list") return { ...library, repositories: [overridden] };
+      if (operation === "discover")
+        return {
+          ...discovery,
+          worktrees: discovery.worktrees.map((w) => ({ ...w, pinOffer: offer })),
+        };
+      if (operation === "set-executable") return { ...library, revision: 2 };
+      if (operation === "pin-advance") return null;
+      return undefined;
+    });
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    fireEvent.click(screen.getByRole("button", { name: "Update to v0.51.0" }));
+    await waitFor(() => expect(call).toHaveBeenCalledWith("menu", expect.anything()));
+    const item = lastMenu().find((item) => item.label === "Update to v0.51.0")!;
+    act(() => emit({ type: "menu", id: item.id! }));
+    fireEvent.click(await screen.findByRole("button", { name: "Upgrade" }));
+    await screen.findByRole("heading", { name: "Upgraded to v0.51.0" });
+    const ops = call.mock.calls.map(([op]) => op);
+    expect(ops.indexOf("pin-advance")).toBeLessThan(ops.indexOf("set-executable"));
+    expect(ops.indexOf("set-executable")).toBeLessThan(ops.indexOf("settings-apply"));
+    expect(ops.indexOf("settings-apply")).toBeLessThan(ops.lastIndexOf("open"));
+    expect(call).toHaveBeenCalledWith("set-executable", {
+      id: repository.id,
+      worktree: main,
+      executable: null,
+    });
+  });
+});
+
+it("checks the new executable after an older background report finishes, without overlapping checks", async () => {
+  let finish!: (plan: SetupPlan) => void;
+  let checks = 0;
+  start(undefined, (operation) => {
+    if (operation !== "settings-report") return undefined;
+    if (++checks === 1)
+      return new Promise<SetupPlan>((resolve) => {
+        finish = resolve;
+      });
+    return { ...upgradePlan, writes: { summary: [], files: [] } };
+  });
+  await waitFor(() => expect(opened()).toHaveLength(1));
+  report({ step: "ready" });
+  act(() =>
+    emit({
+      type: "library",
+      library: {
+        ...library,
+        revision: 2,
+        repositories: [{ ...repository, executables: { [main]: "/new/rzm" } }],
+      },
+    }),
+  );
+  expect(checks).toBe(1);
+  await act(async () => finish(upgradePlan));
+  await waitFor(() => expect(checks).toBe(2));
+  expect(screen.queryByRole("button", { name: "Update Rhizome files" })).toBeNull();
 });

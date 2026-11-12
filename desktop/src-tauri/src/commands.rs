@@ -127,6 +127,10 @@ pub enum Action {
         id: String,
         worktree: String,
     },
+    UpgradePlan {
+        id: String,
+        worktree: String,
+    },
     DismissPinOffer {
         id: String,
         version: String,
@@ -511,6 +515,18 @@ pub async fn desktop_request(
                 &worktree,
                 Request {
                     operation: "pin-advance",
+                    ..Request::default()
+                },
+            )
+            .await
+        }
+        Action::UpgradePlan { id, worktree } => {
+            worktree_action(
+                &state,
+                &id,
+                &worktree,
+                Request {
+                    operation: "upgrade-plan",
                     ..Request::default()
                 },
             )

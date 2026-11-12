@@ -19,6 +19,7 @@ import {
   type PageCommand,
   type PageState,
   type Repository,
+  type SetupPlan,
 } from "./api";
 import {
   basename,
@@ -35,6 +36,7 @@ import { RepositorySettings } from "./RepositorySettings";
 import { Settings, type SettingsTab } from "./Settings";
 import { providerAccessChanged } from "./ProviderAccess";
 import { SetupSheet } from "./SetupSheet";
+import { UpgradeSheet, type UpgradeMode } from "./UpgradeSheet";
 import { Notice, OpenStatus } from "./Status";
 import { teamChanged, teamProgress } from "./TeamAccount";
 import { isMacOS, shortcut } from "./keyboard";
@@ -73,6 +75,14 @@ export function App() {
   const [global, setGlobal] = useState<GlobalInfo | null>(null);
   const [link, setLink] = useState<LinkInfo | null>(null);
   const [update, setUpdate] = useState<UpdateStatus | null>(null);
+  const [upgrade, setUpgrade] = useState<{
+    repository: Repository;
+    worktree: string;
+    mode: UpgradeMode;
+  } | null>(null);
+  const [filePlans, setFilePlans] = useState<Record<string, SetupPlan | undefined>>({});
+  const fileChecks = useRef(new Map<string, Promise<void>>());
+  const checkedFiles = useRef(new Map<string, string>());
   const [busy, setBusy] = useState("");
   const [alert, setAlert] = useState<Alert | null>(null);
   const [open, setOpen] = useState<OpenState | null>(null);
@@ -158,6 +168,7 @@ export function App() {
       if (ticket !== selecting.current) return;
       const problem = failure(cause);
       setOpen((current) => current && { ...current, step: "error", ...problem });
+      return problem;
     }
   }
 
@@ -258,7 +269,7 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  const covered = settings || !!scopeView || !selection.worktree;
+  const covered = !!upgrade || settings || !!scopeView || !selection.worktree;
   const report = useCallback(() => {
     const box = region.current?.getBoundingClientRect();
     if (!box) return;
@@ -296,6 +307,45 @@ export function App() {
   const selectedFound = selected ? found[selected.id] : undefined;
   const worktree = selectedFound?.info?.worktrees.find((w) => w.path === selection.worktree);
   const sleeping = open?.step === "sleeping" ? open.repository : undefined;
+
+  const checkFiles = useCallback((id: string, path: string) => {
+    const pending = fileChecks.current.get(path);
+    if (pending) return pending;
+    setFilePlans((plans) => ({ ...plans, [path]: undefined }));
+    const check = request("settings-report", { id, worktree: path })
+      .then((plan) => setFilePlans((plans) => ({ ...plans, [path]: plan })))
+      .catch(() => {})
+      .finally(() => fileChecks.current.delete(path));
+    fileChecks.current.set(path, check);
+    return check;
+  }, []);
+
+  useEffect(() => {
+    if (
+      !selected ||
+      !worktree?.configured ||
+      !worktree.trusted ||
+      worktree.trustRequired ||
+      worktree.error ||
+      worktree.pinOffer?.state === "advance" ||
+      open?.step !== "ready" ||
+      open.worktree !== worktree.path
+    )
+      return;
+    const key = JSON.stringify([
+      selected.id,
+      worktree.path,
+      open.generation,
+      worktree.pinnedVersion,
+      selected.executables?.[worktree.path],
+      library?.globalExecutable,
+    ]);
+    if (checkedFiles.current.get(worktree.path) === key) return;
+    checkedFiles.current.set(worktree.path, key);
+    const pending = fileChecks.current.get(worktree.path);
+    if (pending) void pending.then(() => checkFiles(selected.id, worktree.path));
+    else void checkFiles(selected.id, worktree.path);
+  }, [selected, worktree, open, library?.globalExecutable, checkFiles]);
 
   const finder = useFinder(
     appSettings.theme,
@@ -437,15 +487,27 @@ export function App() {
     });
   }
 
-  /** Moves the worktree's pin to the app's Rhizome, then reopens it. */
   function advancePin(repository: Repository, path: string, version: string) {
-    void perform(`Updating pin to ${version}…`, async () => {
-      await request("pin-advance", { id: repository.id, worktree: path });
-      await discover(repository);
-      setNotice(`Pinned Rhizome ${version}. Commit .rhizome/config.yml to share it.`);
-      // Reopen on the new pin only if the user is still on this worktree.
-      if (target.current.worktree === path) await openWorktree(repository.id, path);
-    });
+    const offer = found[repository.id]?.info?.worktrees.find((w) => w.path === path)?.pinOffer;
+    if (!upgrade && offer?.state === "advance" && offer.available === version)
+      setUpgrade({ repository, worktree: path, mode: { kind: "advance", offer } });
+  }
+
+  async function prepareUpgrade(repository: Repository, path: string) {
+    if (repository.executables?.[path])
+      setLibrary(
+        await request("set-executable", { id: repository.id, worktree: path, executable: null }),
+      );
+    await discover(repository);
+  }
+
+  async function reopenUpgraded(repository: Repository, path: string) {
+    if (target.current.worktree === path) {
+      const problem = await openWorktree(repository.id, path, false, undefined, settings);
+      if (problem) throw problem;
+    } else if (["running", "starting"].includes(runtimes[path]?.state ?? "")) {
+      await request("restart", { id: repository.id, worktree: path });
+    }
   }
 
   function checkForAppUpdates() {
@@ -518,7 +580,7 @@ export function App() {
     popup(
       [
         {
-          label: `Update Pin to ${offer.available}`,
+          label: `Update to ${offer.available}`,
           run: () => advancePin(repository, path, offer.available),
         },
         dismiss,
@@ -748,16 +810,8 @@ export function App() {
               setWorktreeExecutable(repository, target.worktree, executable),
             onChoose: () => chooseExecutable(repository, target.worktree),
             onAdvance: async () => {
-              await request("pin-advance", { id: repository.id, worktree: target.worktree });
-              await discover(repository);
-              if (repository.executables?.[target.worktree]) {
-                await setWorktreeExecutable(repository, target.worktree, null);
-              } else if (target.worktree === selection.worktree) {
-                await openWorktree(repository.id, target.worktree, false, undefined, true);
-              } else if (["running", "starting"].includes(runtimes[target.worktree]?.state ?? "")) {
-                // Another worktree's runtime keeps the old pin until replaced.
-                await request("restart", { id: repository.id, worktree: target.worktree });
-              }
+              if (worktree.pinOffer)
+                advancePin(repository, target.worktree, worktree.pinOffer.available);
             },
           }}
           onProviderSettings={() => {
@@ -785,6 +839,26 @@ export function App() {
   }
 
   function content() {
+    if (upgrade)
+      return (
+        <UpgradeSheet
+          repository={upgrade.repository.id}
+          worktree={upgrade.worktree}
+          name={upgrade.repository.name}
+          mode={upgrade.mode}
+          onPinned={() => prepareUpgrade(upgrade.repository, upgrade.worktree)}
+          onRestart={() => reopenUpgraded(upgrade.repository, upgrade.worktree)}
+          onApplied={() => {
+            const { id } = upgrade.repository;
+            const path = upgrade.worktree;
+            void (async () => {
+              await fileChecks.current.get(path);
+              await checkFiles(id, path);
+            })();
+          }}
+          onClose={() => setUpgrade(null)}
+        />
+      );
     if (settings) {
       const page = (
         <Settings
@@ -1018,6 +1092,29 @@ export function App() {
                 </svg>
               </button>
             ))}
+            {selected &&
+              worktree?.configured &&
+              worktree.trusted &&
+              !worktree.trustRequired &&
+              worktree.pinOffer?.state !== "advance" &&
+              open?.step === "ready" &&
+              !!filePlans[worktree.path]?.writes.files.length && (
+                <button
+                  className="toolbar-pill"
+                  disabled={!!upgrade}
+                  onClick={() => {
+                    const plan = filePlans[worktree.path];
+                    if (plan)
+                      setUpgrade({
+                        repository: selected,
+                        worktree: worktree.path,
+                        mode: { kind: "refresh", plan },
+                      });
+                  }}
+                >
+                  Update Rhizome files
+                </button>
+              )}
             {worktree?.pinOffer && selected?.pinOfferDismissed !== worktree.pinOffer.available && (
               <button
                 className="toolbar-pill"
