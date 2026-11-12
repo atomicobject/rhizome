@@ -260,7 +260,8 @@ export function WorkflowMap({
                         {showCounts && !compact && result.parentSpecCount !== null && (
                           <span className="ae-note">
                             {" "}
-                            · {result.parentSpecCount} {unit(result.parentSpecCount, "specs")}
+                            · {result.complete ? "" : "≥"}
+                            {result.parentSpecCount} {unit(result.parentSpecCount, "specs")}
                           </span>
                         )}
                       </span>{" "}

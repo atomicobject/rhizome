@@ -5,7 +5,7 @@ import { useDeliveryPortfolio, useDeliverySelectedEfforts } from "./data.tsx";
 import type { LiveSpec } from "./data.tsx";
 import { field } from "./reads.ts";
 import { identity, inventoryComplete } from "./lib/index.ts";
-import { Notice, RecordLink, sourceLocator } from "./presentation.tsx";
+import { Notice, RecordLink, sourceLocator, unit } from "./presentation.tsx";
 
 function LoadedRelationships({ spec }: { spec: LiveSpec }) {
   const inventory = useDeliveryPortfolio();
@@ -40,15 +40,16 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
     }) ?? [];
   const pending =
     inventory.isPending || (!!inventory.data?.portfolio.efforts.length && details.isPending);
-  const complete =
+  const readsComplete =
     inventory.data &&
     !inventory.isFetching &&
     inventoryComplete([spec.coverage, inventory.data.coverage]) &&
     (!inventory.data.portfolio.efforts.length ||
       (details.data &&
         !details.isFetching &&
-        inventoryComplete([inventory.data.coverage, details.data.coverage]) &&
-        details.data.efforts.every((effort) => effort.scope.state === "known")));
+        inventoryComplete([inventory.data.coverage, details.data.coverage])));
+  const unrecorded =
+    details.data?.efforts.filter((effort) => effort.scope.state !== "known").length ?? 0;
   return (
     <>
       {pending && (
@@ -69,7 +70,15 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
           </Button>
         </Notice>
       )}
-      {!pending && !complete && <Notice role="status">Some effort sources didn't load.</Notice>}
+      {!pending && !readsComplete && (
+        <Notice role="status">Some effort sources didn't load.</Notice>
+      )}
+      {!pending && readsComplete && unrecorded > 0 && (
+        <p className="ae-note" role="status">
+          {unrecorded} {unit(unrecorded, "efforts")} {unrecorded === 1 ? "has" : "have"} no complete
+          frozen scope, so this list may miss their selections.
+        </p>
+      )}
       {rows.map(({ effort, metadata, frozen, selected }) => (
         <div className="ae-row" key={identity(effort.ref)}>
           <RecordLink record={effort} />
