@@ -24,7 +24,8 @@ export function frozenScope(input:
   }
   const reads = material ? [material.coverage, material.specs.coverage, material.stories.coverage] : [];
   const coverage = material || input.form === 'EffortNote' ? composeCoverage(reads)
-    : { ...input.selector.coverage, complete: false, sourceRevision: null };
+    : input.selector.state === 'missing' ? input.selector.coverage
+      : { ...input.selector.coverage, complete: false, sourceRevision: null };
   const selectorReadMatchesGeneration = input.form !== 'EffortWorkspace'
     || isComplete(input.selector.coverage) && (!material || input.selector.coverage.graphGeneration === coverage.graphGeneration);
   if (!selectorReadMatchesGeneration) {
@@ -41,6 +42,12 @@ export function frozenScope(input:
     selections: authoritative ? material?.stories.occurrences ?? [] : [],
     coverage, reasons,
   };
+}
+
+export function deferredScope(): FrozenScope {
+  const reason = 'Frozen scope not read';
+  return { state: 'deferred', source: null, authored: [], specs: [], selections: [], reasons: [reason],
+    coverage: { complete: false, errors: [reason], truncated: false, sourceRevision: null, graphGeneration: null } };
 }
 
 /** Navigation lookup only. Ordered occurrences remain the authority for provenance. */

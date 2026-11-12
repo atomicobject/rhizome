@@ -71,17 +71,17 @@ export const groups: readonly Group[] = [
       .flatMap(parent => parent.stories.filter(story => story.status === 'ready')
         .map(record => ({ kind: 'story', record, parent }))) },
   { stage: 'planned', title: 'Planned efforts', activity: 'Build', primary: true, unit: 'efforts',
-    rule: 'Efforts recorded as planned.', rows: input => effortRows(input, ['planned']) },
+    rule: '', rows: input => effortRows(input, ['planned']) },
   { stage: 'active', title: 'Active efforts', activity: 'Build', primary: true, unit: 'efforts',
-    rule: 'Efforts recorded as active, regardless of checklist state.', rows: input => effortRows(input, ['active']) },
+    rule: '', rows: input => effortRows(input, ['active']) },
   { stage: 'history', title: 'Delivery history', activity: 'Settle', primary: true, unit: 'efforts',
-    rule: 'Efforts recorded as complete or archived, retaining their distinct statuses.',
+    rule: '',
     rows: input => effortRows(input, ['complete', 'archived']) },
   { stage: 'contracts', title: 'Current contracts', activity: 'Shape', primary: false, unit: 'specs',
-    rule: 'Active specs are normative contracts in force. This does not establish delivery.',
+    rule: 'Active specs: the contracts in force.',
     rows: input => input.specs.filter(spec => spec.status === 'active').map(record => ({ kind: 'spec', record })) },
   { stage: 'review', title: 'Record review', activity: 'Settle', primary: false, unit: 'observations',
-    rule: 'Inspect active efforts with recorded fully checked checklists, or complete efforts with exact selected pending contract.',
+    rule: 'Active efforts with every checklist item checked, and complete efforts whose selected contract is still pending.',
     rows: observations },
 ];
 
@@ -135,8 +135,8 @@ export function eligibility(row: Row, intent: 'select' | 'copy' = 'copy'): { eli
     row.record.criteriaCoverage, ...row.record.criteria.map(criterion => criterion.coverage)]))) {
     return { eligible: false, reason: 'Parent contract read incomplete' };
   }
-  if ((row.kind === 'review' || intent === 'copy' && row.kind === 'effort') && (row.record.scope.state !== 'known' || !inventoryComplete([row.record.coverage, row.record.scope.coverage]))) {
-    return { eligible: false, reason: 'Selected frozen scope incomplete or unknown' };
+  if ((row.kind === 'review' || intent === 'copy' && row.kind === 'effort') && row.record.scope.state === 'deferred') {
+    return { eligible: false, reason: 'Selected effort details not read' };
   }
   if (row.kind === 'review' && row.selected.some(record => !record.locator || !inventoryComplete([record.coverage]))) {
     return { eligible: false, reason: 'Selected pending contract locator or read unavailable' };

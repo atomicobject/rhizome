@@ -1,11 +1,11 @@
 import { Fragment, useState } from "react";
-import { Section } from "@rhizome/kit";
+import { DisclosureIcon } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import { useDeliveryPortfolio, useDeliverySelectedEfforts } from "./data.tsx";
 import type { LiveSpec } from "./data.tsx";
 import { field } from "./reads.ts";
 import { identity, inventoryComplete } from "./lib/index.ts";
-import { Notice, RecordLink, sourceLocator } from "./presentation.tsx";
+import { Notice, RecordLink, sourceLocator, unit } from "./presentation.tsx";
 
 function LoadedRelationships({ spec }: { spec: LiveSpec }) {
   const inventory = useDeliveryPortfolio();
@@ -40,7 +40,7 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
     }) ?? [];
   const pending =
     inventory.isPending || (!!inventory.data?.portfolio.efforts.length && details.isPending);
-  const complete =
+  const readsComplete =
     inventory.data &&
     !inventory.isFetching &&
     inventoryComplete([spec.coverage, inventory.data.coverage]) &&
@@ -48,6 +48,8 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
       (details.data &&
         !details.isFetching &&
         inventoryComplete([inventory.data.coverage, details.data.coverage])));
+  const unrecorded =
+    details.data?.efforts.filter((effort) => effort.scope.state !== "known").length ?? 0;
   return (
     <>
       {pending && (
@@ -68,11 +70,14 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
           </Button>
         </Notice>
       )}
-      {!pending && !complete && (
-        <Notice role="status">
-          Relationship evidence is incomplete. These are the links found in the loaded sources;
-          missing links do not establish absent scope.
-        </Notice>
+      {!pending && !readsComplete && (
+        <Notice role="status">Some effort sources didn't load.</Notice>
+      )}
+      {!pending && readsComplete && unrecorded > 0 && (
+        <p className="ae-note" role="status">
+          {unrecorded} {unit(unrecorded, "efforts")} {unrecorded === 1 ? "has" : "have"} no complete
+          frozen scope, so this list may miss their selections.
+        </p>
       )}
       {rows.map(({ effort, metadata, frozen, selected }) => (
         <div className="ae-row" key={identity(effort.ref)}>
@@ -118,10 +123,6 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
       {!pending && !rows.length && (
         <p className="ae-note">No matching authored relationships returned in this read.</p>
       )}
-      <p className="ae-note">
-        General inbound mentions do not establish frozen selection. Open an effort for unresolved
-        occurrences, entry mentions, and separate log snapshots.
-      </p>
     </>
   );
 }
@@ -129,15 +130,16 @@ function LoadedRelationships({ spec }: { spec: LiveSpec }) {
 export function EffortRelationships({ spec }: { spec: LiveSpec }) {
   const [open, setOpen] = useState(false);
   return (
-    <Section
-      title="Effort relationships"
-      caption="Load exact authored sources separately from the contract. This does not decide coverage or delivery."
+    <details
+      className="ae-related"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      {open ? (
-        <LoadedRelationships spec={spec} />
-      ) : (
-        <Button onClick={() => setOpen(true)}>Load effort relationships</Button>
-      )}
-    </Section>
+      <summary>
+        <DisclosureIcon open={false} />
+        Related efforts
+      </summary>
+      {open && <LoadedRelationships spec={spec} />}
+    </details>
   );
 }

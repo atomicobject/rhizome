@@ -23,7 +23,7 @@ import {
   ReadState,
   Ready,
   RecordedStatus,
-  RecordWorkflow,
+  RecordMemberships,
   sourceLocator,
   subjectPortfolio,
 } from "./presentation.tsx";
@@ -103,18 +103,25 @@ function Narrative({
       ? detail.components.find((node) => identity(node.ref) === identity(refs[0]))
       : undefined;
   const readable = source && !state?.issues?.length;
+  if (owner && !state?.present && !note) return null;
   return (
-    <Section title={title}>
-      {readable ? (
-        <>
-          <SourceContent node={source} />
+    <Section
+      title={title}
+      controls={
+        readable ? (
           <button
-            className="ae-link ae-note"
+            className="ae-link ae-source-link"
+            title={sourceLocator(source.ref)}
+            aria-label={`View source ${sourceLocator(source.ref)}`}
             onClick={() => nav.openNode(source.ref, { view: "builtin:read" })}
           >
-            Source <code className="ae-path">{sourceLocator(source.ref)}</code>
+            View source
           </button>
-        </>
+        ) : undefined
+      }
+    >
+      {readable ? (
+        <SourceContent node={source} />
       ) : (
         <p className="ae-note">
           {!owner
@@ -153,9 +160,7 @@ function OriginalSource({ node }: { node: LiveNode }) {
 export default function Page() {
   const context = useViewContext();
   const query = useDeliveryRecord(context.kind === "node" ? context.ref : null);
-  const [selected, setSelected] = useState(false);
   const detail = query.data;
-  useEffect(() => setSelected(false), [detail?.node.ref.ref, detail?.node.ref.notePath]);
   const record = detail?.record?.kind === "effort" ? detail.record : null;
   const logRefs = detail
     ? (field(detail.node, "workLog")?.links?.filter((link) => link.resolved && link.ref) ?? [])
@@ -190,37 +195,32 @@ export default function Page() {
           detail?.node.title ||
           (context.kind === "node" ? context.ref.notePath : "Invalid effort route")
         }
-        kind="Effort"
         status={{ status: query.state === "loading" ? "loading" : "ready" }}
         partial={
-          detail && (!detail.coverage.complete || record?.scope.state !== "known") ? (
+          detail && !detail.coverage.complete ? (
             <>
               <NoticeMark />
-              <span>
-                Incomplete execution context. Recorded status remains visible; inspect the source
-                evidence before resuming.
-              </span>
+              <span>Some source evidence is unavailable.</span>
             </>
           ) : undefined
         }
         facts={
           <Facts note={<RecordedStatus status={record?.status} />}>
-            {record?.locator && (
-              <Fact>
-                <code className="ae-path">{record.locator}</code>
-              </Fact>
-            )}
             <Fact>
               {checklist?.state === "recorded" || checklist?.state === "empty"
                 ? `${checklist.checked} of ${checklist.total} checklist items checked`
                 : `Checklist ${checklist?.state ?? "unavailable"}`}
             </Fact>
+            {record && (
+              <Fact>
+                <RecordMemberships record={record} />
+              </Fact>
+            )}
           </Facts>
         }
       >
         {detail && record ? (
           <>
-            <RecordWorkflow record={record} />
             <div className="ae-with-aside ae-brief">
               <div>
                 <Narrative
@@ -241,56 +241,6 @@ export default function Page() {
                   title="Original intended delivery"
                   detail={detail}
                 />
-                <Section
-                  title="Frozen selected scope"
-                  caption={`Membership ${record.scope.state}. Only the explicit frozen source establishes this selection.`}
-                >
-                  {record.scope.source && (
-                    <p className="ae-note">
-                      Selected source{" "}
-                      <code className="ae-path">{record.scope.source.notePath}</code>
-                    </p>
-                  )}
-                  {record.scope.authored.map((target, i) => (
-                    <p className="ae-note" key={i}>
-                      Recorded selector <code className="ae-path">{target}</code>
-                    </p>
-                  ))}
-                  {record.scope.reasons.length > 0 && (
-                    <Notice>
-                      {record.scope.reasons.map((reason, i) => (
-                        <p role="status" key={i}>
-                          {reason}
-                        </p>
-                      ))}
-                    </Notice>
-                  )}
-                  <Occurrences occurrences={record.scope.selections} detail={detail} />
-                  {record.scope.state === "known" && !record.scope.selections.length && (
-                    <p>No selected story or criterion occurrences recorded.</p>
-                  )}
-                  <details>
-                    <summary>
-                      <DisclosureIcon open={false} />
-                      Frozen spec occurrences ({record.scope.specs.length})
-                    </summary>
-                    <Occurrences occurrences={record.scope.specs} />
-                  </details>
-                </Section>
-              </div>
-              <aside aria-label="Closure evidence">
-                <Narrative
-                  owner={owner}
-                  name="closureChecklist"
-                  title="Closure checklist"
-                  detail={detail}
-                  note={
-                    <p className="ae-note">
-                      Checked items record checklist state. They do not change the effort's status
-                      or establish acceptance.
-                    </p>
-                  }
-                />
                 <Narrative
                   owner={owner}
                   name="actualDelivered"
@@ -307,7 +257,7 @@ export default function Page() {
                     ] as const
                   ).flatMap(([name, label]) =>
                     (field(detail.node, name)?.links ?? []).map((link, index) => (
-                      <p key={`${name}-${index}`}>
+                      <p key={`${name}-${index}`} className="ae-plan-link">
                         <span className="ae-label">
                           {label.charAt(0).toUpperCase() + label.slice(1)}
                         </span>
@@ -342,10 +292,7 @@ export default function Page() {
                       ))}
                     </>
                   ) : (
-                    <p className="ae-note">
-                      No approver recorded. Absence of metadata does not establish absence of
-                      authorization.
-                    </p>
+                    <p className="ae-note">No approver recorded.</p>
                   )}
                   <Narrative
                     owner={owner}
@@ -354,43 +301,66 @@ export default function Page() {
                     detail={detail}
                   />
                 </Section>
+                <Section
+                  title="Frozen scope"
+                  count={record.scope.state === "known" ? undefined : record.scope.state}
+                >
+                  {record.scope.reasons.length > 0 && (
+                    <Notice>
+                      {record.scope.reasons.map((reason, i) => (
+                        <p role="status" key={i}>
+                          {reason}
+                        </p>
+                      ))}
+                      {record.scope.authored.map((target, i) => (
+                        <p key={`selector-${i}`}>
+                          Recorded selector <code className="ae-path">{target}</code>
+                        </p>
+                      ))}
+                    </Notice>
+                  )}
+                  <Occurrences occurrences={record.scope.selections} detail={detail} />
+                  {record.scope.state === "known" && !record.scope.selections.length && (
+                    <p>No selected story or criterion occurrences recorded.</p>
+                  )}
+                  <details>
+                    <summary>
+                      <DisclosureIcon open={false} />
+                      Frozen spec occurrences ({record.scope.specs.length})
+                    </summary>
+                    <Occurrences occurrences={record.scope.specs} />
+                  </details>
+                </Section>
+              </div>
+              <aside aria-label="Resume and closure" className="ae-brief-aside">
+                <PromptBox
+                  cols={100}
+                  prompt={{
+                    ...promptFor(
+                      record.status === "planned"
+                        ? "planned"
+                        : record.status === "active"
+                          ? "active"
+                          : "history",
+                      subjectPortfolio(record),
+                      [identity(record.ref)],
+                    ),
+                    ...(query.retained || query.isFetching ? { copyable: false } : {}),
+                  }}
+                />
+                <Narrative
+                  owner={owner}
+                  name="closureChecklist"
+                  title="Closure checklist"
+                  detail={detail}
+                />
               </aside>
             </div>
-            <Section
-              title="Resume with an agent"
-              caption="Copy this prompt into your agent. The workflow reads the selected sources and team policy before continuing."
-            >
-              <label>
-                <input
-                  type="checkbox"
-                  checked={selected}
-                  onChange={(event) => setSelected(event.target.checked)}
-                />{" "}
-                Include this effort in the workflow prompt
-              </label>
-              <PromptBox
-                prompt={{
-                  ...promptFor(
-                    record.status === "planned"
-                      ? "planned"
-                      : record.status === "active"
-                        ? "active"
-                        : "history",
-                    subjectPortfolio(record),
-                    selected ? [identity(record.ref)] : [],
-                  ),
-                  ...(query.retained || query.isFetching ? { copyable: false } : {}),
-                }}
-              />
-            </Section>
-            <Section
-              title="Source evidence"
-              caption="Governing metadata, frozen scope, entry mentions, and log snapshots retain their separate authored roles."
-            >
+            <Section title="Source evidence">
               <details>
                 <summary>
                   <DisclosureIcon open={false} />
-                  Governing metadata ({detail.governing.occurrences.length} returned links)
+                  Governing specs ({detail.governing.occurrences.length})
                 </summary>
                 <Occurrences occurrences={detail.governing.occurrences} />
               </details>
@@ -402,7 +372,6 @@ export default function Page() {
                     <DisclosureIcon open={false} />
                     Recorded log scope · separate snapshot
                   </summary>
-                  <p className="ae-note">This snapshot does not establish frozen membership.</p>
                   <Occurrences
                     occurrences={
                       detail.workLogSnapshot
@@ -421,18 +390,9 @@ export default function Page() {
                     <DisclosureIcon open={false} />
                     Entry mentions ({detail.entryMentions.occurrences.length})
                   </summary>
-                  <p className="ae-note">
-                    Links from the HTML entry do not supply frozen membership.
-                  </p>
                   <Occurrences occurrences={detail.entryMentions.occurrences} />
                 </details>
               )}
-              <button
-                className="ae-link"
-                onClick={() => nav.openNode(detail.node.ref, { view: "builtin:source" })}
-              >
-                Open original effort
-              </button>
               {[
                 detail.node,
                 ...detail.components.filter((node) => node.ref.kind.toLowerCase() === "note"),

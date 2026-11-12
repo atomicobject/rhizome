@@ -27,7 +27,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await capture(page, info, "empty-home");
       await page.goto(stage("planned"));
       await expect(content(page).getByText(/select.*stor.*effort/i)).toBeVisible();
-      await expect(content(page).getByRole("button", { name: /copy/i })).toBeDisabled();
+      await expect(content(page).getByRole("button", { name: /copy/i })).toHaveCount(0);
       await capture(page, info, "empty-planned");
       await page.goto(home);
       await expect(outcome).toBeVisible();

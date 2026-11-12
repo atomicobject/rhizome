@@ -56,9 +56,13 @@ function SourceAnchor({
     );
   if (query.error || !query.data || !query.data.fragmentResolved)
     return (
-      <span>
-        {children}{" "}
-        <span className="ae-note" role="status">
+      <span title={`Link unavailable in this read: ${target}`}>
+        {children}
+        <span className="ae-note" aria-hidden="true">
+          {" "}
+          (unavailable)
+        </span>
+        <span className="ae-visually-hidden" role="status">
           (recorded link unavailable in this read: {target})
         </span>
       </span>
@@ -121,9 +125,6 @@ export function SourceContent({ node }: { node: LiveNode }) {
     );
   return (
     <div>
-      <p className="ae-note">
-        {node.format || "Unknown format"} source. This brief shows its source text safely.
-      </p>
       <button
         className="ae-link"
         onClick={() =>

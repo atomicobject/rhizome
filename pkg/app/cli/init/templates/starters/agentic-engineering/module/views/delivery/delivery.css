@@ -1,8 +1,9 @@
 .ae-page {
+  container-type: inline-size;
   padding: 20px 24px;
   font: 14px/1.5 var(--font-sans);
   color: var(--text);
-  max-width: 1400px;
+  max-width: 1120px;
   margin: auto;
   overflow-wrap: anywhere;
 }
@@ -19,7 +20,7 @@
   overflow: auto;
 }
 /* 700 is for view titles only. Authored prose keeps its own emphasis. */
-.ae-page strong:not(.ae-prose *) {
+.ae-page strong:not(.ae-prose *, summary > strong) {
   font-weight: 600;
 }
 /* The kit spaces only adjacent sections. These pages put notes, fields, and disclosures between them. */
@@ -126,7 +127,7 @@
   --ae-tone: var(--type-1);
   display: flex;
   flex-direction: column;
-  border-top: 3px solid var(--ae-tone);
+  border-top: 2px solid color-mix(in srgb, var(--ae-tone) 70%, var(--border));
   padding-top: 6px;
   min-width: 0;
 }
@@ -145,17 +146,17 @@
 .ae-stage {
   flex: 1;
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--ae-tone) 55%, var(--border));
-  background: color-mix(in srgb, var(--ae-tone) 8%, var(--surface));
   border-radius: 6px;
-  padding: 10px;
+  padding: 6px 8px;
+  margin-inline: -8px;
 }
-.ae-stage[data-subject] {
-  border-color: var(--text);
+.ae-map-compact .ae-stage {
+  margin-inline: 0;
 }
-/* The current stage takes the selection fill, so it never reads as keyboard focus. */
+.ae-stage:hover {
+  background: color-mix(in srgb, var(--ae-tone) 7%, transparent);
+}
 .ae-stage:has([aria-current="page"]) {
-  border-color: var(--selection-edge);
   background: var(--selection);
   font-weight: 600;
 }
@@ -166,9 +167,14 @@
   color: var(--text);
 }
 .ae-number {
-  font-size: 24px;
-  font-weight: 650;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
   font-variant-numeric: tabular-nums;
+}
+.ae-stage-title {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 .ae-this-record {
   font-size: 13px;
@@ -209,8 +215,8 @@
 }
 .ae-select-row {
   display: flex;
-  gap: 12px;
-  padding: 12px 0;
+  gap: 10px;
+  padding: 7px 0;
   border-bottom: 1px solid var(--border);
 }
 .ae-select-row > div {
@@ -219,7 +225,7 @@
 }
 .ae-select-row > input {
   align-self: flex-start;
-  margin-top: 5px;
+  margin-top: 4px;
 }
 .ae-story-group > .ae-select-row + .ae-select-row {
   padding-left: 24px;
@@ -256,7 +262,7 @@
 }
 .ae-with-aside {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 330px);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
   gap: 32px;
   margin-top: 24px;
 }
@@ -264,10 +270,7 @@
   margin-top: 0;
 }
 .ae-prompt {
-  background: var(--surface-sunk);
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  padding: 0;
 }
 .ae-page .ae-prompt textarea {
   display: block;
@@ -279,6 +282,8 @@
   max-height: 420px;
   overflow: auto;
   padding: 10px;
+  background: var(--surface-sunk);
+  border-color: var(--border);
 }
 .ae-prompt p:empty {
   display: none;
@@ -333,7 +338,7 @@
 }
 /* The read state shares the page's column and left edge. */
 .ae-read-state {
-  max-width: 1400px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 8px 24px 0;
   font: 14px/1.5 var(--font-sans);
@@ -345,11 +350,59 @@
 .ae-read-state > p {
   margin: 4px 0;
 }
+/* A quiet refresh in the page's top-right corner; it takes no row of its own. */
+.ae-read-state {
+  position: relative;
+}
+.ae-page .ae-read-state:not(:has(.ae-notice, [role="status"])) {
+  padding: 0;
+}
+.ae-read-state > .ae-saved {
+  position: absolute;
+  top: 30px;
+  right: 24px;
+  margin: 0;
+  z-index: 1;
+}
+.ae-page .ae-read-state > .ae-saved {
+  top: 8px;
+  right: 0;
+}
 .ae-saved {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
+  align-items: baseline;
+  gap: 8px;
+}
+.ae-partial-detail {
+  position: relative;
+  font-size: 13px;
+}
+.ae-page .ae-partial-detail,
+.ae-partial-detail {
+  border: 0;
+  padding: 0;
+}
+.ae-partial-detail > summary {
+  color: var(--text-muted);
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+.ae-partial-detail > code {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  width: 360px;
+  margin-top: 4px;
+  padding: 8px;
+  white-space: pre-wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+}
+.ae-saved .ae-refresh {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 .ae-occurrences {
   padding-left: 20px;
@@ -554,7 +607,6 @@ body:has(.ae-panel-state) {
 
 @media (max-width: 800px) {
   .ae-columns,
-  .ae-with-aside,
   .ae-map {
     grid-template-columns: 1fr;
   }
@@ -576,4 +628,346 @@ body:has(.ae-panel-state) {
   .ae-relations {
     grid-template-columns: 1fr;
   }
+}
+
+.ae-prompt-reasons {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.ae-prompt-reasons > li {
+  margin: 0;
+}
+.ae-prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ae-prompt-actions > p {
+  margin: 0;
+}
+
+.ae-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.ae-page .ae-title-row h1 {
+  margin: 0;
+}
+.ae-count {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.ae-page .ae-rule {
+  margin: 2px 0 0;
+}
+.ae-list-tools {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The resume aside stays in view beside a long brief. */
+.ae-brief-aside {
+  align-self: start;
+  position: sticky;
+  top: 12px;
+}
+.ae-brief-aside .rz-section:first-child {
+  margin-top: 0;
+}
+
+.ae-source-link {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+/* Split only when the frame leaves the main column room to read. */
+@container (max-width: 980px) {
+  .ae-brief {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ae-brief-aside {
+    position: static;
+    order: -1;
+  }
+}
+
+.ae-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.ae-page input[type="checkbox"],
+.ae-select-all input {
+  accent-color: var(--text);
+}
+/* A row reads as one line: title at the left, facts at the right. */
+.ae-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 16px;
+}
+.ae-row-main > [data-record-key] {
+  flex: 1 1 18em;
+  min-width: 0;
+}
+.ae-row-main > .rz-facts {
+  flex: none;
+}
+.ae-row-main .rz-facts-list {
+  margin-left: 0;
+}
+.ae-row .ae-row-main {
+  display: flex;
+}
+.ae-list-tools {
+  justify-content: space-between;
+}
+.ae-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.ae-pending-details {
+  padding: 4px 0 0;
+  border: 0;
+}
+.ae-page .ae-pending-details {
+  border: 0;
+  padding: 2px 0 0;
+}
+.ae-pending-details > summary {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.ae-more {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+.ae-home-work .rz-section-head {
+  color: var(--text);
+}
+.ae-support {
+  gap: 8px 28px;
+  font-size: 13px;
+}
+.ae-map-note {
+  margin: -6px 0 0;
+}
+.ae-memberships .ae-link {
+  font: inherit;
+}
+.ae-page article > header .rz-facts-list {
+  margin-left: 0;
+}
+/* A focused story is a soft fill, not an outline box. */
+.ae-page details:has(> summary:focus:not(:focus-visible)) > summary {
+  outline: none;
+}
+.ae-page details[open] > summary {
+  margin-bottom: 6px;
+}
+.ae-page details[open] > summary ~ * {
+  margin-left: 22px;
+}
+.ae-prose table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.ae-prose :is(td, th) {
+  padding: 4px 10px 4px 0;
+  vertical-align: top;
+  text-align: left;
+}
+.ae-source-section .rz-section-head {
+  font-size: 13px;
+}
+.ae-source-section details > summary {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.ae-prompt[data-empty] {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.ae-map-compact .ae-stage-title {
+  font-size: inherit;
+  color: inherit;
+}
+
+.ae-tabs {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+  gap: 2px 18px;
+  margin: 14px 0 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.ae-tab .ae-link {
+  display: inline-block;
+  padding: 6px 0 7px;
+  margin-bottom: -1px;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+}
+.ae-tab .ae-link:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+.ae-tab .ae-link[aria-current="page"] {
+  color: var(--text);
+  font-weight: 600;
+  border-bottom-color: var(--text);
+}
+.ae-tab[data-supporting] {
+  margin-left: auto;
+}
+.ae-tab[data-supporting] + .ae-tab[data-supporting] {
+  margin-left: 0;
+}
+.ae-tab .ae-count {
+  font-weight: 400;
+}
+.ae-with-aside > aside {
+  align-self: start;
+  position: sticky;
+  top: 12px;
+}
+.ae-page details > ol {
+  list-style: decimal;
+  padding-left: 22px;
+}
+.ae-page details > ol > li > .ae-prose > :first-child {
+  margin-top: 0;
+}
+.ae-page details > ol > li > .ae-prose > ul:only-child {
+  list-style: none;
+  padding-left: 0;
+}
+.ae-page details:has(> summary:focus) {
+  background: color-mix(in srgb, var(--selection) 60%, transparent);
+  border-radius: 4px;
+}
+.ae-page summary:focus-visible {
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.ae-prose .contains-task-list > li {
+  position: relative;
+  padding-left: 24px;
+}
+.ae-prose .contains-task-list > li > input[type="checkbox"] {
+  position: absolute;
+  left: 2px;
+  top: 4px;
+  margin: 0;
+}
+.ae-prose .contains-task-list input[disabled] {
+  opacity: 1;
+  accent-color: var(--text-muted);
+}
+.ae-prose table {
+  overflow-wrap: normal;
+  font-size: 13px;
+}
+.ae-prose th {
+  white-space: nowrap;
+}
+.ae-prose :is(td, th) {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+@media (max-width: 800px) and (min-width: 561px) {
+  .ae-map {
+    grid-template-columns: 2fr 2fr 1fr;
+  }
+}
+
+/* Stage lists keep the prompt beside them down to a narrow frame, then dock it. */
+@container (max-width: 640px) {
+  .ae-with-aside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ae-with-aside:not(.ae-brief) > aside {
+    position: sticky;
+    top: auto;
+    bottom: 0;
+    padding: 8px 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .ae-with-aside:not(.ae-brief) > aside textarea {
+    max-height: 120px;
+  }
+  .ae-tabs {
+    flex-wrap: wrap;
+    overflow: visible;
+    white-space: normal;
+  }
+  .ae-tab[data-supporting] {
+    margin-left: 0;
+  }
+}
+/* 4 fact columns line up down a list. */
+.ae-row-main .rz-facts-list:empty {
+  display: none;
+}
+.ae-row-main .rz-facts-note {
+  min-width: 6.5em;
+}
+.ae-row-main .rz-facts-list {
+  min-width: 5.5em;
+  justify-content: flex-end;
+}
+.ae-story-group > .ae-select-row:first-child [data-record-key] {
+  font-weight: 600;
+}
+.ae-page details[data-arrived] > summary:focus-visible {
+  outline: none;
+}
+.ae-page textarea {
+  max-height: min(60vh, 560px);
+}
+.ae-page .ae-prompt textarea {
+  max-height: min(60vh, 560px);
+}
+.ae-saved:has([role="status"]) .ae-refresh {
+  color: var(--link);
+}
+.ae-plan-link {
+  margin: 6px 0;
+}
+.ae-plan-link + :not(.ae-plan-link) {
+  margin-top: 10px;
+}
+@container (min-width: 561px) {
+  .ae-home-map.ae-map,
+  .ae-page > .ae-map {
+    grid-template-columns: 3fr 2fr 1fr;
+    column-gap: 36px;
+  }
+}
+.ae-page .rz-section-controls .ae-source-link {
+  font-weight: 400;
+}
+.ae-page > .ae-map {
+  margin-top: 34px;
+}
+.ae-row-main .rz-facts-note:has(+ .rz-facts-list:empty) {
+  min-width: 0;
 }

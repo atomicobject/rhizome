@@ -41,11 +41,31 @@ export function subjectPortfolio(record: Spec | Effort): Portfolio {
   };
 }
 
-export function RecordWorkflow({ record }: { record: Spec | Effort }) {
+/** The groups this record belongs to, as links. Groups overlap, so a spec may name several. */
+export function RecordMemberships({ record }: { record: Spec | Effort }) {
+  const portfolio = subjectPortfolio(record);
+  const member = groups.filter((group) => {
+    const result = groupResult(group.stage, portfolio);
+    return (
+      result.state === "records" &&
+      result.rows.some(
+        (row) =>
+          identity(row.record.ref) === identity(record.ref) ||
+          (row.kind === "story" && identity(row.parent.ref) === identity(record.ref)),
+      )
+    );
+  });
+  if (!member.length) return null;
   return (
-    <div className="ae-record-workflow">
-      <WorkflowMap portfolio={subjectPortfolio(record)} subject={record.ref} showCounts={false} />
-    </div>
+    <span className="ae-memberships">
+      In{" "}
+      {member.map((group, index) => (
+        <span key={group.stage}>
+          {index > 0 && ", "}
+          <StageLink stage={group.stage}>{group.title}</StageLink>
+        </span>
+      ))}
+    </span>
   );
 }
 
@@ -180,7 +200,7 @@ export function ErrorDetail({ error }: { error: { message: string } }) {
 
 export function parentSpecSummary(result: ReturnType<typeof groupResult>) {
   if (result.state !== "records" || result.parentSpecCount === null) return "";
-  return ` in ${result.complete ? "" : "at least "}${result.parentSpecCount} ${unit(result.parentSpecCount, "specs")}`;
+  return ` in ${result.complete ? "" : "≥"}${result.parentSpecCount} ${unit(result.parentSpecCount, "specs")}`;
 }
 
 export function WorkflowMap({
@@ -217,17 +237,34 @@ export function WorkflowMap({
                 return (
                   <div key={group.stage} className="ae-stage" data-subject={contains || undefined}>
                     <StageLink stage={group.stage} current={current === group.stage}>
-                      {showCounts && (
-                        <span className="ae-stage-count">
-                          <span className="ae-number">
-                            {result.complete ? "" : "at least "}
-                            {result.count}
-                          </span>{" "}
-                          {unit(result.count, group.unit)}
-                          {parentSpecSummary(result)}
+                      {showCounts && compact && (
+                        <span
+                          className="ae-stage-count"
+                          aria-label={`${result.complete ? "" : "at least "}${result.count} ${unit(result.count, group.unit)}${parentSpecSummary(result)}`}
+                        >
+                          {result.complete ? "" : "≥"}
+                          {result.count}
+                        </span>
+                      )}
+                      {showCounts && !compact && (
+                        <span
+                          className="ae-number"
+                          aria-label={`${result.complete ? "" : "at least "}${result.count} ${unit(result.count, group.unit)}${parentSpecSummary(result)}`}
+                        >
+                          {result.complete ? "" : "≥"}
+                          {result.count}
                         </span>
                       )}{" "}
-                      <span className="ae-stage-title">{group.title}</span>{" "}
+                      <span className="ae-stage-title">
+                        {group.title}
+                        {showCounts && !compact && result.parentSpecCount !== null && (
+                          <span className="ae-note">
+                            {" "}
+                            · {result.complete ? "" : "≥"}
+                            {result.parentSpecCount} {unit(result.parentSpecCount, "specs")}
+                          </span>
+                        )}
+                      </span>{" "}
                       {contains && <span className="ae-this-record">This record</span>}
                     </StageLink>
                   </div>
@@ -240,6 +277,45 @@ export function WorkflowMap({
   );
 }
 
+const tabLabel: Record<Stage, string> = {
+  shaping: "Shaping",
+  ready: "Ready",
+  planned: "Planned",
+  active: "Active",
+  history: "History",
+  contracts: "Contracts",
+  review: "Review",
+};
+
+/** The stage page's own map: one row of groups with bare counts, the current one underlined. */
+export function StageTabs({ portfolio, current }: { portfolio: Portfolio; current: Stage }) {
+  return (
+    <nav className="ae-tabs" aria-label="Delivery workflow">
+      {groups.map((group) => {
+        const result = groupResult(group.stage, portfolio);
+        if (result.state !== "records") return null;
+        return (
+          <span key={group.stage} className="ae-tab" data-supporting={!group.primary || undefined}>
+            <StageLink stage={group.stage} current={current === group.stage}>
+              {tabLabel[group.stage]}
+              {group.primary && (
+                <span
+                  className="ae-count"
+                  aria-label={`, ${result.complete ? "" : "at least "}${result.count} ${unit(result.count, group.unit)}${parentSpecSummary(result)}`}
+                >
+                  {" "}
+                  {result.complete ? "" : "≥"}
+                  {result.count}
+                </span>
+              )}
+            </StageLink>
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function CoverageNotice({ portfolio }: { portfolio: Portfolio }) {
   const reads = [portfolio.specCoverage, portfolio.effortCoverage];
   const errors = [...new Set(reads.flatMap((read) => read.errors))];
@@ -247,60 +323,60 @@ export function CoverageNotice({ portfolio }: { portfolio: Portfolio }) {
   if (!partial && !errors.length) return null;
   return (
     <Notice tone={errors.length ? "risk" : "neutral"}>
-      {partial && (
-        <p role="status">Partial inventory. Counts describe loaded records and may omit work.</p>
-      )}
+      {partial && <p role="status">Some records didn't load. Counts may be low.</p>}
       {errors.length > 0 && <ErrorDetail error={{ message: errors.join("\n") }} />}
     </Notice>
   );
 }
 
-export function RowFacts({ row }: { row: Row }) {
+export function RowFacts({
+  row,
+  hideStatus = false,
+  hideChecklist = false,
+}: {
+  row: Row;
+  hideStatus?: boolean;
+  hideChecklist?: boolean;
+}) {
   const record = row.record;
   return (
-    <Facts note={<RecordedStatus status={record.status} />}>
+    <Facts note={hideStatus ? undefined : <RecordedStatus status={record.status} />}>
       {row.kind === "spec" && (
-        <Fact value={row.record.stories.length}>
-          {row.record.storiesCoverage.complete
-            ? unit(row.record.stories.length, "stories")
-            : `loaded ${unit(row.record.stories.length, "stories")}`}
+        <Fact
+          value={`${row.record.storiesCoverage.complete ? "" : "≥"}${row.record.stories.length}`}
+        >
+          {unit(row.record.stories.length, "stories")}
         </Fact>
       )}
       {row.kind === "story" && (
-        <>
+        <Fact
+          value={`${row.record.criteriaCoverage.complete ? "" : "≥"}${row.record.criteria.length}`}
+        >
+          {unit(row.record.criteria.length, "criteria")}
+        </Fact>
+      )}
+      {(row.kind === "review" || (row.kind === "effort" && !hideChecklist)) &&
+        row.record.checklist.state !== "deferred" && (
           <Fact>
-            {row.parent.status === "proposed"
-              ? "Proposed parent contract"
-              : "Active parent contract"}
-          </Fact>
-          <Fact value={row.record.criteria.length}>
-            {row.record.criteriaCoverage.complete
-              ? unit(row.record.criteria.length, "criteria")
-              : `loaded ${unit(row.record.criteria.length, "criteria")}`}
-          </Fact>
-        </>
-      )}
-      {(row.kind === "effort" || row.kind === "review") && (
-        <Fact>
-          {row.record.checklist.state === "recorded" || row.record.checklist.state === "empty"
-            ? `${row.record.checklist.checked} of ${row.record.checklist.total} checklist items checked`
-            : row.record.checklist.state === "deferred"
-              ? "Open brief for checklist evidence"
+            {row.record.checklist.state === "recorded" || row.record.checklist.state === "empty"
+              ? `${row.record.checklist.checked} of ${row.record.checklist.total} checked`
               : `Checklist ${row.record.checklist.state}`}
-        </Fact>
-      )}
-      {row.kind === "review" && (
-        <Fact>
-          {row.observation === "closure-checklist"
-            ? "Recorded checklist fully checked; effort remains active"
-            : "Selected contract still records pending stories or criteria"}
-        </Fact>
-      )}
+          </Fact>
+        )}
     </Facts>
   );
 }
 
-export function PromptBox({ prompt }: { prompt: Prompt }) {
+export function PromptBox({
+  prompt,
+  title = "Workflow prompt",
+  cols = 44,
+}: {
+  prompt: Prompt;
+  title?: string;
+  /** About how many characters fit on one preview line, to size the box to its text. */
+  cols?: number;
+}) {
   const [result, setResult] = useState("");
   useEffect(() => setResult(""), [prompt.text]);
   async function copy() {
@@ -311,22 +387,40 @@ export function PromptBox({ prompt }: { prompt: Prompt }) {
       setResult("Could not copy. Select the preview text and copy it manually.");
     }
   }
+  const reasons = [...new Set(prompt.reasons)];
   return (
-    <Section
-      title="Workflow prompt"
-      caption="Copy this prompt into your coding agent. It follows the installed workflow and preserves selected scope."
-    >
-      <div className="ae-prompt">
-        <textarea
-          readOnly
-          aria-label="Workflow prompt preview"
-          value={prompt.text || prompt.reasons.join(". ")}
-          rows={12}
-        />
-        <Button disabled={!prompt.copyable} onClick={copy}>
-          Copy workflow prompt
-        </Button>
-        <p role="status">{result}</p>
+    <Section title={title}>
+      <div className="ae-prompt" data-empty={prompt.text ? undefined : true}>
+        {prompt.text ? (
+          <textarea
+            readOnly
+            aria-label="Workflow prompt preview"
+            value={prompt.text}
+            rows={Math.min(
+              24,
+              Math.max(
+                6,
+                prompt.text
+                  .split("\n")
+                  .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / cols)), 0),
+              ),
+            )}
+          />
+        ) : (
+          <ul className="ae-prompt-reasons" aria-label="Prompt unavailable">
+            {reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        )}
+        <div className="ae-prompt-actions">
+          <Button disabled={!prompt.copyable} onClick={copy}>
+            Copy workflow prompt
+          </Button>
+          <p role="status" className="ae-note">
+            {result}
+          </p>
+        </div>
       </div>
     </Section>
   );
@@ -335,9 +429,14 @@ export function PromptBox({ prompt }: { prompt: Prompt }) {
 export function EmptyGroup({ stage }: { stage: Stage }) {
   return (
     <p className="ae-note">
-      {stage === "planned"
-        ? "No loaded effort has recorded status planned. Select ready stories to propose a slice, then use the effort and plan workflow to record scope and a plan. Approval is established from the full recorded context."
-        : "No matching records in the loaded inventory."}
+      {stage === "planned" ? (
+        <>
+          No planned efforts. Select <StageLink stage="ready">ready stories</StageLink> to start an
+          effort.
+        </>
+      ) : (
+        "No matching records in the loaded inventory."
+      )}
     </p>
   );
 }
@@ -366,7 +465,7 @@ export function ReadState({
           Loading delivery records…
         </p>
       )}
-      {(query.error || partial || errors.length > 0) && (
+      {(query.error || query.retained) && (
         <Notice tone={query.error ? "risk" : "neutral"}>
           {query.error && (
             <p role="alert">
@@ -376,28 +475,36 @@ export function ReadState({
           {query.retained && (
             <p role="status">Showing previous saved records after a failed refresh.</p>
           )}
-          {partial && (
-            <p role="status">
-              Some source evidence is unavailable.{" "}
-              <Button className="ae-refresh" onClick={() => query.refresh()}>
-                Refresh records
-              </Button>
-            </p>
-          )}
-          {errors.length > 0 && (
-            <ErrorDetail error={{ message: [...new Set(errors)].join("\n") }} />
-          )}
+
           {query.error && <ErrorDetail error={query.error} />}
         </Notice>
       )}
-      <p className="ae-note ae-saved">
-        Saved records. Unsaved workspace edits are not included.{" "}
-        {query.state === "ready" && (
-          <Button className="ae-refresh" onClick={() => query.refresh()}>
-            Refresh records
-          </Button>
-        )}
-      </p>
+      {(query.state === "ready" || partial) && (
+        <div className="ae-saved">
+          {partial && (
+            <>
+              <NoticeMark />
+              <span role="status" className="ae-note">
+                Some sources didn't load
+              </span>
+              {errors.length > 0 && (
+                <details className="ae-partial-detail">
+                  <summary>Error detail</summary>
+                  <code className="ae-path">{[...new Set(errors)].join("\n")}</code>
+                </details>
+              )}
+            </>
+          )}
+          <button
+            className="ae-link ae-refresh"
+            aria-label="Refresh records"
+            title="Reload saved records. Unsaved edits are not included."
+            onClick={() => query.refresh()}
+          >
+            Refresh
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -10,8 +10,7 @@ import {
   ReadState,
   Ready,
   RecordedStatus,
-  RecordWorkflow,
-  TypeName,
+  RecordMemberships,
   unit,
 } from "./presentation.tsx";
 import { useEffect, useRef, useState } from "react";
@@ -51,8 +50,12 @@ export function InlineStory({
   useEffect(() => {
     if (!focus || !details.current) return;
     setOpen(true);
-    details.current.scrollIntoView({ block: "nearest" });
-    details.current.querySelector("summary")?.focus();
+    const element = details.current;
+    element.scrollIntoView({ block: "nearest" });
+    element.dataset.arrived = "";
+    const summary = element.querySelector("summary");
+    summary?.addEventListener("blur", () => delete element.dataset.arrived, { once: true });
+    summary?.focus();
   }, [focus]);
   return (
     <details ref={details} open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
@@ -62,7 +65,7 @@ export function InlineStory({
         <span className="ae-summary-facts ae-note">
           <RecordedStatus status={story.status} />{" "}
           <span>
-            {story.criteriaCoverage.complete ? "" : "at least "}
+            {story.criteriaCoverage.complete ? "" : "≥"}
             {story.criteria.length} {unit(story.criteria.length, "criteria")}
           </span>
         </span>
@@ -113,7 +116,6 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
       <Ready status={status} />
       <RecordPage
         title={record?.title || title}
-        kind="Spec"
         status={status}
         what="this spec"
         partial={
@@ -128,20 +130,17 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
         }
         facts={
           <Facts note={<RecordedStatus status={record?.status} />}>
-            {record?.ref.typeName && (
-              <Fact>
-                <TypeName name={record.ref.typeName} />
-              </Fact>
-            )}
             {id && (
               <Fact>
                 <code className="ae-path">{id}</code>
               </Fact>
             )}
-            <Fact>
-              {record?.locator ? <code className="ae-path">{record.locator}</code> : title}
-            </Fact>
             {updated && <Fact>Updated {updated}</Fact>}
+            {record && (
+              <Fact>
+                <RecordMemberships record={record} />
+              </Fact>
+            )}
           </Facts>
         }
       >
@@ -149,11 +148,9 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
           record ? (
             <>
               <p>{field(record.source, "summary")?.values?.[0]}</p>
-              <RecordWorkflow record={record} />
               <Section
                 title="What done means"
-                count={`${record.storiesCoverage.complete ? "" : "at least "}${record.stories.length} ${unit(record.stories.length, "stories")}`}
-                caption="Expand a story to inspect its full recorded criteria. Story status is recorded evidence."
+                count={`${record.storiesCoverage.complete ? "" : "≥"}${record.stories.length} ${unit(record.stories.length, "stories")}`}
               >
                 {storyParam && !focused && (
                   <Notice role="status">
@@ -178,8 +175,10 @@ export function SpecPage({ record, title, status, narrative, storyContent }: Spe
                   </p>
                 )}
               </Section>
-              {narrative}
               <EffortRelationships spec={record} />
+              <Section title="Source" className="ae-source-section">
+                {narrative}
+              </Section>
             </>
           ) : (
             <Notice>This subject did not resolve to a supported spec.</Notice>
@@ -200,7 +199,6 @@ export default function Page() {
       <main className="ae-page">
         <ReadState query={query} />
         <RecordPage
-          kind="Spec"
           title={context.kind === "node" ? context.ref.notePath : "Invalid spec route"}
           status={{ status: query.state === "loading" ? "loading" : "ready" }}
           what="this spec"

@@ -31,11 +31,11 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(content(page).getByText(/overlap/i)).toBeVisible();
       await expect(
         content(page)
-          .getByText(/^(?:at least )?3 stories in (?:at least )?2 specs$/)
+          .getByText(/^≥?3 stories in ≥?2 specs$/)
           .first(),
       ).toBeVisible();
       await expect(
-        content(page).getByText("Some source evidence is unavailable.", { exact: true }),
+        content(page).getByText("Some sources didn't load", { exact: true }),
       ).toHaveCount(0);
       const panel = page.frameLocator("iframe.panel-frame[data-shown]");
       await expect(
@@ -62,7 +62,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         if (value === "ready")
           await expect(
             content(page)
-              .getByText(/^(?:at least )?3 stories in (?:at least )?2 specs$/)
+              .getByText(/^≥?3 stories · ≥?2 specs$/)
               .first(),
           ).toBeVisible();
         await capture(page, info, `stage-${value}`);
@@ -92,7 +92,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(content(page).getByRole("button", { name: /copy/i })).toBeDisabled();
     });
 
-    test("effort stage selection loads exact scope and refuses incomplete authority", async ({
+    test("effort stage selection loads exact scope and notes unrecorded scope", async ({
       page,
     }, info) => {
       const f = content(page);
@@ -114,10 +114,13 @@ for (const colorScheme of ["light", "dark"] as const) {
       await f
         .getByRole("checkbox", { name: "Select Harbor legacy workspace", exact: true })
         .check();
-      await expect(f.getByText(/Some selected scope is incomplete/)).toBeVisible();
       await expect(
         f.getByRole("button", { name: "Copy workflow prompt", exact: true }),
-      ).toBeDisabled();
+      ).toBeEnabled();
+      await expect(f.getByRole("textbox", { name: /prompt/i })).toHaveValue(
+        /\(active; frozen scope not recorded, inspect the effort\)/,
+      );
+      await expect(f.getByText(/Some selected scope is incomplete/)).toHaveCount(0);
       await capture(page, info, "selection-incomplete");
     });
 
@@ -156,9 +159,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         .getByText(/harbor confirmation ends here/)
         .scrollIntoViewIfNeeded();
       await capture(page, info, "spec-expanded");
-      await content(page)
-        .getByRole("button", { name: "Load effort relationships", exact: true })
-        .click();
+      await content(page).getByText("Related efforts", { exact: true }).click();
       await expect(
         content(page)
           .getByText(/Governing-specs metadata:/)
@@ -213,7 +214,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(f.getByText(/Unresolved authored scope/)).toBeVisible();
       await expect(f.getByText(/snapshot/i).first()).toBeVisible();
       await expect(
-        f.getByText(/Absence of metadata does not establish absence of authorization/),
+        f.locator("p.ae-note").getByText("No approver recorded.", { exact: true }),
       ).toBeVisible();
       await capture(page, info, "workspace-provenance");
     });
@@ -242,7 +243,9 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(
         f.getByRole("heading", { name: "Harbor legacy workspace", exact: true }),
       ).toBeVisible();
-      await expect(f.getByText(/Membership unknown/)).toBeVisible();
+      await expect(
+        f.getByRole("region", { name: "Frozen scope" }).getByText("unknown", { exact: true }),
+      ).toBeVisible();
       await capture(page, info, "legacy-workspace");
       await f.getByRole("button", { name: /Open implementation plan:/ }).click();
 
@@ -309,6 +312,13 @@ test("legacy and invalid frozen sources remain visibly incomplete", async ({ pag
         .getByText(/unavailable|incomplete|unresolved|unsupported|duplicate|missing/i)
         .first(),
     ).toBeVisible();
+
+    if (variant === "broken")
+      await expect(
+        content(page)
+          .getByRole("region", { name: "Frozen scope" })
+          .getByText(/materials\/missing\.md/),
+      ).toBeVisible();
   }
 });
 

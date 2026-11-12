@@ -1,6 +1,6 @@
 import { useDeliveryPortfolio, useDeliverySelectedEfforts } from "./data.tsx";
 import { useEffect, useState } from "react";
-import { Section, Segmented, useViewParams } from "@rhizome/kit";
+import { DisclosureIcon, Segmented, useViewParams } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import {
   eligibility,
@@ -12,7 +12,6 @@ import {
 } from "./lib/index.ts";
 import type { Row, RecordSummary, RowSort } from "./lib/index.ts";
 import {
-  CoverageNotice,
   EmptyGroup,
   ErrorDetail,
   Notice,
@@ -20,18 +19,19 @@ import {
   Ready,
   ReadState,
   RecordLink,
+  RecordedStatus,
   StoryLink,
   RowFacts,
-  WorkflowMap,
+  StageTabs,
   unit,
   parentSpecSummary,
 } from "./presentation.tsx";
 import type { PortfolioProps } from "./presentation.tsx";
 
 const sorts: readonly { value: RowSort; label: string }[] = [
-  { value: "source", label: "Source order" },
-  { value: "title-asc", label: "Title A to Z" },
-  { value: "title-desc", label: "Title Z to A" },
+  { value: "source", label: "Source" },
+  { value: "title-asc", label: "A–Z" },
+  { value: "title-desc", label: "Z–A" },
 ];
 
 export function DeliveryStage({
@@ -67,6 +67,9 @@ export function DeliveryStage({
   const eligible = rows
     .filter((row) => eligibility(row, "select").eligible)
     .map((row) => identity(row.record.ref));
+  const allSelected = eligible.length > 0 && eligible.every((key) => selected.includes(key));
+  const someSelected = selected.length > 0;
+  const hideStatus = ["planned", "active", "ready", "contracts"].includes(group?.stage ?? "");
   const unavailable = selectedRecords.filter((record) => !eligible.includes(identity(record.ref)));
   if (!group)
     return (
@@ -79,17 +82,18 @@ export function DeliveryStage({
   const loadingScope = effortRefs.length > 0 && (details.isPending || details.isFetching);
   const incompleteScope = effortRefs.length > 0 && details.data && !coherent;
   const readReasons = [
-    ...(stale ? ["Refresh must finish successfully before copying."] : []),
-    ...(loadingScope ? ["Reading selected effort scope."] : []),
-    ...(details.error ? ["Selected effort read failed."] : []),
-    ...(incompleteScope
-      ? ["Selected effort evidence is incomplete or spans different graph generations."]
+    ...(stale && selected.length ? ["Refreshing records…"] : []),
+    ...(loadingScope ? ["Reading selected efforts…"] : []),
+    ...(details.error ? ["A selected effort couldn't be read."] : []),
+    ...(incompleteScope && !loadingScope
+      ? ["A selected effort couldn't be read completely. Refresh to retry."]
       : []),
   ];
+  // While anything is still loading, the loading line alone explains the wait.
   const prompt = readReasons.length
     ? {
-        text: [...readReasons, composed.text || composed.reasons.join(". ")].join("\n\n"),
-        reasons: [...readReasons, ...composed.reasons],
+        text: "",
+        reasons: loadingScope || stale ? readReasons : [...readReasons, ...composed.reasons],
         copyable: false,
       }
     : composed;
@@ -122,15 +126,20 @@ export function DeliveryStage({
           onChange={(event) => toggle([key], event.target.checked)}
         />
         <div>
-          {row.kind === "story" ? (
-            <StoryLink story={row.record} parent={row.parent} />
-          ) : (
-            <RecordLink record={row.record} />
-          )}
-          <RowFacts row={row} />
+          <div className="ae-row-main">
+            {row.kind === "story" ? (
+              <StoryLink story={row.record} parent={row.parent} />
+            ) : (
+              <RecordLink record={row.record} />
+            )}
+            <RowFacts row={row} hideStatus={hideStatus} hideChecklist />
+          </div>
           {row.kind === "review" && row.selected.length > 0 && (
-            <>
-              <p className="ae-note">Pending selected records found in this read</p>
+            <details className="ae-pending-details">
+              <summary>
+                <DisclosureIcon open={false} />
+                {row.selected.length} pending
+              </summary>
               <ul
                 className="ae-pending"
                 aria-label={`Pending selected records for ${row.record.title}`}
@@ -142,14 +151,16 @@ export function DeliveryStage({
                   </li>
                 ))}
               </ul>
-            </>
+            </details>
           )}
-          {allowed.reason && <p className="ae-note">{allowed.reason}</p>}
+          {allowed.reason && !sharedReason && <p className="ae-note">{allowed.reason}</p>}
         </div>
       </div>
     );
   }
   const parents = new Map<string, Extract<Row, { kind: "story" }>[]>();
+  const reasons = new Set(rows.map((row) => eligibility(row, "select").reason));
+  const sharedReason = rows.length > 1 && reasons.size === 1 ? [...reasons][0] : null;
   for (const row of rows)
     if (row.kind === "story") {
       const key = identity(row.parent.ref);
@@ -160,43 +171,48 @@ export function DeliveryStage({
   return (
     <main className="ae-page">
       <Ready status={status} />
-      <h1>{group.title}</h1>
-      <WorkflowMap portfolio={current} current={group.stage} />
-      <CoverageNotice portfolio={current} />
+      <header className="ae-title-row">
+        <h1>{group.title}</h1>
+        {result?.state === "records" && result.parentSpecCount !== null && (
+          <span className="ae-count">
+            {`${result.complete ? "" : "≥"}${rows.length} ${unit(rows.length, group.unit)} · ${result.complete ? "" : "≥"}${result.parentSpecCount} ${unit(result.parentSpecCount, "specs")}`}
+          </span>
+        )}
+      </header>
+      {group.rule && <p className="ae-note ae-rule">{group.rule}</p>}
+      <StageTabs portfolio={current} current={group.stage} />
       <div className="ae-with-aside">
-        <Section
-          title={group.title}
-          count={`${result?.state === "records" && !result.complete ? "at least " : ""}${rows.length} ${unit(rows.length, group.unit)}${result ? parentSpecSummary(result) : ""}`}
-          caption={group.rule}
-          status={status}
-          what={group.title}
-        >
-          <div className="ae-list-tools">
-            <Segmented
-              label="Sort records"
-              showLabel
-              value={sort}
-              options={sorts}
-              onChange={setSort}
-            />
-            <span>
-              <Button
-                onClick={() =>
-                  setSelectedRecords(
-                    rows
-                      .filter((row) => eligible.includes(identity(row.record.ref)))
-                      .map((row) => row.record),
-                  )
-                }
-                disabled={!eligible.length || unavailable.length > 0}
-              >
-                Select all visible eligible {group.unit}
-              </Button>
-              {selected.length > 0 && (
-                <Button onClick={() => setSelectedRecords([])}>Clear selection</Button>
-              )}
-            </span>
-          </div>
+        <section aria-label={group.title} className="ae-list">
+          {rows.length > 0 && (
+            <div className="ae-list-tools">
+              <label className="ae-select-all">
+                <input
+                  type="checkbox"
+                  ref={(element) => {
+                    if (element) element.indeterminate = someSelected && !allSelected;
+                  }}
+                  checked={allSelected}
+                  disabled={!eligible.length || unavailable.length > 0}
+                  onChange={() =>
+                    setSelectedRecords(
+                      allSelected
+                        ? []
+                        : rows
+                            .filter((row) => eligible.includes(identity(row.record.ref)))
+                            .map((row) => row.record),
+                    )
+                  }
+                />
+                {selected.length ? `${selected.length} selected` : "Select all"}
+              </label>
+              <Segmented label="Sort records" value={sort} options={sorts} onChange={setSort} />
+            </div>
+          )}
+          {sharedReason && (
+            <Notice role="status">
+              Selection is off until every source loads. {sharedReason}.
+            </Notice>
+          )}
           {group.stage === "ready"
             ? [...parents.values()].map((siblings) => {
                 const parent = siblings[0].parent;
@@ -218,12 +234,13 @@ export function DeliveryStage({
                         disabled={!keys.length}
                         onChange={(event) => toggle(keys, event.target.checked)}
                       />
-                      <div>
+                      <div className="ae-row-main">
                         <RecordLink record={parent} />
-                        <p className="ae-note">
-                          Recorded {parent.status}. {keys.length} visible eligible ready{" "}
-                          {unit(keys.length, "stories")}.
-                        </p>
+                        {parent.status === "proposed" && (
+                          <span className="ae-note">
+                            <RecordedStatus status={parent.status} />
+                          </span>
+                        )}
                       </div>
                     </div>
                     {siblings.map(renderRow)}
@@ -232,56 +249,48 @@ export function DeliveryStage({
               })
             : rows.map(renderRow)}
           {!rows.length && <EmptyGroup stage={group.stage} />}
-        </Section>
-        <aside>
-          {unavailable.length > 0 && (
-            <Notice role="alert">
-              <p>
-                {unavailable.length} selected{" "}
-                {unavailable.length === 1 ? "record is" : "records are"} no longer eligible or
-                visible. Review this change before copying.
-              </p>
-              <ul>
-                {unavailable.map((record) => (
-                  <li key={identity(record.ref)}>
-                    Previously selected: {record.title} ·{" "}
-                    <code className="ae-path">{record.locator}</code>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                disabled={stale}
-                onClick={() =>
-                  setSelectedRecords((previous) =>
-                    previous.filter((record) => eligible.includes(identity(record.ref))),
-                  )
-                }
-              >
-                Use remaining eligible selection
-              </Button>
-            </Notice>
-          )}
-          {loadingScope && (
-            <p role="status" className="ae-note">
-              Reading selected effort scope…
-            </p>
-          )}
-          {details.error && (
-            <Notice tone="risk">
-              <p role="alert">
-                Selected effort read failed.{" "}
-                <Button onClick={() => details.refetch()}>Read selection again</Button>
-              </p>
-              <ErrorDetail error={details.error} />
-            </Notice>
-          )}
-          {!loadingScope && incompleteScope && (
-            <Notice role="status">
-              Some selected scope is incomplete. Inspect the source before copying.
-            </Notice>
-          )}
-          <PromptBox prompt={prompt} />
-        </aside>
+        </section>
+        {(rows.length > 0 || unavailable.length > 0) && (
+          <aside>
+            {unavailable.length > 0 && (
+              <Notice role="alert">
+                <p>
+                  {unavailable.length} selected{" "}
+                  {unavailable.length === 1 ? "record is" : "records are"} no longer eligible or
+                  visible. Review this change before copying.
+                </p>
+                <ul>
+                  {unavailable.map((record) => (
+                    <li key={identity(record.ref)}>
+                      Previously selected: {record.title} ·{" "}
+                      <code className="ae-path">{record.locator}</code>
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  disabled={stale}
+                  onClick={() =>
+                    setSelectedRecords((previous) =>
+                      previous.filter((record) => eligible.includes(identity(record.ref))),
+                    )
+                  }
+                >
+                  Use remaining eligible selection
+                </Button>
+              </Notice>
+            )}
+            {details.error && (
+              <Notice tone="risk">
+                <p role="alert">
+                  Selected effort read failed.{" "}
+                  <Button onClick={() => details.refetch()}>Read selection again</Button>
+                </p>
+                <ErrorDetail error={details.error} />
+              </Notice>
+            )}
+            <PromptBox prompt={prompt} />
+          </aside>
+        )}
       </div>
     </main>
   );
