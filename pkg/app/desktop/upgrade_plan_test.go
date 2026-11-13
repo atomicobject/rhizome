@@ -91,6 +91,12 @@ func TestUpgradePlanFailures(t *testing.T) {
 			require.NoError(t, err)
 			if !tt.executableError {
 				onPath(s, req.GlobalExecutable)
+			} else {
+				broken := filepath.Join(t.TempDir(), "broken-rzm")
+				require.NoError(t, os.Symlink(broken, broken))
+				previous := desktopExecutable
+				desktopExecutable = func() (string, error) { return broken, nil }
+				t.Cleanup(func() { desktopExecutable = previous })
 			}
 			ctx := context.Background()
 			if tt.timeout {

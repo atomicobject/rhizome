@@ -1653,6 +1653,29 @@ describe("Rhizome file updates", () => {
     expect(screen.queryByRole("button", { name: "Update Rhizome files" })).toBeNull();
   });
 
+  it("offers a file update when only decisions remain", async () => {
+    start(undefined, (operation) =>
+      operation === "settings-report"
+        ? {
+            ...upgradePlan,
+            writes: {
+              summary: [],
+              files: [],
+              decisions: [
+                {
+                  path: ".rhizome/modules/agentic-engineering/ontology/schema.graphql",
+                  kind: "unknown",
+                },
+              ],
+            },
+          }
+        : undefined,
+    );
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    report({ step: "ready" });
+    expect(await screen.findByRole("button", { name: "Update Rhizome files" })).toBeVisible();
+  });
+
   it.each(["empty", "kept", "unsupported", "failed"])(
     "quietly omits the files pill for a %s check",
     async (state) => {

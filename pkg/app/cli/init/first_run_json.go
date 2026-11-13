@@ -114,8 +114,10 @@ type IgnoredRepository struct {
 // SetupWrites summarizes the writes, grouped as the terminal summary groups
 // them, and lists every generated file.
 type SetupWrites struct {
-	Summary []string `json:"summary"`
-	Files   []string `json:"files"`
+	Summary          []string        `json:"summary"`
+	Files            []string        `json:"files"`
+	Decisions        []SetupDecision `json:"decisions"`
+	DecisionSnapshot string          `json:"decisionSnapshot,omitempty"`
 	// Kept lists files someone edited that have a newer version; a run
 	// without a terminal keeps them. Only configured folders report it.
 	Kept []string `json:"kept,omitempty"`
@@ -123,14 +125,15 @@ type SetupWrites struct {
 
 // SetupResult is what a first run wrote.
 type SetupResult struct {
-	Schema   int      `json:"schema"`
-	Root     string   `json:"root"`
-	Created  []string `json:"created"`
-	Updated  []string `json:"updated"`
-	Kept     []string `json:"kept"`
-	Summary  []string `json:"summary"`
-	Commit   []string `json:"commit"`
-	Warnings []string `json:"warnings"`
+	Schema    int             `json:"schema"`
+	Root      string          `json:"root"`
+	Created   []string        `json:"created"`
+	Updated   []string        `json:"updated"`
+	Kept      []string        `json:"kept"`
+	Summary   []string        `json:"summary"`
+	Commit    []string        `json:"commit"`
+	Warnings  []string        `json:"warnings"`
+	Decisions []SetupDecision `json:"decisions"`
 	// SavedKey is the label of a key saved during setup, never its value.
 	SavedKey   string    `json:"savedKey,omitempty"`
 	SearchHint string    `json:"searchHint,omitempty"`
@@ -171,7 +174,7 @@ func Plan(opts RunOptions) (SetupPlan, error) {
 // For a configured folder it applies opts' choices as a rerun without a
 // terminal does.
 func Apply(opts RunOptions) (SetupResult, error) {
-	result := SetupResult{Schema: SetupSchema}
+	result := SetupResult{Schema: SetupSchema, Decisions: []SetupDecision{}}
 	r, s, workflowChosen, err := startMachineRun(opts)
 	if err != nil {
 		return result, err
@@ -199,6 +202,13 @@ func Apply(opts RunOptions) (SetupResult, error) {
 	result.Warnings = orEmpty(report.Warnings)
 	result.Summary = setupSummaryLines(report, res.effective, s.skips, outcome.savedKey)
 	result.Commit = commitPaths(report)
+	result.Decisions, err = res.files.remainingDecisions()
+	if err != nil {
+		return result, err
+	}
+	if len(result.Decisions) > 0 {
+		result.Summary = append(result.Summary, pendingSummary(result.Decisions))
+	}
 	result.SearchHint = searchHint(outcome.provider, outcome.ready)
 	result.Pin.Version = pinVersion(res.cfg)
 	result.HooksBlocked = hooksBlockedReason(res)
@@ -261,8 +271,9 @@ func (r *initRun) setupPlan(s setup, res resolved, outcome firstRunOutcome) (Set
 	}
 	pending := res.files.pending()
 	plan.Writes = SetupWrites{
-		Summary: setupSummaryLines(syncReport{Created: pending.Create, Updated: pending.Update}, res.effective, s.skips, ""),
-		Files:   append(append(append(created, updated...), pending.Create...), pending.Update...),
+		Decisions: res.files.decisions(),
+		Summary:   setupSummaryLines(syncReport{Created: pending.Create, Updated: pending.Update}, res.effective, s.skips, ""),
+		Files:     append(append(append(created, updated...), pending.Create...), pending.Update...),
 	}
 	return plan, nil
 }

@@ -129,13 +129,6 @@ func starterModuleFiles(template string) ([]starterModuleFile, error) {
 	return out, nil
 }
 
-// keptFlatCopy is an edited flat copy of a starter file that init keeps, so
-// it does not install the module copy that would duplicate it.
-type keptFlatCopy struct {
-	flat   string
-	module string
-}
-
 // planTemplateScaffold adds every starter file outside the agent folders:
 // starter docs (team-owned, created only) and each starter's module.
 // Target path collisions across templates are rejected.
@@ -184,16 +177,13 @@ func planTemplateScaffold(projectRoot string, templates []string, refreshDocs bo
 			if file.kind == assetroots.Ontology {
 				fingerprint = ontologyFingerprint
 			}
+			generated := generatedFile{rel: file.target, content: file.content}
 			if file.legacy != "" {
-				kept, err := planLegacyFlatCopy(projectRoot, file, fingerprint, record, plan)
+				generated.replaces, err = planLegacyFlatCopy(projectRoot, file, fingerprint, record, plan)
 				if err != nil {
 					return err
 				}
-				if kept {
-					continue
-				}
 			}
-			generated := generatedFile{rel: file.target, content: file.content}
 			switch file.kind {
 			case assetroots.Ontology:
 				if generated.content, err = ontologyWithInstalledIdentifiers(projectRoot, file.content, file.target, file.legacy); err != nil {
@@ -245,33 +235,28 @@ func planDroppedModuleFiles(template string, shipped []starterModuleFile, record
 	}
 }
 
-// planLegacyFlatCopy handles the flat copy of a module file that init
-// installed before modules. An unedited copy is removed once the module copy
-// is in place. An edited copy, or one init has no record of writing, stays,
-// and kept reports that the module copy must not be installed beside it.
-//
-// Docs: [[rhizome-modules#^SPEC-0130-US2]]
-func planLegacyFlatCopy(projectRoot string, file starterModuleFile, fingerprint func([]byte) string, record *generatedFiles, plan *filePlan) (kept bool, err error) {
-	current, exists, err := readIfExists(filepath.Join(projectRoot, filepath.FromSlash(file.legacy)))
+// planLegacyFlatCopy makes a missing module target replace its flat source.
+// An existing target leaves the flat copy as a separate removal decision.
+func planLegacyFlatCopy(projectRoot string, file starterModuleFile, fingerprint func([]byte) string, record *generatedFiles, plan *filePlan) (string, error) {
+	_, exists, err := readIfExists(filepath.Join(projectRoot, filepath.FromSlash(file.legacy)))
 	if err != nil {
-		return false, err
+		return "", err
 	}
-	written, recorded := record.Written[file.legacy]
 	if !exists {
-		// Someone moved the flat copy to the module path, as the kept-copy
-		// report suggests: its record moves with it, so its edits still count
-		// as edits.
-		if _, targetRecorded := record.Written[file.target]; recorded && !targetRecorded {
+		if written, recorded := record.Written[file.legacy]; recorded && record.Written[file.target] == "" {
 			record.Written[file.target] = written
 		}
-		return false, nil
+		return "", nil
 	}
-	if recorded && fingerprint(current) == written {
+	_, targetExists, err := readIfExists(filepath.Join(projectRoot, filepath.FromSlash(file.target)))
+	if err != nil {
+		return "", err
+	}
+	if targetExists {
 		plan.removals = append(plan.removals, generatedRemoval{rel: file.legacy, requires: file.target, fingerprint: fingerprint})
-		return false, nil
+		return "", nil
 	}
-	plan.keptFlat = append(plan.keptFlat, keptFlatCopy{flat: file.legacy, module: file.target})
-	return true, nil
+	return file.legacy, nil
 }
 
 // planRemovedStarterFiles removes the module files, other than the schema,

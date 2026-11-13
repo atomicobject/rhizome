@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Init recovers verified legacy ownership from Git history and exposes unresolved file upgrades with diffs and explicit `--take` and `--keep` choices. Deferred upgrades remain visible after automatic updates, and desktop choices are rejected if the reviewed files change before applying.
+
+- Starter upgrades preserve verified ownership from legacy workflow fingerprints, so unchanged flat schemas move into modules and receive current features while retaining adopted identifier allocation. Modified or unrecorded schemas remain untouched.
+
 - Upgrading a repository's Rhizome now updates the agent files `rzm init` generates. In Rhizome Desktop, the "Update to X" offer opens a review of the pin and file changes, then installs the new version, refreshes skills and managed guidance with it, and restarts the runtime, with Retry for a failed step and a copyable commit command. When a worktree's generated files are behind the Rhizome it runs, the toolbar offers "Update Rhizome files". `rzm update` runs the new executable's `rzm init` whenever it changes the Rhizome the current repository runs.
 - The README and user guides now start from Rhizome Desktop: install the app, add a repository, connect Claude Code or Codex, and check that the agent can reach Rhizome. Terminal and scripted use moved to a new command-line reference, and the compounding guide explains how to turn the add-on on from a repository's Settings tab.
 

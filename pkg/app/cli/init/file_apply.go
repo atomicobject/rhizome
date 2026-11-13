@@ -63,6 +63,11 @@ func classifyPlan(projectRoot string, plan *filePlan, record *generatedFiles) ([
 		}
 		c := &change{key: file.rel, rel: file.rel, group: firstNonEmpty(file.group, file.rel), current: current, desired: file.content, desiredF: fingerprint(file.content)}
 		c.state = classify(exists, current, c.desiredF, fingerprint, record, file.rel)
+		if !exists && file.replaces != "" {
+			if err := classifyReplacement(projectRoot, file, c, fingerprint, record); err != nil {
+				return nil, nil, err
+			}
+		}
 		if file.teamOwned && !file.refresh && exists {
 			// Team-owned docs are only created. An identical copy is recorded so
 			// a later requested refresh can tell it was never edited.
@@ -278,8 +283,15 @@ func applyFileChange(projectRoot string, file generatedFile, c *change, record *
 		if err := os.Chmod(path, file.mode); err != nil {
 			return err
 		}
+		if c.from != "" {
+			if err := os.Remove(filepath.Join(projectRoot, filepath.FromSlash(c.from))); err != nil {
+				return err
+			}
+			record.forget(c.from)
+			report.Removed = append(report.Removed, c.from)
+		}
 		record.recordWritten(c.key, c.desiredF)
-		if c.state == stateMissing {
+		if c.state == stateMissing || c.from != "" {
 			report.Created = append(report.Created, file.rel)
 		} else {
 			report.Updated = append(report.Updated, file.rel)

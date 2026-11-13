@@ -161,15 +161,8 @@ func (r *initRun) printRerun(plan rerunPlan, s setup) {
 		fmt.Fprintln(out, styleHeading(out, "Changes"))
 		printPlanLines(out, changes, r.opts.Check)
 	}
-	if kept := plan.res.files.plan.keptFlat; len(kept) > 0 {
-		fmt.Fprintln(out)
-		fmt.Fprintln(out, styleHeading(out, "Kept in the flat folders"))
-		for _, k := range kept {
-			fmt.Fprintf(out, "  %s may have local edits, so Rhizome keeps it and does not install its module copy. To adopt the module version, move it to %s and run rzm init again.\n", k.flat, k.module)
-		}
-	}
 	if len(plan.decisions) > 0 {
-		note := "(run rzm init in a terminal to decide)"
+		note := "(use rzm init --take <path> or --keep <path>, or decide in a terminal)"
 		if r.opts.Interactive {
 			note = "(asked after you apply)"
 		}

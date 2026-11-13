@@ -64,6 +64,12 @@ pub struct SettingsChoices {
     pub add_addons: Vec<String>,
     #[serde(default)]
     pub remove_addons: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub take: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision_snapshot: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub keep: Vec<String>,
 }
 
 #[derive(Deserialize, Serialize)]

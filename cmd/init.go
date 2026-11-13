@@ -63,7 +63,9 @@ On a folder that is already set up, --json reports or changes the repository's
 settings: with --check, the settings --workflow, --agents, --search,
 --add-addon, and --remove-addon would leave and the files they would write;
 without it, it applies them as a run without a terminal does and reports what
-it wrote.`,
+it wrote. Unresolved file updates include diffs in writes.decisions. Use
+--take <path> to replace one or --keep <path> to retain it and remember that
+choice. Both flags are repeatable; omitted decisions remain pending.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -75,6 +77,9 @@ it wrote.`,
 				Hooks:             commandOptions.initHooks,
 				Search:            commandOptions.initSearch,
 				RefreshDocs:       commandOptions.initRefreshDocs,
+				DecisionSnapshot:  commandOptions.initDecisionSnapshot,
+				Take:              commandOptions.initTake,
+				Keep:              commandOptions.initKeep,
 				IncludeIgnored:    commandOptions.initIncludeIgnored,
 				BinaryManager:     commandOptions.initBinaryManager,
 				Eject:             commandOptions.initEject,
@@ -202,6 +207,9 @@ func (commandOptions *initInvocationOptions) registerInitCommands(initCmd, rootC
 	initCmd.Flags().StringVar(&commandOptions.initAgents, "agents", "", "agents to set up: claude, codex, cursor (comma-separated), shared for AGENTS.md and shared skills only, or none")
 	initCmd.Flags().StringVar(&commandOptions.initHooks, "hooks", "", "agent hooks that deliver add-on context, such as compounding shards: on or off (default off)")
 	initCmd.Flags().StringVar(&commandOptions.initSearch, "search", "", "semantic search provider: voyage (default), openai, ollama, or off")
+	initCmd.Flags().StringVar(&commandOptions.initDecisionSnapshot, "decision-snapshot", "", "require the file decisions from the reviewed --check --json plan")
+	initCmd.Flags().StringArrayVar(&commandOptions.initTake, "take", nil, "use Rhizome's version for a pending file decision (repeatable)")
+	initCmd.Flags().StringArrayVar(&commandOptions.initKeep, "keep", nil, "keep a pending file decision and remember it (repeatable)")
 	initCmd.Flags().BoolVar(&commandOptions.initRefreshDocs, "refresh-docs", false, "offer Rhizome's latest versions of the starter docs your team owns")
 	initCmd.Flags().StringArrayVar(&commandOptions.initIncludeIgnored, "include-ignored", nil, "index a folder Git ignores (repeatable)")
 	initCmd.Flags().StringVar(&commandOptions.initBinaryManager, "binary-manager", "", "let an external tool such as mise own the Rhizome binary: external")

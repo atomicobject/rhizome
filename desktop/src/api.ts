@@ -335,6 +335,13 @@ export interface SearchProvider {
   teamKey?: boolean;
   hint?: string;
 }
+export interface SetupDecision {
+  path: string;
+  kind: "edited" | "unknown" | "remove";
+  from?: string;
+  copies?: string[];
+  diff?: string;
+}
 /** `rzm init --check --json`: what setup would do, and every choice it offers.
  * For a set-up folder, the settings the given choices would leave. */
 export interface SetupPlan {
@@ -357,7 +364,13 @@ export interface SetupPlan {
   pin: string;
   scope: Scope;
   /** `kept`: files someone edited that a change leaves as they are (set-up folders only). */
-  writes: { summary: string[]; files: string[]; kept?: string[] };
+  writes: {
+    summary: string[];
+    files: string[];
+    kept?: string[];
+    decisions?: SetupDecision[];
+    decisionSnapshot?: string;
+  };
 }
 /** Changes to a set-up repository. Omitted fields leave a setting as it is. */
 export interface SettingsChoices {
@@ -366,6 +379,9 @@ export interface SettingsChoices {
   search?: string;
   addAddons?: string[];
   removeAddons?: string[];
+  decisionSnapshot?: string;
+  take?: string[];
+  keep?: string[];
 }
 /** `rzm init --json`: what setup wrote. */
 export interface SetupResult {
@@ -376,6 +392,7 @@ export interface SetupResult {
   commit: string[];
   warnings: string[];
   kept: string[];
+  decisions?: SetupDecision[];
   savedKey?: string;
   searchHint?: string;
   pin: { version?: string; error?: string };

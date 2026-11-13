@@ -138,7 +138,7 @@ fn setup_and_scope_actions_decode_the_shell_contract() {
 
 #[test]
 fn settings_actions_decode_the_shell_contract() {
-    let choices = json!({"workflow":"none", "agents":["claude"], "search":"off", "addAddons":["compounding"], "removeAddons":["action-items"]});
+    let choices = json!({"workflow":"none", "agents":["claude"], "search":"off", "addAddons":["compounding"], "removeAddons":["action-items"], "decisionSnapshot":"reviewed-snapshot", "take":[".rhizome/modules/agentic-engineering/ontology/spec-driven.graphql", "path with spaces.md"], "keep":[".agents/skills/rhizome/SKILL.md"]});
     let action: Action = serde_json::from_value(
         json!({"operation":"settings-apply", "id":"repo", "worktree":"/worktree", "choices":choices}),
     )
@@ -157,6 +157,16 @@ fn settings_actions_decode_the_shell_contract() {
     .unwrap();
     assert_eq!(payload["settings"], choices);
     assert!(payload.get("setup").is_none());
+    for choices in [json!({}), json!({"decisionSnapshot":"no-decisions"})] {
+        let decoded: SettingsChoices = serde_json::from_value(choices.clone()).unwrap();
+        let encoded = serde_json::to_value(decoded).unwrap();
+        assert_eq!(
+            encoded.get("decisionSnapshot"),
+            choices.get("decisionSnapshot")
+        );
+        assert!(encoded.get("take").is_none());
+        assert!(encoded.get("keep").is_none());
+    }
     assert!(matches!(
         serde_json::from_value::<Action>(
             json!({"operation":"settings-report", "id":"repo", "worktree":"/worktree"})

@@ -126,12 +126,14 @@ func (r *initRun) resolve(s setup) (resolved, error) {
 			PreserveLegacyTemplateBlocks: ejectedAgenticEngineering(frozen),
 			PreserveSkillTemplates:       frozen,
 		},
-		refreshDocs: r.opts.RefreshDocs,
-		hookFiles:   hookFiles,
+		legacyFingerprints: cfg.WorkflowTemplateManagement.SourceFingerprints,
+		refreshDocs:        r.opts.RefreshDocs,
+		hookFiles:          hookFiles,
 	})
 	if err != nil {
 		return resolved{}, err
 	}
+	clearRetiredWorkflowManagement(&cfg)
 	return resolved{cfg: cfg, effective: effective, harnesses: harnesses, files: files, hooksBlocked: hooksBlocked}, nil
 }
 
@@ -151,6 +153,9 @@ func (r *initRun) apply(s setup, res resolved) (syncReport, error) {
 
 func (r *initRun) applyLocked(s setup, res resolved) (syncReport, error) {
 	root := r.layout.ProjectRoot
+	if err := res.files.preflight(); err != nil {
+		return syncReport{}, err
+	}
 	if err := ensureRhizomeGitIgnore(root); err != nil {
 		return syncReport{}, err
 	}
@@ -254,7 +259,11 @@ confirm:
 			return ErrChangesPending
 		case !r.opts.Interactive && !plan.pending():
 			fmt.Fprintln(out)
-			fmt.Fprintln(out, "Everything is up to date.")
+			if decisions := plan.res.files.decisions(); len(decisions) > 0 {
+				fmt.Fprintln(out, pendingSummary(decisions))
+			} else {
+				fmt.Fprintln(out, "Everything is up to date.")
+			}
 			return nil
 		case !r.opts.Interactive:
 			break confirm
@@ -307,7 +316,6 @@ func (r *initRun) applyRerunOptions(s setup) (setup, setup, error) {
 	if _, err := normalizeLegacyAgenticEngineeringState(cfg); err != nil {
 		return before, s, err
 	}
-	clearRetiredWorkflowManagement(cfg)
 	if _, err := applyBinaryManagerOption(cfg, r.opts); err != nil {
 		return before, s, err
 	}

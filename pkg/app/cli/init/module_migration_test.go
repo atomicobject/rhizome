@@ -69,8 +69,7 @@ func TestReinitMigratesAFlatLayoutIntoModules(t *testing.T) {
 
 	require.Contains(t, readTestFile(t, root, flatEdited), "# team tweak")
 	require.NoFileExists(t, filepath.Join(root, moduleEdited), "the module copy of an edited flat file is not installed")
-	require.Contains(t, out, flatEdited+" may have local edits")
-	require.Contains(t, out, "move it to "+moduleEdited)
+	require.Contains(t, out, moduleEdited)
 	require.Regexp(t, `Removed \d+ files Rhizome no longer ships\n`, out)
 	require.Equal(t, "team-owned\n", readTestFile(t, root, teamView))
 
@@ -90,18 +89,14 @@ func TestReinitMigratesAFlatLayoutIntoModules(t *testing.T) {
 	require.NotContains(t, record.Written, flatSchema)
 	require.Contains(t, record.Written, moduleSchema)
 	_, err = runInit(t, RunOptions{Dir: root, Check: true})
-	require.NoError(t, err, "nothing is pending after migration")
-
-	// Adopting the module version, as the report says, keeps the edit an
-	// edit: its record moves with it, so init does not ask whether it was
-	// edited.
-	require.NoError(t, os.Rename(filepath.Join(root, flatEdited), filepath.Join(root, moduleEdited)))
+	require.NoError(t, err, "unresolved decisions do not count as automatic writes")
+	_, err = Apply(RunOptions{Dir: root, Take: []string{moduleEdited}})
+	require.NoError(t, err)
+	require.NoFileExists(t, filepath.Join(root, flatEdited))
+	require.NotContains(t, readTestFile(t, root, moduleEdited), "# team tweak")
 	out, err = runInit(t, RunOptions{Dir: root, Check: true})
 	require.NoError(t, err)
-	require.NotContains(t, out, "may have local edits, so Rhizome keeps it")
-	require.NotContains(t, out, "can't tell")
 	require.Contains(t, out, "Everything is up to date.")
-	require.Contains(t, readTestFile(t, root, moduleEdited), "# team tweak")
 }
 
 // flattenModulesForTest rewrites a fresh install into the layout init wrote

@@ -19,9 +19,10 @@ import (
 
 // generatedFile is one whole file init wants on disk.
 type generatedFile struct {
-	rel     string // project-relative slash path; also the record key
-	content []byte
-	mode    os.FileMode
+	replaces string // legacy source removed only after this target is written
+	rel      string // project-relative slash path; also the record key
+	content  []byte
+	mode     os.FileMode
 	// group joins copies of one file in several agent folders so they share
 	// one decision. Empty means the file decides alone.
 	group string
@@ -74,9 +75,6 @@ type filePlan struct {
 	hookFiles []generatedHookFile
 	// settings are host sandbox settings Rhizome owns one key of.
 	settings []generatedSetting
-	// keptFlat are edited flat copies of starter files whose module copies
-	// are not installed.
-	keptFlat []keptFlatCopy
 }
 
 func (p *filePlan) addFile(file generatedFile) {
@@ -100,6 +98,7 @@ const (
 
 // change is one decision unit: a file, a managed block, or a removal.
 type change struct {
+	from     string // legacy source when the target replaces a flat copy
 	key      string // record key
 	rel      string // display path
 	group    string
@@ -146,12 +145,13 @@ func (r syncReport) changedPaths() []string {
 
 // generatedInputs is everything that decides which files init generates.
 type generatedInputs struct {
-	harnesses   AgentHarnesses
-	section     string
-	templates   []string
-	surfaceOpts AgentSurfaceOptions
-	refreshDocs bool
-	hookFiles   []generatedHookFile
+	harnesses          AgentHarnesses
+	section            string
+	templates          []string
+	surfaceOpts        AgentSurfaceOptions
+	refreshDocs        bool
+	hookFiles          []generatedHookFile
+	legacyFingerprints map[string]string
 }
 
 // syncGeneratedFiles plans every generated file, applies the ownership rule,
@@ -171,12 +171,19 @@ type preparedFiles struct {
 	plan          *filePlan
 	record        *generatedFiles
 	changes       []*change
+	choices       map[string]bool
 	docStates     []docState
 	removeRhizome bool // the retired generated RHIZOME.md is present
 }
 
 func prepareGeneratedFiles(projectRoot string, in generatedInputs) (*preparedFiles, error) {
 	record, _ := loadGeneratedFiles(projectRoot)
+	if err := record.foldLegacyStarterFiles(projectRoot, in.legacyFingerprints); err != nil {
+		return nil, err
+	}
+	if err := record.recoverLegacyStarterFiles(projectRoot, in.templates); err != nil {
+		return nil, err
+	}
 	plan := &filePlan{}
 	if err := planAgentSurfaces(projectRoot, in.harnesses, in.section, in.templates, in.surfaceOpts, record, plan); err != nil {
 		return nil, err
@@ -202,6 +209,7 @@ func classifyFilePlan(projectRoot string, plan *filePlan, record *generatedFiles
 	if err != nil {
 		return nil, err
 	}
+	splitDecisionGroups(changes)
 	return &preparedFiles{root: projectRoot, plan: plan, record: record, changes: changes, docStates: docStates}, nil
 }
 
@@ -264,9 +272,8 @@ func (p *preparedFiles) pending() pendingFiles {
 		}
 	}
 	byKey := map[string]*change{}
+	p.resolve(nil)
 	for _, c := range p.changes {
-		// The decisions a run makes without asking; apply decides again.
-		c.take = c.state == stateMissing || c.state == stateUnedited
 		byKey[c.key] = c
 	}
 	for _, c := range p.changes {
@@ -275,8 +282,11 @@ func (p *preparedFiles) pending() pendingFiles {
 		if strings.Contains(c.key, "#") && (c.state == stateMissing || c.state == stateUnedited) {
 			continue
 		}
+		if c.asked && !c.take {
+			continue
+		}
 		switch {
-		case c.removal && c.state == stateUnedited:
+		case c.removal && c.take:
 			switch router := p.removalWaitsOn(c.rel, byKey); {
 			case router == nil:
 				add(&out.Remove, c.rel)
@@ -287,8 +297,11 @@ func (p *preparedFiles) pending() pendingFiles {
 			}
 		case c.state == stateMissing:
 			add(&out.Create, c.rel)
-		case c.state == stateUnedited:
+		case c.take:
 			add(&out.Update, c.rel)
+			if c.from != "" {
+				add(&out.Remove, c.from)
+			}
 		case c.state == stateEdited:
 			add(&out.Edited, c.key)
 		case c.state == stateUnknown:
@@ -385,7 +398,7 @@ func (p *preparedFiles) ownsAfterApply(dir string) bool {
 // even when every file is current: the record is missing, unreadable, or
 // lacks a current file.
 func (p *preparedFiles) recordStale() bool {
-	if p.record.unreadable {
+	if p.record.unreadable || len(p.choices) > 0 {
 		return true
 	}
 	known := 0
@@ -405,7 +418,10 @@ func (p *preparedFiles) recordStale() bool {
 func (p *preparedFiles) apply(ui ownershipUI) (syncReport, error) {
 	projectRoot, plan, record := p.root, p.plan, p.record
 	recordStale := p.recordStale()
-	resolveChanges(p.changes, ui)
+	p.resolve(ui)
+	if err := p.preflight(); err != nil {
+		return syncReport{}, err
+	}
 	for i, doc := range plan.docs {
 		if err := checkDocUnchanged(projectRoot, doc, p.docStates[i]); err != nil {
 			return syncReport{}, err
