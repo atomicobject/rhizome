@@ -160,14 +160,14 @@ def tla_jar():
 
 
 def java():
-    """A Java 11+ command: RZM_TLC_JAVA, else mise's pinned Temurin, else java on PATH."""
+    """A Java 11+ command: RZM_TLC_JAVA, else java on PATH, else mise's pinned Temurin."""
     candidates = []
     if os.environ.get("RZM_TLC_JAVA"):
         candidates.append([os.environ["RZM_TLC_JAVA"]])
-    if shutil.which("mise"):
-        candidates.append(["mise", "exec", MISE_JAVA, "--", "java"])
     if shutil.which("java"):
         candidates.append(["java"])
+    if shutil.which("mise"):
+        candidates.append(["mise", "exec", MISE_JAVA, "--", "java"])
     for command in candidates:
         try:
             probe = subprocess.run(command + ["-version"], capture_output=True, text=True, timeout=600)
