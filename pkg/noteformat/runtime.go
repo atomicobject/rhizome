@@ -55,6 +55,7 @@ type Runtime struct {
 	registry             Registry
 	projectors           map[string]Projector
 	rootMetadataPatchers map[string]RootMetadataPatchPlanner
+	projections          *projectionMemo
 }
 
 // NewRuntime constructs a runtime from one already-frozen registry. Every
@@ -64,6 +65,7 @@ func NewRuntime(registry Registry, projectors ...Projector) (Runtime, error) {
 		registry:             registry,
 		projectors:           make(map[string]Projector, len(projectors)),
 		rootMetadataPatchers: make(map[string]RootMetadataPatchPlanner),
+		projections:          newProjectionMemo(projectionMemoEntries),
 	}
 	for _, projector := range projectors {
 		if projector == nil {

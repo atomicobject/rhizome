@@ -58,13 +58,19 @@ func (v VaultPaths) RequireWorkingDirectoryAtRoot(cwd string) error {
 
 // RelStrict converts a path into a normalized RelPath and rejects paths outside the vault root.
 func (v VaultPaths) RelStrict(p string) (RelPath, error) {
+	return v.relStrict(p, func(abs string) string { return ResolveSymlinks(abs).String() })
+}
+
+// relStrict is RelStrict with the symlink resolution for an absolute path
+// supplied, so a caller that already resolved it does not pay for it twice.
+func (v VaultPaths) relStrict(p string, resolve func(string) string) (RelPath, error) {
 	if p == "" {
 		return RelPath(""), nil
 	}
 
 	var rel RelPath
 	if filepath.IsAbs(p) {
-		relStr, relErr := relFromAbsPath(ResolveSymlinks(p).String(), v.root.String())
+		relStr, relErr := relFromAbsPath(resolve(p), v.root.String())
 		if relErr != nil {
 			return RelPath(""), relErr
 		}

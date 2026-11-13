@@ -158,7 +158,7 @@ type GlobalEventSink func(kind string, data any)
 func liveSQLitePoolOptions() sqliteutil.Options {
 	return sqliteutil.Options{
 		MaxOpenConns:    4,
-		MaxIdleConns:    1,
+		MaxIdleConns:    4,
 		ConnMaxIdleTime: 5 * time.Minute,
 	}
 }

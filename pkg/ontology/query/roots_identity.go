@@ -117,8 +117,16 @@ func (e *executor) noteSourceDeleted(notePath string) bool {
 	if e.deps.NoteReader == nil || e.deps.ReadOverlay.TouchesPath(notePath) {
 		return false
 	}
+	if deleted, known := e.sourceDeleted[notePath]; known {
+		return deleted
+	}
 	_, err := e.deps.NoteReader.GetModTime(e.deps.VaultDef, notePath)
-	return err != nil && (errors.Is(err, fs.ErrNotExist) || err.Error() == obsidian.NoteDoesNotExistError)
+	deleted := err != nil && (errors.Is(err, fs.ErrNotExist) || err.Error() == obsidian.NoteDoesNotExistError)
+	if e.sourceDeleted == nil {
+		e.sourceDeleted = map[string]bool{}
+	}
+	e.sourceDeleted[notePath] = deleted
+	return deleted
 }
 
 func (e *executor) allowsCodeFallback(path string) bool {

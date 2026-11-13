@@ -35,7 +35,8 @@ func (v VaultPaths) RelPhysicalStrictCached(p string, links *SymlinkCache) (RelP
 	if !filepath.IsAbs(p) {
 		return RelPath(""), ErrOutsideVault
 	}
-	return v.RelStrict(physicalPath(p, links))
+	// physicalPath already resolved every existing component; the rest are missing and apply lexically.
+	return v.relStrict(physicalPath(p, links), filepath.ToSlash)
 }
 
 // physicalPath resolves an absolute path one component at a time. Components

@@ -121,6 +121,7 @@ type executor struct {
 	warnings       []Warning
 	truncated      []truncatedRead
 	sectionsByPath map[string][]*ontology.SectionNode
+	sourceDeleted  map[string]bool
 	notePathCache  *obsidian.NotePathCache
 
 	inboundSectionNeighbors map[string]map[string][]string

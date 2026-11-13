@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sync"
 
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 
@@ -35,6 +36,7 @@ const (
 type NodeLinkService struct {
 	notePaths    []string
 	renderer     *wikilinkRenderer
+	prepared     *preparedSnapshots
 	LoadPrepared func(context.Context, string) (*PreparedDocument, error)
 	LoadSnapshot func(context.Context, string) (*DocumentSnapshot, error)
 	VaultDef     obsidian.VaultDefinition
@@ -48,6 +50,7 @@ func (s NodeLinkService) WithNotePaths(notePaths []string) *NodeLinkService {
 	s.notePaths = append([]string{}, notePaths...)
 	renderer := newWikilinkRenderer(notePaths)
 	s.renderer = &renderer
+	s.prepared = &preparedSnapshots{byDoc: map[*DocumentSnapshot]preparedSnapshot{}}
 	return &s
 }
 
@@ -313,7 +316,7 @@ func (s *NodeLinkService) LinkTargets(ctx context.Context, req LinkTargetRequest
 			snapshot = loaded
 			snapshots[ref.NotePath] = snapshot
 		}
-		projection, err := ProjectNodeFromSnapshot(snapshot, s.Schema, ref)
+		projection, err := s.projectEmbedded(snapshot, ref)
 		if err != nil || projection == nil {
 			msg := "embedded node could not be resolved"
 			if err != nil {
@@ -368,4 +371,33 @@ func (s *NodeLinkService) LinkTargets(ctx context.Context, req LinkTargetRequest
 	}
 
 	return result, nil
+}
+
+// preparedSnapshots keeps one prepared document per loaded snapshot, so
+// resolving every embedded ref in a note prepares that note once.
+type preparedSnapshots struct {
+	mu    sync.Mutex
+	byDoc map[*DocumentSnapshot]preparedSnapshot
+}
+
+type preparedSnapshot struct {
+	prepared *PreparedDocument
+	err      error
+}
+
+func (s *NodeLinkService) projectEmbedded(snapshot *DocumentSnapshot, ref NodeRef) (*NodeProjection, error) {
+	if s.prepared == nil || snapshot == nil || s.Schema == nil {
+		return ProjectNodeFromSnapshot(snapshot, s.Schema, ref)
+	}
+	s.prepared.mu.Lock()
+	defer s.prepared.mu.Unlock()
+	entry, ok := s.prepared.byDoc[snapshot]
+	if !ok {
+		entry.prepared, entry.err = prepareMarkdownSnapshot(snapshot, s.Schema)
+		s.prepared.byDoc[snapshot] = entry
+	}
+	if entry.err != nil {
+		return nil, entry.err
+	}
+	return entry.prepared.Project(ref)
 }

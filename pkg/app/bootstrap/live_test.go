@@ -317,13 +317,13 @@ func TestLiveRuntimeAddCloserAfterCloseRunsImmediately(t *testing.T) {
 	}
 }
 
-func TestLiveSQLitePoolOptionsKeepsOneIdleConnection(t *testing.T) {
+func TestLiveSQLitePoolOptionsKeepsOpenConnectionsIdle(t *testing.T) {
 	opts := liveSQLitePoolOptions()
 	if opts.MaxOpenConns != 4 {
 		t.Fatalf("expected MaxOpenConns 4, got %d", opts.MaxOpenConns)
 	}
-	if opts.MaxIdleConns != 1 {
-		t.Fatalf("expected MaxIdleConns 1, got %d", opts.MaxIdleConns)
+	if opts.MaxIdleConns != 4 {
+		t.Fatalf("expected MaxIdleConns 4, got %d", opts.MaxIdleConns)
 	}
 	if opts.ConnMaxIdleTime != 5*time.Minute {
 		t.Fatalf("expected ConnMaxIdleTime 5m, got %s", opts.ConnMaxIdleTime)
