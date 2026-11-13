@@ -407,7 +407,7 @@ func RunUnifiedCore(ctx context.Context, lease *indexlock.Lease, opts UnifiedOpt
 	}
 
 	if err := runUnifiedPostIndex(ctx, unifiedPostIndexOptions{
-		ForceGraph:            ownershipDiscovery.Recovery || ownershipDiscovery.GraphRecovery || (initialOntologyResult != nil && (initialOntologyResult.Dirty || initialOntologyResult.Rebuilt)),
+		ForceGraph:            len(structuralResult.CodeRetirements) > 0 || ownershipDiscovery.Recovery || ownershipDiscovery.GraphRecovery || (initialOntologyResult != nil && (initialOntologyResult.Dirty || initialOntologyResult.Rebuilt)),
 		VaultPath:             opts.VaultPath,
 		Vacuum:                opts.Vacuum,
 		CurrentScopeHash:      currentScopeHash,
