@@ -137,7 +137,7 @@ Coderefs (wikilinks in code comments/docstrings) work similarly: a double-bracke
 
 ### Skills Are The Agent Interface
 
-When `rzm init` installs the Agentic Engineering workflow, it adds a lean workflow router whose phases are arguments. `agentic-engineering` routes an unclear delivery request; `agentic-engineering specify` creates typed spec notes using the live ontology, `plan` maps approved scope to implementation phases, and `implement` executes against that scope.
+When setup installs the Agentic Engineering workflow, it adds a lean workflow router whose phases are arguments. `agentic-engineering` routes an unclear delivery request; `agentic-engineering specify` creates typed spec notes using the live ontology, `plan` maps approved scope to implementation phases, and `implement` executes against that scope.
 
 Without a starter, you have a Rhizome index but no workflow instructions. The agent has retrieval capability but no structured procedure for using it.
 
@@ -149,7 +149,7 @@ Choose your starter based on what questions you need your agents to be able to a
 
 ### What Installs Where (abbreviated)
 
-When `rzm init` installs the Agentic Engineering workflow (the default choice, or `rzm init --workflow agentic-engineering`):
+When setup installs the Agentic Engineering workflow (the default choice in Rhizome Desktop, or `rzm init --workflow agentic-engineering`):
 
 This tree highlights the primary installed surfaces and omits supporting reference files and sibling skills for readability.
 

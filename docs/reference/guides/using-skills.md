@@ -14,6 +14,15 @@ A skill is a set of instructions your coding agent follows. Rhizome installs ski
 
 The Agentic Engineering starter helps agents use the specs, decisions, and code context already in the project. You describe the outcome; the skill supplies a way to work toward it using your team's policy.
 
+## Where to work with your agent
+
+The skills run in your coding agent, so use them wherever you already work with it:
+
+- **Your own agent session.** Open Claude Code, Codex, or Cursor in the repository, in a terminal or editor. Start a new session after Rhizome is set up or updated so the agent discovers the installed skills.
+- **The Agent tab.** Rhizome Desktop's workspace runs Claude Code or Codex in the repository for you. Choose the **Harness** and **Model** at the top. Tool approvals appear in the conversation as **Allow**, **Deny**, or **Allow for session**. The agent must be installed and signed in on your computer.
+
+The workspace can also give you a ready-made prompt. In the **Delivery** experience, every list and effort page has **Copy workflow prompt**, which copies the prompt that continues that work. Paste it into whichever agent session you use. Scheduled task items and the compounding review offer **Copy prompt** the same way.
+
 ## Start with the task
 
 When the next step is unclear, name the main skill and explain what you want:
@@ -68,7 +77,11 @@ For example:
 
 > Use action-items to show my open commitments for this project.
 
-For personal assignments, Rhizome needs a note-backed Person identity. Ask your agent to create your Person note, index it, configure it with `rzm agent current-user set "Your name"`, and run `rzm agent current-user validate`. This identity is local to the project; the agent should not guess it from your login name.
+For personal assignments, Rhizome needs a note-backed Person identity. Ask your agent:
+
+> Use the rhizome skill to create my Person note as "Your name" and set it as the current user.
+
+The agent creates the note and configures it with `rzm agent current-user set`. This identity is local to your copy of the project; the agent should not guess it from your login name.
 
 ## Make the next task easier
 

@@ -11,129 +11,122 @@
 
 Rhizome gives your team shared skills for defining work, planning implementation, building, and reviewing with AI agents. Specs, decisions, and delivery records live alongside your code, so the next developer or agent can pick up the context.
 
-Start with the [Agentic Engineering](https://atomicobject.com/agentic-engineering) starter. It installs useful defaults that your team can adapt: how much planning a task needs, which checks prove it works, and when a person needs to make a decision. Small fixes stay small.
-
-The [process guide](https://atomicobject.com/agentic-engineering/overview) explains how the team works together. Rhizome supplies repository tools and agent guidance to help put that process into practice.
+Setup installs the [Agentic Engineering](https://atomicobject.com/agentic-engineering) workflow by default. It gives your team defaults to adapt: how much planning a task needs, which checks prove it works, and when a person needs to make a decision. Small fixes stay small. The [process guide](https://atomicobject.com/agentic-engineering/overview) explains how the team works together.
 
 ## Get started
 
-You'll need a coding agent such as Codex or Claude Code, plus Node.js on its PATH for Rhizome's agent code mode. You can use the basic workflow without provider API keys or Obsidian.
+You'll need:
 
-### 1. Install Rhizome
+- A Mac with Apple silicon, or Ubuntu 24.04 with GNOME.
+- A Git repository.
+- Claude Code or Codex, installed and signed in on your computer.
+- [Node.js](https://nodejs.org), available to your agent. Agents use it to run Rhizome scripts.
 
-On a Mac with Apple silicon, install Rhizome Desktop. It includes `rzm` and keeps both up to date.
+You don't need any API keys to begin.
+
+Joining a repository that already uses Rhizome? Do step 1, then [join the project](docs/reference/guides/getting-started.md#join-a-project-your-team-already-uses).
+
+### 1. Install Rhizome Desktop
+
+On a Mac with Homebrew:
 
 ```bash
 brew install --cask atomicobject/tap/rhizome-desktop
-open -a Rhizome
 ```
 
-Homebrew installs the app and links its bundled `rzm` into your terminal PATH. The app's separate Install Command-Line Tool step is unnecessary for this installation.
+Then open Rhizome from Applications. Homebrew also puts the app's `rzm` command on your PATH, which is how your coding agent reaches Rhizome. If you have the older CLI-only formula, run `brew uninstall --formula atomicobject/tap/rhizome` first.
 
-If you already use the CLI-only formula, switch before installing the cask:
+<details>
+<summary>Ubuntu, or a Mac without Homebrew</summary>
 
-```bash
-brew uninstall --formula atomicobject/tap/rhizome
-brew install --cask atomicobject/tap/rhizome-desktop
-```
+On a Mac, download [Rhizome-macos-arm64.dmg](https://github.com/atomicobject/rhizome/releases/latest/download/Rhizome-macos-arm64.dmg), drag Rhizome to Applications, and open it.
 
-Without Homebrew, download [Rhizome-macos-arm64.dmg](https://github.com/atomicobject/rhizome/releases/latest/download/Rhizome-macos-arm64.dmg), open it, and drag Rhizome to Applications. Open the app, then choose Rhizome > Settings > Install Command-Line Tool. macOS asks for your password once. The link runs the app's `rzm` until you delete the app.
+On Ubuntu, download the [x64](https://github.com/atomicobject/rhizome/releases/latest/download/Rhizome-linux-x64.AppImage) or [Arm64](https://github.com/atomicobject/rhizome/releases/latest/download/Rhizome-linux-arm64.AppImage) AppImage, move it somewhere permanent such as `~/Applications/Rhizome.AppImage`, make it executable, and open it. [Linux details](docs/reference/guides/getting-started.md#linux)
 
-Or ask your coding agent to [install it for you](#install-with-a-coding-agent).
+Then open **Settings** and, under **Command-line tool**, choose **Install Command-Line Tool**. This puts `rzm` on your PATH. macOS asks for an administrator password when it needs one.
 
-For Linux, Intel Macs, or a headless installation, the CLI-only formula remains available:
+</details>
 
-```bash
-brew install --formula atomicobject/tap/rhizome
-```
+The app updates itself. For Intel Macs, Windows, or a server, see the [command-line installation](docs/reference/guides/command-line.md#install-without-the-desktop-app). You can also ask your coding agent to [install Rhizome for you](#install-with-a-coding-agent).
 
-Linux AppImages for Ubuntu 24.04 GNOME (x64 and Arm64) ship with releases, and a Windows 11 x64 build is checked in CI but not yet published; see [Rhizome Desktop](desktop/README.md#distribution-and-updates) for their installation and acceptance status. For the Windows CLI or a project-local launcher, follow the [installation guide](docs/reference/guides/getting-started.md#install).
+### 2. Add your repository
 
-### 2. Initialize your project
+Choose **Add Repository…** and pick your repository's folder. Rhizome inspects it and shows what it found and every file setup would write. Nothing is written until you confirm.
 
-From your project's repository root:
+The defaults suit most projects: the Agentic Engineering workflow, guidance for the coding agents Rhizome finds, and keyword search. Semantic search needs a Voyage AI key, which you can paste now or add later.
 
-```bash
-rzm init
-```
+Choose **Set up Rhizome**. When it finishes, commit the files it lists so your teammates get the same setup, then choose **Open workspace**. [What each choice means](docs/reference/guides/getting-started.md#set-up-a-new-repository)
 
-`rzm init` shows the docs, code, and agents it found, asks which workflow to install (Agentic Engineering is the default), and sets everything up after one confirmation, then offers to build the search index. If no semantic search key is available, it asks for a Voyage AI key; press Enter to skip that and set it up later. Rhizome adds project configuration, agent skills, and places for specs and delivery work. Commit `.rhizome/` and the agent files it creates so teammates use the same guidance. So that sandboxed agents can reach Rhizome on 127.0.0.1 while staying sandboxed, `rzm init` adds `sandbox.network.allowLocalBinding` to `.claude/settings.json` (Claude Code on macOS) and a loopback-only `rhizome` permission profile to `.codex/config.toml`, which Codex loads only in trusted projects. [What gets installed and how to share it](docs/reference/guides/getting-started.md#initialize-your-project)
+If the repository already uses Rhizome, the app asks **Trust this worktree?** instead of showing setup. A worktree is your checkout of the repository. Choose **Trust and open**. [Joining a project](docs/reference/guides/getting-started.md#join-a-project-your-team-already-uses)
 
-Atomic Object employees can import shared provider keys from a team 1Password Environment in Rhizome setup or Settings. The import uses the stable 1Password CLI and saves keys on your computer; ordinary use needs no 1Password prompt. Ask the team for the account and Environment ID. [Credential setup](docs/engineering/secrets.md#developer-setup)
+### 3. Start a new agent session
 
-`rzm update` reruns the new executable's `init` whenever it changes the Rhizome version your configured repository runs. Review the usual init confirmation in a terminal. `--yes` applies without asking and keeps edited files. Commit the refreshed agent files with the pin change.
+Setup wrote `AGENTS.md` and agent skills into the repository, plus `CLAUDE.md` for Claude Code. Your agent reads them and runs `rzm` to search the project, read its notes, and check its changes.
 
-A team API gateway provides per-person Google sign-in for the initial Atomic pilot:
+Close any agent session already open in the repository and start a new one, so the agent finds the new skills. Or use the **Agent** tab in the app, which runs Claude Code or Codex in the repository for you.
 
-- `rzm auth login --server <gateway URL>` signs in once for every Rhizome process on your computer.
-- `rzm auth status` and `rzm auth logout` manage the session.
-- `rzm auth admin` lets admins check usage and manage people, sessions, and limits.
+Ask:
 
-Your own provider keys still take precedence. [Team API gateway](services/team-api/README.md)
+> Use the rhizome skill to orient me to this repository. Show me the available workflow and any setup gaps before we start work.
 
-Admins can read settings with `rzm auth admin config --server <gateway URL>` and set separate UTC daily provider budgets with `--voyage-daily-usd` and `--typesafe-daily-usd`. Each accepts a non-negative USD decimal with up to nine fractional digits; zero disables paid admission for that provider.
+The agent should describe the Agentic Engineering workflow. If it can't find `rzm`, or Codex can't reach Rhizome, see [Make Rhizome available to your agent](docs/reference/guides/getting-started.md#make-rhizome-available-to-your-agent).
 
-Changes must fit the server's startup `max_provider_daily_nanodollars` ceilings. Raising a ceiling requires an AWS configuration change and deployment before applying the runtime budget. Existing request, byte, credit limits, and paid-call switches also apply. Jev requests use `jev-latest`. Supported client releases deploy and verify the server from `release` before uploading client artifacts; ordinary merges to `main` do not deploy it. See the [operations runbook](services/team-api/RUNBOOK.md#provider-budgets-and-first-enablement) for accounting assumptions and the repository's `rhizome-ops` skill for previewed, audited settings changes.
+### 4. Give your agent a task
 
-When preparing another checkout, run `rzm new-worktree <source-worktree-path>` from the new worktree. It copies the index and seeds personal view settings once. Each worktree remembers later preference changes independently, and existing personal settings are preserved.
-
-### 3. Give your agent a task
-
-Open a new coding-agent session in the repository so it discovers the installed skills. Before delegating implementation, put your actual test commands in `docs/engineering/quality-gates.md`.
-
-Then ask:
+To shape new work:
 
 > Use the agentic-engineering skill to help me add password reset. Start with the intended behavior and the decisions we need to make.
 
-Or, for a clear fix:
+For a clear fix:
 
 > Use agentic-engineering implement to fix this bug, verify it, and prepare a pull request.
 
-The skill routes the work according to its size and your team's policy. You can shape an uncertain task together or delegate a bounded task with a clear outcome. [Using the skills](docs/reference/guides/using-skills.md)
+The skill sizes the work and follows your team's policy. Before you delegate implementation, put your real test commands in `docs/engineering/quality-gates.md`, because the skills run them to prove work is done. [Using the skills](docs/reference/guides/using-skills.md)
 
-Agents can discover query fields and related types in one call: `rzm agent ontology-query-schema --type Effort --depth 1`, or `rzm.ontologyQuerySchema({type: "Effort", depth: 1})` in code mode. Use your vault's type names; `--types` selects several explicitly. Responses report whole definitions, remaining references, and limits.
+## Use the app alongside your agent
+
+Each window shows one repository. Three tabs matter at first:
+
+- **Notes** shows the project's Markdown and the **Delivery** view, which tracks specs, stories, and efforts from shaping to done. On any piece of work, **Copy workflow prompt** copies the prompt that continues it. Paste it into your agent.
+- **Agent** runs Claude Code or Codex in the repository.
+- **Tasks** lists scheduled agent work that needs you.
+
+Press ⌘K to search the project and ? to see every shortcut. [A tour of the app](docs/reference/guides/getting-started.md#find-your-way-around)
 
 ## Make it your team's process
 
-Start by editing the generated `docs/engineering/` documents with your team's test commands, review expectations, architecture rules, and release steps. The skills consult these documents as they work. Keep them in Git so improvements reach the whole team.
+The setup gives you starting points to change. Edit `docs/engineering/` with your team's test commands, review expectations, and release steps; the skills consult those documents as they work. Change workflows and add-ons from the repository's tab in **Settings**. As you learn, improve the skills or ask an agent to build views for your project. [Adapting Rhizome](docs/reference/guides/adapting-rhizome.md)
 
-As you learn, you can improve the skills, change how specs are organized, and add workflows that fit your project. [Adapting your process](docs/reference/guides/adapting-rhizome.md)
+## Go deeper
 
-Add-ons extend a workflow: `rzm init --add-addon compounding` adds one that learns from your past agent sessions which facts agents keep rediscovering and what slows them down, and proposes fixes and context for you to approve. `--remove-addon` takes one out. In a terminal, the `rzm init` settings menu's Add-ons section (`e` on a first run, `s` on a rerun) does the same and offers to turn hooks on for an add-on that uses them. `rzm init --hooks on` lets add-ons that use agent hooks, such as session memory, deliver their context to Claude Code and Codex automatically. An approved compounding guard rule refuses a matching command before it runs: commit its finding note, rerun `rzm init`, and in Codex trust the changed entry through `/hooks`. [Add-ons](docs/reference/guides/getting-started.md#initialize-your-project)
-
-To change a set-up repository's workflow, add-ons, agents, or search provider, use the repository's tab in Rhizome Desktop's Settings, or the same options with `rzm init`. In a script, `rzm init --check --json --workflow domain --add-addon compounding` reports the settings those options would leave and every file they would write, without writing; `rzm init --json` with the same options applies them and reports what it wrote.
-
-A skill can ship code-mode scripts that gather its context in one step. An agent runs one with `rzm agent code execute --session-id <id> --input '{"path": "Projects/Atlas.md"}' < scripts/subject.js`, and the script reads that JSON value as `input`; `--input-file <path>` reads it from a file instead. To read a view's rows without its field capability catalog, add `--omit-capabilities` to `rzm agent view run`. To read which coding agent `agent.harness` configures without starting any provider, run `rzm harness status --configured`. To check whether Jev evaluation has a credential without calling it or printing the key, run `rzm agent evaluate-batch --check-credentials`, which prints `{"configured": true|false, "source": ...}` and always exits 0.
-
-## See and shape the work
-
-```bash
-rzm start
-```
-
-Rhizome opens a local browser workspace where you can read notes and specs, follow efforts and stories, and use the starter's views. Keep the terminal running while you use it.
-
-[Rhizome Desktop](desktop/README.md) keeps your repositories in a sidebar, starts each worktree's Rhizome on its own, and sets up new folders with the version it carries. When a repository pins an older Rhizome, it offers to update the pin; the change is a one-line edit to `.rhizome/config.yml` that you commit.
-
-Repositories can declare scheduled tasks in `.rhizome/tasks/`: periodic agent work, such as refreshing agent memory, that runs on each teammate's machine in their own Claude Code or Codex. A free check decides whether the work is needed, and the prompt then runs in the background on a local branch for you to review, or waits in your inbox, as the repository and each person choose. `rzm tasks status`, `rzm tasks inbox`, and `rzm tasks start <item>` manage them, and `rzm tasks run --task <task>` runs one now, check first. [Scheduled tasks](docs/reference/guides/scheduled-tasks-guide.md)
-
-Each starter installs as a module, a folder `.rhizome/modules/<name>/` that holds its ontology, query recipes, views, tasks, actions, and scripts. `rzm <module>` lists a module's query recipes and actions, and `rzm <module> <recipe> --<input> <value>` runs a recipe; `rzm module <name> ...` does the same when a built-in command shares the module's name. [Rhizome modules](docs/specs/technical/rhizome-modules.md)
-
-An action is an operation a module declares in `actions/<name>.yaml`, with typed inputs and a command or code-mode script to run. `rzm <module> <action> --<input> <value>` runs one (repeat the flag for a list input; a bool input takes `true` or `false`), as do custom views through the kit and agents through code mode. Every run requires a trusted repository (`rzm trust`). It prints the result as JSON and exits 0, prints the reason and exits 2 when the action refuses, and exits 1 on an error. `rzm validate actions` checks the declarations. [Module actions](docs/specs/technical/module-actions.md)
-
-When the default views stop answering your team's questions, you can adapt them or ask an agent to build a custom view over your project data. Meeting notes, action items, requirements, and other information can become part of the same workspace. Display groups open Briefing, Trace, or Sections views; `rzm view eject <id>` (for example `rzm view eject group.briefing`) copies one into `.rhizome/views/` so your team can modify it. [Adapting the workspace](docs/reference/guides/adapting-rhizome.md#adapt-the-workspace)
+| You want to… | Read |
+| --- | --- |
+| Install on Linux, join a project, connect an agent, or set up search keys | [Getting started](docs/reference/guides/getting-started.md) |
+| Define work, implement a spec, or capture meeting context | [Using the skills](docs/reference/guides/using-skills.md) |
+| Change team policy, skills, data, or views | [Adapting Rhizome](docs/reference/guides/adapting-rhizome.md) |
+| Build an experience: several views that run as one site, like Delivery | [Build an experience](docs/reference/guides/build-an-experience.md) |
+| Schedule recurring agent work | [Scheduled tasks](docs/reference/guides/scheduled-tasks-guide.md) |
+| Let Rhizome learn from your agent sessions | [Compounding](docs/reference/guides/compounding.md) |
+| Compare workflows | [Choosing a starter](docs/reference/guides/choosing-your-starter.md) |
+| Understand retrieval and links between notes and code | [How Rhizome works](docs/reference/guides/how-rhizome-works.md) |
+| Use `rzm` from a terminal or script, or install without the app | [Command-line reference](docs/reference/guides/command-line.md) |
+| Diagnose slow indexing, runtime failures, or workspace stalls | [Operational diagnostics](docs/reference/guides/diagnostics.md) |
+| Contribute to Rhizome itself | [Contributor guide](CONTRIBUTING.md) |
 
 ## Install with a coding agent
 
-These steps are written for a coding agent on macOS with Apple silicon. Tell your agent: "Install Rhizome Desktop by following the 'Install with a coding agent' section of https://github.com/atomicobject/rhizome."
+Tell your agent: "Install Rhizome Desktop by following the 'Install with a coding agent' section of https://github.com/atomicobject/rhizome."
 
-Agent instructions:
+<details>
+<summary>Agent instructions</summary>
 
-Prefer the desktop cask when Homebrew is available. If the CLI-only `rhizome` formula is installed, use the migration commands above. Install `atomicobject/tap/rhizome-desktop` with `--cask`, open the app, and verify `command -v rzm`, its symbolic link into `Rhizome.app`, and the app/CLI versions. Homebrew manages this CLI link; skip the app's manual CLI setup. Preserve unrelated executables and report any collision instead of forcing an overwrite.
+These steps are for macOS with Apple silicon.
+
+Prefer the desktop cask when Homebrew is available. If the CLI-only `rhizome` formula is installed, uninstall it first with `brew uninstall --formula atomicobject/tap/rhizome`. Install `atomicobject/tap/rhizome-desktop` with `--cask`, open the app, and verify `command -v rzm`, its symbolic link into `Rhizome.app`, and the app and CLI versions. Homebrew manages this CLI link, so skip the app's Install Command-Line Tool step. Preserve unrelated executables and report any collision instead of forcing an overwrite.
 
 Use the following steps for a direct DMG installation when Homebrew is unavailable:
 
-1. Stop and tell the user if `uname -m` is not `arm64`; follow the [installation guide](docs/reference/guides/getting-started.md#install) instead. If `/Applications/Rhizome.app` already exists, skip to step 3: the app updates itself.
+1. Stop and tell the user if `uname -m` is not `arm64`; follow the [command-line installation](docs/reference/guides/command-line.md#install-without-the-desktop-app) instead. If `/Applications/Rhizome.app` already exists, skip to step 3, because the app updates itself.
 2. Download the notarized app, check it against the release checksums, and copy it into Applications.
 
    ```bash
@@ -150,7 +143,7 @@ Use the following steps for a direct DMG installation when Homebrew is unavailab
    open -a /Applications/Rhizome.app
    ```
 
-3. Ask the user to open Rhizome > Settings and choose Install Command-Line Tool, and to enter their password when macOS asks. Wait for them to confirm. This is the only step that needs them.
+3. Ask the user to open Rhizome › Settings and choose Install Command-Line Tool, and to enter their password when macOS asks. Wait for them to confirm. This is the only step that needs them.
 4. Verify in a new login shell. The path should be `/usr/local/bin/rzm` and the version should match the app's:
 
    ```bash
@@ -158,24 +151,10 @@ Use the following steps for a direct DMG installation when Homebrew is unavailab
    defaults read /Applications/Rhizome.app/Contents/Info.plist CFBundleShortVersionString
    ```
 
-   If another path comes first, Settings names it; tell the user, for example to run `brew uninstall rhizome` for a Homebrew copy.
-5. Report the installed version. To set up a repository next, run `rzm init` from its root, or add the folder in Rhizome.
+   If another path comes first, Settings names it. Tell the user, for example to run `brew uninstall --formula atomicobject/tap/rhizome` for the CLI-only formula.
+5. Report the installed version. Tell the user to set up a repository by choosing Add Repository… in the app.
 
-## Go deeper
-
-| You want to… | Read |
-| --- | --- |
-| Install, join an existing project, or configure optional providers | [Getting started](docs/reference/guides/getting-started.md) |
-| Define work, implement a spec, or capture meeting context | [Using the skills](docs/reference/guides/using-skills.md) |
-| Change team policy, skills, data, or views | [Adapting Rhizome](docs/reference/guides/adapting-rhizome.md) |
-| Explore other workflow starters | [Choosing a starter](docs/reference/guides/choosing-your-starter.md) |
-| Understand retrieval and links between notes and code | [How Rhizome works](docs/reference/guides/how-rhizome-works.md) |
-| Diagnose slow indexing, runtime failures, degraded operations, or web UI stalls; summarize performance with `rzm diagnostics perf` | [Operational diagnostics](docs/reference/guides/diagnostics.md) |
-| Contribute to Rhizome itself | [Contributor guide](CONTRIBUTING.md) |
-
-ID suggestions from `rzm agent next-id` and `rzm agent ontology-authoring-guide` use the current ontology and shared identifier pool.
-
-For command options, run `rzm --help` or `rzm <command> --help`.
+</details>
 
 ## Help and contributing
 

@@ -80,9 +80,9 @@ tasks:
   primaryRef: origin/dev # optional; defaults to origin/HEAD
 ```
 
-Override one task for yourself with `rzm tasks mode <task> auto|notify|off`, or return to the repository's default with `rzm tasks mode <task> default`. `rzm tasks pause` stops all background task work for you in the repository until `rzm tasks resume`.
+Override one task for yourself with the **Mode** selector on its page in the workspace's **Tasks** tab, or with `rzm tasks mode <task> auto|notify|off`. Choose **Default** or run `rzm tasks mode <task> default` to return to the repository's default. **Pause all** on the Tasks page, or `rzm tasks pause`, stops all background task work for you in the repository until **Resume all** or `rzm tasks resume`.
 
-Tasks run only in a repository you trusted with `rzm trust`. The first time Rhizome sees a task, your inbox gets a note naming it and its mode.
+Tasks run only in a trusted repository. Rhizome Desktop trusts a repository when you set it up or choose **Trust and open**; otherwise choose **Trust this worktree** in the repository's Settings tab, or run `rzm trust`. The first time Rhizome sees a task, your inbox gets a note naming it and its mode.
 
 ## When tasks run
 
@@ -94,11 +94,21 @@ A `person` task is due when your own last run is older than its cadence. A `team
 
 A background run, automatic or started with **Run**, **Run now**, or `rzm tasks run`, works in a worktree that Rhizome creates under `.rhizome/task-state/worktrees/`, on the branch `rzm/<task>/<date>`; a module task's branch is `rzm/<module>/<name>/<date>`. When it finishes, Rhizome commits every change with the agent's final message and the task tag. Nothing is pushed and no pull request is opened. A run that changes nothing removes its worktree and branch.
 
-Review a finished run in its worktree, then open the pull request yourself, or discard it with `rzm tasks discard <item>`.
+Review a finished run in its worktree, then open the pull request yourself, or discard it. In Rhizome Desktop, **Open worktree** opens the run's worktree in a new window, and **Discard** removes the worktree and branch. From a terminal, use `rzm tasks discard <item>`.
 
 ## The inbox
 
-`rzm tasks inbox` lists what needs you:
+In Rhizome Desktop, the toolbar's **Tasks** tab shows how many items need you, and the Dock badge counts them across every open repository. A system notification arrives when an item becomes due, ready for review, or needs attention; clicking it opens the task. Each item's page offers the actions for its state:
+
+- **Run** starts a background run.
+- **Start** opens a terminal running `rzm tasks start`, which hands the task to your agent harness.
+- **Copy prompt** copies the task's prompt for an agent session you start yourself.
+- **Open worktree** and **Discard** handle a finished run.
+- **Snooze…**, **Skip**, and **Done** set the item aside.
+
+The harness is the one chosen in the workspace's **Agent** tab. When it is unset and only one of Claude Code or Codex is installed and signed in, Rhizome uses that one.
+
+Each item is in one of these states:
 
 | State | Meaning | Actions |
 | --- | --- | --- |
@@ -106,6 +116,8 @@ Review a finished run in its worktree, then open the pull request yourself, or d
 | ready | A background run finished with changes. | review, then `done` or `discard` |
 | needs-attention | A check or run failed or timed out. It waits for its next cadence instead of retrying. | `run`, `start`, `discard`, `done` |
 | started | You started it with `start`. | `done` |
+
+From a terminal, `rzm tasks inbox` lists the items and `rzm tasks <action> <item>` acts on one.
 
 `rzm tasks start <item>` opens your harness in a new worktree that the harness manages (`claude --worktree` or `codex --worktree`). The prompt's first step switches to a fresh `rzm/<task>/<date>` branch at the primary commit. `--print` prints that prompt without starting anything, for agents you start some other way. Claude Code and Codex each ask once before they work in a folder they have not seen; if Start reports that the harness exited at once, run `claude` or `codex` in the main checkout, accept, and start again.
 

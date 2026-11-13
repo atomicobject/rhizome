@@ -10,15 +10,15 @@ last-verified: 2026-10-01
 
 Each starter combines an ontology, skills, and scaffolds for a different kind of repository. Choose the smallest combination that matches the work you need to make recoverable.
 
-The first `rzm init` asks which workflow to install. Each choice maps to a `--workflow` value you can pass to skip the question:
+Rhizome Desktop's setup sheet asks which workflow to install under **Workflow**, as does `rzm init` in a terminal. Each choice maps to a `--workflow` value for scripted setup:
 
-| Menu choice | Flag | Installs |
+| Workflow choice | Flag | Installs |
 | --- | --- | --- |
 | Agentic Engineering (default) | `--workflow agentic-engineering` | `agentic-engineering`, with `core` and `action-items` |
 | Agentic Engineering with domain modeling | `--workflow domain` | `complex-domain`, with everything above |
 | Search and agent guidance only | `--workflow none` | Rhizome guidance and skills without a workflow starter |
 
-`core` and `action-items` on their own are available through the flag only. To change the workflow later, rerun `rzm init`, press `s` for settings, and choose Workflow.
+`core` and `action-items` on their own are available through the flag only. To change the workflow later, open the repository's tab in Rhizome Desktop's Settings, choose another Workflow, and apply it. In a terminal, rerun `rzm init`, press `s` for settings, and choose Workflow.
 
 ## Quick decision table
 
@@ -57,6 +57,7 @@ Choose Agentic Engineering when the repository needs intended behavior, bounded 
 - the specification-delivery ontology and query recipes, retaining domain-accurate names such as `spec-driven.graphql`
 - create-only team extension docs under `docs/engineering/`
 - the `agentic-engineering` router plus manual adapters for specification, effort setup, planning, implementation, foundation review, transcript ingestion, and closure
+- the **Delivery** experience, which maps specs, stories, and efforts from shaping to settled work and copies the prompt that continues each one
 - managed guidance in `AGENTS.md` and enabled harness mirrors
 
 Use it for a repository harness, not as an instruction to force every activity through a specification. Team policy belongs in the generated `docs/engineering/` documents.
@@ -77,7 +78,7 @@ Use Agentic Engineering alone when the work does not need a durable source-to-re
 rzm init --add-addon compounding
 ```
 
-An optional add-on that no workflow turns on; add it with the flag above or in the `rzm init` settings menu's Add-ons section. It mines this repository's Claude Code and Codex sessions into reviewed proposals: context shards for agents, edits to documents, and findings for friction worth fixing. Installing it adds a guide at `docs/reference/guides/compounding.md`.
+An optional add-on that no workflow turns on. After setup, turn it on under **Add-ons** in the repository's tab in Rhizome Desktop's **Settings** and choose **Apply changes**. You can also run the command above, ask your agent to, or use the Add-ons section of the `rzm init` settings menu. First-time setup in the app doesn't offer it. It mines this repository's Claude Code and Codex sessions into reviewed proposals: context shards for agents, edits to documents, and findings for friction worth fixing. Installing it adds a guide at `docs/reference/guides/compounding.md`.
 
 ## Valid combinations
 
