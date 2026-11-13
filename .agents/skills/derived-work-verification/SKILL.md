@@ -17,7 +17,7 @@ The protocol's promise, as TLC rules:
 
 `QuietMeansIndexed` checks the model itself: it says the structural rows match the files whenever the indexer is quiet. `CoverSurvivorsContinue` is meant to break. Its counterexample shows that the survivor path is reachable.
 
-Sync commit: `a9c493c9c`. This is the commit at which the model was last confirmed to describe the covered code. `model/sync.txt` records each covered file's blob at that commit, so the record still works when a squash merge leaves the commit out of your history.
+Sync commit: `5370bde6c`. This is the commit at which the model was last confirmed to describe the covered code. `model/sync.txt` records each covered file's blob at that commit, so the record still works when a squash merge leaves the commit out of your history.
 
 ## When your change touches the covered code
 
