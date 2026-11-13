@@ -3,7 +3,7 @@ type: TechnicalSpec
 id: SPEC-0122
 summary: "Every public Rhizome release ships a macOS desktop app that updates itself, carries the matching rzm, offers that rzm on the system PATH while the app is installed, and offers to advance a repository's older pin."
 spec-status: active
-last-updated: 2026-11-05
+last-updated: 2026-11-12
 aliases:
   - SPEC-0122
 ---
@@ -118,9 +118,9 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 - CI publication and recovery MUST preserve exact approved source, canonical release topology checks, completed-release idempotence and the gateway deployment gate. A separately selected candidate mode MUST build the selected source without deployment or publication and with read-only repository access.
 - Asset names MUST be stable across versions so `https://github.com/atomicobject/rhizome/releases/latest/download/<asset>` always resolves to the newest stable release.
 - `latest.json` MUST follow Tauri's static updater format with a `darwin-aarch64` entry whose URL points at the same release's updater archive.
-- Normal local release preparation MUST need no Apple/updater credentials. Optional local signing loads explicitly scoped credentials from secure local storage. CI signing credentials MUST come from a protected GitHub release Environment; signing backups and notarization keys remain in restricted 1Password storage. CI MUST use an isolated temporary Keychain and protected temporary key files, with cleanup after success or failure. The updater key MUST reach only the protected signing adapter, desktop signing process and any explicitly requested signing probe. Only the desktop signing/notarization subprocess may receive the Apple credentials. The updater signing probe MUST receive only updater signing credentials; verifiers and dependency installation MUST receive no credentials. Keys MUST NOT appear in Git, logs, or artifacts, per [credential policy](../../engineering/secrets.md).
+- Normal local release preparation MUST need no Apple/updater credentials. Optional local signing loads explicitly scoped credentials from secure local storage. CI signing credentials MUST come from a protected GitHub release Environment; signing backups and notarization keys remain in restricted 1Password storage. CI MUST use an isolated temporary Keychain and protected temporary key files, with cleanup after success or failure. The updater key MUST reach only the protected Linux release coordinator's signing step and any explicitly requested signing probe; the Mac build job MUST NOT receive it ([SPEC-0134](windows-linux-desktop.md) owns the coordinator). Only the desktop signing/notarization subprocess may receive the Apple credentials. The updater signing probe MUST receive only updater signing credentials; verifiers and dependency installation MUST receive no credentials. Keys MUST NOT appear in Git, logs, or artifacts, per [credential policy](../../engineering/secrets.md).
 - Every executable in the bundle MUST pass the public-artifact content checks the CLI binaries pass (`scripts/teamkeys/release.py --check-artifact`).
-- A public release MUST refuse to publish the app until the committed updater public key is the release key rather than the placeholder. The candidate archive's signature MUST verify against that public key before staging. The signed candidate MUST verify that the signing key matches the committed public key before mutating release refs or uploading assets.
+- A public release MUST refuse to publish the app until the committed updater public key is the release key rather than the placeholder. Each updater archive's signature MUST verify against that public key before the coordinator stages the feed. The signed candidate MUST verify that the signing key matches the committed public key before mutating release refs or uploading assets.
 - Losing the updater private key strands installed apps. Its custody and backup MUST be documented in `docs/RELEASING.md`.
 
 ### Homebrew distribution

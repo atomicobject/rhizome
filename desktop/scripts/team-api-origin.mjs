@@ -36,8 +36,9 @@ export function releaseTeamAPIOrigin(
     .map((line) => line.trim())
     .filter((line) => line.startsWith(prefix))
     .map((line) => line.slice(prefix.length).trim());
-  if (values.length !== 3 || new Set(values).size !== 1) {
-    throw new Error("Release builds must define the same team API origin for all three platforms.");
+  // One definition per GoReleaser build: Darwin, Linux amd64, Linux arm64 and Windows.
+  if (values.length !== 4 || new Set(values).size !== 1) {
+    throw new Error("Release builds must define the same team API origin for all four builds.");
   }
   return desktopTeamAPIOrigin({}, () => values[0]);
 }

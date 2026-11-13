@@ -61,6 +61,8 @@ rzm init
 
 Atomic Object employees can import shared provider keys from a team 1Password Environment in Rhizome setup or Settings. The import uses the stable 1Password CLI and saves keys on your computer; ordinary use needs no 1Password prompt. Ask the team for the account and Environment ID. [Credential setup](docs/engineering/secrets.md#developer-setup)
 
+`rzm update` reruns the new executable's `init` whenever it changes the Rhizome version your configured repository runs. Review the usual init confirmation in a terminal. `--yes` applies without asking and keeps edited files. Commit the refreshed agent files with the pin change.
+
 A team API gateway provides per-person Google sign-in for the initial Atomic pilot:
 
 - `rzm auth login --server <gateway URL>` signs in once for every Rhizome process on your computer.

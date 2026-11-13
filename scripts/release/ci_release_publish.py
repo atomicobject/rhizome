@@ -243,9 +243,13 @@ def publish(root, source, assets, receipt, *, environment=None, runner=subproces
             api_factory=lambda commands: GitHub(commands.github_token), signature_verifier=verify_archive):
     root, assets, receipt = Path(root).resolve(), Path(assets).resolve(), Path(receipt).resolve()
     environment = os.environ if environment is None else environment
+    # A release-PR merge publishes from its own push to main. A manual dispatch for a
+    # merged release PR runs at a later main SHA; selection validated that PR, and the
+    # topology check below requires the source to be on main.
+    event = environment.get("GITHUB_EVENT_NAME")
     if (environment.get("GITHUB_ACTIONS") != "true" or environment.get("GITHUB_REPOSITORY") != REPOSITORY
-            or environment.get("GITHUB_REF") != "refs/heads/main" or environment.get("GITHUB_SHA") != source
-            or environment.get("GITHUB_EVENT_NAME") != "pull_request"):
+            or environment.get("GITHUB_REF") != "refs/heads/main"
+            or not ((event == "push" and environment.get("GITHUB_SHA") == source) or event == "workflow_dispatch")):
         raise PublishError("public publication runs only in the approved GitHub release workflow")
     intent = validator(root)
     version = intent["version"]

@@ -136,6 +136,8 @@ func (s *Service) Handle(ctx context.Context, req Request) Response {
 			response.Result, err = s.CLILinkRemoveExpected(ctx, req.ExpectedGeneration)
 		case "pin-advance":
 			response.Result, err = s.PinAdvance(ctx, req.Folder)
+		case "upgrade-plan":
+			response.Result, err = s.UpgradePlan(ctx, req.Folder)
 		default:
 			err = problem("invalid_request", "Unknown desktop bridge operation.")
 		}

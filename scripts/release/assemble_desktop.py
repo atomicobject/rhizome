@@ -114,12 +114,7 @@ def assemble(directories: list[Path], version: str, commit: str, canonical_hashe
         for target, (manifest, package) in sorted(candidates.items()):
             artifact = staging / manifest["artifact"]["file"]
             shutil.copyfile(package, artifact)
-            existing_signature = Path(str(package) + ".sig")
-            if target == "darwin-aarch64" and existing_signature.is_file():
-                signature = Path(str(artifact) + ".sig")
-                shutil.copyfile(existing_signature, signature)
-            else:
-                signature = sign_payload(artifact, version, root=root, env=env, runner=runner)
+            signature = sign_payload(artifact, version, root=root, env=env, runner=runner)
             verifier(root, artifact, signature, environ=clean_env, runner=runner, public_key=public_key)
             platforms[target] = {"signature": signature.read_text().strip(), "url": f"{base}/{artifact.name}"}
         feed = {"version": version, "notes": "", "pub_date": now().astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

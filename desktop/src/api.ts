@@ -417,6 +417,7 @@ type Results = {
   "cli-link-remove": LinkInfo;
   "desktop-integration-remove": LinkInfo;
   "pin-advance": unknown;
+  "upgrade-plan": SetupPlan;
   "dismiss-pin-offer": Library;
   trust: unknown;
   "setup-report": SetupPlan;
@@ -471,6 +472,7 @@ type Args = {
   "cli-link-remove": Record<string, never>;
   "desktop-integration-remove": Record<string, never>;
   "pin-advance": { id: string; worktree: string };
+  "upgrade-plan": { id: string; worktree: string };
   "dismiss-pin-offer": { id: string; version: string };
   trust: { id: string; worktree: string };
   /** Without choices, the report uses Rhizome's recommendations. */

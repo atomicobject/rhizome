@@ -112,6 +112,22 @@ class CollectReleaseEvidenceTest(unittest.TestCase):
         self.assertEqual(result.delivery_units[0].efforts, ())
         self.assertIn("active_effort", {item.code for item in result.diagnostics})
 
+    def test_binary_files_in_effort_folders_are_skipped(self):
+        write(self.repo, "src/feature.txt", "shipped\n")
+        (self.repo / "docs/efforts/evidence").mkdir(parents=True)
+        (self.repo / "docs/efforts/evidence/capture.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00")
+        write(
+            self.repo,
+            "docs/efforts/test.md",
+            effort("EFF-0001", "complete", "Delivered with a screenshot."),
+        )
+        git(self.repo, "add", ".")
+        git(self.repo, "commit", "-m", "feat: ship with evidence (#43)")
+
+        result = collect_release_evidence(self.repo, self.base)
+
+        self.assertEqual(result.delivery_units[0].efforts[0].effort_id, "EFF-0001")
+
     def test_rename_into_workspace_selector_is_new_evidence(self):
         folder = "docs/efforts/workspace"
         old = f"{folder}/draft.html"

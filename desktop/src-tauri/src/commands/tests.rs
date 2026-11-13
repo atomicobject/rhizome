@@ -1,6 +1,20 @@
 use super::*;
 
 #[test]
+fn upgrade_plan_decodes_only_the_worktree_target() {
+    let input = json!({"operation":"upgrade-plan", "id":"repo", "worktree":"/worktree"});
+    let Action::UpgradePlan { id, worktree } = serde_json::from_value(input.clone()).unwrap()
+    else {
+        panic!("unexpected action");
+    };
+    assert_eq!(id, "repo");
+    assert_eq!(worktree, "/worktree");
+    let mut extra = input;
+    extra["choices"] = json!({});
+    assert!(serde_json::from_value::<Action>(extra).is_err());
+}
+
+#[test]
 fn desktop_integration_removal_is_distinct_from_cli_unlink() {
     assert!(matches!(
         serde_json::from_value::<Action>(json!({"operation":"desktop-integration-remove"}))

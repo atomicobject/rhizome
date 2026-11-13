@@ -3,7 +3,7 @@ type: TechnicalSpec
 id: SPEC-0134
 summary: Complete Windows and Linux desktop installation, native identity, executable ownership and safe multi-platform updates.
 spec-status: active
-last-updated: 2026-11-07
+last-updated: 2026-11-12
 aliases:
   - SPEC-0134
 ---
@@ -57,7 +57,7 @@ AppImage installation MUST provide an explicit integration-removal action and di
 
 Windows MUST save session state before the native updater can exit. App updates MUST preserve independently owned runtimes and fail recoverably if a required replacement cannot be performed. Repository pin advancement on Windows MUST be tested with its runtime executing; failed replacement MUST retain runnable files and truthful metadata. An in-use repository executable may require stopping that runtime and retrying through the app or its global CLI; the error MUST explain the recovery, and the retry MUST succeed after the lock is released.
 
-Native jobs MUST produce immutable candidate artifacts/manifests without updater signing credentials or publication rights. One protected coordinator MUST verify source, version, target, sidecar inventory, canonical CLI bytes and signatures before creating the complete updater feed. The Windows CLI MUST be Authenticode-signed before canonical archiving and MUST NOT be re-signed during desktop bundling. Updater signatures MUST cover final bytes.
+Native jobs MUST produce immutable candidate artifacts/manifests without updater signing credentials or publication rights. This includes the Mac job: it keeps Developer ID signing, notarization and Gatekeeper verification of the app, DMG and updater archive, and hands the notarized `.app.tar.gz` over unsigned. One protected coordinator MUST verify source, version, target, sidecar inventory, canonical CLI bytes and signatures before creating the complete updater feed. The coordinator is a Linux job in the protected release environment that runs after every platform build and is the only holder of the updater signing key; it signs every updater package, Mac included, so the native builds run concurrently and the feed has a single signer. Each Linux architecture's CLI is built only in that architecture's job, so its archive and AppImage carry the same bytes. The Windows CLI MUST be Authenticode-signed before canonical archiving and MUST NOT be re-signed during desktop bundling. Updater signatures MUST cover final bytes.
 
 Every release eligible for the desktop latest endpoint MUST retain every supported self-update target. Candidate preparation MUST not deploy or publish. Public advertisement MUST follow full asset verification, anonymous URL checks where available, and a tested promotion/recovery sequence. Preserve the current canonical-source, gateway, authorization and resumable-publication contracts.
 

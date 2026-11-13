@@ -40,7 +40,7 @@ test("build origins reject paths, credentials and linker or shell syntax", () =>
 
 test("candidate defaults come from matching checked-in release origins", () => {
   const line = "  - -X github.com/atomicobject/rhizome/pkg/teamapi/session.DefaultOrigin=";
-  const config = Array(3).fill(`${line}https://Canonical.Example.test:443/`).join("\r\n");
+  const config = Array(4).fill(`${line}https://Canonical.Example.test:443/`).join("\r\n");
   assert.equal(
     releaseTeamAPIOrigin(() => config),
     "https://canonical.example.test",
@@ -51,13 +51,17 @@ test("candidate defaults come from matching checked-in release origins", () => {
   );
   for (const invalid of [
     "",
-    config.split("\r\n").slice(0, 2).join("\n"),
+    config.split("\r\n").slice(0, 3).join("\n"),
     config.replace("Canonical.Example.test", "other.example.test"),
-    Array(3).fill(`${line}http://127.0.0.1:8787`).join("\n"),
-    Array(3).fill(`${line}https://canonical.example.test/path`).join("\n"),
+    Array(4).fill(`${line}http://127.0.0.1:8787`).join("\n"),
+    Array(4).fill(`${line}https://canonical.example.test/path`).join("\n"),
   ]) {
     assert.throws(() => releaseTeamAPIOrigin(() => invalid));
   }
+});
+
+test("the checked-in release configuration yields one root HTTPS origin", () => {
+  assert.match(releaseTeamAPIOrigin(), /^https:\/\/[^/]+$/);
 });
 
 test("candidate manual overrides do not read release configuration or protected settings", () => {

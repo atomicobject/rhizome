@@ -78,8 +78,8 @@ describe("repository Rhizome version", () => {
       "primary",
     );
     fireEvent.click(action);
-    await waitFor(() => expect(onReload).toHaveBeenCalledOnce());
-    expect(p.onAdvance).toHaveBeenCalledOnce();
+    await waitFor(() => expect(p.onAdvance).toHaveBeenCalledOnce());
+    expect(onReload).not.toHaveBeenCalled();
   });
 
   it("reflects app and custom choices, restores the pin, and opens the picker", async () => {

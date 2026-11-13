@@ -170,11 +170,11 @@ export function RepositoryRhizome({
         )}
         {offer && !unsupported && (
           <div className="actions start">
-            <button disabled={busy || disabled} onClick={() => void change(onAdvance)}>
+            <button disabled={busy || disabled} onClick={() => void onAdvance()}>
               Update {name} to {offer.available}
             </button>
             <span className="hint">
-              Commit .rhizome/config.yml so teammates get the same version.
+              Review the version and Rhizome file changes before upgrading.
             </span>
           </div>
         )}
@@ -200,7 +200,7 @@ export function RepositoryRhizome({
               <button
                 className="primary"
                 disabled={busy || disabled}
-                onClick={() => void change(onAdvance)}
+                onClick={() => void onAdvance()}
               >
                 Update {name} to {offer.available}
               </button>
@@ -220,7 +220,7 @@ export function RepositoryRhizome({
           {(offer || canUseApp) && (
             <p className="hint">
               {offer
-                ? "Updating changes .rhizome/config.yml. Commit it so teammates get the same version."
+                ? "Review the version and Rhizome file changes before upgrading."
                 : managed
                   ? "Only this Mac changes. The repository stays pinned for everyone else. You can switch back under Rhizome version."
                   : "Only this Mac changes. You can switch back under Rhizome version."}

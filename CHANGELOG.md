@@ -2,89 +2,20 @@
 
 ## [Unreleased]
 
-- Agentic Engineering Delivery is quieter and works on real repositories. Copy is no longer blocked when selected efforts lack recorded frozen scope; the prompt notes that scope once per effort instead. Selecting efforts no longer rereads every selection on each click. Lists are one line per record with a select-all checkbox and short sort control, stage pages use a tab strip instead of repeated stat cards, effort briefs keep the prompt and checklist beside the narrative, and caveat sentences and repeated labels are gone.
-- Sidebar panels resize by dragging anywhere along their divider, and custom record headers show one divider beneath their title and facts.
-- Custom views can render Markdown: `MarkdownDocument` and `markdownLinks` from `@rhizome/kit/markdown` render a whole document with GitHub-flavored Markdown, highlighted code, and Mermaid, resolve note links through the view, and highlight the block holding a chosen link. The AO KB Knowledge site renders record bodies and claims with it, so fenced code, lists, tables, emphasis, and reference links read as written, and "Open in source" highlights exactly the block holding the first link to the assertion.
-- The AO KB add-on no longer makes KB notes read-only. Assertions, sources, concepts, artifacts, maps of content, submissions, and curation documents are edited through Rhizome's editors like any other note; `rzm ao-kb refresh-bindings` lifts the add-on's former read-only declaration from an existing installation while keeping entries other tools declared, and `rzm ao-kb check` reports one still in place. YAML and JSON model records stay read-only.
-- Whole-file Markdown saves clear the transferred draft so a successful save leaves edit mode, while preserving newer typing.
-- Stopping a just-started runtime waits for its detached child to exit before repository cleanup.
-- Installed starters now complete eligible setup and indexing automatically through the runtime. Unfinished setup stays visible across navigation and reopening, with product selection, concrete conflict and dependency reasons, Settings recovery, and Retry. CLI installations use the same readiness owner; existing schemas and AO knowledge remain intact.
-- Refine Agentic Engineering Delivery lists, source notices, sorting, and contextual navigation; load Markdown tooling only in views that use it.
-- Agentic Engineering now includes a Delivery experience: a workflow map, selectable shaping and implementation lists with composed agent prompts, full inline spec criteria, source-grounded effort resume briefs, and a contextual Find and Recent panel. Frozen scope stays separate from governing metadata and mentions; missing evidence never becomes approval or completion.
-- Workspace source-link reads support offset pagination and an occurrence count, so callers can establish complete authored scope without losing repeated or unresolved links.
-- Batched node field errors identify their requested ref when known, so scoped callers can retain healthy sibling evidence while reporting partial reads.
-- HTML metadata saves preserve the provider's format and saved title in their returned workspaces.
+- Upgrading a repository's Rhizome now updates the agent files `rzm init` generates. In Rhizome Desktop, the "Update to X" offer opens a review of the pin and file changes, then installs the new version, refreshes skills and managed guidance with it, and restarts the runtime, with Retry for a failed step and a copyable commit command. When a worktree's generated files are behind the Rhizome it runs, the toolbar offers "Update Rhizome files". `rzm update` runs the new executable's `rzm init` whenever it changes the Rhizome the current repository runs.
 
-- Rhizome Desktop's Settings has a tab for the repository the window shows, opened from the repository menu's Repository Settings…. It changes a set-up repository's workflow, add-ons, agents, and search provider, lists the files each change writes before anything is written, and applies them in one step. On a set-up folder, `rzm init --check --json` and `rzm init --json` now report and apply those settings instead of failing.
-- Optional `ao-kb` add-on reads an existing AO KB repository side by side with AO's own skills. It adds a Knowledge workspace (Attention, Concepts, Assertions, Knowledge trace) with honest evidence states, record pages for assertions, sources, and the selected product's model, and `check` and `refresh-bindings` actions that report install, binding, and index readiness separately.
-- The AO KB add-on's Knowledge workspace is now a Knowledge site: a KB overview with a topic map, sources by date, and a kind-by-concept matrix; record pages for concepts, sources, artifacts, and assertions; and a Review page for gaps, submissions, and curation documents. Legacy single-product KBs at AO schemaVersion 4 to 7 set up knowledge-only, with the model stage reported as not applicable.
-- Experiences: a folder of custom views with an `experience.yml` runs as one site, in one long-lived frame per window that keeps each tab's page, with an optional panel at the bottom of the Notes sidebar. Notes that no experience presents get the built-in Folder panel, which starts minimised.
-- Custom views come first in the view switcher, and views that do not fit move into More.
-- Workbench tabs keep their view's params (filters, selected items) across tab switches, closes, and reloads.
-- Faster reads: relation lists stay on their index at any size, capability-only `workspace` selections no longer build whole workspaces, and symlink resolution is shared within a request. Public GraphQL and view reads are cached per index generation, so pages and panels that run the same read share one execution.
-- Kit assets are served from a build-stamped path with immutable caching, and the kit ships a precompiled stylesheet, so experiences that set `tailwind: false` load no Tailwind compiler.
-- Contract changes: the status API's `generation` is now an opaque string (it was an RFC3339 time); GraphQL responses carry `extensions.generation` and, for capped reads, `extensions.truncated`; GraphQL and view filters on unknown fields or computed relations are errors instead of matching nothing; and `frame` is a reserved view param name.
-- YAML and JSON files named by an include become read-only typed records: keyed, mapping-key, composite, or positional identity, nested children, references, GraphQL queries, search with or without embeddings, and a native record reader. Bindings are declared with `@source(shape: RECORD, ...)`, `@contains`, and `@references`.
-- `.rhizome/source-ownership.yml` marks paths as owned by another tool. Rhizome refuses every write to them through the CLI, HTTP, GraphQL, MCP, and Obsidian URIs and shows the owner's reason in place of edit controls.
-- `@field(path: "a.b")` and `@link(path: ...)` read nested frontmatter values.
-- Rhizome Desktop for Linux: AppImages for Ubuntu 24.04 GNOME on x64 and Arm64, with Secret Service sign-in, app-owned CLI installation and signed in-app updates. A Windows 11 x64 build is checked in CI but is not published until Windows code signing is configured.
-- Sandboxed agents can reach the repository's Rhizome runtime. `rzm init` allows loopback network access while commands stay sandboxed: `sandbox.network.allowLocalBinding` in `.claude/settings.json` (Claude Code on macOS), and a `rhizome` permission profile in `.codex/config.toml` that admits 127.0.0.1 and no other host (trusted Codex projects). When access is still denied, the `runtime_access_denied` message says exactly what the local connection does.
+## [v0.52.1] - 2026-11-12
 
-### Fixed
-
-- `rzm` and the team API gateway build with Go 1.27.4, which fixes the net/http server crash in Go advisory GO-2026-6859.
-- Creating, removing, or renaming ontology and module folders refreshes the live ontology and capabilities even when individual schema-file events are absent.
-- Repository Settings offers a pin update or the app's Rhizome when an old executable cannot report settings, and reloads after the fix. Its Rhizome version section controls the executable for this worktree on this Mac, keeps the shared pin unchanged, and preserves checkout trust. Explicit worktree choices now take precedence over managed pins in the desktop app.
-
-- Rhizome Desktop no longer dead-ends when a folder's selected Rhizome can't serve it:
-  - A worktree pinned to a release that is no longer published offers to update the pin, or, when the app is not newer, to check for app updates or choose an executable for the worktree.
-  - The app offers a pin update only to a Rhizome that can read the worktree's index, and says when it could not check.
-  - An index written by a newer Rhizome shows "Index unavailable" with the reason instead of "Preparing index…" forever.
-  - Externally managed folders open with the app's Rhizome instead of demanding an executable, and the toolbar names the `rzm` that is running.
-  - A pinned Rhizome source checkout opens on the Rhizome Dev app's `rzm` without asking for trust; the command line still asks, because `init` and `update` act on the pin.
-- Writes to the vault's own index no longer overflow the file watcher and force a full resync during large index runs.
-- Embedded relation counts, nested `frontmatter` JSON, and lists of maps in path fields now report what the note holds.
-- A Markdown list after a top-level heading starts a new list instead of failing projection.
-- Desktop Settings on Linux skips non-executable files when finding the command-line tool on PATH.
-- Repository updates on Windows protect installed desktop apps reached through short filename aliases.
-- Fixes for state that could go wrong after an interruption or overlapping updates:
-  - Renaming or removing a tag no longer rewrites text inside `~~~` code blocks, or inside fences that contain a shorter fence.
-  - Escape in a property locator field undoes the edit instead of saving it.
-  - Marking a running scheduled task Done keeps it done.
-  - When a turn ends, approvals nobody answered are recorded as cancelled, so their buttons no longer stay active.
-  - A cancelled or timed-out code-intel recompute no longer skips call-edge catch-up or drops pending scope work.
-  - One cancelled embedding setup no longer turns off semantic sync until restart.
-  - Cancelled vault refreshes no longer drop notes that were recreated meanwhile.
-  - Subscribers are told when file watching fails to start.
-  - Deleting an edit session during a commit no longer stalls other sessions.
-  - The Changes view, collection filters, and the index banner ignore replies that arrive after a newer update.
-  - An embedding provider failure, or failing semantic-connection lookups, no longer hang indexing or search.
-  - Edits made while Discard is running are refused instead of being silently wiped, and text typed while a new note's first paragraph is saving is kept.
-  - A late send reply no longer disables the chat composer after the turn has finished. Concurrent interrupts no longer hang or stop the next turn.
-  - Read-only Source panes show content that changed outside the editor.
-  - Closing a desktop window cancels its pending 1Password import, and a slow `rzm desktop` open no longer replaces a worktree chosen afterwards.
-  - A slow `claude` or `codex` version check no longer makes other requests wait past their deadlines, and cleaning up a stopped runtime no longer removes a newer runtime's registration.
-- Rhizome Dev uses its own `rzm`. On Linux it no longer picks up another installed CLI, and a Rhizome source worktree without a `make build` runs the Dev app's `rzm` from the app or a terminal instead of failing or downloading a pinned release. `rzm init` no longer pins a Rhizome source checkout, and this repository drops `rhizome.devBinaryDir`.
-- Keep the Linux desktop toolbar visible during resize, consolidate its menu into the header, adapt section navigation and search for narrow windows, and allow 100px windows with horizontal scrolling.
-- Enable Atomic Object sign-in on Linux using the native Secret Service keyring through libsecret, with no plaintext session fallback.
-- Fixes from an audit of invariants the code relied on but did not enforce:
-  - Repository and module custom views run only in a checkout trusted with `rzm trust`; elsewhere they show a page naming `rzm trust`. Bundled views still run.
-  - Actions use the same trust rule as tasks and Desktop: the folder `rzm trust` recorded, or a linked worktree of it. A folder inside a trusted checkout, or one with a forged `.git` file, no longer inherits trust, and actions in a vault kept in a repository subfolder now run once that vault is trusted.
-  - `rzm serve --host` no longer lets a network peer reach the local API by sending a loopback `Host` header.
-  - Property and tag edits keep the note's file permissions, rewrite only the frontmatter entries they change, and refuse a note that changed on disk while it was being edited instead of overwriting it.
-  - `rzm init` stops with an error when a managed block in AGENTS.md or CLAUDE.md has no END marker, instead of deleting the rest of the file. A marker counts only when it is alone on its line.
-  - Saving settings no longer loses other settings: every write to `~/.config/rhizome/config.yml` takes a file lock, rereads the file, and keeps keys this version does not know, along with comments and order. Saving repository config keeps edits made after it was loaded.
-  - The web runtime no longer crashes when a note is saved while links are being resolved.
-  - Search hits show the text of the section they matched. A line that starts with a tag, such as `#todo`, is no longer treated as a heading; the next index rebuilds affected sections.
-  - An index write no longer commits ahead of pending writes it depends on, whether it flushes early or on its idle timer, so code chunks are not orphaned from their anchors and embeddings are not skipped for missing chunks. An automatic index reset no longer attaches code embeddings to the wrong anchors.
-  - Embedding vectors from OpenAI-compatible endpoints are matched to inputs by their `index`, and a rerank response that repeats a document is rejected.
-  - When two notes give an anchor the same label for different symbols, the note with the smaller path keeps it in any indexing order, and indexing logs the conflict and retries the losing note on the next index. Named Python source roots are stripped from module names, so their anchors match.
-  - `rzm init` writes a CLAUDE.md that links to AGENTS.md once, so an AGENTS.md edit it keeps is no longer overwritten through the link.
-  - Orphaned block-ID removal and identifier block-ID migrations count references from code comments, so a block cited only from code is neither removed nor renamed without confirmation.
-  - Connection hits for embedded ontology nodes keep each node's identity and show that node's own text; search previews and CLI output no longer show an unrelated heading section for them.
-  - A copied repository no longer drives the original's runtime: clients accept a runtime only when it serves their vault, and a lock copied with the repository can be taken over so the copy starts its own runtime.
-  - Web chat agents no longer inherit Rhizome's repository-delegation bypass, so a bare `rzm` they run uses the repository's pinned binary.
-  - Live chat events reach the browser in order, so an approval card or assistant text is no longer dropped when events race.
+- Experiences: a folder of custom views with an `experience.yml` runs as one site, in one long-lived frame per window that keeps each tab's page, with an optional Notes sidebar panel. Custom views can render Markdown with `@rhizome/kit/markdown`, keep their params across tab switches and reloads, and come first in the view switcher.
+- Agentic Engineering repositories get a Delivery experience: a Shape, Build, and Settle workflow map, selectable story and effort lists that compose one agent prompt, inline spec criteria, and effort resume briefs.
+- The optional `ao-kb` add-on reads an AO KB repository side by side with AO's skills, with a Knowledge site of KB overview, record pages, and Review. KB notes are editable; YAML and JSON model records stay read-only.
+- YAML and JSON files named by an include become read-only typed records with GraphQL and search. `.rhizome/source-ownership.yml` marks paths owned by another tool and refuses writes to them. `@field(path: ...)` and `@link(path: ...)` read nested frontmatter.
+- Rhizome Desktop for Linux: AppImages for Ubuntu 24.04 GNOME on x64 and Arm64, with Secret Service sign-in and signed in-app updates.
+- Desktop Settings has a Repository tab that changes a set-up repository's workflow, add-ons, agents, and search provider after listing the files it will write. Installed starters finish setup and indexing automatically, and folders whose selected Rhizome can't serve them offer a fix instead of a dead end.
+- Sandboxed Claude Code and Codex agents can reach the repository's Rhizome runtime through loopback-only network access that `rzm init` configures.
+- Fixes from an invariant audit: repository custom views and actions require `rzm trust`, `rzm serve --host` rejects spoofed loopback hosts, note and settings writes no longer lose concurrent changes, index writes keep code chunks and embeddings attached to their anchors, and fourteen cancellation and overlap bugs are fixed.
+- `rzm` and the team API gateway build with Go 1.27.4, fixing GO-2026-6859.
+- Contract changes: the status API's `generation` is an opaque string; GraphQL responses carry `extensions.generation` and `extensions.truncated`; filters on unknown fields or computed relations are errors; `frame` is a reserved view param name.
 
 ## [v0.51.0] - 2026-11-06
 

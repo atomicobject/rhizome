@@ -59,11 +59,11 @@ Once the maintainer approves publication and merges the release PR, the merge's 
 
 1. Linux validates the release intent and accepted source without signing secrets.
 2. Linux builds the shared web and desktop frontend once and prepares the Mac credential scanner.
-3. Linux builds the Linux and Windows CLI binaries. One Apple Silicon runner builds the native Darwin CLI binaries, Tauri app and DMG, signs and notarizes them, verifies distribution copies and removes temporary signing credentials.
-4. Linux assembles and verifies the complete asset bundle, checksums and source/version manifest.
+3. Three platform builds run concurrently. Linux x64 builds the Linux x64 and Windows CLIs and the x64 AppImage. Linux Arm64 builds the Arm64 CLI and AppImage. One Apple Silicon runner builds the native Darwin CLI binaries, Tauri app, DMG and unsigned updater archive, Developer ID signs and notarizes them, verifies distribution copies and removes temporary signing credentials.
+4. Once every build finishes, the protected Linux coordinator verifies each platform's candidate, signs every updater package, writes `latest.json`, then assembles and verifies the complete asset bundle, checksums and source/version manifest.
 5. The protected Linux publisher atomically advances `release` and the version tag without force, deploys and verifies the exact gateway source, then publishes the committed notes, assets and Homebrew formula and desktop cask update.
 
-The Mac job performs native compilation, bundling, signing and verification. Frontend compilation, cross-platform CLI builds, final archive assembly and publication run on Linux. Pushing an ordinary feature branch, merging an ordinary PR or pushing a tag does not start this public release flow.
+The Mac job performs native compilation, bundling, Apple signing and verification. Frontend compilation, cross-platform CLI builds, updater signing, final archive assembly and publication run on Linux. Pushing an ordinary feature branch, merging an ordinary PR or pushing a tag does not start this public release flow.
 
 ## Gateway deployment before publication
 
@@ -79,7 +79,7 @@ The gate records the pinned source, fingerprint, request ID and exact workflow i
 
 Every public release includes the macOS desktop app from the same accepted source and version ([SPEC-0122](specs/technical/desktop-distribution-and-updates.md)). GoReleaser builds the native CLI binaries; its arm64 Darwin hook, `build_desktop.py`, wraps that exact `rzm` in the Tauri app using `desktop/src-tauri/tauri.release.conf.json`.
 
-CI restores the source-bound frontend produced on Linux and avoids compiling it again on the Mac. Native compilation receives no signing credentials. Bundling receives only the required Apple and updater credentials. Verification checks Developer ID signatures, hardened runtime, stapled notarization tickets and Gatekeeper approval for the app, mounted DMG and updater archive. The final bundle includes:
+CI restores the source-bound frontend produced on Linux and avoids compiling it again on the Mac. Native compilation receives no signing credentials. Bundling receives only the required Apple credentials; the Mac job never receives the updater key and hands its notarized updater archive to the Linux coordinator unsigned. Verification checks Developer ID signatures, hardened runtime, stapled notarization tickets and Gatekeeper approval for the app, mounted DMG and updater archive. The final bundle includes:
 
 - `Rhizome-macos-arm64.dmg`;
 - `Rhizome-macos-arm64.app.tar.gz` and its `.sig`;
@@ -134,7 +134,7 @@ Homebrew owns the cask's `rzm` link. The app's separate Settings > Install Comma
 
 ### Updater signing key
 
-Installed apps verify updates against the public key in `desktop/src-tauri/tauri.conf.json`. The private key and password belong in the restricted backup and protected CI Environment. The desktop hook rejects a placeholder public key and verifies the produced archive before staging it. Cargo and the pinned verifier receive no credentials; only the signing process receives the updater key.
+Installed apps verify updates against the public key in `desktop/src-tauri/tauri.conf.json`. The private key and password belong in the restricted backup and protected CI Environment. The desktop hook rejects a placeholder public key. Only the signing step of the protected Linux `assemble` job receives the updater key; it signs the Mac and both Linux packages and verifies each signature before writing the feed. Cargo, npm and the pinned verifier receive no credentials.
 
 The verifier under `scripts/release/updater-signature` builds offline with its locked dependencies into `.tmp/updater-signature`. Normal desktop dependency fetching supplies its Cargo cache.
 
@@ -192,7 +192,7 @@ Public builds reject compiler overlays, disable persisted Go settings, remove st
 
 GitHub Actions owns public builds and publication after release-PR approval. A version-tag push is not a release trigger. Local scripts cannot race CI by publishing the same public release. Manual dispatch is for candidate verification, or with `release_pr=<n>` and `candidate_only=false` for a merged release PR whose merge started no release run, such as the first push-triggered release. That dispatch refuses a version that is already tagged. Publication recovery retries failed jobs in the original approved run with its original verified artifact, as described above.
 
-The protected Mac job has read-only repository access. Complete bundle assembly also runs with read-only permissions. Only the final Linux publisher has repository write and gateway-dispatch permissions, and candidate mode skips that job. The Homebrew token reaches only the Homebrew operation.
+The protected Mac job has read-only repository access. The protected assembly job, which holds the updater key for one step, also runs with read-only permissions. Only the final Linux publisher has repository write and gateway-dispatch permissions, and candidate mode skips that job. The Homebrew token reaches only the Homebrew operation.
 
 ## Public migration
 
