@@ -34,11 +34,11 @@ function harness(nodes = [], source = new Map(), alter = () => {}, inventory = {
       if (query.includes('DeliveryInventory')) {
         const root = query.includes('specLike(') ? 'specLike' : 'effort';
         const all = inventory[root] ?? [];
-        const page = all.slice(variables.offset, variables.offset + 100);
+        const page = all.slice(variables.offset, variables.offset + Number(query.match(/first: (\d+)/)[1]));
         const data = { [root]: page };
         facts.set(data, { generation: '7', roots: { [root]: { status: variables.offset + page.length >= all.length ? 'complete' : 'capped',
           hasMore: variables.offset + page.length < all.length, nextOffset: variables.offset + page.length, offset: variables.offset, returnedCount: page.length } } });
-        alter(data, variables, facts);
+        alter(data, variables, facts, query);
         return data;
       }
       const r = JSON.parse(variables.ref);
@@ -175,6 +175,48 @@ test('story and criterion collection order and full detail survive typed hydrati
   const duplicate = await h.read.record(own.ref);
   assert.equal(duplicate.record.storiesCoverage.complete, false);
   assert.deepEqual(duplicate.record.stories.map(story => story.ref.fragment), ['b', 'a']);
+});
+
+test('spec inventory pages read their trees together, read a failed tree page flat, and disclose mixed generations', async () => {
+  const keyed = (...args) => { const r = ref(...args); return { ...r, ref: JSON.stringify(r) }; };
+  const nodes = [];
+  const specs = Array.from({ length: 141 }, (_, i) => {
+    const path = `spec-${i}.md`;
+    const wrapper = node(keyed(path, 'UserStoriesSection', 'wrapper'));
+    const story = node(keyed(path, 'UserStory', 'a'), [field('status', [], ['ready'])]);
+    wrapper.workspace.collections = [{ name: 'stories', items: [{ ref: story.ref }] }];
+    nodes.push(wrapper, story);
+    return { spec: node(keyed(path, 'ExperienceSpec'), [field('specStatus', [], ['active']), field('userStories', [wrapper.ref])]), wrapper, story };
+  });
+  const load = async (alter = () => {}) => {
+    const inventory = { specLike: specs.map(s => s.spec), effort: [] };
+    const h = harness(nodes, new Map(), (data, variables, facts, query) => {
+      if (query?.includes('deliveryTreeExperienceSpec')) data.specLike = data.specLike.map(spec => {
+        const { wrapper, story } = specs.find(s => s.spec === spec);
+        return { ...spec, deliveryTreeExperienceSpec: { ...wrapper, stories: [story] } };
+      });
+      alter(data, variables, facts, query);
+    }, inventory);
+    const result = await h.read.portfolio();
+    return { result, readNodes: h.calls.filter(call => call.selection).length, pages: h.calls.filter(call => call.query?.includes('specLike(')) };
+  };
+  const whole = await load();
+  assert.equal(whole.result.portfolio.specs.length, 141);
+  assert.ok(whole.result.portfolio.specs.every(spec => spec.stories.length === 1));
+  assert.equal(whole.result.coverage.complete, true, whole.result.coverage.errors.join('\n'));
+  assert.equal(whole.readNodes, 0);
+  assert.ok(whole.pages.every(call => call.query.includes('first: 35')));
+  assert.deepEqual(new Set(whole.pages.map(call => call.variables.offset)).size, 8);
+  const faulted = await load((data, variables, facts, query) => {
+    if (variables.offset === 35 && query.includes('deliveryTree')) throw new Error('Nested field failed');
+  });
+  assert.equal(faulted.result.coverage.complete, true, faulted.result.coverage.errors.join('\n'));
+  assert.ok(faulted.readNodes > 0);
+  assert.deepEqual(faulted.result.portfolio, whole.result.portfolio);
+  const mixed = await load((data, variables, facts) => {
+    if (variables.offset === 70) facts.set(data, { ...facts.get(data), generation: '8' });
+  });
+  assert.equal(mixed.result.coverage.complete, false);
 });
 
 test('a spec record reads its story tree with the spec and reads again flat when the tree read errors', async () => {

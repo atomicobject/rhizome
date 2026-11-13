@@ -231,3 +231,51 @@ func currentProjectionFor(t *testing.T, descriptor noteformat.Descriptor, facts 
 func exactRange(start, end int) noteformat.OptionalSourceRange {
 	return noteformat.OptionalSourceRange{Present: true, Range: noteformat.SourceRange{StartByte: start, EndByte: end}}
 }
+
+func TestProjectCachedReusesOnlyUnchangedSourcesAndDetachesEachResult(t *testing.T) {
+	markdown := testDescriptor("markdown", []string{".md"}, noteformat.OwnershipDefault)
+	registry, err := noteformat.NewRegistry(testProvider{descriptor: markdown})
+	if err != nil {
+		t.Fatalf("NewRegistry: %v", err)
+	}
+	projector := &stubProjector{descriptor: markdown, projection: currentProjection(t, noteformat.ProjectionFacts{
+		Title: &noteformat.TitleFact{Value: "Original title", Range: exactRange(0, 8)},
+	})}
+	runtime, err := noteformat.NewRuntime(registry, projector)
+	if err != nil {
+		t.Fatalf("NewRuntime: %v", err)
+	}
+	source := func(content string) noteformat.AuthoredSource {
+		s, err := noteformat.NewAuthoredSource(paths.NormalizeNotePath("notes/test.md"), markdown, []byte(content), 42)
+		if err != nil {
+			t.Fatalf("NewAuthoredSource: %v", err)
+		}
+		return s
+	}
+
+	first, err := runtime.ProjectCached(source("# title\n"))
+	if err != nil {
+		t.Fatalf("ProjectCached: %v", err)
+	}
+	first.Facts.Title.Value = "changed by caller"
+	hit, err := runtime.ProjectCached(source("# title\n"))
+	if err != nil {
+		t.Fatalf("ProjectCached hit: %v", err)
+	}
+	if projector.calls != 1 {
+		t.Fatalf("unchanged source projected %d times, want 1", projector.calls)
+	}
+	if hit.Facts.Title.Value != "Original title" {
+		t.Fatalf("cache hit returned a caller's mutation: %q", hit.Facts.Title.Value)
+	}
+
+	if _, err := runtime.ProjectCached(source("# other\n")); err != nil {
+		t.Fatalf("ProjectCached changed: %v", err)
+	}
+	if projector.calls != 2 {
+		t.Fatalf("changed bytes with the same path and mtime projected %d times in total, want 2", projector.calls)
+	}
+	if _, err := runtime.Project(source("# title\n")); err != nil || projector.calls != 3 {
+		t.Fatalf("Project must always run the projector: calls=%d err=%v", projector.calls, err)
+	}
+}
