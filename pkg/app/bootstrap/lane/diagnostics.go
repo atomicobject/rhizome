@@ -104,11 +104,10 @@ func (h *jobHandle) setPreflightReason(err error) {
 	h.setReason(reason)
 }
 
-func (h *jobHandle) publishDiagnostics(err error) {
+func (h *jobHandle) publishDiagnostics(err error, now time.Time) {
 	if h.finishTotal == nil {
 		return // Fake lane handles have no production collector.
 	}
-	now := time.Now()
 	queueWait := h.queueWait
 	if h.pickedAt.IsZero() {
 		queueWait = now.Sub(h.started)

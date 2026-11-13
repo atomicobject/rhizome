@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -32,33 +34,137 @@ func TestRoutineJobMatrix(t *testing.T) {
 	}
 }
 
-func TestDiagnosticLaneRoutineReportSuppression(t *testing.T) {
-	cases := []struct {
+type jobBody = func(context.Context, *indexlock.Lease, Reporter) error
+
+func failedJob(context.Context, *indexlock.Lease, Reporter) error { return errors.New("job failed") }
+
+func diagnosticContext(t *testing.T) (context.Context, string) {
+	t.Helper()
+	root := t.TempDir()
+	recorder, err := diagnostics.Open(root, diagnostics.Options{Stderr: io.Discard})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, recorder.Close()) })
+	return diagnostics.WithRecorder(context.Background(), recorder), root
+}
+
+func finishJob(t *testing.T, ctx context.Context, id string, kind Kind, run jobBody, elapsed time.Duration) *jobHandle {
+	t.Helper()
+	h := newJobHandle(id, kind, run, DefaultHistory)
+	h.admitDiagnostics(ctx, "test-trigger")
+	var err error
+	if run != nil {
+		err = run(h.diagnosticCtx, nil, h)
+	}
+	h.finishWithClock(err, func() time.Time { return h.started.Add(elapsed) })
+	return h
+}
+
+func TestRoutineReportDurationIncludesSummary(t *testing.T) {
+	ctx, root := diagnosticContext(t)
+	h := newJobHandle("job-summary", KindWatcherBatch, nil, DefaultHistory)
+	h.admitDiagnostics(ctx, "test-trigger")
+	now := h.started
+	h.summaryFn = func(context.Context) json.RawMessage {
+		now = now.Add(2 * routineReportLimit)
+		return nil
+	}
+	h.finishWithClock(nil, func() time.Time { return now })
+	finished := finishedEvent(t, root, h)
+	require.EqualValues(t, (2 * routineReportLimit).Milliseconds(), finished.Attributes["duration_ms"])
+	require.Equal(t, true, finished.Attributes["report"])
+	require.Len(t, diagnosticReports(t, root), 1)
+}
+
+func TestRoutineReportSuppression(t *testing.T) {
+	under, at, slow := routineReportLimit-time.Millisecond, routineReportLimit, 3*routineReportLimit
+	type testCase struct {
 		name    string
 		kind    Kind
-		run     func(context.Context, *indexlock.Lease, Reporter) error
+		elapsed time.Duration
+		run     jobBody
+		status  string
 		publish bool
+	}
+	var cases []testCase
+	for _, kind := range []Kind{KindWatcherBatch, KindEmbedCycle, KindGraphCycle, KindValidationRefresh} {
+		cases = append(cases,
+			testCase{name: string(kind) + " under limit", kind: kind, elapsed: under},
+			testCase{name: string(kind) + " at limit", kind: kind, elapsed: at, publish: true},
+			testCase{name: string(kind) + " slow", kind: kind, elapsed: slow, publish: true},
+		)
+	}
+	cases = append(cases,
+		testCase{name: "explicit index", kind: KindExplicitIndex, elapsed: under, publish: true},
+		testCase{name: "boot catch-up", kind: KindBootCatchUp, elapsed: under, publish: true},
+		testCase{name: "failed", kind: KindWatcherBatch, elapsed: under, publish: true, status: "error", run: failedJob},
+		testCase{name: "skipped", kind: KindEmbedCycle, elapsed: under, publish: true, status: "skipped", run: func(context.Context, *indexlock.Lease, Reporter) error {
+			return ErrSkipped
+		}},
+		testCase{name: "degraded fallback", kind: KindWatcherBatch, elapsed: under, publish: true, run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
+			indexingperf.AddCount(ctx, indexingperf.CalledgeSourceFallbackCount, 1)
+			return nil
+		}},
+		testCase{name: "untyped note projection", kind: KindWatcherBatch, elapsed: under, run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
+			indexingperf.AddCount(ctx, indexingperf.OntologyNodesFallbackProjectionsPlanned, 1)
+			return nil
+		}},
+		testCase{name: "truncated metrics", kind: KindGraphCycle, elapsed: under, publish: true, run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
+			overLongPhase := indexingperf.WithPhase(ctx, strings.Repeat("p", 121))
+			indexingperf.AddCount(overLongPhase, indexingperf.CalledgeCacheBuildFqnCandidateCount, 1)
+			return nil
+		}},
+	)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, root := diagnosticContext(t)
+			handle := finishJob(t, ctx, "job-1", tc.kind, tc.run, tc.elapsed)
+			status := tc.status
+			if status == "" {
+				status = "success"
+			}
+			finished := finishedEvent(t, root, handle)
+			require.Equal(t, string(tc.kind), finished.Attributes["job_kind"])
+			require.Equal(t, "test-trigger", finished.Attributes["trigger"])
+			require.Equal(t, status, finished.Attributes["status"])
+			require.EqualValues(t, tc.elapsed.Milliseconds(), finished.Attributes["duration_ms"])
+			for _, key := range []string{"queue_wait_ms", "lock_wait_ms", "execution_ms"} {
+				require.Contains(t, finished.Attributes, key)
+			}
+			require.Equal(t, tc.publish, finished.Attributes["report"], "attributes: %v", finished.Attributes)
+			reports := diagnosticReports(t, root)
+			if !tc.publish {
+				require.Empty(t, reports)
+				var snapshot indexingperf.Snapshot
+				require.NoError(t, json.Unmarshal(finished.Metrics, &snapshot), "the event carries the job's metrics snapshot")
+				require.NotEmpty(t, snapshot.Spans)
+				return
+			}
+			require.Len(t, reports, 1)
+			require.Equal(t, handle.ID(), reports[0].Attributes["job_id"])
+			require.Equal(t, status, reports[0].Status)
+			require.True(t, reports[0].FinishedAt.Equal(handle.started.Add(tc.elapsed)), "the report finishes when the job did")
+			require.Nil(t, finished.Metrics, "a published report owns the metrics")
+		})
+	}
+}
+
+// The real lane reaches publication through its queue, file lock, and
+// heartbeat, whose cost depends on the host, so the report decision is checked
+// against the duration the event itself records.
+func TestDiagnosticLaneRoutineReportFollowsRecordedDuration(t *testing.T) {
+	cases := []struct {
+		name          string
+		kind          Kind
+		run           jobBody
+		alwaysPublish bool
 	}{
 		{name: "watcher batch", kind: KindWatcherBatch},
 		{name: "embed cycle", kind: KindEmbedCycle},
 		{name: "graph cycle", kind: KindGraphCycle},
 		{name: "validation refresh", kind: KindValidationRefresh},
-		{name: "explicit index", kind: KindExplicitIndex, publish: true},
-		{name: "boot catch-up", kind: KindBootCatchUp, publish: true},
-		{name: "failed", kind: KindWatcherBatch, publish: true, run: func(context.Context, *indexlock.Lease, Reporter) error {
-			return errors.New("job failed")
-		}},
-		{name: "skipped", kind: KindEmbedCycle, publish: true, run: func(context.Context, *indexlock.Lease, Reporter) error {
-			return ErrSkipped
-		}},
-		{name: "degraded fallback", kind: KindWatcherBatch, publish: true, run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
-			indexingperf.AddCount(ctx, indexingperf.CalledgeSourceFallbackCount, 1)
-			return nil
-		}},
-		{name: "untyped note projection", kind: KindWatcherBatch, run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
-			indexingperf.AddCount(ctx, indexingperf.OntologyNodesFallbackProjectionsPlanned, 1)
-			return nil
-		}},
+		{name: "explicit index", kind: KindExplicitIndex, alwaysPublish: true},
+		{name: "boot catch-up", kind: KindBootCatchUp, alwaysPublish: true},
+		{name: "failed", kind: KindWatcherBatch, run: failedJob, alwaysPublish: true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -66,50 +172,33 @@ func TestDiagnosticLaneRoutineReportSuppression(t *testing.T) {
 			handle, _, err := executor.Submit(ctx, Request{Kind: tc.kind, Trigger: "test-trigger", Run: tc.run})
 			require.NoError(t, err)
 			<-handle.Done()
-			reports := diagnosticReports(t, root)
 			finished := finishedEvent(t, root, handle)
 			require.Equal(t, string(tc.kind), finished.Attributes["job_kind"])
 			require.Equal(t, "test-trigger", finished.Attributes["trigger"])
-			for _, key := range []string{"status", "duration_ms", "queue_wait_ms", "lock_wait_ms", "execution_ms"} {
-				require.Contains(t, finished.Attributes, key)
-			}
-			require.Equal(t, tc.publish, finished.Attributes["report"])
-			if tc.publish {
-				require.Len(t, reports, 1)
-				require.Equal(t, handle.ID(), reports[0].Attributes["job_id"])
-				require.Nil(t, finished.Metrics, "a published report owns the metrics")
+			durationMS, ok := finished.Attributes["duration_ms"].(float64)
+			require.True(t, ok, "attributes: %v", finished.Attributes)
+			publish := tc.alwaysPublish || durationMS >= float64(routineReportLimit.Milliseconds())
+			require.Equal(t, publish, finished.Attributes["report"], "attributes: %v", finished.Attributes)
+			reports := diagnosticReports(t, root)
+			if !publish {
+				require.Empty(t, reports)
+				require.NotEmpty(t, finished.Metrics)
 				return
 			}
-			require.Empty(t, reports)
-			var snapshot indexingperf.Snapshot
-			require.NoError(t, json.Unmarshal(finished.Metrics, &snapshot), "the event carries the job's metrics snapshot")
-			require.NotEmpty(t, snapshot.Spans)
+			require.Len(t, reports, 1)
+			require.Equal(t, handle.ID(), reports[0].Attributes["job_id"])
+			require.Nil(t, finished.Metrics)
 		})
 	}
 }
 
-func TestDiagnosticLaneRoutineJobsLeaveOnlySlowAndFailedReports(t *testing.T) {
-	executor, ctx, root := diagnosticLane(t, nil)
+func TestRoutineJobsLeaveOnlySlowAndFailedReports(t *testing.T) {
+	ctx, root := diagnosticContext(t)
 	for i := 0; i < 40; i++ {
-		handle, _, err := executor.Submit(ctx, Request{Kind: KindWatcherBatch})
-		require.NoError(t, err)
-		<-handle.Done()
+		finishJob(t, ctx, fmt.Sprintf("job-%d", i), KindWatcherBatch, nil, 20*time.Millisecond)
 	}
-	slow, _, err := executor.Submit(ctx, Request{Kind: KindWatcherBatch, Run: func(ctx context.Context, _ *indexlock.Lease, _ Reporter) error {
-		select {
-		case <-time.After(routineReportLimit + 50*time.Millisecond):
-			return nil
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}})
-	require.NoError(t, err)
-	<-slow.Done()
-	failed, _, err := executor.Submit(ctx, Request{Kind: KindGraphCycle, Run: func(context.Context, *indexlock.Lease, Reporter) error {
-		return errors.New("graph failed")
-	}})
-	require.NoError(t, err)
-	<-failed.Done()
+	slow := finishJob(t, ctx, "job-slow", KindWatcherBatch, nil, routineReportLimit+50*time.Millisecond)
+	failed := finishJob(t, ctx, "job-failed", KindGraphCycle, failedJob, 20*time.Millisecond)
 	reports := diagnosticReports(t, root)
 	require.Len(t, reports, 2)
 	require.Equal(t, "success", diagnosticReportFor(t, reports, slow).Status)
