@@ -1,0 +1,17 @@
+# Covered code as last confirmed against the model. Rewritten by `check --resync`; see SKILL.md.
+commit a9c493c9c118bcb31d20718f7326e7d272d1d40c
+ac01e2becc957aaec8aa1900c099df2b9f6f3e85 modelled pkg/store/derived_work.go
+2ba5aac118db84ead03cc676442707cfcea29579 modelled pkg/store/derived_witness.go
+c5c840d29c73fcae9fc4e63ef940bd2209208be7 modelled pkg/app/bootstrap/derived_scheduler.go
+a2f77bf87b8d9a40debec462cb6199b24b736c05 modelled pkg/app/bootstrap/derived_members.go
+4b058d31160ec6143e38608b76f1559a5dd11e44 modelled pkg/app/bootstrap/derived_execute.go
+560e29e4185c02f2f3ee43f3a3cd9a986d22abe5 modelled pkg/app/bootstrap/derived_publication.go
+3435ce298f9b5f693d68f059582b2031db3eae8a modelled pkg/app/bootstrap/derived_sources.go
+a265d57ac0b49d43972c6ac291b1e821187fee32 modelled pkg/app/indexcore/publish.go
+7f4dc3c5dfc056bcc37fb57bfae2cbc877a26bf3 modelled pkg/app/indexcore/candidates.go
+f8d2c3f233b5c7a71e0ebb642f4bac7e444b49e8 modelled pkg/app/indexing/unified.go
+976aff7d915f7f4951ef6435ed67779e3812ac5f assumed pkg/app/bootstrap/live_ownership.go
+fb3e157ae71662a99cee92adfc8e668a75cbf555 assumed pkg/app/indexcore/discover.go
+92ebfe190fe93e8ecf98e40b442096808137651c assumed pkg/app/bootstrap/lane/executor.go
+1886d1db9343f9aaaa8a23b97a3601e05c96459f assumed pkg/ontology/sync_record_plan.go
+3aa1e73f325cf555a24a48edc774e0c11c2bfa4c assumed pkg/embedindex/derived_pipeline.go

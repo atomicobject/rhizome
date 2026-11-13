@@ -141,6 +141,7 @@ Coverage remains bounded: retained-prefix percentiles and interval unions have e
 - Acquire the index lock (`TryAcquireIndexLock`) for any new one-shot entry point that writes indexes; release via `lease.Release()`. Work that runs inside the vault runtime submits a `lane.Request` instead and never acquires the lock itself.
 - When refreshing after repair under an existing lease, use the held-lock exact-path API and preserve the returned runtime until prepared postchecks finish. Calling the public lock-acquiring refresh from inside the lease can deadlock.
 - Route batch and live structural work through `indexcore.Discover` and `indexcore.Publish` under the same explicit vault lease; `RunUnifiedCore` owns full batch semantics. Keep incremental discovery scoped, with durable recovery forcing full discovery when required.
+- When a change touches derived-work tickets or the derived scheduler, follow the `derived-work-verification` skill (`.agents/skills/derived-work-verification/SKILL.md`): its TLA+ model checks stale publication, lost work and grouping in about 35 seconds.
 - Keep new init in MCP serve path async — nothing may block the stdio handshake (`cmd/serve.go`, AGENTS.md MCP responsiveness rule).
 - Add observable behavior tests beside the owner (`pkg/app/indexwriter/write_queue*_test.go`, `unified_cancel_recovery_test.go`, `pkg/app/indexcore/publish_test.go`, and `lock_test.go`); run the policy-required race and integration checks for pipeline changes.
 - Update `CONTEXT.md` in the touched package and the hub/analysis notes when invariants move.
