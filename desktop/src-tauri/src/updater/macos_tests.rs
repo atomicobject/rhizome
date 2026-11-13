@@ -40,6 +40,7 @@ struct Faults {
     fail_swap: Option<usize>,
     fail_verify: bool,
     fail_cleanup: bool,
+    recovery_dir: Option<PathBuf>,
 }
 impl Operations for Faults {
     fn swap(&mut self, left: &Path, right: &Path) -> io::Result<()> {
@@ -56,6 +57,9 @@ impl Operations for Faults {
         } else {
             Ok(())
         }
+    }
+    fn recovery_dir(&self) -> Option<&Path> {
+        self.recovery_dir.as_deref()
     }
     fn cleanup(&mut self, stage: TempDir) -> io::Result<()> {
         if self.fail_cleanup {
@@ -133,9 +137,14 @@ fn post_swap_failure_rolls_back_and_does_not_fallback() {
 fn failed_rollback_preserves_old_contents_at_reported_recovery_path() {
     let f = Fixture::new();
     let stage = tempfile::tempdir().unwrap();
-    let recovery = stage.path().to_path_buf();
-    let bundle = recovery.join("Replacement.app");
+    let staging_path = stage.path().to_path_buf();
+    let bundle = staging_path.join("Replacement.app");
+    let recovery_dir = f.root.path().join("Application Support/test.app/recovery");
+    fs::create_dir_all(&recovery_dir).unwrap();
+    let existing = recovery_dir.join("existing-backup");
+    fs::write(&existing, "previous recovery").unwrap();
     fs::rename(&f.bundle, &bundle).unwrap();
+    let old_contents = fs::metadata(f.app.join("Contents")).unwrap().ino();
     let error = transact(
         &f.app,
         &bundle,
@@ -143,20 +152,66 @@ fn failed_rollback_preserves_old_contents_at_reported_recovery_path() {
         &mut Faults {
             fail_verify: true,
             fail_swap: Some(2),
+            recovery_dir: Some(recovery_dir.clone()),
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    let recovered = fs::read_dir(&recovery_dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .find(|path| path.is_dir())
+        .unwrap()
+        .join("Contents");
+    assert!(error.contains(recovered.to_str().unwrap()));
+    assert!(!error.contains("temporary storage"));
+    assert!(!recovered.starts_with(&staging_path));
+    assert!(!staging_path.exists());
+    assert_eq!(fs::metadata(&recovered).unwrap().ino(), old_contents);
+    assert_eq!(
+        fs::read_to_string(recovered.join("MacOS/rzm")).unwrap(),
+        "old"
+    );
+    assert_eq!(fs::read_to_string(existing).unwrap(), "previous recovery");
+    assert_eq!(
+        fs::read_to_string(f.app.join("Contents/MacOS/rzm")).unwrap(),
+        "new"
+    );
+}
+
+#[test]
+fn failed_durable_retention_names_existing_temporary_backup_and_warns() {
+    let f = Fixture::new();
+    let stage = tempfile::tempdir().unwrap();
+    let staging_path = stage.path().to_path_buf();
+    let bundle = staging_path.join("Replacement.app");
+    fs::rename(&f.bundle, &bundle).unwrap();
+    // Moving Contents into its own child forces rename to fail after recovery setup.
+    let error = transact(
+        &f.app,
+        &bundle,
+        stage,
+        &mut Faults {
+            fail_verify: true,
+            fail_swap: Some(2),
+            recovery_dir: Some(bundle.join("Contents")),
             ..Default::default()
         },
     )
     .unwrap_err();
     assert!(error.contains(bundle.join("Contents").to_str().unwrap()));
+    assert!(error.contains("Durable recovery retention failed"));
+    assert!(error.contains("macOS may delete it during cleanup"));
     assert_eq!(
         fs::read_to_string(bundle.join("Contents/MacOS/rzm")).unwrap(),
         "old"
     );
+    assert_eq!(fs::read_dir(bundle.join("Contents")).unwrap().count(), 1);
     assert_eq!(
         fs::read_to_string(f.app.join("Contents/MacOS/rzm")).unwrap(),
         "new"
     );
-    fs::remove_dir_all(recovery).unwrap();
+    fs::remove_dir_all(staging_path).unwrap();
 }
 
 #[test]

@@ -2,7 +2,7 @@ use std::{
     ffi::CString,
     fs, io,
     os::unix::{ffi::OsStrExt, fs::MetadataExt},
-    path::Path,
+    path::{Path, PathBuf},
     process::Command,
 };
 use tempfile::TempDir;
@@ -48,7 +48,20 @@ fn install_at(bytes: &[u8], app: &Path, identifier: &str, version: &str) -> Resu
     if !eligible(app, &bundle) || verify(app, &requirement).is_err() {
         return Ok(Outcome::Fallback);
     }
-    transact(app, &bundle, stage, &mut Native { requirement })
+    let recovery_dir = std::env::home_dir().map(|home| {
+        home.join("Library/Application Support")
+            .join(identifier)
+            .join("recovery")
+    });
+    transact(
+        app,
+        &bundle,
+        stage,
+        &mut Native {
+            requirement,
+            recovery_dir,
+        },
+    )
 }
 
 fn validate_identity(bundle: &Path, identifier: &str, version: &str) -> Result<()> {
@@ -157,6 +170,7 @@ fn can_fallback(error: &io::Error) -> bool {
 trait Operations {
     fn swap(&mut self, left: &Path, right: &Path) -> io::Result<()>;
     fn verify(&mut self, app: &Path) -> Result<()>;
+    fn recovery_dir(&self) -> Option<&Path>;
     fn cleanup(&mut self, stage: TempDir) -> io::Result<()> {
         stage.close()
     }
@@ -164,6 +178,7 @@ trait Operations {
 
 struct Native {
     requirement: String,
+    recovery_dir: Option<PathBuf>,
 }
 impl Operations for Native {
     fn swap(&mut self, left: &Path, right: &Path) -> io::Result<()> {
@@ -172,6 +187,19 @@ impl Operations for Native {
     fn verify(&mut self, app: &Path) -> Result<()> {
         verify(app, &self.requirement)
     }
+    fn recovery_dir(&self) -> Option<&Path> {
+        self.recovery_dir.as_deref()
+    }
+}
+
+fn retain_backup(backup: &Path, recovery_dir: Option<&Path>) -> io::Result<PathBuf> {
+    let recovery_dir = recovery_dir.ok_or_else(|| io::Error::other("user home unavailable"))?;
+    fs::create_dir_all(recovery_dir)?;
+    let recovery = tempfile::Builder::new()
+        .prefix("rhizome-update-")
+        .tempdir_in(recovery_dir)?;
+    fs::rename(backup, recovery.path().join("Contents"))?;
+    Ok(recovery.keep().join("Contents"))
 }
 
 fn transact(
@@ -196,8 +224,14 @@ fn transact(
     }
     if let Err(error) = ops.verify(app) {
         if let Err(rollback) = ops.swap(&current, &replacement) {
-            let recovery = stage.keep();
-            return Err(format!("{error}; rollback failed: {rollback}. Previous Contents preserved at {}. Installed app is {}. Do not retry before recovery.", recovery.join(bundle.file_name().unwrap()).join("Contents").display(), app.display()));
+            let (recovery, warning) = match retain_backup(&replacement, ops.recovery_dir()) {
+                Ok(path) => (path, String::new()),
+                Err(retention) => {
+                    let _ = stage.keep();
+                    (replacement, format!(" Durable recovery retention failed: {retention}. This copy remains in temporary storage and macOS may delete it during cleanup. Move it to a safe location now."))
+                }
+            };
+            return Err(format!("{error}; rollback failed: {rollback}. Previous Contents preserved at {}.{warning} Installed app is {}. Do not retry before recovery.", recovery.display(), app.display()));
         }
         return Err(format!("{error}; previous Contents restored"));
     }

@@ -30,7 +30,7 @@ Implement the macOS installation adapter in `desktop/src-tauri/src/updater/`. Pr
 - [x] Validate every replacement before fallback or installed mutation.
 - [x] Atomically swap only Contents in eligible user-owned bundles.
 - [x] Preserve root, CLI path, lifecycle, rollback copy, and failure reporting.
-- [ ] Complete focused regression checks and desktop gates.
+- [x] Complete focused regression checks and desktop gates.
 - [ ] Signed standard-account A to B to C acceptance from both app and CLI.
 - [ ] Independent final review and current-head Greptile approval.
 
@@ -54,7 +54,7 @@ An existing installation updates in place with at most one further administrator
 
 ## Actual Delivered
 
-Implementation is present on this branch but is not release-ready. The new adapter validates the archive, identity/version, and Apple-anchored current-team requirement before fallback. Eligible installs exchange Contents, strictly verify, and atomically roll back on failure. Recovery is retained on failed rollback, and post-commit cleanup is best effort. The CLI and existing lifecycle stay unchanged. Verification results follow in Execution Notes.
+Implementation is present on this branch but is not release-ready. The new adapter validates the archive, identity/version, and Apple-anchored current-team requirement before fallback. Eligible installs exchange Contents, strictly verify, and atomically roll back on failure. Failed rollback retains the old Contents in a unique private directory under `~/Library/Application Support/<identifier>/recovery/`. If that move fails, the error names the kept staging copy and warns about macOS temporary cleanup. Post-commit cleanup is best effort. The CLI and existing lifecycle stay unchanged. Verification results follow in Execution Notes.
 
 ## Execution Notes
 
@@ -67,9 +67,15 @@ Implementation is present on this branch but is not release-ready. The new adapt
 
 - 2026-11-13T20:02:43Z [validation] Final focused updater tests passed 23 tests, with the signed fixture selected separately. The full desktop-crate signed fixture passed through the actual adapter using public v0.52.1 bytes: strict Apple/team verification, stapler and Gatekeeper, quarantine/root-xattr preservation, CLI execution and link preservation, unsigned-replacement rejection, mismatched identifier/version rejection, and fallback for damaged current signatures. This is same-version filesystem acceptance, not a signed running-app upgrade.
 - 2026-11-13T20:02:43Z [validation] `make desktop-build` built the real development app bundle. `cargo clippy --locked --all-targets -- -D warnings`, `cargo fmt --check`, the app-instance script, and desktop frontend checks passed. Documentation and frozen-scope-drift validation passed with host runtime access. No app was installed over Rhizome Dev.
-- 2026-11-13T20:02:43Z [blocker] The existing paused-clock test passed in the focused rerun, which is diagnostic only. Its original full-suite failure remains unresolved. A draft clock-control change was investigated and removed; the committed timing test is unchanged. Root must address this failure before treating the full desktop gate as green.
+- 2026-11-13T20:02:43Z [blocker] The existing paused-clock test passed in the focused rerun, which is diagnostic only. Its original full-suite failure remains unresolved. A draft clock-control change was investigated and removed; the committed timing test is unchanged. Root must address this failure before treating the full desktop gate as green. This historical blocker was resolved by `825d18739c6bbbc91dc3e0499d7faa2dd299ed6d`, as recorded below.
 
 - 2026-11-13T20:03:24Z [validation] The packaged development bundle's `Contents/MacOS/rzm --version` reports v0.52.1. A strict codesign check reports "code has no resources but signature indicates they must be present" for that local development artifact; it is not a Developer ID signed release candidate. The separate public signed archive fixture provides the signature-preservation evidence.
+
+- 2026-11-13T20:20:07Z [validation] Clock follow-up `825d18739c6bbbc91dc3e0499d7faa2dd299ed6d` resolved the earlier paused-clock blocker. It measures time from the client's consumed chunk and acknowledges chunks before the blocking fixture proceeds. The controlled delay failed before the fix and passed after it without changing the timeout or upper bound. Retained evidence in `/private/tmp/rhizome-update-permissions-v0521/clock-desktop-check.log` shows `PATH=/Users/colthorp/.cargo/bin:/Users/colthorp/.local/share/mise/installs/go/1.27.4/bin:$PATH GOROOT=/Users/colthorp/.local/share/mise/installs/go/1.27.4 make desktop-check` exited 0. Frontend tests passed 187 tests in 12 files; native tests passed 156 with the existing opt-in signed test ignored; formatting, Clippy, and app-instance checks passed. `clock-repeatability.log` records 56 further full native suite passes. These are retained results for that commit, not new runs at the F1 revision.
+- 2026-11-13T20:20:07Z [decision] Accepted final-review findings F1 and F2 are the only follow-up scope. F1 moves the old Contents out of temporary staging on failed rollback. Its tests check the reported path, retained bytes and inode, existing recovery data, and a failed durable rename that keeps and names the temporary copy. F2 reconciles this effort with the completed clock follow-up while retaining the original failure record. Optional F3 certificate-type hardening is declined for this scoped fix; the existing Apple anchor, current signing team, configured identifier, and updater signature checks remain the accepted contract.
+- 2026-11-13T20:23:00Z [validation] F1 regression fails before the fix with the actual Contents path in TMPDIR. After the fix, `PATH=/Users/colthorp/.cargo/bin:$PATH cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml updater::macos::tests` passes 10 tests with one opt-in signed test ignored. `f1-recovery-red.log` and `f1-recovery-green.log` retain the outputs under `/private/tmp/rhizome-update-permissions-v0521/`.
+- 2026-11-13T20:23:00Z [validation] Current F1 code passes `PATH=/Users/colthorp/.cargo/bin:/Users/colthorp/.local/share/mise/installs/go/1.27.4/bin:$PATH GOROOT=/Users/colthorp/.local/share/mise/installs/go/1.27.4 make desktop-check`. Frontend tests pass 187 tests in 12 files; native tests pass 157 with one opt-in signed test ignored; formatting, Clippy with warnings denied, and app-instance checks pass. The same toolchain runs `make desktop-build` successfully and produces the development app bundle without installation. Logs are `f1-desktop-check.log` and `f1-desktop-build.log` in the same evidence directory.
+- 2026-11-13T20:23:00Z [validation] `PATH=/Users/colthorp/.cargo/bin:$PATH RZM_SIGNED_UPDATE_ARCHIVE=/private/tmp/rhizome-update-permissions-v0521/Rhizome-macos-arm64.app.tar.gz cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml signed_archive_uses_real_adapter_under_protected_parent -- --ignored` passes one test through the actual adapter. Log `f1-signed-adapter.log` retains the result. This remains same-version acceptance in disposable directories; signed standard-account A to B to C acceptance, independent final review, Greptile, and current-head CI remain outstanding.
 
 ## Deviations
 
@@ -88,4 +94,4 @@ No new compounding mechanism is proposed. Preserve the protected-parent and fail
 
 ## Status
 
-Active. Local implementation and verification are underway. Full Stop prohibits merging; this implementation lane also has no authorization to push or open a PR yet.
+Active. Local F1/F2 implementation and desktop checks are complete. Signed standard-account acceptance, independent final review, Greptile, and current-head CI remain outstanding. Full Stop prohibits merging; this implementation lane also has no authorization to push or open a PR yet.
