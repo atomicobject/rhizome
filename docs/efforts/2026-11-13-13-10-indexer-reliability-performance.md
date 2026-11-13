@@ -155,6 +155,6 @@ The deterministic cancellation, retry, member-publication, packing, and equivale
 
 ## Status
 
-Complete on the branch under the owner's closure brief, with implementation recorded through `35e22910c`. Conditional batch 6, the D1 diagnostics week, and deferred findings remain explicit follow-ups. The coordinator owns integrated review/CI, inserts the PR number once it exists, and updates this record before merge if the delivered scope changes. Completion does not authorize publication.
+Complete on the branch under the owner's closure brief, with implementation recorded through the head of PR #143. Conditional batch 6, the D1 diagnostics week, and deferred findings remain explicit follow-ups. The coordinator owns integrated review/CI, inserts the PR number once it exists, and updates this record before merge if the delivered scope changes. Completion does not authorize publication.
 
-PR: pending
+PR: [#143](https://github.com/atomicobject/rhizome/pull/143)
