@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"slices"
 	"testing"
 	"time"
 
@@ -108,12 +107,7 @@ func TestQuietLiveRuntimeMatchesFreshBatchSequences(t *testing.T) {
 				}
 				require.Equal(t, rows, got[name], "deterministic table %s", name)
 			}
-			if !slices.Equal(want["scope"], got["scope"]) {
-				if sequence.name == "exclude added" || sequence.name == "exclude removed" {
-					t.Skip("C4 is owned by another worker: live selection reload does not stamp its applied scope hash yet")
-				}
-				require.Equal(t, want["scope"], got["scope"], "deterministic scope stamp")
-			}
+			require.Equal(t, want["scope"], got["scope"], "deterministic scope stamp")
 		})
 	}
 }
