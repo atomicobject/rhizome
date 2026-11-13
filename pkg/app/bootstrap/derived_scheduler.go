@@ -8,6 +8,7 @@ import (
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
@@ -18,13 +19,11 @@ import (
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 
 	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 var errDerivedSuperseded = fmt.Errorf("derived work superseded: %w", lane.ErrSkipped)
-var errDerivedExternalPriority = errors.New("derived work preempted by external priority")
 
 type derivedScheduler struct {
 	watcher *unifiedSemanticWatcher
@@ -82,10 +81,14 @@ func (s *derivedScheduler) run() {
 			s.mu.Lock()
 			s.running = ""
 			s.mu.Unlock()
-			if err != nil && !errors.Is(err, errDerivedSuperseded) && s.ctx.Err() == nil {
-				delay := 250 * time.Millisecond << min(ticket.Attempt, 6)
-				_ = s.withLease(s.ctx, ticket, false, "derived_retry", func(ctx context.Context) error {
-					return s.watcher.intelStore.RetryDerivedWork(ctx, ticket, time.Now().Add(delay))
+			if err != nil && s.ctx.Err() == nil {
+				failed := !errors.Is(err, errDerivedSuperseded) && !errors.Is(err, context.Canceled) && !errors.Is(err, lane.ErrPreempted)
+				delay := time.Second
+				if failed {
+					delay = 250 * time.Millisecond << min(ticket.Attempt, 6)
+				}
+				_ = s.inLane(s.ctx, "derived_retry", func(ctx context.Context) error {
+					return s.watcher.intelStore.RetryDerivedWork(ctx, ticket, time.Now().Add(delay), failed)
 				})
 			}
 		}
@@ -149,10 +152,10 @@ func (s *derivedScheduler) inLane(parent context.Context, phase string, run func
 		return err
 	}
 	select {
-	case <-s.ctx.Done():
+	case <-parent.Done():
 		handle.Cancel()
 		<-handle.Done()
-		return s.ctx.Err()
+		return parent.Err()
 	case <-handle.Done():
 		return handle.Err()
 	}
@@ -261,7 +264,7 @@ func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context
 		keep(incomplete.Results...)
 	}
 	if cache != nil && len(unpublished) > 0 {
-		if cacheErr := s.inLane(ctx, "derived_vector_cache", func(ctx context.Context) error { return cache(ctx, unpublished...) }); cacheErr != nil && ctx.Err() == nil {
+		if cacheErr := s.inLane(context.WithoutCancel(ctx), "derived_vector_cache", func(ctx context.Context) error { return cache(ctx, unpublished...) }); cacheErr != nil && ctx.Err() == nil {
 			watcherEvent(ctx, slog.LevelWarn, "derived.vector_cache_failed", append(derivedAttrs(ticket), slog.String("error", cacheErr.Error()))...)
 		}
 	}
@@ -286,10 +289,6 @@ func (s *derivedScheduler) computeContext(parent context.Context) (context.Conte
 				status := s.watcher.lane.Status()
 				if status.JobKind == lane.KindExplicitIndex {
 					cancel(lane.ErrPreempted)
-					return
-				}
-				if indexlock.CheckPriority(repoconfig.IndexLockPath(s.watcher.vaultPath)) {
-					cancel(errDerivedExternalPriority)
 					return
 				}
 			}
@@ -375,7 +374,8 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 				for _, item := range items {
 					paths = append(paths, item.Path)
 				}
-
+				slices.Sort(paths)
+				paths = slices.Compact(paths)
 			}
 			loader, err := w.publishedCodeLoader(ctx, paths)
 			if err != nil {
@@ -391,7 +391,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 			return s.compute(ctx, "embed_code", func(computeCtx context.Context) error {
 				return w.codeSyncer.ComputeDerived(computeCtx, plan, sink)
 			})
-		}, w.codeSyncer.PublishDerived, nil)
+		}, w.codeSyncer.PublishDerived, w.codeSyncer.CacheDerived)
 		if err != nil {
 			return err
 		}
@@ -407,7 +407,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 		var syncer embedindex.OntologyNodeSyncer
 		err := s.withLease(ctx, ticket, false, "derived_prepare", func(ctx context.Context) error {
 			schema, err := ontoschema.LoadSchema(w.vaultPath)
-			if err != nil {
+			if err != nil && !errors.Is(err, ontoschema.ErrNoOntologyFiles) {
 				return err
 			}
 			syncer = *w.nodeSyncer
@@ -466,7 +466,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeancho
 		// reuses the vectors of a failed or superseded run instead of sending
 		// the same text again.
 		if err != nil && result.HasVectors() {
-			if cacheErr := s.inLane(ctx, "derived_vector_cache", func(ctx context.Context) error { return syncer.CacheDerived(ctx, result) }); cacheErr != nil && ctx.Err() == nil {
+			if cacheErr := s.inLane(context.WithoutCancel(ctx), "derived_vector_cache", func(ctx context.Context) error { return syncer.CacheDerived(ctx, result) }); cacheErr != nil && ctx.Err() == nil {
 				watcherEvent(ctx, slog.LevelWarn, "derived.vector_cache_failed", append(derivedAttrs(ticket), slog.String("error", cacheErr.Error()))...)
 			}
 		}

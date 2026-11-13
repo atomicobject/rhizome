@@ -118,7 +118,15 @@ func (s *Syncer) ComputeDerived(ctx context.Context, plan SyncPlan, sink func(co
 	for _, task := range plan.tasks {
 		tasks[string(task.id)] = task
 	}
-	return runPreparedPipeline(ctx, plan.tasks, plan.TotalWork, s.maxConcurrent(), indexingperf.CodeembedPrepare, indexingperf.CodeembedReadyEnqueueWait, pipeline.preparedCh, pipeline.run,
+	var incomplete []CodeDerivedResult
+	pipeline.stage.core.abandon = func(owners []*codePipelineOwner) {
+		for _, owner := range owners {
+			if len(owner.prepared.itemVec) > 0 || slices.ContainsFunc(owner.missingVecs, func(vec embeddings.Embedding) bool { return len(vec) > 0 }) {
+				incomplete = append(incomplete, CodeDerivedResult{task: tasks[string(owner.prepared.anchorID)], prepared: owner.prepared, vectors: owner.missingVecs})
+			}
+		}
+	}
+	err := runPreparedPipeline(ctx, plan.tasks, plan.TotalWork, s.maxConcurrent(), indexingperf.CodeembedPrepare, indexingperf.CodeembedReadyEnqueueWait, pipeline.preparedCh, pipeline.run,
 		func(ctx context.Context, task codeTask) (*codePreparedTask, error) {
 			return s.prepareTaskForPipeline(ctx, task, plan.state.states[task.id], plan.state.reuseCache, plan.state.forceReembed)
 		},
@@ -126,6 +134,30 @@ func (s *Syncer) ComputeDerived(ctx context.Context, plan SyncPlan, sink func(co
 			s.recordPreparedReuseEmbeddings(plan.state.reuseCache, owner.prepared, owner.missingVecs, owner.prepared.itemVec)
 			return sink(ctx, CodeDerivedResult{task: tasks[string(owner.prepared.anchorID)], prepared: owner.prepared, vectors: owner.missingVecs})
 		}, s.OnEmbedProgress)
+	if err != nil && len(incomplete) > 0 {
+		return &IncompleteDerivedError[CodeDerivedResult]{Err: err, Results: incomplete}
+	}
+	return err
+}
+
+// CacheDerived retains code vectors without publishing their stale owners.
+// The coordinator calls it through the writer lane, even after cancellation.
+func (s *Syncer) CacheDerived(ctx context.Context, results ...CodeDerivedResult) error {
+	vectors := map[string]embeddings.Embedding{}
+	for _, result := range results {
+		for i, vector := range result.vectors {
+			if len(vector) > 0 {
+				vectors[result.prepared.missingInputs[i].Hash] = vector
+			}
+		}
+		if len(result.prepared.itemVec) > 0 {
+			vectors[result.prepared.itemHash] = result.prepared.itemVec
+		}
+	}
+	if len(vectors) == 0 {
+		return nil
+	}
+	return s.Index.CacheEmbeddings(ctx, vectors)
 }
 
 func (r CodeDerivedResult) RetainedBytes() int {
@@ -145,6 +177,9 @@ func vectorBytes(vectors []embeddings.Embedding) int {
 }
 
 func (s *Syncer) PublishDerived(ctx context.Context, result CodeDerivedResult) error {
+	if err := s.CacheDerived(ctx, result); err != nil {
+		return err
+	}
 	if s.ChunkWriter != nil {
 		if err := s.persistIntelChunks(ctx, []codeTask{result.task}); err != nil {
 			return err

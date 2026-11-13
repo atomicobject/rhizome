@@ -114,7 +114,7 @@ func (s *Store) PendingDerivedWork(ctx context.Context, now time.Time, limit int
 	if limit <= 0 {
 		return nil, fmt.Errorf("derived work limit must be positive")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT w.kind,w.path,w.generation,w.attempt,w.retry_at,w.ready,COALESCE(g.generation,0),COALESCE(g.revision,0) FROM derived_work w LEFT JOIN derived_work_epoch g ON g.kind=w.kind WHERE w.ready=1 AND w.retry_at<=? AND NOT EXISTS(SELECT 1 FROM derived_work pending WHERE pending.kind=w.kind AND pending.ready=0) ORDER BY w.retry_at,w.kind,w.path LIMIT ?`, now.UnixMilli(), limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT w.kind,w.path,w.generation,w.attempt,w.retry_at,w.ready,COALESCE(g.generation,0),COALESCE(g.revision,0) FROM derived_work w LEFT JOIN derived_work_epoch g ON g.kind=w.kind WHERE w.ready=1 AND w.retry_at<=? AND NOT EXISTS(SELECT 1 FROM derived_work pending WHERE pending.kind=w.kind AND pending.ready=0) ORDER BY CASE w.kind WHEN 'notes' THEN 0 WHEN 'ontology' THEN 1 WHEN 'code' THEN 2 ELSE 3 END,w.retry_at,w.path LIMIT ?`, now.UnixMilli(), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -155,9 +155,10 @@ func (s *Store) AckDerivedWork(ctx context.Context, work []anchors.DerivedWork) 
 
 // RetryDerivedWork stores only an attempt count and deadline, never provider
 // errors, source text or credentials. Old failures cannot postpone newer work.
-func (s *Store) RetryDerivedWork(ctx context.Context, w anchors.DerivedWork, retryAt time.Time) error {
+// Supersession and interruption delay work without counting a failed attempt.
+func (s *Store) RetryDerivedWork(ctx context.Context, w anchors.DerivedWork, retryAt time.Time, failed bool) error {
 	return s.withWriteTx(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `UPDATE derived_work SET attempt=attempt+1,retry_at=? WHERE kind=? AND path=? AND generation=? AND COALESCE((SELECT generation FROM derived_work_epoch WHERE kind=?),0)=? AND (path<>'' OR COALESCE((SELECT revision FROM derived_work_epoch WHERE kind=?),0)=?)`, retryAt.UnixMilli(), w.Kind, w.Path, w.Generation, w.Kind, w.Epoch, w.Kind, w.Revision)
+		_, err := tx.ExecContext(ctx, `UPDATE derived_work SET attempt=attempt+?,retry_at=? WHERE kind=? AND path=? AND generation=? AND COALESCE((SELECT generation FROM derived_work_epoch WHERE kind=?),0)=? AND (path<>'' OR COALESCE((SELECT revision FROM derived_work_epoch WHERE kind=?),0)=?)`, failed, retryAt.UnixMilli(), w.Kind, w.Path, w.Generation, w.Kind, w.Epoch, w.Kind, w.Revision)
 		return err
 	})
 }

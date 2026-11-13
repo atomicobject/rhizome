@@ -93,6 +93,7 @@ slices:
 				err = fmt.Errorf("embed: unexpected vector count %d for %d texts", len(got), end-start)
 			}
 			if err != nil {
+				copy(vectors[start:end], got)
 				errs[i] = err
 				failOnce.Do(func() { close(failed) })
 				return
@@ -101,7 +102,7 @@ slices:
 		}()
 	}
 	wg.Wait()
-	if err := errors.Join(errs...); err != nil {
+	if err := errors.Join(append(errs, ctx.Err())...); err != nil {
 		partial := OntologyDerivedResult{plan: OntologyDerivedPlan{textHashes: plan.textHashes}}
 		for i, vector := range vectors {
 			if len(vector) > 0 {

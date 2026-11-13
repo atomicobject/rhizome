@@ -8,7 +8,7 @@ derived-from:
   - docs/reference/analysis/Indexing pipeline - Concurrency + batching requirements.md
   - pkg/vault/indexlock/lock.go
   - pkg/app/bootstrap/lane/lane.go
-last-verified: 2026-11-07
+last-verified: 2026-11-13
 status: active
 ---
 
@@ -26,7 +26,7 @@ The runtime and its writers coordinate through these files:
 - `.rhizome/index.lock` fences **index writes**. Runtime indexing uses the lane, once per job. Interactive repair transactions own their lease through commit, projection refresh, and postcheck, including browser saves in the runtime process. Other holders include in-process `rzm index` (fallback or `--in-process`), `rzm new-worktree`, validation repairs, and note edits.
 - `.rhizome/db.sqlite.init.lock` serializes **database creation and schema migration**. Every write-capable store open holds it from before its first connection until the schema is validated, then releases it; it is never held while indexing runs. It exists because a one-shot command and the runtime it auto-starts open a fresh vault at the same time.
 
-`rzm index` with a live runtime never touches `index.lock`: it submits an explicit job to the runtime's lane and streams that job's progress. Contention therefore happens between the lane and interactive repair or one-shot writers, and the protocol is: interactive callers request priority with `.rhizome/index.priority`; the lane cancels its background job within a second and holds background scheduling until the request clears; nobody deletes a live lock.
+`rzm index` with a live runtime never touches `index.lock`: it submits an explicit job to the runtime's lane and streams that job's progress. Interactive callers request priority with `.rhizome/index.priority`; the lane cancels its background writer job within a second and holds background scheduling until the request clears. Provider computation outside the lease continues, and its publication waits for the lane. Nobody deletes a live lock.
 
 [[vault-runtime-coordination|SPEC-0104]] owns runtime, lane, and delegation behavior. [[indexing-workflow#^SPEC-0036-US3]] owns the in-process and one-shot writer behavior. [[Indexing pipeline - Phase ownership matrix]] owns where lock acquisition sits in the batch sequence.
 

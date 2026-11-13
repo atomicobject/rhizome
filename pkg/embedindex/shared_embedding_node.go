@@ -214,6 +214,9 @@ func (n *SharedEmbeddingNode) submit(ctx context.Context, phase string, texts []
 	}
 	indexingperf.ObserveLatency(phaseCtx, indexingperf.EmbedFutureWait, time.Since(futureStarted))
 	if req.err != nil {
+		if keepInFlight {
+			return req.vecs, req.err
+		}
 		return nil, req.err
 	}
 	return req.vecs, nil
