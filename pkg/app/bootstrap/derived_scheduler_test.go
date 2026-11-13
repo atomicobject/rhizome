@@ -34,6 +34,7 @@ import (
 func TestDerivedResultRejectsDirectSaveBeforeWatcherMarksNewSource(t *testing.T) {
 	rt, w, provider := liveWorkloadWatcher(t)
 	provider.block.Store(true)
+	releaseProvider := shutdownRelease(t, provider.release)
 	path := "notes/project-0000.md"
 	require.NoError(t, os.WriteFile(filepath.Join(rt.VaultPath, path), []byte(indexingworkload.Note(0, 16, "Prepared A")), 0o600))
 	rt.Cache().MarkDirty(path, cache.DirtyModified)
@@ -104,7 +105,7 @@ func TestDerivedResultRejectsDirectSaveBeforeWatcherMarksNewSource(t *testing.T)
 	watcherJobTerminal(t, save)
 	require.NoError(t, save.Err())
 	provider.fail.Store(true)
-	close(provider.release)
+	releaseProvider()
 	require.Eventually(t, func() bool { return provider.failures.Load() > 0 }, 3*time.Second, 5*time.Millisecond)
 	var staleStates int
 	require.NoError(t, rt.IntelStore().DB().QueryRowContext(t.Context(), `SELECT count(*) FROM ontology_node_embedding_state WHERE note_path=? AND chunk_text_hash=?`, path, staleHash).Scan(&staleStates))
@@ -114,9 +115,10 @@ func TestDerivedResultRejectsDirectSaveBeforeWatcherMarksNewSource(t *testing.T)
 	require.NotEmpty(t, debt)
 }
 
-func TestDerivedPriorityCancelsProviderWithoutHoldingWriterLease(t *testing.T) {
+func TestDerivedPriorityPreservesProviderWithoutHoldingWriterLease(t *testing.T) {
 	rt, w, provider := liveWorkloadWatcher(t)
 	provider.block.Store(true)
+	releaseProvider := shutdownRelease(t, provider.release)
 	path := "notes/project-0000.md"
 	require.NoError(t, os.WriteFile(filepath.Join(rt.VaultPath, path), []byte(indexingworkload.Note(0, 16, "Priority")), 0o600))
 	rt.Cache().MarkDirty(path, cache.DirtyModified)
@@ -132,10 +134,20 @@ func TestDerivedPriorityCancelsProviderWithoutHoldingWriterLease(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, acquired, "physical provider work must leave the writer lease available")
 	require.NoError(t, release())
-	priority, err := indexlock.RequestPriority(repoconfig.IndexLockPath(rt.VaultPath))
-	require.NoError(t, err)
-	defer priority.Close()
-	require.Eventually(t, func() bool { return provider.canceled.Load() > 0 }, time.Second, 5*time.Millisecond)
+	callsBefore := provider.calls.Load()
+	for range 5 {
+		priority, err := indexlock.RequestPriority(repoconfig.IndexLockPath(rt.VaultPath))
+		require.NoError(t, err)
+		t.Cleanup(priority.Close)
+		require.Never(t, func() bool { return provider.canceled.Load() > 0 }, 150*time.Millisecond, 5*time.Millisecond)
+		var attempt int
+		var retryAt int64
+		require.NoError(t, rt.IntelStore().DB().QueryRowContext(t.Context(), `SELECT attempt,retry_at FROM derived_work WHERE kind='ontology'`).Scan(&attempt, &retryAt))
+		require.Zero(t, attempt)
+		require.Zero(t, retryAt)
+		priority.Close()
+	}
+	require.Equal(t, callsBefore, provider.calls.Load())
 	_, pending, err := rt.IntelStore().PendingOwnershipReconciliation(t.Context())
 	require.NoError(t, err)
 	require.False(t, pending)
@@ -143,17 +155,17 @@ func TestDerivedPriorityCancelsProviderWithoutHoldingWriterLease(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, debt)
 	provider.block.Store(false)
-	close(provider.release)
-	priority.Close()
+	releaseProvider()
 	require.Eventually(t, func() bool {
 		work, err := rt.IntelStore().PendingDerivedWork(t.Context(), time.Now().Add(time.Hour), 100)
 		return err == nil && len(work) == 0
 	}, 3*time.Second, 5*time.Millisecond)
 }
 
-func TestDerivedShutdownJoinsCanceledProviderBeforeStoreCloses(t *testing.T) {
+func TestDerivedShutdownJoinsInFlightProviderBeforeStoreCloses(t *testing.T) {
 	rt, w, provider := liveWorkloadWatcher(t)
 	provider.block.Store(true)
+	releaseProvider := shutdownRelease(t, provider.release)
 	path := "notes/project-0000.md"
 	require.NoError(t, os.WriteFile(filepath.Join(rt.VaultPath, path), []byte(indexingworkload.Note(0, 16, "Shutdown")), 0o600))
 	rt.Cache().MarkDirty(path, cache.DirtyModified)
@@ -168,10 +180,16 @@ func TestDerivedShutdownJoinsCanceledProviderBeforeStoreCloses(t *testing.T) {
 	go func() { w.derived.close(); close(done) }()
 	select {
 	case <-done:
+		t.Fatal("derived shutdown returned before its provider call finished")
+	default:
+	}
+	releaseProvider()
+	select {
+	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("derived shutdown did not drain")
 	}
-	require.Positive(t, provider.canceled.Load())
+	require.Zero(t, provider.canceled.Load())
 	rows, err := rt.IntelStore().CurrentNoteMetadataRowsByPaths(t.Context(), []string{path})
 	require.NoError(t, err)
 	require.Contains(t, rows, path)
@@ -260,7 +278,7 @@ func TestDerivedRestartRetriesActiveDebtWithoutFilesystemEvents(t *testing.T) {
 	require.Positive(t, vectors)
 }
 
-func TestDerivedSharedNodePriorityYieldsAndRuntimeShutdownDrainsPhysicalProvider(t *testing.T) {
+func TestDerivedSharedNodePriorityContinuesAndRuntimeShutdownDrainsPhysicalProvider(t *testing.T) {
 	rt, w, provider := liveWorkloadWatcher(t)
 	w.derived.close()
 	allowProviderReturn := make(chan struct{})
@@ -289,10 +307,9 @@ func TestDerivedSharedNodePriorityYieldsAndRuntimeShutdownDrainsPhysicalProvider
 	priority, err := indexlock.RequestPriority(repoconfig.IndexLockPath(rt.VaultPath))
 	require.NoError(t, err)
 	defer priority.Close()
-	// Priority cancels computation, but the dispatched physical request keeps
-	// running so its vectors can still be cached.
+	// Priority leaves the dispatched physical request running.
 	require.Never(t, func() bool { return provider.canceled.Load() > 0 }, 300*time.Millisecond, 5*time.Millisecond,
-		"canceling one submitter preserves shared physical request ownership")
+		"external priority preserves shared physical request ownership")
 	release, acquired, err := indexlock.TryAcquire(repoconfig.IndexLockPath(rt.VaultPath))
 	require.NoError(t, err)
 	require.True(t, acquired, "shared provider dispatch must leave writer lease available")
