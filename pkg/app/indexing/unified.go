@@ -164,18 +164,12 @@ func RunUnifiedCore(ctx context.Context, lease *indexlock.Lease, opts UnifiedOpt
 	if err != nil {
 		return fmt.Errorf("discover full-index ownership: %w", err)
 	}
-	linker, err := codeintel.NewDocLinkerFromNotePaths(ownershipDiscovery.MarkdownPaths(), intelStore)
-	if err != nil {
-		return fmt.Errorf("build code-to-note linker: %w", err)
-	}
-
 	tailIdx := codeanchor.NewPathTailIndex(5)
 	service, _ := codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{
 		VaultPath:       opts.VaultPath,
 		CodeCfg:         codeCfg,
 		Store:           intelStore,
 		TailIndex:       tailIdx,
-		Linker:          linker,
 		IncludeIndexers: true,
 		WriteAccess:     true,
 	})

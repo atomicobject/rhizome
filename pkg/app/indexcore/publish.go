@@ -180,6 +180,16 @@ func Publish(ctx context.Context, lease *indexlock.Lease, request Request, d Dis
 	}
 	indexingperf.AddCount(ctx, indexingperf.StructuralCodeCandidates, int64(len(codeCandidates)))
 	indexingperf.AddCount(ctx, indexingperf.StructuralNoteCandidates, int64(len(noteCandidates)))
+	codeService := service
+	if len(codeCandidates) > 0 {
+		linker, err := codeintel.NewDocLinkerFromNotePaths(d.MarkdownPaths(), store)
+		if err != nil {
+			return result, fmt.Errorf("build code-to-note linker: %w", err)
+		}
+		codeService, _ = codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{
+			VaultPath: vp.Root(), CodeCfg: request.CodeConfig, Store: store, Linker: linker, TailIndex: service.TailIndex(), IncludeIndexers: true,
+		})
+	}
 	var progressCallbacks = options.BeforeIngest
 	var progress *codeintel.ProgressCallbacks
 	if progressCallbacks != nil {
@@ -187,7 +197,7 @@ func Publish(ctx context.Context, lease *indexlock.Lease, request Request, d Dis
 	}
 	err = indexingperf.RunPhase(ctx, "index_code", func(ctx context.Context) error {
 		var err error
-		result.Code, err = codeintel.IndexCandidates(ctx, service, writer, vp.Root(), codeCandidates, progress)
+		result.Code, err = codeintel.IndexCandidates(ctx, codeService, writer, vp.Root(), codeCandidates, progress)
 		return err
 	})
 	if err != nil {

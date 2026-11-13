@@ -84,11 +84,12 @@ type Result struct {
 	DerivedWork          []anchors.DerivedWork
 }
 
+// MarkdownPaths includes persisted notes outside a scoped discovery.
 func (d Discovery) MarkdownPaths() []paths.NotePath {
 	var result []paths.NotePath
-	for _, c := range d.Snapshot.PresentNoteCandidates() {
-		if c.Provider == noteownership.MarkdownFormatID {
-			result = append(result, paths.NotePath(c.Path))
+	for _, path := range d.CompleteNotePaths() {
+		if provider, ok := d.input.Registry.ProviderForPath(paths.RelPath(path)); ok && provider.Descriptor().ID == noteownership.MarkdownFormatID {
+			result = append(result, path)
 		}
 	}
 	return result

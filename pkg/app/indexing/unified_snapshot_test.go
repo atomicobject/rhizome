@@ -62,6 +62,7 @@ func canonicalWorkloadSnapshot(t testing.TB, ctx context.Context, store *semdb.S
 		"dependencies":     `SELECT source_note_path, node_id, type_name, field_name, target_input, target_input_norm, resolved_target_note_path, resolved_target_type_name, schema_hash FROM ontology_node_field_value_dependencies`,
 		"note-types":       `SELECT note_path, type_name, schema_hash FROM ontology_note_types`,
 		"links":            `SELECT src_path, dst_path, kind FROM graph_doc_edges`,
+		"doc-links":        `SELECT src_type, src_path, src_id, dst_kind, dst_id, dst_path, lang, label, snippet, meta_json FROM doc_links`,
 		"doc-sections":     `SELECT section_id, path, source_node_id, title, level, start_byte, end_byte, content, fingerprint, ord FROM intel_doc_sections`,
 		"code-anchors":     `SELECT anchor_id, lang, kind, path, symbol, fqn, signature, doc_comment, start_byte, end_byte, start_line, end_line, fingerprint FROM intel_code_anchors`,
 		"code-symbols":     `SELECT lang, kind, file, pkg, name, fqn FROM symbols`,

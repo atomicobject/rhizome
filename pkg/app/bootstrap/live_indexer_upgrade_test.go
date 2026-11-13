@@ -24,7 +24,8 @@ func TestWatcherFullDiscoveryReparsesOldIndexerBeforeBootCatchUp(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome/config.yml"), []byte("code:\n  enabled: true\n  goRoots: [src]\nnoteEmbeddings: {enabled: false}\ncodeEmbeddings: {enabled: false}\n"), 0o600))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "src"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "src/value.go"), []byte("package example\n// Value returns the current value.\nfunc Value() int { return 1 }\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "note.md"), []byte("# Note\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "src/value.go"), []byte("package example\n// Value follows [[note]].\nfunc Value() int { return 1 }\n"), 0o600))
 	configuration, err := repoconfig.Load(root)
 	require.NoError(t, err)
 	definition := repoconfig.LocalConfigToDefinition(root, configuration.Local)
@@ -50,7 +51,7 @@ func TestWatcherFullDiscoveryReparsesOldIndexerBeforeBootCatchUp(t *testing.T) {
 	require.NoError(t, store.DB().QueryRowContext(t.Context(), `SELECT doc_comment FROM intel_code_anchors WHERE path='src/value.go'`).Scan(&originalComment))
 	seed, _, err := indexLane.Submit(t.Context(), lane.Request{Kind: lane.KindBootCatchUp,
 		Run: func(ctx context.Context, _ *indexlock.Lease, _ lane.Reporter) error {
-			_, err := store.DB().ExecContext(ctx, `UPDATE files SET indexer_version='old-indexer'; UPDATE intel_code_anchors SET doc_comment='old parser output'`)
+			_, err := store.DB().ExecContext(ctx, `UPDATE files SET indexer_version='old-indexer'; UPDATE intel_code_anchors SET doc_comment='old parser output'; DELETE FROM doc_links`)
 			if err != nil {
 				return err
 			}
@@ -110,6 +111,9 @@ func TestWatcherFullDiscoveryReparsesOldIndexerBeforeBootCatchUp(t *testing.T) {
 	require.NoError(t, store.DB().QueryRowContext(t.Context(), `SELECT f.indexer_version, a.doc_comment FROM files f JOIN intel_code_anchors a ON a.path=f.path WHERE f.path='src/value.go'`).Scan(&rowVersion, &comment))
 	require.Equal(t, codeanchor.IndexerVersion, rowVersion)
 	require.Equal(t, originalComment, comment)
+	links, err := store.DocLinksForNote(t.Context(), "note.md", 10)
+	require.NoError(t, err)
+	require.Len(t, links, 1, "watcher upgrade must repair missing links before boot catch-up")
 	version, _, err = store.IndexerVersion(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, codeanchor.IndexerVersion, version)
