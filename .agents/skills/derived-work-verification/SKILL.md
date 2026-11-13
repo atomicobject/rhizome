@@ -53,9 +53,9 @@ The model covers these functions as of the sync commit. Files marked "assumed" i
 | `derived_scheduler.go` `computeContext`, `inLane` | `ExplicitIndex(_, cancel)`, `PassFails`; every lane job is one step |
 | `pkg/app/bootstrap/derived_members.go` `currentMembers`, `independentMembers` | `Prepare` (ticket check only), `Live` (ticket, witness, disk ahead) |
 | `derived_members.go` `captureWitness` | `Prepare`: `WitnessKeys` (switch `RecordWitness`) |
-| `derived_members.go` `withLease` | One step per lane job, with acknowledgement in the final one |
-| `pkg/app/bootstrap/derived_execute.go` `executeObserved` | `Prepare` inputs (`Rebuilds`, `Reads`, switch `RecordExpand`), `ComputeReturns`, `NotesFinal`, `OntologyFinal` replan (switch `PublishSurvivors`) |
-| `pkg/app/bootstrap/derived_publication.go` `computeAndPublish` | `PublishBatch` (switch `PublishOnlyLive`), `PassFails` |
+| `derived_members.go` `withLease` | One step per lane job, with acknowledgement in the final one; with no members it returns `errDerivedSuperseded` |
+| `pkg/app/bootstrap/derived_execute.go` `executeObserved` | `Prepare` inputs (`Rebuilds`, `Reads`, switch `RecordExpand`), `ComputeReturns`, `NotesFinal` over the members `computeAndPublish` returns (switch `AckOnlyPublished`), `OntologyFinal` replan (switch `PublishSurvivors`) |
+| `pkg/app/bootstrap/derived_publication.go` `computeAndPublish` | `PublishBatch` (switch `PublishOnlyLive`), `PassFails`; returns the members whose results were all published (`sch.published`) |
 | `pkg/app/bootstrap/derived_sources.go` `publishedNoteReader`, `publishedCodeLoader` | `Ahead` |
 | `pkg/app/indexcore/publish.go` `Publish` | `BatchMarks` (mark before structure), `BatchCompletes` (commit, then `SubmitActivateDerived`), `BatchInterrupted` |
 | `pkg/app/indexcore/candidates.go` `dirtyScopes` | `BatchMarks` scopes: path tickets, or only the global ticket when full |
@@ -74,22 +74,22 @@ Each switch is `TRUE` in the code configurations. Every variant check sets one s
 | `CheckTicket` | `currentMembers` calls `CurrentDerivedWork` | `no-ticket-check`, `NoStalePublication` |
 | `RecordWitness` | `captureWitness` keeps the whole RECORD source set | `own-path-witness`, `NoStalePublication` |
 | `RecordExpand` | ontology inputs come from `RecordSourceSetPaths` | `no-record-expansion`, `QuietMeansCurrent` |
-| `AckFilter` | `AckDerivedWorkMatched` matches generation, epoch and revision | `ack-without-filter` holds on its own, because `currentMembers` checks the ticket in the same lane job. `no-ticket-check-or-ack-filter` breaks `AckNeverCoversNewerChange` and `QuietMeansCurrent`. |
+| `AckFilter` | `AckDerivedWorkMatched` matches generation, epoch and revision | `ack-without-filter` holds on its own, because `currentMembers` checks the ticket in the same lane job. `no-ticket-check-or-ack-filter` breaks `AckNeverCoversNewerChange`. |
 | `PublishOnlyLive` | publication skips dropped members' results | `publish-dropped-{notes,ontology}`, `GroupPublishesOnlyCurrentMembers` |
 | `PublishSurvivors` | a group continues with its survivors | `drop-whole-group-{notes,ontology}`: `CoverSurvivorsContinue` holds, so the code configurations' expected break disappears |
-| `AckOnlyPublished` | the proposed fix for F1 (`FALSE` in the code) | `fix-ack-only-published` holds every rule |
+| `AckOnlyPublished` | the final acknowledgement covers only the members `computeAndPublish` returns, whose results were all published | `ack-prepared-members`, `NoAckWithoutPublication` |
 
-## Finding F1: a member skipped by one batch can be acknowledged anyway
+## Finding F1 (fixed): a member skipped by one batch was acknowledged anyway
 
-`NoAckWithoutPublication` breaks on the note and code style. The code configurations expect this break, and the runner marks it `finding F1`. `/statechart` reports the path as follows:
+The model found this bug in the note and code style. `NoAckWithoutPublication` broke on this path:
 
 1. The scheduler reads ready note tickets for `a` and `c` and plans them as one group.
 2. `a`'s file changes on disk while the provider computes.
 3. The first `derived_publication` lane job finds `a` ahead of its rows. It publishes `c` and keeps `a`'s result unpublished.
 4. `a`'s file changes back to the planned text before the next lane job. Editors that save by rename or by an undo can do this.
-5. The final `withLease(ack=true)` checks only the members that survived *preparation*. `a` looks current again, so `AckDerivedWorkMatched` deletes `a`'s ticket. `a`'s output stays stale and no ticket remains.
+5. The final `withLease(ack=true)` checked only the members that survived *preparation*. `a` looked current again, so `AckDerivedWorkMatched` deleted `a`'s ticket. `a`'s output stayed stale and no ticket remained.
 
-The cause is that `executeObserved` passes its prepare-time `members` to the final acknowledgement, and `computeAndPublish` returns nil when it kept results for dropped members. A scratch Go test reproduced F1 on the sync commit. The test used `groupedWatcher` with two notes, wrote `a` ahead during the provider call, and restored it before the final lane job. `execute` returned nil, `a`'s ticket was gone, and `a` had no embedded chunks for its current sections. `c` had been published. The repair usually comes from the file events of steps 2 and 4, which mark `a` again. When those events are lost, the output stays stale: `finding-lost-event` shows this, and `fix-lost-event` shows that the fix closes it. When F1 is fixed in code, set `AckOnlyPublished = TRUE` in the base configs. In `CHECKS`, move `NoAckWithoutPublication` from the breaks to the holds of `notes-churn` and `notes-deep`, and drop the two `fix-*` checks.
+The file events of steps 2 and 4 usually marked `a` again, but a lost event left the output stale. Now `computeAndPublish` returns only the members whose results were all published, and `executeObserved` acknowledges only those. A member that a batch skipped keeps its ticket and the superseded delay, and its retry publishes from the cached vectors. `TestDerivedGroupKeepsTicketOfMemberSkippedByPublication` in `pkg/app/bootstrap/derived_group_test.go` replays the path against the code. The variant `ack-prepared-members` restores the old acknowledgement and must break `NoAckWithoutPublication`.
 
 ## Bounds and what the check does not cover
 

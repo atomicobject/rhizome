@@ -42,30 +42,24 @@ SAFETY = ["NoStalePublication", "QuietMeansCurrent", "NoAckWithoutPublication",
           "AckNeverCoversNewerChange", "GroupPublishesOnlyCurrentMembers", "QuietMeansIndexed"]
 LIVE = "EventuallyQuiet"
 COVER = "CoverSurvivorsContinue"
-F1 = "NoAckWithoutPublication"
 
 
 @dataclass
 class Check:
     name: str
     base: str
-    kind: str  # code | variant | fix | assumption
+    kind: str  # code | variant | assumption
     why: str
     holds: list
     breaks: list = field(default_factory=list)
     overrides: dict = field(default_factory=dict)
     deep: bool = False
-    findings: dict = field(default_factory=dict)  # rule -> finding id
-
-
-def without(rules, *drop):
-    return [r for r in rules if r not in drop]
 
 
 CHECKS = [
     # The code as it is. COVER must break: survivors of a dropped member go on.
     Check("notes-churn", "notes-churn", "code", "note/code tickets as written",
-          holds=without(SAFETY, F1) + [LIVE], breaks=[F1, COVER], findings={F1: "F1"}),
+          holds=SAFETY + [LIVE], breaks=[COVER]),
     Check("notes-lifecycle", "notes-lifecycle", "code", "note/code tickets as written",
           holds=SAFETY, breaks=[COVER]),
     Check("ontology-churn", "ontology-churn", "code", "ontology tickets as written",
@@ -88,8 +82,9 @@ CHECKS = [
           holds=["NoStalePublication", "QuietMeansCurrent", "AckNeverCoversNewerChange"],
           overrides={"AckFilter": "FALSE"}),
     Check("no-ticket-check-or-ack-filter", "notes-churn", "variant",
-          "both of the above: an old run deletes a newer ticket and its change is lost",
-          holds=[], breaks=["AckNeverCoversNewerChange", "QuietMeansCurrent"],
+          "both of the above: an old run deletes a newer ticket. Its change is no longer lost: "
+          "that path went through F1, and the run now acknowledges only fully published members",
+          holds=[], breaks=["AckNeverCoversNewerChange"],
           overrides={"CheckTicket": "FALSE", "AckFilter": "FALSE"}),
     Check("publish-dropped-notes", "notes-churn", "variant",
           "derived_publication.go computeAndPublish publishes every result in a batch, live or not",
@@ -105,25 +100,20 @@ CHECKS = [
     Check("drop-whole-group-ontology", "ontology-churn", "variant",
           "the ontology publication abandons the group instead of replanning survivors",
           holds=[COVER], overrides={"PublishSurvivors": "FALSE"}),
-    # The proposed fix for F1, and what F1 costs when a file event is lost.
-    Check("fix-ack-only-published", "notes-churn", "fix",
-          "the final job acknowledges only members whose results were all published",
-          holds=SAFETY + [LIVE], breaks=[COVER], overrides={"AckOnlyPublished": "TRUE"}),
+    Check("ack-prepared-members", "notes-churn", "variant",
+          "derived_execute.go acknowledges the members that survived preparation, not the ones "
+          "computeAndPublish returns (finding F1, fixed)",
+          holds=[], breaks=["NoAckWithoutPublication"], overrides={"AckOnlyPublished": "FALSE"}),
+    # Assumptions: what a lost file event costs.
     Check("lost-event", "notes-churn", "assumption",
           "a file event never arrives and no restart follows (indexing.md: saves rely on watch or restart)",
           holds=[], breaks=["QuietMeansCurrent", LIVE], overrides={"MaxLostEvents": "1"}),
-    Check("finding-lost-event", "notes-churn", "assumption",
-          "F1 with no saves: a lost event leaves stale output only through F1",
-          holds=[], breaks=["QuietMeansCurrent"], overrides={"MaxSaves": "0", "MaxLostEvents": "1"},
-          findings={"QuietMeansCurrent": "F1"}),
-    Check("fix-lost-event", "notes-churn", "fix",
-          "the F1 fix under the same lost event",
-          holds=["QuietMeansCurrent"],
-          overrides={"MaxSaves": "0", "MaxLostEvents": "1", "AckOnlyPublished": "TRUE"}),
+    Check("lost-event-no-saves", "notes-churn", "assumption",
+          "with no direct save, a lost file event leaves no stale output",
+          holds=["QuietMeansCurrent"], overrides={"MaxSaves": "0", "MaxLostEvents": "1"}),
     # --deep: larger bounds, and liveness across explicit indexing and restart.
     Check("notes-deep", "notes-lifecycle", "code", "note/code tickets, every budget at once",
-          holds=without(SAFETY, F1), breaks=[F1], overrides={"MaxEdits": "2"}, deep=True,
-          findings={F1: "F1"}),
+          holds=SAFETY, overrides={"MaxEdits": "2"}, deep=True),
     Check("ontology-deep", "ontology-lifecycle", "code", "ontology tickets, every budget at once",
           holds=SAFETY, overrides={"MaxEdits": "2"}, deep=True),
     Check("notes-lifecycle-liveness", "notes-lifecycle", "code", "progress across restarts",
@@ -361,10 +351,8 @@ def main():
         ok = run.result == run.expect
         unexpected += not ok
         rules = run.label if run.expect == "break" else f"holds ({len(run.rules)} rules)"
-        note = run.check.findings.get(run.rules[0]) if run.expect == "break" else None
         mark = "" if ok else "  <-- UNEXPECTED"
-        print(f"{run.check.name:30} {rules:45} {run.expect:9} {run.result:24} {run.seconds:5.1f}s"
-              f"{'  finding ' + note if note else ''}{mark}")
+        print(f"{run.check.name:30} {rules:45} {run.expect:9} {run.result:24} {run.seconds:5.1f}s{mark}")
         if not ok:
             print(f"    config {run.cfg}\n    TLC output {run.log}")
     total = time.monotonic() - started

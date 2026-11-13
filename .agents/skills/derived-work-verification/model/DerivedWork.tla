@@ -25,8 +25,7 @@
 
    Each action names the code it stands for. Each regression switch below is
    TRUE for the code as it is, and a variant check in ../check sets one to
-   FALSE. AckOnlyPublished models a proposed fix and is FALSE for the code;
-   MaxLostEvents breaks an assumption and is 0 in every code check. *)
+   FALSE. MaxLostEvents breaks an assumption and is 0 in every code check. *)
 EXTENDS Naturals, FiniteSets, Sequences
 
 CONSTANTS
@@ -48,8 +47,8 @@ CONSTANTS
   AckFilter,        \* AckDerivedWorkMatched deletes only the exact generation/epoch/revision
   PublishOnlyLive,  \* publication skips results of members that dropped
   PublishSurvivors, \* a group continues with its survivors when a member drops
-  AckOnlyPublished  \* PROPOSED FIX (FALSE = current code): the final job acknowledges
-                    \* only members whose results were all published
+  AckOnlyPublished  \* the final job acknowledges only members whose results were all
+                    \* published (computeAndPublish returns them)
 
 ASSUME Style \in {"notes", "ontology"} /\ RecordHosts \subseteq Paths
 
@@ -354,8 +353,11 @@ PublishBatch(S) ==
                  unpublishedAck, ackedNewer>>
 
 \* executeObserved's final "derived_publication" withLease(ack=true) for notes:
-\* currentMembers over the members that survived PREPARE, FinishDerived
-\* cleanup for the live paths, then AckDerivedWorkMatched(live).
+\* currentMembers over the members computeAndPublish returned (those whose
+\* results were all published), FinishDerived cleanup for the live paths, then
+\* AckDerivedWorkMatched(live). Filtering Live afterwards is the same thing: a
+\* path member's liveness depends only on its own inputs, and with no member
+\* left, withLease returns errDerivedSuperseded without acknowledging.
 NotesFinal ==
   /\ Style = "notes" /\ sch.phase = "publish" /\ sch.results = {} /\ batch.phase = "idle"
   /\ LET live == Live
