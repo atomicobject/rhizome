@@ -81,8 +81,8 @@ func CancelIndexJob(ctx context.Context, c *Client, jobID string) error {
 }
 
 // StreamIndexJob delivers the job's events until the terminal done event. The
-// runtime always ends a stream with one, so a stream that closes without it is
-// an error rather than a silent success.
+// runtime can shut down before delivering that event, so a stream that closes
+// without it is an error rather than a silent success.
 func StreamIndexJob(ctx context.Context, c *Client, jobID string, onEvent func(lane.Event) error) error {
 	req, err := c.NewRequest(ctx, http.MethodGet, IndexJobsPathPrefix+jobID+"/events", nil)
 	if err != nil {

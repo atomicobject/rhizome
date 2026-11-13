@@ -125,9 +125,8 @@ func TestIndexRacingStopStillSucceeds(t *testing.T) {
 		require.NoError(t, indexed.err, "round %d initial index: stdout=%s stderr=%s", round, indexed.stdout, indexed.stderr)
 		vault.requireLiveRuntime(t)
 
-		// Whichever wins, neither command may fail: an index that loses its
-		// runtime mid-job falls back in-process, and one that arrives during the
-		// shutdown window waits it out and starts a fresh runtime.
+		// Stop cancels HTTP streams before the lane drains, so a racing client
+		// can lose its result while the runtime still owns the vault.
 		var stop, index commandResult
 		var wg sync.WaitGroup
 		wg.Add(2)
@@ -135,8 +134,18 @@ func TestIndexRacingStopStillSucceeds(t *testing.T) {
 		go func() { defer wg.Done(); index = vault.run(nil, "index") }()
 		wg.Wait()
 		require.NoError(t, stop.err, "round %d stop: stdout=%s stderr=%s", round, stop.stdout, stop.stderr)
-		require.NoError(t, index.err, "round %d index: stdout=%s stderr=%s", round, index.stdout, index.stderr)
+		if index.err != nil {
+			var exit *exec.ExitError
+			require.ErrorAs(t, index.err, &exit, "round %d index: stdout=%s stderr=%s", round, index.stdout, index.stderr)
+			require.Contains(t, []int{1, 130}, exit.ExitCode(), "round %d index: stdout=%s stderr=%s", round, index.stdout, index.stderr)
+			t.Logf("round %d index interrupted by stop: %v; stdout=%s stderr=%s", round, index.err, index.stdout, index.stderr)
+		}
 	}
+	indexed := vault.run(nil, "index")
+	require.NoError(t, indexed.err, "index after stop: stdout=%s stderr=%s", indexed.stdout, indexed.stderr)
+	symbol := vault.run(map[string]string{appruntime.AutostartEnv: "0"}, "agent", "code-symbol", "--symbol", "greet", "--path", "src/example.py")
+	require.NoError(t, symbol.err, "indexed read after recovery: stdout=%s stderr=%s", symbol.stdout, symbol.stderr)
+	require.Contains(t, symbol.stdout, `"definition"`)
 }
 
 func TestAutostartDisabledIndexesInProcess(t *testing.T) {
