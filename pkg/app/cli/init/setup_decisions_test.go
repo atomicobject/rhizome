@@ -82,7 +82,7 @@ func TestKeepLegacyDecisionPersistsDecline(t *testing.T) {
 	root := legacyOwnershipRepo(t)
 	clearLegacyEvidence(t, root)
 	original := readTestFile(t, root, legacyEffortPath)
-	_, err := Apply(RunOptions{Dir: root, Keep: []string{moduleEffortPath}})
+	_, err := runInit(t, RunOptions{Dir: root, Keep: []string{moduleEffortPath}})
 	require.NoError(t, err)
 	require.Equal(t, original, readTestFile(t, root, legacyEffortPath))
 	require.NoFileExists(t, filepath.Join(root, moduleEffortPath))
@@ -228,7 +228,7 @@ func TestLegacyOwnershipRecoveryUsesOnlyExactGitEvidence(t *testing.T) {
 			} else {
 				require.Contains(t, plan.Writes.Files, moduleEffortPath)
 				require.Empty(t, plan.Writes.Decisions)
-				_, err = Apply(RunOptions{Dir: root})
+				_, err = runInit(t, RunOptions{Dir: root})
 				require.NoError(t, err)
 				require.Contains(t, readTestFile(t, root, moduleEffortPath), `group: "Delivery"`)
 				require.NoFileExists(t, filepath.Join(root, legacyEffortPath))

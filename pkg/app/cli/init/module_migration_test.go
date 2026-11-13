@@ -90,7 +90,7 @@ func TestReinitMigratesAFlatLayoutIntoModules(t *testing.T) {
 	require.Contains(t, record.Written, moduleSchema)
 	_, err = runInit(t, RunOptions{Dir: root, Check: true})
 	require.NoError(t, err, "unresolved decisions do not count as automatic writes")
-	_, err = Apply(RunOptions{Dir: root, Take: []string{moduleEdited}})
+	_, err = runInit(t, RunOptions{Dir: root, Take: []string{moduleEdited}})
 	require.NoError(t, err)
 	require.NoFileExists(t, filepath.Join(root, flatEdited))
 	require.NotContains(t, readTestFile(t, root, moduleEdited), "# team tweak")
