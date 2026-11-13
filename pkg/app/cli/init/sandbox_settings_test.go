@@ -79,12 +79,51 @@ func TestCodexProfileConflictsWithQuotedOrTabbedKeys(t *testing.T) {
 	for _, text := range []string{
 		"\"default_permissions\" = \":read-only\"\n",
 		"default_permissions\t= \":read-only\"\n",
-		"[ features ]\nx = true\n",
+		"[ features ]\nnetwork_proxy = true\n",
+		"[[features]]\n",
 		"[\"permissions\".mine]\n",
 	} {
-		require.NotEmpty(t, block.conflict([]byte(text)), text)
+		require.NotEmpty(t, block.conflict([]byte(text), []byte(codexLoopbackProfile)), text)
 	}
-	require.Empty(t, block.conflict([]byte("[projects.\"/x\"]\nfeatures_extra = 1\n")), "a longer key is not a conflict")
+	require.Empty(t, block.conflict([]byte("[projects.\"/x\"]\nfeatures_extra = 1\nfeatures = 1\n"), []byte(codexLoopbackProfile)), "a longer key, or one in another table, is not a conflict")
+}
+
+func TestCodexProfileJoinsAPersonsFeaturesTable(t *testing.T) {
+	root := machineRunRepo(t)
+	mine := "[features]\nhooks = true\n\n[tui]\nscreen_reader_detection_done = true\n"
+	writeFixtureFile(t, root, ".codex/config.toml", mine)
+	result, err := Apply(RunOptions{Dir: root, Workflow: "none", Agents: "codex", Search: "off"})
+	require.NoError(t, err)
+	require.Empty(t, result.Warnings)
+	path := filepath.Join(root, ".codex/config.toml")
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	text := string(data)
+	require.Contains(t, text, "[features]\n# BEGIN RZM INIT BLOCK: [features] codex-sandbox\nnetwork_proxy = true\n# END RZM INIT BLOCK: [features] codex-sandbox\nhooks = true\n")
+	require.NotContains(t, text, "features.network_proxy", "a dotted key would redefine [features]:\n%s", text)
+	require.Contains(t, text, `permissions.rhizome.network.domains."127.0.0.1" = "allow"`)
+
+	out, err := runInit(t, RunOptions{Dir: root, Check: true})
+	require.NoError(t, err)
+	require.Contains(t, out, "Everything is up to date.", "the split profile reads back as Rhizome's")
+
+	_, err = runInit(t, RunOptions{Dir: root, Agents: "claude"})
+	require.NoError(t, err)
+	data, err = os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, mine, string(data), "removing the profile restores the person's file")
+}
+
+func TestCodexProfileSkipsTablesInsideMultilineStrings(t *testing.T) {
+	block := tomlBlock("codex-sandbox")
+	mine := "developer_instructions = \"\"\"\nExample:\n[features]\n\"\"\"\n\n[features]\nhooks = true\n"
+	out, err := block.write([]byte(mine), []byte(codexLoopbackProfile))
+	require.NoError(t, err)
+	require.Contains(t, string(out), "Example:\n[features]\n\"\"\"\n", "the instructions stay as written")
+	require.Contains(t, string(out), "\n[features]\n# BEGIN RZM INIT BLOCK: [features] codex-sandbox\nnetwork_proxy = true\n")
+	require.Empty(t, block.conflict([]byte("notes = '''\n[[features]]\nfeatures = 1\n'''\n"), []byte(codexLoopbackProfile)))
+	require.Empty(t, block.conflict([]byte("notes = \"\"\"\nsay \\\"\"\" and\n[[features]]\n\"\"\"\n"), []byte(codexLoopbackProfile)), "an escaped quote does not end the string")
+	require.NotEmpty(t, block.conflict([]byte("[features]\n\"network\\u005fproxy\" = false\n"), []byte(codexLoopbackProfile)), "an escaped key is the same key")
 }
 
 func TestCodexGetsALoopbackOnlyProfileAboveAPersonsSettings(t *testing.T) {
