@@ -10,6 +10,10 @@ use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_updater::{Update, UpdaterBuilder, UpdaterExt};
 
+#[cfg(target_os = "macos")]
+#[path = "updater/macos.rs"]
+mod macos;
+
 const INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 const CHECK_TIMEOUT: Duration = Duration::from_secs(30);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
@@ -183,7 +187,9 @@ pub fn install(app: &AppHandle) -> Result<(), String> {
     app.state::<crate::team::Team>().cancel(None);
     // Windows installation exits the process before this function returns.
     windows::quit(app);
-    if let Err(error) = install_handoff(|| update.install(bytes)) {
+    if let Err(error) =
+        install_handoff(|| install_update(&update, &bytes, &app.config().identifier))
+    {
         app.state::<windows::Sessions>().cancel_quit();
         let message = format!("Cannot install Rhizome {}: {error}", update.version);
         set(
@@ -195,6 +201,19 @@ pub fn install(app: &AppHandle) -> Result<(), String> {
         return Err(message);
     }
     app.restart();
+}
+
+fn install_update(update: &Update, bytes: &[u8], identifier: &str) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        update.verify(bytes).map_err(|error| error.to_string())?;
+        if macos::install(bytes, identifier, &update.version)? == macos::Outcome::Installed {
+            return Ok(());
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = identifier;
+    update.install(bytes).map_err(|error| error.to_string())
 }
 
 fn install_handoff<E>(install: impl FnOnce() -> Result<(), E>) -> Result<(), E> {

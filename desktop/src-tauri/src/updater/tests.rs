@@ -469,3 +469,21 @@ fn unchanged_release_reuses_cache_and_withdrawn_release_clears_it() {
         assert!(app.state::<Updates>().ready.lock().unwrap().is_none());
     });
 }
+
+#[cfg(target_os = "macos")]
+#[test]
+fn install_boundary_rechecks_signature_before_staging() {
+    tauri::async_runtime::block_on(async {
+        let app = app();
+        let server = Server::new(vec![Reply::Feed("1.0.0"), Reply::Package(b"test")]);
+        assert_eq!(refresh(&app, &server).await, ready("1.0.0"));
+        let updates = app.state::<Updates>();
+        let cached = updates.ready.lock().unwrap();
+        let (update, _) = cached.as_ref().unwrap();
+        let expected = update.verify(b"tampered").unwrap_err().to_string();
+        assert_eq!(
+            install_update(update, b"tampered", "test.app").unwrap_err(),
+            expected
+        );
+    });
+}

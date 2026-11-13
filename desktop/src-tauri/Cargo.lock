@@ -3215,13 +3215,16 @@ dependencies = [
 name = "rhizome-desktop"
 version = "0.0.0"
 dependencies = [
+ "flate2",
  "fs2",
  "gtk",
  "libc",
+ "plist",
  "semver",
  "serde",
  "serde_json",
  "sha2",
+ "tar",
  "tauri",
  "tauri-build",
  "tauri-plugin-clipboard-manager",
