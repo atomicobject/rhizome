@@ -59,6 +59,7 @@ type unifiedSemanticWatcher struct {
 	// eventCount numbers filesystem events per path, so a verified source
 	// stat stays trusted only until the next event for it (live_sync.go).
 	eventCount     map[string]uint64
+	inputVersion   atomic.Uint64
 	pendingResync  bool
 	pendingReasons map[string]int64
 	// seenRecrawls is the cache recrawl count the watcher last acted on, and
