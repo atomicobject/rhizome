@@ -35,12 +35,17 @@ func (v VaultPaths) RelPhysicalStrictCached(p string, links *SymlinkCache) (RelP
 	if !filepath.IsAbs(p) {
 		return RelPath(""), ErrOutsideVault
 	}
-	return v.RelStrict(physicalPath(p, links))
+	resolved, missing := physicalPath(p, links)
+	if missing {
+		// A ".." after a missing component can climb back into a link, so resolve it all again.
+		return v.RelStrict(resolved)
+	}
+	return v.relStrict(resolved, filepath.ToSlash)
 }
 
 // physicalPath resolves an absolute path one component at a time. Components
-// after the first missing one cannot be links and apply lexically.
-func physicalPath(p string, links *SymlinkCache) string {
+// after the first missing one apply lexically; missing reports that one was.
+func physicalPath(p string, links *SymlinkCache) (string, bool) {
 	p = filepath.FromSlash(p)
 	vol := filepath.VolumeName(p)
 	cur := vol + string(filepath.Separator)
@@ -63,5 +68,5 @@ func physicalPath(p string, links *SymlinkCache) string {
 		}
 		cur = next
 	}
-	return cur
+	return cur, missing
 }

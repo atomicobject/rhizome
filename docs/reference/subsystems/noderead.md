@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, invariants, and review checklist for the noderead/readmodel typed read seam: request-scoped Scope batching, hydration profiles, edit-session read overlays, graph assembly, and consumer caching."
 reference-kind: guide
-last-verified: 2026-11-07
+last-verified: 2026-11-13
 code-paths:
   - pkg/ontology/noderead
   - pkg/ontology/readmodel
@@ -60,7 +60,8 @@ code-anchors:
 
 - **Current snapshots retain selected-provider facts.** Registered Markdown sources project through their selected provider before `BuildMarkdownDocumentSnapshot` captures structural state. `DocumentSnapshot.SelectorFacts` supplies defensive copies of captured title, tags, frontmatter, and inline values. Scope retains the selected provider root beside its structural snapshot and attaches it to Markdown root projections, so authored link facts remain authoritative even when the provider replaces or suppresses a raw link. Root-first and section-first reads share one source capture; preview snapshots never acquire committed provider facts. Projection-backed records read its authoritative tags, including an empty set, without reparsing raw source or inferring missing provider facts. Plain Markdown syntax construction uses the shared neutral title/tag rules once.
 
-- **Consumer caches require freshness guards.** Web projection entries validate schema hash and modification time. Scope owns request-local memoization; there is no speculative shared node cache.
+- **Consumer caches require freshness guards.** Web projection entries validate schema hash and modification time. Scope owns request-local memoization; there is no speculative shared node cache. The one process-wide reuse below the scope is `noteformat.Runtime.ProjectCached`, which provider snapshots use and which memoizes a provider projection by format, path, content hash and mtime and returns a detached `Copy` to every caller, so changed bytes miss and no caller shares a mutable result. Prepared documents, resolvers and catalog context stay per scope.
+- **Locator resolution prepares each snapshot once.** A scope's `NodeLinkService` (built by `WithNotePaths`) keeps one prepared document per loaded `DocumentSnapshot`, so resolving every embedded locator in a note does not rebuild that note per ref. A refreshed service after ensure-apply loads new snapshots, so it never reuses a pre-apply entry.
 
 - **Ensure-apply owns source and durable convergence together.** `Service.ApplyLinkTargets` is an explicit app-owned capability backed by the same live vault/store as the Scope. Missing capability or a preview overlay rejects apply before source mutation. Apply always invokes convergence for resolved embedded refs, including already-linkable refs after an earlier publication failure. The app holds the canonical index lock across the source edit and queued metadata/ontology publication; noderead never writes the catalog directly. After any attempt, all request caches and shared derived state are invalidated. Source-committed/index-incomplete errors propagate; success resolves again with ensure=never. Retained published read bundles cannot receive this capability. Graph, GraphFacts, and note-path builders capture the scope cache generation before unlocked work and publish only if it still matches; apply invalidation advances that generation. Overlapping reads may finish, but cannot restore pre-apply entries for later reads.
 

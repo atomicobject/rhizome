@@ -20,7 +20,7 @@ import (
 
 // siteQueries runs the starter's query module, so these tests read exactly the text the views run.
 type siteQueries struct {
-	Orientation, Related, Review, Source, Artifact, Citation string
+	Orientation, Related, Review, Source, Artifact, Concept, Citation string
 }
 
 // nodes reads refs with selection the way the kit's readNodes does (one batch, `first` set).
@@ -48,7 +48,7 @@ func loadSiteQueries(t *testing.T, args map[string]any) siteQueries {
 	// import() takes a URL; a raw Windows path (D:\...) reads as scheme "d:".
 	script := `const q = await import((await import("node:url")).pathToFileURL(process.argv[1]).href); const a = JSON.parse(process.argv[2]) ?? {};
 console.log(JSON.stringify({Orientation: q.ORIENTATION_QUERY, Related: q.RELATED_CONCEPTS_QUERY, Review: q.REVIEW_DOCUMENTS_QUERY,
-  Citation: q.CITATION_SELECTION, Source: q.sourceScopeQuery(a.source ?? ""), Artifact: q.artifactScopeQuery(a.artifact ?? "")}));`
+  Citation: q.CITATION_SELECTION, Source: q.sourceScopeQuery(a.source ?? ""), Artifact: q.artifactScopeQuery(a.artifact ?? ""), Concept: q.conceptScopeQuery(a.concept ?? "")}));`
 	out, err := exec.Command(node, "--experimental-strip-types", "--input-type=module", "-e", script, module, string(input)).CombinedOutput()
 	require.NoError(t, err, "%s", out)
 	var queries siteQueries
@@ -228,6 +228,7 @@ func TestAOKBLegacySiteData(t *testing.T) {
 		queries := loadSiteQueries(t, map[string]any{
 			"source":   "sources/documents/ferry-handbook.md",
 			"artifact": "artifacts/plans/service-plan.md",
+			"concept":  "concepts/timetable.md",
 		})
 		data, _ := v.query(queries.nodes("assertions/riders-check-board.md", "assertions/body-linked.md"))
 		items := aoRows(aoMap(data["nodes"])["items"])
@@ -243,6 +244,21 @@ func TestAOKBLegacySiteData(t *testing.T) {
 		require.Equal(t, []any{"a-0003", "a-0007"}, node["supportValues"])
 		require.Equal(t, []string{"concepts/timetable.md"}, sitePaths(node["conceptReferences"]))
 		require.Equal(t, []string{"assertions/storm-cancellations.md"}, sitePaths(node["additionalAssertionReferences"]))
+		// The concept page serves members from this read in place of readNodes, so each record must match it.
+		data, _ = v.query(queries.Concept)
+		node = aoMap(data["node"])
+		members := append(aoRows(node["linkedAssertions"]), aoRows(node["linkingAssertions"])...)
+		require.Len(t, members, 31)
+		refs := make([]string, len(members))
+		for i, member := range members {
+			refs[i] = aoString(member["path"])
+		}
+		data, _ = v.query(queries.nodes(refs...))
+		read := aoRows(aoMap(data["nodes"])["items"])
+		require.Len(t, read, len(members))
+		for i, item := range read {
+			require.Equal(t, members[i], aoMap(item["node"]), refs[i])
+		}
 	})
 }
 

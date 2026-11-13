@@ -99,6 +99,17 @@ Place each chart beside the question it answers, in the lens, tab, or panel abou
 - TypeScript types are stripped, not checked. Keep types for readability; do not rely on them to catch mistakes.
 - Style with Tailwind v4 utilities and the theme tokens; see [Look like Rhizome](#look-like-rhizome). The root font size is 14px, so spacing utilities are compact, while text sizes are pinned to Rhizome's 12, 13, 14, 16, and 18px scale.
 
+## Load data in few, parallel reads
+
+A page waits for its longest chain of dependent requests, and the server pays a cost for every record a request reads. Shape the reads for that:
+
+- Read a tree in one nested query. Follow typed child fields, such as `userStories { stories { acceptanceCriteria { criteria { title } } } }`, instead of reading one level, collecting its refs, and calling `readNodes` for the next. Each level read that way waits for the one before it.
+- Start independent reads together with `Promise.all`, and await only what a read depends on.
+- Split a large inventory into pages and read about four at once. The browser runs six requests per server, and the live event stream holds one.
+- Select only the fields the page renders. `workspace` and `locator` project the source file for each record and cost several times `ref`, `title`, or a typed field, so request them only for the records that use them.
+- `graphql` rejects the whole response when one nested field fails. When one bad record must not hide the rest, retry that page without the nested part.
+- Measure before and after. Call `markReady()` when the required reads finish so diagnostics time data-ready, and compare request counts and response bytes in the browser's network panel.
+
 Read `references/example.md` for a standalone board with a shared component and staged write. The mounted example covers a specific group dashboard, parameterized node page, and HTML accessor.
 
 ## An experience: pages that run as one site

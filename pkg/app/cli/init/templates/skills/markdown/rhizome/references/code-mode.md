@@ -91,7 +91,7 @@ A recipe run also returns its definition. For an answer, project `payload.result
 
 ## Three shapes that cover most work
 
-**Fan out, return one table.** `Promise.all` overlaps compatible calls, including provider requests, audited existing-index reads, and typed reads (`ontologyQuery`, `queryRecipe` runs, and `view` reads) that the vault runtime serves. Mutations take exclusive access, and after a connection writes, its typed reads run in-process so they see the write. Use `await` to order dependent calls. When reverse fields connect the records, one nested `ontologyQuery` usually beats many separate calls. Keep `coverage` and `truncated` in the row: a capped caller list is not a count.
+**Fan out, return one table.** `Promise.all` overlaps compatible calls, including provider requests, audited existing-index reads, and typed reads (`ontologyQuery`, `queryRecipe` runs, and `view` reads) that the vault runtime serves. Mutations take exclusive access, and after a connection writes, its typed reads run in-process so they see the write. Use `await` to order dependent calls. When reverse fields connect the records, one nested `ontologyQuery` usually beats many separate calls. Select only the fields the answer uses: `workspace` and `locator` project the source file for each record and cost several times `title` or a typed field. Keep `coverage` and `truncated` in the row: a capped caller list is not a count.
 
 ```js
 const symbols = ["CallJSON", "CallCodeLocal", "Execute"];

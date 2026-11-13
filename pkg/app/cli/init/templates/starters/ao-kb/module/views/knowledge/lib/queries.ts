@@ -34,6 +34,12 @@ export const RELATED_CONCEPTS_QUERY = `{ concept(first: ${ROOT_MAX}) { path rela
  * resolved support values not already read. */
 export const CITATION_SELECTION = `... on Assertion { path ${CITATIONS} }`;
 
+/** Concept scope: its member assertions in both link directions, with their citations. It runs
+ * beside the orientation query, so the concept page need not wait for that query to name its
+ * members before reading them; members it does not return follow with `readNodes`. */
+export const conceptScopeQuery = (conceptPath: string) =>
+  `{ node(ref: ${JSON.stringify(conceptPath)}) { ... on Concept { path linkedAssertions { ${CITATION_SELECTION} } linkingAssertions { ${CITATION_SELECTION} } } } }`;
+
 /** Source scope: every assertion that links the source, with its citations (declared, so no
  * `first`). The provenance-only candidates the orientation query resolved to the source and
  * that are not among `linkingAssertions` are read with `readNodes`; `citations()` decides. */

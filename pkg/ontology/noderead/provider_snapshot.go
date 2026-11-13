@@ -36,7 +36,7 @@ func (s *Scope) providerRootSnapshotLocked(ctx context.Context, row semdb.NoteMe
 	if err != nil {
 		return nil, err
 	}
-	projected, err := s.service.NoteFormats.Project(source)
+	projected, err := s.service.NoteFormats.ProjectCached(source)
 	if err != nil {
 		return nil, err
 	}

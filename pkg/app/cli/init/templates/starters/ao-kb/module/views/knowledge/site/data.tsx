@@ -71,16 +71,17 @@ export function useKbFacts() {
   return useQuery({
     queryKey: ["ao-kb", "kb-facts"],
     queryFn: async () => {
-      let profile: string | undefined;
-      try {
-        const manifest = JSON.parse((await readVaultText(BINDING_MANIFESTS.knowledge)) ?? "null");
-        if (typeof manifest?.context?.profile === "string") profile = manifest.context.profile;
-      } catch {
-        profile = undefined;
-      }
-      const status: { vaultName?: unknown } = await fetch("/api/v1/status").then((r) =>
-        r.ok ? r.json() : {},
-      );
+      const [profile, status] = await Promise.all([
+        readVaultText(BINDING_MANIFESTS.knowledge)
+          .then((text) => {
+            const profile = JSON.parse(text ?? "null")?.context?.profile;
+            return typeof profile === "string" ? profile : undefined;
+          })
+          .catch(() => undefined),
+        fetch("/api/v1/status").then((r) => (r.ok ? r.json() : {})) as Promise<{
+          vaultName?: unknown;
+        }>,
+      ]);
       return {
         profile,
         vault: typeof status?.vaultName === "string" ? status.vaultName : "This KB",

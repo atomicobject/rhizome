@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { reader, locator } from '../../templates/starters/agentic-engineering/module/views/delivery/reads.ts';
 import { identity, promptFor } from '../../templates/starters/agentic-engineering/module/views/delivery/lib/index.ts';
+import { NODE_DETAIL } from '../../templates/starters/agentic-engineering/module/views/delivery/queries.ts';
 const ref = (notePath, typeName = 'EffortNote', fragment = '') => ({ notePath, typeName, fragment, kind: fragment ? 'section' : 'note', nodeId: fragment || notePath });
 const field = (name, sectionNodes = [], values = null, links = []) => ({ name, present: true, values, sectionNodes, links, issues: [] });
 const node = (r, fields = [], format = 'markdown') => ({ ref: r, title: r.notePath, resolvedType: r.typeName, content: 'Full authored prose', format,
@@ -33,11 +34,11 @@ function harness(nodes = [], source = new Map(), alter = () => {}, inventory = {
       if (query.includes('DeliveryInventory')) {
         const root = query.includes('specLike(') ? 'specLike' : 'effort';
         const all = inventory[root] ?? [];
-        const page = all.slice(variables.offset, variables.offset + 100);
+        const page = all.slice(variables.offset, variables.offset + Number(query.match(/first: (\d+)/)[1]));
         const data = { [root]: page };
         facts.set(data, { generation: '7', roots: { [root]: { status: variables.offset + page.length >= all.length ? 'complete' : 'capped',
           hasMore: variables.offset + page.length < all.length, nextOffset: variables.offset + page.length, offset: variables.offset, returnedCount: page.length } } });
-        alter(data, variables, facts);
+        alter(data, variables, facts, query);
         return data;
       }
       const r = JSON.parse(variables.ref);
@@ -176,6 +177,79 @@ test('story and criterion collection order and full detail survive typed hydrati
   assert.deepEqual(duplicate.record.stories.map(story => story.ref.fragment), ['b', 'a']);
 });
 
+test('spec inventory pages read their trees together, read a failed tree page flat, and disclose mixed generations', async () => {
+  const keyed = (...args) => { const r = ref(...args); return { ...r, ref: JSON.stringify(r) }; };
+  const nodes = [];
+  const specs = Array.from({ length: 141 }, (_, i) => {
+    const path = `spec-${i}.md`;
+    const wrapper = node(keyed(path, 'UserStoriesSection', 'wrapper'));
+    const story = node(keyed(path, 'UserStory', 'a'), [field('status', [], ['ready'])]);
+    wrapper.workspace.collections = [{ name: 'stories', items: [{ ref: story.ref }] }];
+    nodes.push(wrapper, story);
+    return { spec: node(keyed(path, 'ExperienceSpec'), [field('specStatus', [], ['active']), field('userStories', [wrapper.ref])]), wrapper, story };
+  });
+  const load = async (alter = () => {}) => {
+    const inventory = { specLike: specs.map(s => s.spec), effort: [] };
+    const h = harness(nodes, new Map(), (data, variables, facts, query) => {
+      if (query?.includes('deliveryTreeExperienceSpec')) data.specLike = data.specLike.map(spec => {
+        const { wrapper, story } = specs.find(s => s.spec === spec);
+        return { ...spec, deliveryTreeExperienceSpec: { ...wrapper, stories: [story] } };
+      });
+      alter(data, variables, facts, query);
+    }, inventory);
+    const result = await h.read.portfolio();
+    return { result, readNodes: h.calls.filter(call => call.selection).length, pages: h.calls.filter(call => call.query?.includes('specLike(')) };
+  };
+  const whole = await load();
+  assert.equal(whole.result.portfolio.specs.length, 141);
+  assert.ok(whole.result.portfolio.specs.every(spec => spec.stories.length === 1));
+  assert.equal(whole.result.coverage.complete, true, whole.result.coverage.errors.join('\n'));
+  assert.equal(whole.readNodes, 0);
+  assert.ok(whole.pages.every(call => call.query.includes('first: 35')));
+  assert.deepEqual(new Set(whole.pages.map(call => call.variables.offset)).size, 8);
+  const faulted = await load((data, variables, facts, query) => {
+    if (variables.offset === 35 && query.includes('deliveryTree')) throw new Error('Nested field failed');
+  });
+  assert.equal(faulted.result.coverage.complete, true, faulted.result.coverage.errors.join('\n'));
+  assert.ok(faulted.readNodes > 0);
+  assert.deepEqual(faulted.result.portfolio, whole.result.portfolio);
+  const mixed = await load((data, variables, facts) => {
+    if (variables.offset === 70) facts.set(data, { ...facts.get(data), generation: '8' });
+  });
+  assert.equal(mixed.result.coverage.complete, false);
+});
+
+test('a spec record reads its story tree with the spec and reads again flat when the tree read errors', async () => {
+  const keyed = (...args) => { const r = ref(...args); return { ...r, ref: JSON.stringify(r) }; };
+  const wrapper = node(keyed('spec.md', 'UserStoriesSection', 'wrapper'));
+  const ac = node(keyed('spec.md', 'AcceptanceCriteriaSection', 'criteria'));
+  const criterion = node(keyed('spec.md', 'AcceptanceCriterion', 'one'));
+  const story = node(keyed('spec.md', 'UserStory', 'a'), [field('status', [], ['ready']), field('acceptanceCriteria', [ac.ref])]);
+  const own = node(keyed('spec.md', 'ExperienceSpec'), [field('specStatus', [], ['active']), field('userStories', [wrapper.ref])]);
+  wrapper.workspace.collections = [{ name: 'stories', items: [{ ref: story.ref }] }];
+  ac.workspace.collections = [{ name: 'criteria', items: [{ ref: criterion.ref }] }];
+  const read = async treeFault => {
+    const h = harness([own, wrapper, story, ac, criterion]);
+    const flat = h.api.readNodes;
+    h.api.readNodes = async (targets, selection) => {
+      const result = await flat(targets, selection);
+      if (!selection.includes('deliveryTreeExperienceSpec')) return result;
+      if (treeFault) result.errors.push({ message: 'Nested field failed', extensions: { requestedRef: own.ref.ref } });
+      else result.nodes = [{ ...own, deliveryTreeExperienceSpec: { ...wrapper, stories: [{ ...story, acceptanceCriteria: { ...ac, criteria: [criterion] } }] } }];
+      return result;
+    };
+    return { detail: await h.read.record(own.ref), calls: h.calls.length };
+  };
+  const nested = await read(false);
+  assert.equal(nested.calls, 1);
+  assert.equal(nested.detail.coverage.complete, true, nested.detail.coverage.errors.join('\n'));
+  assert.equal(nested.detail.record.stories[0].criteria[0].source.content, 'Full authored prose');
+  assert.equal('deliveryTreeExperienceSpec' in nested.detail.node, false);
+  const fallback = await read(true);
+  assert.equal(fallback.calls, 6);
+  assert.deepEqual(fallback.detail, nested.detail);
+});
+
 test('ambiguous spec sections retain prose but cannot supply copied scope', async () => {
   for (const section of ['userStories', 'acceptanceCriteria']) {
     for (const fault of ['duplicate', 'issue']) {
@@ -270,7 +344,7 @@ test('hydration honors canonical resolution across enriched refs and refuses omi
   h.api.generation = () => '7';
   h.api.readNodes = async () => ({ nodes: [own], complete: true, errors: [], unresolved: [], truncated: [] });
   for (const target of [requested, { notePath: 'effort.md', kind: 'note' }]) {
-    const result = await reader(h.api).hydrate([target], true);
+    const result = await reader(h.api).hydrate([target], NODE_DETAIL);
     assert.equal(result.coverage.complete, true);
     assert.equal(result.nodes[0].ref, own.ref);
   }
@@ -286,7 +360,7 @@ test('API hydration consumes the canonical public ref and keeps the returned ref
     requested = targets;
     return { nodes: [own], complete: true, errors: [], unresolved: [], truncated: [] };
   };
-  const result = await reader(h.api).hydrate([own.ref], true);
+  const result = await reader(h.api).hydrate([own.ref], NODE_DETAIL);
   assert.deepEqual(requested, ['canonical:spec']);
   assert.equal(result.nodes[0].ref, own.ref);
 });

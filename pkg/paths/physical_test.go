@@ -85,3 +85,35 @@ func TestRelPhysicalStrictFollowsALinkBeforeDotDot(t *testing.T) {
 		}
 	}
 }
+
+func TestRelPhysicalStrictRejectsALinkReachedAfterAMissingComponent(t *testing.T) {
+	real, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "note.md"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(real, "escape")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	// A vault reached through a link makes RelStrict compare against the resolved root.
+	root := filepath.Join(t.TempDir(), "vault")
+	if err := os.Symlink(real, root); err != nil {
+		t.Fatal(err)
+	}
+	vault, err := NewVaultPaths(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(root, "missing") + string(filepath.Separator) + ".." + string(filepath.Separator) + filepath.Join("escape", "note.md")
+	for _, links := range []*SymlinkCache{nil, NewSymlinkCache()} {
+		if rel, err := vault.RelPhysicalStrictCached(p, links); err == nil {
+			t.Fatalf("RelPhysicalStrictCached(%q) = %q, want a rejection", p, rel)
+		}
+	}
+}

@@ -100,11 +100,13 @@ function TraceBody({
             "The reference directory reached its 200-identities-per-type ceiling; relationships outside that directory may be unavailable.",
         };
       const reached = [...trace.nodes.values()].map((n) => n.record);
-      const specs = await readTypeSpecs(
-        reached.flatMap((r) => (KNOWLEDGE.includes(r.__typename) ? [] : [r.__typename])),
-      );
+      const [specs, history] = await Promise.all([
+        readTypeSpecs(
+          reached.flatMap((r) => (KNOWLEDGE.includes(r.__typename) ? [] : [r.__typename])),
+        ),
+        reader.extraction(focus.path),
+      ]);
       for (const r of reached) r.kind = specs[r.__typename]?.label;
-      const history = await reader.extraction(focus.path);
       const source = reader.cache.get(focus.path);
       return {
         trace,

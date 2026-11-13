@@ -82,6 +82,9 @@ const shortDate = (value?: string | null) =>
 
 /** The record, its neighbors across native edges, its file, siblings, and code paths. */
 async function loadModel(ref: string) {
+  const filesRead = readModelFiles(false);
+  // Awaited below; this keeps an early return or failed record read from leaving it unhandled.
+  filesRead.catch(() => undefined);
   const data = await graphql<{ node: Raw | null }>(
     `query ModelRecord($ref: String!) { node(ref: $ref) { __typename title ${REF}
       ... on AOKBModelRecord { aoValue }
@@ -105,29 +108,33 @@ async function loadModel(ref: string) {
     ...edges.flatMap((e) => (isRecord(e.target) ? [e.end] : [])),
     ...siblings.map((s) => refKey(s.ref)),
   ];
-  const [records, files] = await Promise.all([
-    readModelRecords([...new Set(keys)].slice(0, 200)),
-    readModelFiles(),
-  ]);
   const raw = entries(node.workspace?.source?.value).find((e) => e.key === CODE_FIELD);
   const code = scalars(raw?.value).map((text) => ({ text, path: codePath(text) }));
   const checked = code.filter((c) => c.path);
-  let found: Record<string, { __typename: string } | null> = {};
-  let codeError = "";
-  try {
-    if (checked.length)
-      found =
-        await graphql(`{ ${checked.map((c, i) => `c${i}: node(ref: ${JSON.stringify(`code:${c.path}`)}) { __typename }`).join("\n")} }`);
-  } catch (e) {
-    codeError = e instanceof Error ? e.message : String(e);
-  }
+  type Found = Record<string, { __typename: string } | null>;
+  const codeRead: Promise<{ found: Found; codeError: string }> = checked.length
+    ? graphql<Found>(
+        `{ ${checked.map((c, i) => `c${i}: node(ref: ${JSON.stringify(`code:${c.path}`)}) { __typename }`).join("\n")} }`,
+      ).then(
+        (found) => ({ found, codeError: "" }),
+        (e: unknown) => ({ found: {}, codeError: e instanceof Error ? e.message : String(e) }),
+      )
+    : Promise.resolve({ found: {}, codeError: "" });
+  const [{ records, specs }, files, { found, codeError }] = await Promise.all([
+    readModelRecords([...new Set(keys)].slice(0, 200)).then(async (records) => ({
+      records,
+      specs: await readTypeSpecs([node.__typename, ...records.map((r) => r.typeName)]),
+    })),
+    filesRead,
+    codeRead,
+  ]);
   return {
     node,
     edges,
     records,
     siblings,
     file: files.find((f) => f.notePath === node.ref.notePath),
-    specs: await readTypeSpecs([node.__typename, ...records.map((r) => r.typeName)]),
+    specs,
     code: code.map((c) => ({ ...c, exists: !!c.path && !!found[`c${checked.indexOf(c)}`] })),
     codeError,
   };
