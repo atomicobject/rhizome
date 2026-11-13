@@ -1,7 +1,7 @@
 ---
 summary: "Operational design constraints and review checklist for vault core: path normalization through pkg/paths, vault/link/tag primitives in pkg/vault/obsidian, config discovery, blessed frontmatter, and unified ignore matching."
 reference-kind: guide
-last-verified: 2026-11-10
+last-verified: 2026-11-13
 code-paths:
   - pkg/fileio
   - pkg/noteformat
@@ -45,6 +45,8 @@ The primitives every other subsystem builds on: canonical path normalization (`p
 ## Design constraints
 
 **Structural read envelope (SPEC-0133).** `noteformat.StructureFacts` stores validated source-local owners, ordered value IDs, explicit null/empty kinds, and optional original-byte ranges. `structural_reading` requires an executable projector and grants no mutation operation. HTML remains root-only. YAML (`.yaml`/`.yml`) and JSON (`.json`) require extension-explicit configured includes and expose only source/structural reading. Their parser adapter emits one owner/value per occurrence, RFC 6901 addresses, and no inferred byte ranges. The moved Markdown heading/list parser lives under `markdownsyntax/sectionparse` and `markdownsyntax/structure`; the latter adapts syntax to noteformat facts without ontology imports.
+
+**Read-path projection memo.** `Runtime.ProjectCached` serves read paths that re-project unchanged files per request. It memoizes one validated projection per format, path, content hash and mtime for the runtime's lifetime (bounded; emptied when full) and returns a detached `Copy` on every call. It relies on projectors being pure functions of the authored source. Indexing calls `Project`, which never touches the memo, so a rerun projector always reaches the index.
 
 - **Source write ownership is separate from discovery.** `pkg/sourceownership` reads committed `.rhizome/source-ownership.yml` declarations of owner, reason, and vault-relative exact paths/doublestar globs. Refresh never removes declarations; invalid configuration refuses native source writes. Explicit configuration removal is the ejection route. The managed init ignore file tracks this document.
 
