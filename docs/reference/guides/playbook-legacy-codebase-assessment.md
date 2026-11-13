@@ -35,7 +35,7 @@ The CLI commands those skills run live inside their SKILL.md files. You don't ne
 
 ## Prerequisites
 
-- Rhizome installed (`rzm --version` to confirm; [install guide](getting-started.md#install))
+- Rhizome installed (`rzm --version` to confirm; [install guide](getting-started.md#install-rhizome-desktop))
 - Access to the codebase repo (local clone, read access)
 - Optional but recommended: a Voyage AI key, or an OpenAI key, for semantic search (unlocks the `code_similarity` report; the other three reports run without embeddings)
 

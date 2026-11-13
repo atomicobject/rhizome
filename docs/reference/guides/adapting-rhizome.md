@@ -45,12 +45,14 @@ For a task the team performs repeatedly, a project skill can collect its instruc
 
 Team-owned documents and managed assets have different update behavior:
 
-- Normal `rzm init` reruns add missing starter documents and leave existing ones alone. `rzm init --refresh-docs` offers Rhizome's latest versions: documents nobody edited update, and init asks about documents your team edited.
-- Managed skills and agent guidance update through `rzm init`. Files that still match what Rhizome last wrote update without asking. When someone edited one, a run in a terminal asks whether to take the update, keep your version, or show the diff. If you keep your version, Rhizome asks again only when a newer version of that file ships. Runs without a terminal keep edited files and list them. Keep repository preferences outside the managed blocks in `AGENTS.md` and `CLAUDE.md`.
+- Rhizome Desktop updates managed skills and agent guidance that nobody on your team edited, and keeps and lists the files someone did edit. Use **Update Rhizome files** or **Update to** *version* when the toolbar offers them; **Apply changes** in the repository's Settings tab refreshes files the same way.
+- To review an update to a file your team edited, run `rzm init` in a terminal. It offers to take the update, keep your version, or show the diff. If you keep your version, it asks again only when a newer version of that file ships.
+- Keep repository preferences outside the managed blocks in `AGENTS.md` and `CLAUDE.md`, so updates never touch them.
+- Updates add missing starter documents and leave existing ones alone. `rzm init --refresh-docs` offers Rhizome's latest versions: documents nobody edited update, and init asks about documents your team edited.
 - Rhizome records what it wrote in `.rhizome/generated-files.yml`. Commit that file so a teammate's rerun makes the same decisions about which files were edited.
-- Keep new project-specific skills under team ownership. For changes to bundled skills, edit them directly and decide on each update when init asks, or eject the starter when your team wants to take over its management.
+- Keep new project-specific skills under team ownership. For changes to bundled skills, edit them directly and review each update with `rzm init`, or eject the starter when your team wants to take over its management.
 
-If you want to take over all management of the starter, you can eject it while retaining its files:
+If you want to take over all management of the starter, you can eject it while retaining its files. Ejecting is a command-line operation; run it yourself or ask your agent to:
 
 ```bash
 rzm init --eject agentic-engineering
@@ -78,13 +80,13 @@ The [complex-domain starter](choosing-your-starter.md) adds source-backed requir
 
 ## Adapt the workspace
 
-Run `rzm start` to open the local UI. Begin with the installed spec, effort, story, and action-item views. Use table, card, or Kanban presentations to make the work easier to scan. A view can make a large set of Markdown documents easier to follow without changing where the information lives.
+Open the repository in Rhizome Desktop and choose **Notes**. Begin with the **Delivery** experience and the installed spec, effort, story, and action-item views in the sidebar. Use table, card, or Kanban presentations to make the work easier to scan. A view can make a large set of Markdown documents easier to follow without changing where the information lives.
 
 When a team needs a different view, start with the question:
 
 > Show active efforts with their status, owner, and linked spec. Let us filter to the work we're reviewing this week.
 
-Your agent can inspect the available data and adjust the view definition under `.rhizome/views/`. Validate it with `rzm validate views` and check the result in the browser.
+Your agent can inspect the available data, adjust the view definition under `.rhizome/views/`, and validate it. Check the result in the workspace.
 
 For a dashboard or interaction beyond the built-in views, use the `custom-views` skill:
 
@@ -92,7 +94,9 @@ For a dashboard or interaction beyond the built-in views, use the `custom-views`
 
 Custom views can use HTML or React with Rhizome's supplied UI components and data access. They live in the repository, so the team can review and share them. Check both the displayed information and any edits in the real interface.
 
-Display groups open Rhizome's bundled Briefing, Trace, and Sections views, and every type and interface offers a bundled Briefing; all are custom views too. To start from one, run `rzm view eject group.briefing` (or `group.trace`, `group.sections`, `type.briefing`, `interface.briefing`). It copies the views' shared folder into `.rhizome/views/group/`, where your copies replace the bundled ones and your team can change them.
+When several views belong together, such as a home page, record pages, and lists for one kind of work, an agent can build them as an experience: a folder of views that runs as one site, with a panel at the bottom of the Notes sidebar. The Delivery experience is one. [Build an experience](build-an-experience.md)
+
+Display groups open Rhizome's bundled Briefing, Trace, and Sections views, and every type and interface offers a bundled Briefing; all are custom views too. To start from one, ask your agent to eject it, or run `rzm view eject group.briefing` (or `group.trace`, `group.sections`, `type.briefing`, `interface.briefing`). It copies the views' shared folder into `.rhizome/views/group/`, where your copies replace the bundled ones and your team can change them.
 
 HTML notes and custom views run as trusted project code. Review them as you would other executable files before using them.
 

@@ -52,7 +52,7 @@ class InstallScriptContractTest(unittest.TestCase):
 
     def test_onboarding_verification_matches_agent_surface_contract(self) -> None:
         onboarding = Path(__file__).resolve().parents[2].joinpath(
-            "docs/reference/guides/getting-started.md"
+            "docs/reference/guides/command-line.md"
         ).read_text()
         self.assertIn(
             "./bin/rzm init --workflow agentic-engineering",
