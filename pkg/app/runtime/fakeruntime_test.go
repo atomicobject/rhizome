@@ -131,13 +131,13 @@ func startFakeRuntime(t *testing.T, vaultPath string, mode Mode, buildID string)
 // The fake has no election lock, so its listener is WaitForExit's exit signal.
 func (f *fakeRuntime) stop() {
 	f.stopOnce.Do(func() {
+		_ = RemoveManifestIfOwner(f.vaultPath, f.manifest.PID)
 		if f.cleanupStarted != nil {
 			close(f.cleanupStarted)
 		}
 		if f.cleanupGate != nil {
 			<-f.cleanupGate
 		}
-		_ = RemoveManifestIfOwner(f.vaultPath, f.manifest.PID)
 		f.server.Close()
 	})
 }

@@ -110,19 +110,21 @@ func TestRequestShutdownReturnsOnlyAfterTheRuntimeFinishedCleaningUp(t *testing.
 	case err := <-shutdown:
 		t.Fatalf("RequestShutdown returned before cleanup started: %v", err)
 	}
+	_, err := ReadManifest(vault)
+	require.True(t, os.IsNotExist(err), "the manifest is removed before the listener signals exit: %v", err)
 	joined := make(chan struct{})
 	go func() { fake.stop(); close(joined) }()
 
 	select {
 	case err := <-shutdown:
-		t.Fatalf("RequestShutdown returned while the runtime had not removed its manifest: %v", err)
+		t.Fatalf("RequestShutdown returned while the runtime was still cleaning up: %v", err)
 	case <-joined:
 		t.Fatal("a concurrent stop returned while the first caller's cleanup was still in flight")
 	case <-time.After(5 * exitPoll):
 	}
 	release()
 	require.NoError(t, <-shutdown)
-	_, err := ReadManifest(vault)
+	_, err = ReadManifest(vault)
 	require.True(t, os.IsNotExist(err), "the manifest is gone once RequestShutdown returns: %v", err)
 	<-joined
 	_, _, err = LiveManifest(t.Context(), vault)
