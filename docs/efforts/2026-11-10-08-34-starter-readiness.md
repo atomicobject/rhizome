@@ -67,6 +67,8 @@ All three stories are implemented. Installed starters reconcile setup and indexi
 
 An earlier Windows readiness timeout remains unexplained. Its assertion did not capture the final state, and subsequent runs with improved diagnostics passed without reproducing it. Drew explicitly approved squash merging with this uncertainty documented as an exception to the repository's requirement to diagnose flaky tests before merging. The timeout was not increased and no retry was added to mask it.
 
+Follow-up diagnosis (2026-11-13): the timeout recurred in four of fifty traced Windows CI runs of the full integration suite. Each trace showed the readiness worker waiting on its first Node action, not looping. That first `node.exe` launch on a fresh Windows runner spent 4 to 27 seconds before any script ran, with Windows Defender on or off; later launches took about 20 ms. Readiness behavior is unchanged. The test now launches Node once before its readiness wait, so the wait no longer includes that one-time runner cost.
+
 ## Compounding Follow-ups
 
 None identified yet.
