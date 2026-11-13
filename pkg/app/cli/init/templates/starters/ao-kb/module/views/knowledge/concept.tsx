@@ -9,12 +9,15 @@ import {
   Section,
   SectionBody,
   sectionStatus,
+  useGraphQL,
   useMarkReady,
   useViewContext,
 } from "@rhizome/kit";
 import { byKindGroup, conceptScope } from "./lib/site.ts";
-import type { Root, Site } from "./lib/site.ts";
+import type { CitationRead, Root, Site } from "./lib/site.ts";
 import { noteBody } from "./lib/locators.ts";
+import { objectKey } from "./lib/knowledge.ts";
+import { conceptScopeQuery } from "./lib/queries.ts";
 import {
   AssertionItem,
   Body,
@@ -31,6 +34,26 @@ import { ScopedPair } from "./site/scoped.tsx";
 import "./knowledge.css";
 
 type Own = Root & { content?: string | null; headline?: string | null; aliases?: string[] | null };
+type ScopeRead = {
+  node: {
+    linkedAssertions?: CitationRead[] | null;
+    linkingAssertions?: CitationRead[] | null;
+  } | null;
+};
+
+/** The members' citations: those the scope read returned, and the rest read by ref. A failed
+ * scope read leaves every member to `readCitations`, so coverage reads as it would alone. */
+async function readMembers(members: string[], scope: ScopeRead | undefined, signal: AbortSignal) {
+  const node = scope?.node;
+  const held = new Map(
+    [...(node?.linkedAssertions ?? []), ...(node?.linkingAssertions ?? [])].map((r) => [r.path, r]),
+  );
+  const rest = await readCitations(
+    members.filter((path) => !held.has(path)),
+    signal,
+  );
+  return { ...rest, nodes: [...members.flatMap((path) => held.get(path) ?? []), ...rest.nodes] };
+}
 
 function Holdings({ site, path }: { site: Site; path: string }) {
   const members = site.members.get(path) ?? [];
@@ -66,11 +89,20 @@ function Holdings({ site, path }: { site: Site; path: string }) {
   );
 }
 
-function Whole({ site, path }: { site: Site; path: string }) {
+function Whole({
+  site,
+  path,
+  scope,
+}: {
+  site: Site;
+  path: string;
+  scope: { data?: ScopeRead; isPending: boolean };
+}) {
   const members = site.members.get(path) ?? [];
   const reads = useQuery({
-    queryKey: ["ao-kb", "concept-scope", path, members],
-    queryFn: ({ signal }) => readCitations(members, signal),
+    queryKey: ["ao-kb", "concept-scope", path, members, scope.data && objectKey(scope.data)],
+    enabled: !scope.isPending,
+    queryFn: ({ signal }) => readMembers(members, scope.data, signal),
   });
   const related = site.related.get(path) ?? [];
   const markReady = useMarkReady();
@@ -121,6 +153,8 @@ export default function ConceptPage() {
   const path = context.kind === "node" ? context.ref.notePath : "";
   const own = useOwnRecord<Own>(path, "... on Concept { content aoId name headline aliases }");
   const { query, site } = useSite();
+  // No retries: on failure the members are read by ref straight away.
+  const scope = useGraphQL<ScopeRead>(conceptScopeQuery(path), undefined, { retry: false });
   const c = own.data?.node;
   const members = site?.members.get(path)?.length;
   return (
@@ -148,7 +182,7 @@ export default function ConceptPage() {
             <>
               <Body text={noteBody(c.content ?? "")} site={site} />
               <SectionBody status={sectionStatus(query)} what="where it sits in the KB">
-                {() => site && <Whole site={site} path={path} />}
+                {() => site && <Whole site={site} path={path} scope={scope} />}
               </SectionBody>
             </>
           ) : (

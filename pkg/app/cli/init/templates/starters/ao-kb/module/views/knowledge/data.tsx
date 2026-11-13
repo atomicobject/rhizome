@@ -11,7 +11,7 @@ import {
   sourceText,
 } from "./lib/knowledge.ts";
 import type { Knowledge, Assertion, Coverage, Endpoint, Ref } from "./lib/knowledge.ts";
-import { readPassage } from "./lib/passage.ts";
+import { readPassage, readVaultText } from "./lib/passage.ts";
 import { readSavedAnalysis } from "./lib/saved-analysis.ts";
 import { EVIDENCED_BY, readBindingFreshness, typeSpec } from "./lib/model.ts";
 import type { FieldLink, ModelFile, ModelRecord, SourceValue, TypeSpec } from "./lib/model.ts";
@@ -81,11 +81,18 @@ export function useCoverage(data: Knowledge | undefined, rows = data?.assertion)
     queryKey: ["ao-kb", "origin-coverage", data && objectKey(data), rows?.map((a) => a.path)],
     enabled: !!data,
     queryFn: async () => {
+      // Many claims cite the same source file, so each file is fetched once per pass.
+      const texts = new Map<string, Promise<string | undefined>>();
+      const readText = (path: string) => {
+        let text = texts.get(path);
+        if (!text) texts.set(path, (text = readVaultText(path)));
+        return text;
+      };
       const results = await Promise.all(
         (rows ?? []).map(async (a) => {
           const c = origin(a, data?.source ?? []);
           const result = c
-            ? await readPassage(c.source && sourceText(c.source), c.locator, c.raw)
+            ? await readPassage(c.source && sourceText(c.source), c.locator, c.raw, readText)
             : undefined;
           return [a.path, coverage(c, result)] as const;
         }),
@@ -151,9 +158,15 @@ type RawModel = {
   } | null;
   evidence?: { truncated: boolean; edges: { target: Endpoint }[] };
 };
+/** Model records read per request: a full Attention pass reads four pages at once. */
+const MODEL_PAGE = MODEL_CEILING / 4;
 /** Model records by key (`notePath#fragment`), each with its native evidence edges. */
 export async function readModelRecords(keys: string[]): Promise<ModelRecord[]> {
-  if (!keys.length) return [];
+  const pages: string[][] = [];
+  for (let at = 0; at < keys.length; at += MODEL_PAGE) pages.push(keys.slice(at, at + MODEL_PAGE));
+  return (await Promise.all(pages.map(readModelPage))).flat();
+}
+async function readModelPage(keys: string[]): Promise<ModelRecord[]> {
   const data = await graphql<Record<string, RawModel | null>>(`{ ${keys
     .map(
       (key, i) => `n${i}: node(ref: ${JSON.stringify(key)}) { __typename title ${REF}
@@ -180,11 +193,14 @@ export async function readModelRecords(keys: string[]): Promise<ModelRecord[]> {
       : [];
   });
 }
-/** Every model source file with its recorded `synced`, and the records each holds. */
-export async function readModelFiles() {
+/** Every model source file with its recorded `synced`, and with `records` the records each
+ * holds. Reading those projects each file's source, so callers that need only `synced` skip it. */
+export async function readModelFiles(records = true) {
   const data = await graphql<{
-    files: (ModelFile & { ref: Ref; workspace: { structure: { ref: Ref }[] } | null })[];
-  }>(`{ files: aOKBModelFile(first: 201) { ${REF} synced workspace { structure { ${REF} } } } }`);
+    files: (ModelFile & { ref: Ref; workspace?: { structure: { ref: Ref }[] } | null })[];
+  }>(
+    `{ files: aOKBModelFile(first: 201) { ${REF} synced ${records ? `workspace { structure { ${REF} } }` : ""} } }`,
+  );
   return data.files.map((f) => ({
     notePath: f.ref.notePath,
     synced: f.synced,
@@ -211,17 +227,17 @@ export function useModelCiters(path: string, ready: boolean) {
     queryKey: ["ao-kb", "model-citers", path],
     enabled: ready,
     queryFn: async () => {
-      const data = await graphql<{
-        node: { neighborhood: { truncated: boolean; edges: { target: Endpoint }[] } } | null;
-      }>(
-        `query Citers($ref: String!) { node(ref: $ref) { neighborhood(direction: INBOUND, relation: "${EVIDENCED_BY}", first: 200) { truncated edges { target { ${ENDPOINT} } } } } }`,
-        { ref: path },
-      );
-      const ends = (data.node?.neighborhood.edges ?? []).map((e) => ownerKey(e.target));
-      const [records, files] = await Promise.all([
-        readModelRecords([...new Set(ends)]),
-        readModelFiles(),
+      const [data, files] = await Promise.all([
+        graphql<{
+          node: { neighborhood: { truncated: boolean; edges: { target: Endpoint }[] } } | null;
+        }>(
+          `query Citers($ref: String!) { node(ref: $ref) { neighborhood(direction: INBOUND, relation: "${EVIDENCED_BY}", first: 200) { truncated edges { target { ${ENDPOINT} } } } } }`,
+          { ref: path },
+        ),
+        readModelFiles(false),
       ]);
+      const ends = (data.node?.neighborhood.edges ?? []).map((e) => ownerKey(e.target));
+      const records = await readModelRecords([...new Set(ends)]);
       return {
         records,
         files,
