@@ -395,15 +395,12 @@ func (c *ReadinessCoordinator) refreshValidation(ctx context.Context, live *boot
 				c.repairReviews = validate.NewRepairReviewStore(validate.RepairReviewStoreOptions{PathReservations: c.repairPaths})
 			}
 			coordinator := validationproduct.NewRefreshCoordinator(validationproduct.RefreshCoordinatorOptions{
-				Context: c.liveContext(ctx), Store: store, VaultDef: live.VaultDef,
+				Context: c.liveContext(ctx), Store: store, VaultDef: live.Snapshot().VaultDefinition,
 				NoteMetadata: live.NoteMetadataIndexer(), RepairStore: c.repairReviews, MaxIssues: 500,
 				Run: func(ctx context.Context) (validationproduct.AuthoritativeRun, error) {
-					return validationproduct.RunLiveOnLane(ctx, live.NoteMetadataIndexer(), live.VaultDef, 500, initactions.ValidateBundledSkillOverlays, live.Lane())
+					return validationproduct.RunLiveOnLane(ctx, live.NoteMetadataIndexer(), live.Snapshot().VaultDefinition, 500, initactions.ValidateBundledSkillOverlays, live.Lane())
 				},
-				ApplyOptions: validate.ApplyOptions{PostApplyRefresher: validationproduct.ValidationProjectionPostApplyRefresher{
-					VaultPath: live.VaultPath, VaultDef: live.VaultDef,
-					NoteMetadata: live.NoteMetadataIndexer(), NoteReader: &obsidian.Note{},
-				}},
+				ApplyOptions: validate.ApplyOptions{PostApplyRefresher: liveValidationProjectionRefresher{live}},
 			})
 			c.validation = coordinator
 			refresher = coordinator

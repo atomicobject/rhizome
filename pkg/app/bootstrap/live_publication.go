@@ -63,9 +63,10 @@ func (rt *LiveRuntime) PublishCurrentProjection(ctx context.Context) error {
 
 func (rt *LiveRuntime) publishCurrentProjectionUnderLease(ctx context.Context, lease *indexlock.Lease) (err error) {
 	store := rt.IntelStore()
-	configuration := rt.Configuration()
+	snapshot := rt.Snapshot()
+	configuration := snapshot.Configuration
 	request := indexcore.Request{
-		VaultDefinition: rt.currentOwnershipVaultDefinition(),
+		VaultDefinition: snapshot.VaultDefinition,
 		CodeConfig:      configuration.Code,
 		NoteMetadata:    rt.NoteMetadataIndexer(),
 	}
