@@ -66,9 +66,11 @@ func (rt *LiveRuntime) publishCurrentProjectionUnderLease(ctx context.Context, l
 	snapshot := rt.Snapshot()
 	configuration := snapshot.Configuration
 	request := indexcore.Request{
-		VaultDefinition: snapshot.VaultDefinition,
-		CodeConfig:      configuration.Code,
-		NoteMetadata:    rt.NoteMetadataIndexer(),
+		VaultDefinition:  snapshot.VaultDefinition,
+		CodeConfig:       configuration.Code,
+		ParserConfigHash: configuration.Code.ParserConfigHash(),
+		ScopeConfigHash:  configuration.Local.ScopeConfigHash(),
+		NoteMetadata:     rt.NoteMetadataIndexer(),
 	}
 	discovery, err := indexcore.Discover(ctx, request, store)
 	if err != nil {

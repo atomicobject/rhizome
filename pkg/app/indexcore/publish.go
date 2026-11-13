@@ -35,6 +35,14 @@ func Publish(ctx context.Context, lease *indexlock.Lease, request Request, d Dis
 	if service == nil || store == nil || writer == nil {
 		return result, fmt.Errorf("structural service, store, and writer are required")
 	}
+	var reparseCode bool
+	if d.FullDiscovery && request.ParserConfigHash != "" {
+		stored, present, err := store.GetMetadata(ctx, sqlite.MetaKeyParserConfigHash)
+		if err != nil {
+			return result, fmt.Errorf("read parser configuration hash: %w", err)
+		}
+		reparseCode = present && stored != request.ParserConfigHash
+	}
 	request.NoteMetadata = request.NoteMetadata.WithSourceScope()
 	runtime, err := request.NoteMetadata.FormatRuntime()
 	if err != nil {
@@ -165,6 +173,11 @@ func Publish(ctx context.Context, lease *indexlock.Lease, request Request, d Dis
 		indexingperf.AddCount(ctx, indexingperf.MetadataPublicationScoped, 1)
 	}
 	codeCandidates, noteCandidates, sources := ingestCandidates(d.Snapshot, plan, d.affected, fatal)
+	if reparseCode {
+		for i := range codeCandidates {
+			codeCandidates[i].ForceRead = true
+		}
+	}
 	indexingperf.AddCount(ctx, indexingperf.StructuralCodeCandidates, int64(len(codeCandidates)))
 	indexingperf.AddCount(ctx, indexingperf.StructuralNoteCandidates, int64(len(noteCandidates)))
 	var progressCallbacks = options.BeforeIngest
@@ -259,6 +272,21 @@ func Publish(ctx context.Context, lease *indexlock.Lease, request Request, d Dis
 	if result.Reconciliation.Required() {
 		if err := writer.AcknowledgeOwnershipReconciliation(ctx, result.StructuralGeneration); err != nil {
 			return result, fmt.Errorf("acknowledge structural ownership: %w", err)
+		}
+	}
+	if d.FullDiscovery && (request.ParserConfigHash != "" || request.ScopeConfigHash != "") {
+		if err := writer.SubmitMaintenance(ctx, func(ctx context.Context) error {
+			if request.ParserConfigHash != "" {
+				if err := store.SetMetadata(ctx, sqlite.MetaKeyParserConfigHash, request.ParserConfigHash); err != nil {
+					return err
+				}
+			}
+			if request.ScopeConfigHash != "" {
+				return store.SetScopeConfigHash(ctx, request.ScopeConfigHash)
+			}
+			return nil
+		}); err != nil {
+			return result, fmt.Errorf("stamp structural configuration hashes: %w", err)
 		}
 	}
 	return result, nil

@@ -65,12 +65,11 @@ func (rt *LiveRuntime) startLeaderWork() {
 			for _, root := range noteRoots {
 				_ = hub.AddRoot(root, watchhub.RootOptions{Kind: watchhub.RootNotes})
 			}
-			for _, root := range codeRoots {
-				if err := hub.AddRoot(root, watchhub.RootOptions{Kind: watchhub.RootCode}); err != nil {
-					rt.recordDiagnostic(slog.LevelWarn, "watch_root.registration_failed", err)
-				} else {
-					rt.recordDiagnostic(slog.LevelInfo, "watch_root.registered", nil)
-				}
+			rt.ownershipConfigMu.Lock()
+			err := rt.updateCodeWatchRoots(codeanchor.Config{}, rt.Configuration().Code)
+			rt.ownershipConfigMu.Unlock()
+			if err != nil {
+				rt.recordDiagnostic(slog.LevelWarn, "watch_root.registration_failed", err)
 			}
 			if !shouldStartLegacyCodeAnchorSubscriber(unifiedWatcherAvailable) {
 				if diagnostics.FromContext(rt.ctx) != nil {

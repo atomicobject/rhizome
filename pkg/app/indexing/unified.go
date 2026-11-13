@@ -158,7 +158,7 @@ func RunUnifiedCore(ctx context.Context, lease *indexlock.Lease, opts UnifiedOpt
 	if localCfg != nil {
 		currentScopeHash = localCfg.ScopeConfigHash()
 	}
-	structuralRequest := indexcore.Request{VaultDefinition: opts.VaultDef, CodeConfig: codeCfg, NoteMetadata: opts.NoteMetadata}
+	structuralRequest := indexcore.Request{VaultDefinition: opts.VaultDef, CodeConfig: codeCfg, ParserConfigHash: codeCfg.ParserConfigHash(), NoteMetadata: opts.NoteMetadata}
 	var ownershipDiscovery indexcore.Discovery
 	ownershipDiscovery, err = indexcore.Discover(ctx, structuralRequest, intelStore)
 	if err != nil {

@@ -94,7 +94,7 @@ func (w *unifiedSemanticWatcher) hasPendingWork() bool {
 // so a cancelled batch restores its inputs for the next tick. Durable
 // reconciliation and unready tickets decide whether recovery needs full scope.
 func (w *unifiedSemanticWatcher) processOwnershipBatch() lane.Handle {
-	if w == nil || w.cacheService == nil || w.intelStore == nil || w.noteSvc == nil || w.lane == nil {
+	if w == nil || w.cacheService == nil || w.intelStore == nil || w.lane == nil {
 		return nil
 	}
 	handle, _, err := w.lane.Submit(w.runCtx, lane.Request{
@@ -272,7 +272,10 @@ func (w *unifiedSemanticWatcher) reconcileOwnershipBatch(ctx context.Context, le
 		return nil
 	}
 
-	request := indexcore.Request{VaultDefinition: w.vaultDef, CodeConfig: w.codeCfg, NoteMetadata: w.noteMetadataIndexer, ForceMetadata: forceMetadata, ForceOntology: forceOntology}
+	request := indexcore.Request{VaultDefinition: w.vaultDef, CodeConfig: w.codeCfg, ParserConfigHash: w.codeCfg.ParserConfigHash(), NoteMetadata: w.noteMetadataIndexer, ForceMetadata: forceMetadata, ForceOntology: forceOntology}
+	if w.configuration != nil {
+		request.ScopeConfigHash = w.configuration.Local.ScopeConfigHash()
+	}
 	if !forceAll && !forceMetadata && !forceOntology {
 		request.Paths = make([]paths.RelPath, 0, len(affected))
 		for path := range affected {

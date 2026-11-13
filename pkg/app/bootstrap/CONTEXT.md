@@ -1,5 +1,7 @@
 ## Async bootstrap for live-runtime processes (serve, web, agent)
 
+Live code-configuration publication replaces both anchor-service holders and updates code watch roots under the watcher batch's lease. Full structural convergence stamps the applied scope hash through the writer. Startup root installation shares the configuration mutex with reloads.
+
 Shared initialization for `rzm serve`, `rzm web`, and the one-shot `rzm agent` bootstrap. Encapsulates vault resolution, runtime-owner election, and **capability-based async initialization** so long-lived processes can respond quickly and agent CLI can wait only for the capabilities it needs.
 
 - **Entry point**: `NewLiveRuntime(ctx, opts)` — returns fast; heavy init runs in background

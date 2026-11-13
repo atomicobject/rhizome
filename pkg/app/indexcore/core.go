@@ -22,7 +22,10 @@ import (
 type Request struct {
 	VaultDefinition obsidian.VaultDefinition
 	CodeConfig      anchors.Config
-	NoteMetadata    notemeta.Indexer
+	// Hashes certify the applied snapshot only after complete publication.
+	ParserConfigHash string
+	ScopeConfigHash  string
+	NoteMetadata     notemeta.Indexer
 	// Nil discovers the complete vault. A nonnil empty slice is a no-op.
 	Paths         []paths.RelPath
 	ForceMetadata bool
@@ -40,6 +43,7 @@ type Writer interface {
 	SubmitActivateDerived(context.Context, []anchors.DerivedWork) error
 	AcknowledgeOwnershipReconciliation(context.Context, int64) error
 	FlushAndWait(context.Context) error
+	SubmitMaintenance(context.Context, func(context.Context) error) error
 }
 
 type PublishOptions struct {
