@@ -358,6 +358,28 @@ for (const colorScheme of ["light", "dark"] as const) {
           if (!isJsonObject(json) || !isJsonObject(json.data))
             throw new Error("Expected fixture GraphQL data");
 
+          // The spec inventory carries criteria nested in each spec. Dropping the faulted
+          // criterion there makes the view read it by ref, where the fault below applies.
+          if (Array.isArray(json.data.specLike))
+            for (const spec of json.data.specLike) {
+              if (!isJsonObject(spec)) continue;
+
+              for (const [key, wrapper] of Object.entries(spec)) {
+                if (!key.startsWith("deliveryTree") || !isJsonObject(wrapper)) continue;
+
+                for (const story of Array.isArray(wrapper.stories) ? wrapper.stories : []) {
+                  const ac = isJsonObject(story) ? story.acceptanceCriteria : null;
+
+                  if (isJsonObject(ac) && Array.isArray(ac.criteria))
+                    ac.criteria = ac.criteria.filter(
+                      (criterion) =>
+                        !isJsonObject(criterion) ||
+                        !JSON.stringify(criterion.locator).includes("ae-a-confirmation"),
+                    );
+                }
+              }
+            }
+
           const batch = isJsonObject(json.data.nodes) ? json.data.nodes : null;
 
           if (Array.isArray(batch?.items))
