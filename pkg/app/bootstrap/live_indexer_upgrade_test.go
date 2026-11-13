@@ -94,11 +94,18 @@ func TestWatcherFullDiscoveryReparsesOldIndexerBeforeBootCatchUp(t *testing.T) {
 		inspected = true
 		return interrupted
 	}
-	w.retainWatchEvents(nil, true)
-	first := w.processOwnershipBatch()
-	watcherJobTerminal(t, first)
+	// A resync waits for a cache recrawl still running from startup, so a
+	// batch can finish without discovery; drive batches until the full
+	// discovery reaches the hook. retainInputs does not wake the watcher loop,
+	// so only this test submits batches and the hook's handle is first.
+	w.retainInputs(nil, true, nil)
+	var first lane.Handle
+	require.Eventually(t, func() bool {
+		first = w.processOwnershipBatch()
+		watcherJobTerminal(t, first)
+		return inspected
+	}, 30*time.Second, 25*time.Millisecond, "full discovery after resync")
 	require.ErrorIs(t, first.Err(), interrupted)
-	require.True(t, inspected)
 	version, _, err := store.IndexerVersion(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, "old-indexer", version, "an interrupted full discovery must not certify old rows")
