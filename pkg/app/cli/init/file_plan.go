@@ -19,6 +19,7 @@ import (
 
 // generatedFile is one whole file init wants on disk.
 type generatedFile struct {
+	blocked  error
 	replaces string // legacy source removed only after this target is written
 	rel      string // project-relative slash path; also the record key
 	content  []byte

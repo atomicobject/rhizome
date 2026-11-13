@@ -186,8 +186,14 @@ func planTemplateScaffold(projectRoot string, templates []string, refreshDocs bo
 			}
 			switch file.kind {
 			case assetroots.Ontology:
-				if generated.content, err = ontologyWithInstalledIdentifiers(projectRoot, file.content, file.target, file.legacy); err != nil {
-					return err
+				content, mergeErr := ontologyWithInstalledIdentifiers(projectRoot, file.content, file.target, file.legacy)
+				switch {
+				case mergeErr == nil:
+					generated.content = content
+				case generated.replaces != "":
+					generated.blocked = mergeErr
+				default:
+					return mergeErr
 				}
 				generated.fingerprint = ontologyFingerprint
 			case assetroots.Scripts:

@@ -59,6 +59,8 @@ The implementation recovers unchanged starter schemas, keeps edited or unproven 
 - Final gates passed: `make check`, `make desktop-deps`, `make desktop-check`, `make desktop-build`, `make build`, and `./scripts/rzm validate` (0 issues).
 - The final CLI replay recovered schemas using committed legacy evidence after the working metadata was lost, retained sequential effort IDs, returned zero writes on rerun, and passed `rzm view validate` for 56 views.
 - The built macOS app opened the recovered fixture with its bundled executable. After trusting the disposable fixture, the Delivery dashboard and navigation rendered successfully.
+- Greptile found that a custom protected identifier in a retained flat schema could abort the entire preview. The review fix keeps that replacement pending, permits keep or defer, and rejects an unsafe take before writes. Regression coverage exercises both known and unknown ownership through `Run`; the verified-ownership migration also now exercises `Run`. The README documents the choice and snapshot flags.
+- After the review fix, `make check`, `make build`, the Delivery upgrade replay, and `./scripts/rzm validate` passed. A second replay using the rebuilt CLI verified custom-schema defer, keep, and rejected take. Rejection left project and generated files unchanged; the CLI wrote its expected failure-diagnostic logs. The earlier desktop verification remains applicable because this follow-up changes no desktop code.
 
 ## Deviations
 

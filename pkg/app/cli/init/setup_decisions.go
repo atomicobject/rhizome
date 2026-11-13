@@ -124,6 +124,9 @@ func (p *preparedFiles) preflight() error {
 		if c == nil {
 			continue
 		}
+		if file.blocked != nil && (c.take || p.choices[c.group]) {
+			return fmt.Errorf("cannot replace %s with %s: %w; keep %s and move its identifier contracts by hand", c.from, c.rel, file.blocked, c.from)
+		}
 		rel := firstNonEmpty(c.from, c.rel)
 		current, exists, err := readIfExists(filepath.Join(p.root, filepath.FromSlash(rel)))
 		if err != nil {

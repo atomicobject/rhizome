@@ -65,7 +65,7 @@ func TestInitMigratesVerifiedLegacyOwnership(t *testing.T) {
 	require.Equal(t, before, readTestFile(t, root, ".rhizome/workflows.yml"), "planning preserves legacy evidence")
 	require.NoFileExists(t, filepath.Join(root, moduleEffortPath))
 
-	_, err = Apply(RunOptions{Dir: root})
+	_, err = runInit(t, RunOptions{Dir: root})
 	require.NoError(t, err)
 	for _, name := range []string{"core.graphql", "action-items.graphql", "complex-domain.graphql", "spec-driven.graphql"} {
 		require.NoFileExists(t, filepath.Join(root, ".rhizome/ontology", name))
@@ -92,10 +92,9 @@ func TestInitMigratesVerifiedLegacyOwnership(t *testing.T) {
 	plan, err = Plan(RunOptions{Dir: root})
 	require.NoError(t, err)
 	require.Empty(t, plan.Writes.Files)
-	result, err := Apply(RunOptions{Dir: root})
+	out, err := runInit(t, RunOptions{Dir: root})
 	require.NoError(t, err)
-	require.Empty(t, result.Created)
-	require.Empty(t, result.Updated)
+	require.Contains(t, out, "Everything is up to date.")
 	require.Equal(t, updated, readTestFile(t, root, moduleEffortPath))
 }
 

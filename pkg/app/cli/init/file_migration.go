@@ -24,6 +24,9 @@ func classifyReplacement(root string, file generatedFile, c *change, fingerprint
 	if record.Declined[file.rel] == c.desiredF {
 		c.state = stateDeclined
 	}
+	if file.blocked != nil && c.state != stateDeclined {
+		c.state = stateEdited
+	}
 	if record.declinedSources == nil {
 		record.declinedSources = map[string]string{}
 	}
