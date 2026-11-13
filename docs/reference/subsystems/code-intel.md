@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, fixture pattern, and review checklist for the code intelligence subsystem: code anchors (note→code), coderefs (code→note), and code pattern globs."
 reference-kind: guide
-last-verified: 2026-11-07
+last-verified: 2026-11-13
 code-paths:
   - pkg/anchors
   - pkg/app/codeintel
