@@ -6,6 +6,8 @@
 
 - Starter upgrades preserve verified ownership from legacy workflow fingerprints, so unchanged flat schemas move into modules and receive current features while retaining adopted identifier allocation. Modified or unrecorded schemas remain untouched.
 
+- On macOS, user-owned apps can update by atomically replacing Contents under a protected Applications folder, with validated fallback and rollback recovery.
+
 - Live indexing embeds changed notes in groups, preserves independent results when another file changes, and bounds cancellation of in-flight embedding calls.
 
 - Upgrading a repository's Rhizome now updates the agent files `rzm init` generates. In Rhizome Desktop, the "Update to X" offer opens a review of the pin and file changes, then installs the new version, refreshes skills and managed guidance with it, and restarts the runtime, with Retry for a failed step and a copyable commit command. When a worktree's generated files are behind the Rhizome it runs, the toolbar offers "Update Rhizome files". `rzm update` runs the new executable's `rzm init` whenever it changes the Rhizome the current repository runs.
