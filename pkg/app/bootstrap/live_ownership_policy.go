@@ -174,6 +174,9 @@ func liveCacheSelectionPolicy(vaultDef obsidian.VaultDefinition, runtime notefor
 		CodeRoots:       roots,
 		CodeLanguage: func(ref paths.CodePathRef) codeanchor.Lang {
 			lang, _ := codeanchor.LangForPath(ref.Abs.String())
+			if codeCfg.AutomaticScope && codeCfg.LanguageDisabled(lang) {
+				return ""
+			}
 			return lang
 		},
 	})

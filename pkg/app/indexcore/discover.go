@@ -104,6 +104,9 @@ func Discover(ctx context.Context, request Request, store *sqlite.Store) (result
 	d.FullDiscovery = d.FullDiscovery || d.Recovery || request.ForceMetadata
 	d.input = noteownership.DiscoveryInput{VaultDefinition: request.VaultDefinition, Registry: runtime.Registry(), CodeRoots: d.CodeRoots, CodeLanguage: func(ref paths.CodePathRef) anchors.Lang {
 		lang, _ := anchors.LangForPath(ref.Abs.String())
+		if request.CodeConfig.AutomaticScope && request.CodeConfig.LanguageDisabled(lang) {
+			return ""
+		}
 		return lang
 	}, PersistedNotePaths: d.persistedNotes, PersistedCodePaths: codePaths}
 	for _, p := range request.Paths {
