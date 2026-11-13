@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Upgrading a repository's Rhizome now updates the agent files `rzm init` generates. In Rhizome Desktop, the "Update to X" offer opens a review of the pin and file changes, then installs the new version, refreshes skills and managed guidance with it, and restarts the runtime, with Retry for a failed step and a copyable commit command. When a worktree's generated files are behind the Rhizome it runs, the toolbar offers "Update Rhizome files". `rzm update` runs the new executable's `rzm init` whenever it changes the Rhizome the current repository runs.
+
 ## [v0.52.1] - 2026-11-12
 
 - Experiences: a folder of custom views with an `experience.yml` runs as one site, in one long-lived frame per window that keeps each tab's page, with an optional Notes sidebar panel. Custom views can render Markdown with `@rhizome/kit/markdown`, keep their params across tab switches and reloads, and come first in the view switcher.

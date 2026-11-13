@@ -1571,3 +1571,55 @@ label.choice {
     min-width: 480px;
   }
 }
+
+.upgrade-sheet {
+  font-size: var(--fs-base);
+}
+.upgrade-sheet > .hint {
+  margin: 6px 0 22px;
+}
+.upgrade-sheet .path,
+.upgrade-sheet .file-list {
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+.upgrade-group {
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+.upgrade-group h2 {
+  margin-bottom: 6px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.upgrade-group .hint {
+  margin-top: 8px;
+}
+.upgrade-sheet .setup-actions {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.upgrade-steps {
+  display: grid;
+  gap: 16px;
+  margin: 26px 0;
+  padding: 0;
+  list-style: none;
+}
+.upgrade-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+}
+.upgrade-steps [data-state="active"] {
+  color: var(--text);
+}
+.upgrade-steps [data-state="failed"] {
+  color: var(--accent-ink);
+}
+.upgrade-mark {
+  width: 16px;
+  text-align: center;
+}

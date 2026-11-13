@@ -32,7 +32,7 @@ type Invocation struct {
 
 // ResolveInvocation derives executable and repository target identity from the
 // local pin. Location fields choose where a pinned binary lives; they do not
-// create a repository target without rhizome.version.
+// create a repository target without an exact rhizome.version.
 func ResolveInvocation(executablePath, cfgDir string, cfg *repoconfig.LocalConfig) (Invocation, error) {
 	if strings.TrimSpace(executablePath) == "" {
 		resolved, err := os.Executable()
@@ -65,7 +65,7 @@ func ResolveInvocation(executablePath, cfgDir string, cfg *repoconfig.LocalConfi
 	}
 
 	pin := NormalizeVersion(cfg.Rhizome.Version)
-	if pin == "" {
+	if pin == "" || pin == "latest" {
 		return invocation, nil
 	}
 	if strings.TrimSpace(cfgDir) == "" {

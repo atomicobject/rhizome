@@ -350,6 +350,19 @@ or pin. A partial failure may have updated the binary before the pin save
 failed, as the normal updater reports. The native caller reopens the worktree
 through `open` after success. No Go operation or field persists dismissals.
 
+### Upgrade plan
+
+Request: `{"protocol":1,"operation":"upgrade-plan","folder":"/repo"}`.
+
+Result: the untouched `SetupPlan` JSON document from the executable that
+reports the offered version (the bundled one in an app, otherwise the global
+one) running `init --path /repo --check --json`, including `writes.summary`,
+`writes.files`, and `writes.kept`. The pin change comes from Inspect's `pinOffer`.
+Planning shares PinAdvance's managed-pin, non-source, existing-trust, and
+`advance` offer checks. Errors are `pin_unsupported`, `trust_required`, or
+`upgrade_plan_failed` for executable, process, JSON, or two-minute timeout
+failures. Planning neither installs a binary nor changes the pin or agent files.
+
 ### Provider credential import
 
 Settings groups account sign-in, independent Voyage/Jev route choices, manual key management and 1Password import as Provider access. Sign-in and imports do not alter route choices. `credential-status` additionally returns secret-free `providers` reports from the shared provider factory; these are the app's next-run defaults, not proof of a running repository's connection.

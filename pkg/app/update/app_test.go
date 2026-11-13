@@ -126,6 +126,7 @@ func TestRunAppUpdateThroughSymlink(t *testing.T) {
 						require.True(t, pin)
 						require.Len(t, result.Targets, 2)
 						require.True(t, result.Targets[1].BinaryUpdated)
+						require.True(t, result.Targets[1].PinWritten)
 					} else {
 						require.Empty(t, replaced)
 						require.Len(t, result.Targets, 1)
