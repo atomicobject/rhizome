@@ -30,6 +30,17 @@ export const REF = 'ref notePath kind fragment nodeId structural typeName';
 export const SUMMARY = `ref { ${REF} } title resolvedType locator { sourceLocator exists requiresFix linkTarget { ref { ${REF} } exists requiresFix } }`;
 export const FIELDS = `workspace { sourceRevision { contentFingerprint } collections { name items { ref { ${REF} } } } fields { name present values sectionNodes { ${REF} } links { value resolved title ref { ${REF} } } issues { code message } } }`;
 export const NODE_SUMMARY = `${SUMMARY} ${FIELDS}`;
+export const SECTION_CHILDREN = `ref { ${REF} } title workspace { collections { name items { ref { ${REF} } } } fields { name sectionNodes { ${REF} } issues { code message } } }`;
+export const STORY_SUMMARY = `${SUMMARY} workspace { collections { name items { ref { ${REF} } } } fields { name present values sectionNodes { ${REF} } issues { code message } } }`;
 export const NODE_DETAIL = `${NODE_SUMMARY} ... on NoteNode { content format } ... on Section { content sectionType: __typename }`;
 export const SOURCE_PAGE = `query DeliverySource($ref: String!, $offset: Int!) { node(ref: $ref) { ref { ${REF} } workspace { sourceRevision { contentFingerprint } sourceLinkCount sourceLinks(first: 100, offset: $offset) { target authoredTarget text kind anchor embed targetKind resolved resolvedRef { ${REF} } title preview } } } }`;
 export type SourcePage = { node: { ref: Ref; workspace: { sourceRevision: { contentFingerprint: string } | null; sourceLinkCount: number; sourceLinks: SourceLink[] } | null } | null };
+export const SPEC_TREE_ALIAS = 'deliveryTree';
+/** The section each nested tree field holds, read with the selection hydration would use for it. */
+export const SPEC_TREE_CHILDREN = { stories: STORY_SUMMARY, acceptanceCriteria: SECTION_CHILDREN, criteria: SUMMARY } as const;
+// Spec types disagree on whether userStories is nullable, so each gets its own alias.
+export const SPEC_TREE = ['ProductSpec', 'TechnicalSpec', 'ExperienceSpec', 'OperationsSpec'].map(type =>
+  `... on ${type} { ${SPEC_TREE_ALIAS}${type}: userStories { ${SECTION_CHILDREN} stories { ${STORY_SUMMARY} acceptanceCriteria { ${SECTION_CHILDREN} criteria { ${SUMMARY} } } } } }`).join(' ');
+/** Inventory pages read together; with the effort read they fill the browser's five free connections. */
+export const SPEC_PAGE_SIZE = 35;
+export const SPEC_PAGE_WINDOW = 4;

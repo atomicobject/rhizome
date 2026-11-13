@@ -1,7 +1,8 @@
 import { composePages, composeCoverage, deferredScope, frozenScope, distinctTargets, identity, inventoryComplete,
   type Coverage, type Ref, type ScopeMaterial, type ScopeSection, type ScopeSelector, type Occurrence,
   type Portfolio, type Checklist } from './lib/index.ts';
-import { NODE_DETAIL, NODE_SUMMARY, SOURCE_PAGE, type LiveNode, type SourcePage,
+import { NODE_DETAIL, NODE_SUMMARY, SECTION_CHILDREN, STORY_SUMMARY, SUMMARY, SOURCE_PAGE,
+  SPEC_TREE, SPEC_TREE_ALIAS, SPEC_TREE_CHILDREN, SPEC_PAGE_SIZE, SPEC_PAGE_WINDOW, type LiveNode, type SourcePage,
   type FieldState, type LiveSpec, type LiveStory, type LiveEffort, type RecordDetail, type PortfolioRead } from './queries.ts';
 
 export type ReadAPI = {
@@ -46,17 +47,56 @@ function selectorState(state: FieldState | undefined, node: LiveNode | undefined
 }
 export function reader(api: ReadAPI, signal?: AbortSignal) {
   const check = () => signal?.throwIfAborted();
+  // Records the spec tree inventory already returned, by selection and ref, with the generation of their page.
+  const prefetched = new Map<string, Map<string, { node: LiveNode; generation: string | undefined }>>();
+  const merged = new WeakMap<object, string | undefined>();
+  const generation = (data: unknown) => typeof data === 'object' && data !== null && merged.has(data) ? merged.get(data) : api.generation(data);
   const coverage = (data: unknown, errors: readonly string[] = [], complete = true, sourceRevision: string | null = null): Coverage => ({
-    complete: complete && errors.length === 0 && api.generation(data) !== undefined,
-    errors, truncated: false, graphGeneration: api.generation(data) ?? null, sourceRevision,
+    complete: complete && errors.length === 0 && generation(data) !== undefined,
+    errors, truncated: false, graphGeneration: generation(data) ?? null, sourceRevision,
   });
-  async function hydrate(targets: readonly Ref[], detail = false) {
+  function remember(spec: LiveNode, pageGeneration: string | undefined) {
+    const visit = (value: unknown, selection: string) => {
+      for (const item of [value].flat()) {
+        if (!item || typeof item !== 'object') continue;
+        const node = item as LiveNode & Record<string, unknown>;
+        for (const [key, childSelection] of Object.entries(SPEC_TREE_CHILDREN)) {
+          if (key in node) { visit(node[key], childSelection); delete node[key]; }
+        }
+        if (node.ref?.ref) {
+          const known = prefetched.get(selection) ?? new Map();
+          prefetched.set(selection, known.set(node.ref.ref, { node, generation: pageGeneration }));
+        }
+      }
+    };
+    const record = spec as LiveNode & Record<string, unknown>;
+    for (const key of Object.keys(record)) {
+      if (key.startsWith(SPEC_TREE_ALIAS)) { visit(record[key], SECTION_CHILDREN); delete record[key]; }
+    }
+  }
+  async function readNodes(refs: string[], selection: string): ReturnType<ReadAPI['readNodes']> {
+    const known = prefetched.get(selection);
+    const unique = [...new Set(refs)];
+    const hits = known ? unique.flatMap(ref => known.get(ref) ?? []) : [];
+    if (!hits.length) return api.readNodes<LiveNode>(refs, selection, { signal });
+    const missing = unique.filter(ref => !known?.has(ref));
+    const rest = missing.length ? await api.readNodes<LiveNode>(missing, selection, { signal }) : null;
+    const generations = new Set([...hits.map(hit => hit.generation), ...(rest ? [api.generation(rest)] : [])]);
+    const seen = new Set<string>();
+    const result = {
+      nodes: [...hits.map(hit => hit.node), ...rest?.nodes ?? []].filter(node => !seen.has(identity(node.ref)) && !!seen.add(identity(node.ref))),
+      complete: rest?.complete ?? true, errors: rest?.errors ?? [], unresolved: rest?.unresolved ?? [], truncated: rest?.truncated ?? [],
+    };
+    merged.set(result, generations.size === 1 ? [...generations][0] : undefined);
+    return result;
+  }
+  async function hydrate(targets: readonly Ref[], selection: string) {
     check();
     if (!targets.length) return { nodes: [], coverage: absent('No hydration requested'), missing: false,
       coverageFor: (_owned: readonly Ref[]) => absent('No hydration requested') };
     let result: Omit<Awaited<ReturnType<ReadAPI['readNodes']>>, 'nodes'> & { nodes: LiveNode[] };
     try {
-      result = await api.readNodes<LiveNode>(targets.map(readRef), detail ? NODE_DETAIL : NODE_SUMMARY, { signal });
+      result = await readNodes(targets.map(readRef), selection) as typeof result;
     } catch (error) {
       check();
       const failed = absent(String(error));
@@ -124,34 +164,48 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     }
     return { occurrences: toOccurrences(source.ref, combined.items), coverage: combined.coverage };
   }
-  async function inventory(root: 'specLike' | 'effort') {
+  async function inventory(root: 'specLike' | 'effort', tree = '') {
+    const size = tree ? SPEC_PAGE_SIZE : 100;
+    const query = (nested: boolean) => `query DeliveryInventory($offset: Int!) { ${root}(first: ${size}, offset: $offset) { ... on Node { ${NODE_SUMMARY} } ${nested ? tree : ''} } }`;
+    // The server fails a whole response for one bad nested field, so a failed tree page is read again flat.
+    async function page(offset: number) {
+      if (tree) {
+        try { return { data: await api.graphql<Record<string, LiveNode[]>>(query(true), { offset }), nested: true }; } catch { check(); }
+      }
+      return { data: await api.graphql<Record<string, LiveNode[]>>(query(false), { offset }), nested: false };
+    }
     const nodes: LiveNode[] = [];
     const reads: Coverage[] = [];
-    let offset = 0;
-    while (true) {
+    for (let offset = 0; ; offset += size * (tree ? SPEC_PAGE_WINDOW : 1)) {
       check();
-      try {
-        const data = await api.graphql<Record<string, LiveNode[]>>(`query DeliveryInventory($offset: Int!) { ${root}(first: 100, offset: $offset) { ... on Node { ${NODE_SUMMARY} } } }`, { offset });
-        check();
-        const page = data[root] ?? [];
+      const results = await Promise.all(Array.from({ length: tree ? SPEC_PAGE_WINDOW : 1 }, (_, index) =>
+        page(offset + index * size).then(value => ({ value }), (error: unknown) => ({ error }))));
+      check();
+      for (const [index, result] of results.entries()) {
+        const at = offset + index * size;
+        if ('error' in result) { reads.push(absent(String(result.error))); return { nodes, coverage: combine(reads) }; }
+        const { data, nested } = result.value;
+        const list = data[root] ?? [];
         const facts = api.roots(data)?.[root];
-        const errors = !facts || facts.offset !== offset || facts.returnedCount !== page.length ? ['Inventory coverage unavailable or inconsistent'] : [];
+        const errors = !facts || facts.offset !== at || facts.returnedCount !== list.length ? ['Inventory coverage unavailable or inconsistent'] : [];
         reads.push(coverage(data, errors));
-        nodes.push(...page);
-        if (!facts || errors.length || !inventoryComplete(reads)) break;
+        if (nested) for (const node of list) remember(node, api.generation(data));
+        nodes.push(...list);
+        if (!facts || errors.length || !inventoryComplete(reads)) return { nodes, coverage: combine(reads) };
         if (!facts.hasMore) {
           if (facts.status !== 'complete') reads.push(absent(`Inventory ${facts.status}`));
-          break;
+          return { nodes, coverage: combine(reads) };
         }
-        if (!page.length || facts.nextOffset !== offset + page.length) { reads.push(absent('Inventory paging did not advance')); break; }
-        offset = facts.nextOffset;
-      } catch (error) { check(); reads.push(absent(String(error))); break; }
+        if (!list.length || facts.nextOffset !== at + list.length) {
+          reads.push(absent('Inventory paging did not advance'));
+          return { nodes, coverage: combine(reads) };
+        }
+      }
     }
-    return { nodes, coverage: combine(reads) };
   }
-  async function children(parents: readonly LiveNode[], name: string, detail = false) {
+  async function children(parents: readonly LiveNode[], name: string, selection: string) {
     const targets = parents.flatMap(node => refs(node, name));
-    const result = targets.length ? await hydrate(targets, detail) : { nodes: [], coverageFor: (_owned: readonly Ref[]) => null };
+    const result = targets.length ? await hydrate(targets, selection) : { nodes: [], coverageFor: (_owned: readonly Ref[]) => null };
     return { nodes: result.nodes, coverage(parent: LiveNode) {
       const errors = [
         ...(field(parent, name)?.issues ?? []).map(issue => `${parent.title}: ${name}: ${issue.message}`),
@@ -163,10 +217,10 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     } };
   }
   async function specs(nodes: LiveNode[], base: Coverage, detail = false): Promise<LiveSpec[]> {
-    const wrappers = await children(nodes, 'userStories');
-    const stories = await children(wrappers.nodes, 'stories', detail);
-    const ac = await children(stories.nodes, 'acceptanceCriteria');
-    const criteria = await children(ac.nodes, 'criteria', detail);
+    const wrappers = await children(nodes, 'userStories', SECTION_CHILDREN);
+    const stories = await children(wrappers.nodes, 'stories', detail ? NODE_DETAIL : STORY_SUMMARY);
+    const ac = await children(stories.nodes, 'acceptanceCriteria', SECTION_CHILDREN);
+    const criteria = await children(ac.nodes, 'criteria', detail ? NODE_DETAIL : SUMMARY);
     const byIdentity = (items: LiveNode[]) => new Map(items.map(node => [identity(node.ref), node]));
     const wrapperNodes = byIdentity(wrappers.nodes);
     const storyNodes = byIdentity(stories.nodes);
@@ -195,9 +249,9 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
       status: status(node, 'status', effortStates), checklist: { state: 'deferred' }, scope };
   }
   async function portfolio(review = false): Promise<PortfolioRead> {
-    const specRead = await inventory('specLike');
-    const effortRead = await inventory('effort');
-    const specRecords = await specs(specRead.nodes, specRead.coverage);
+    const [{ specRead, specRecords }, effortRead] = await Promise.all([
+      inventory('specLike', SPEC_TREE).then(async specRead => ({ specRead, specRecords: await specs(specRead.nodes, specRead.coverage) })),
+      inventory('effort')]);
     const portfolio: Portfolio = { specs: specRecords, efforts: effortRead.nodes.map(node => effort(node, effortRead.coverage)),
       specCoverage: specRead.coverage, effortCoverage: effortRead.coverage };
     if (review) {
@@ -221,7 +275,7 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
       const targets = refs(node, name);
       if (field(node, name)?.issues?.length) return { state: targets.length > 1 ? 'duplicate' : 'unreadable', coverage: read, occurrences: [] };
       if (targets.length !== 1) return { state: targets.length ? 'duplicate' : 'missing', coverage: read, occurrences: [] };
-      const hydrated = loaded ? selectedNodes(loaded, targets) : await hydrate(targets, true);
+      const hydrated = loaded ? selectedNodes(loaded, targets) : await hydrate(targets, NODE_DETAIL);
       const child = hydrated.nodes[0];
       if (!child) return { state: 'unreadable', coverage: hydrated.coverage, occurrences: [] };
       const links = await occurrences(child);
@@ -244,7 +298,7 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     return { checklist: counts ? { state: counts.total ? 'recorded' : 'empty', ...counts } : { state: 'unreadable' }, nodes: section.nodes, coverage: read };
   }
   async function record(ref: Ref): Promise<RecordDetail | null> {
-    const own = await hydrate([ref], true);
+    const own = await hydrate([ref], NODE_DETAIL);
     const node = own.nodes[0];
     if (!node) {
       if (!own.missing && !own.coverage.complete) throw new Error(own.coverage.errors.join('\n') || 'Subject read failed');
@@ -264,7 +318,7 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     const componentRefs = node.workspace?.fields.flatMap(item => [...(item.sectionNodes ?? []),
       ...(['implementationPlan', 'workLog', 'frozenScope', 'materials'].includes(item.name)
         ? (item.links ?? []).flatMap(link => link.ref ? [link.ref] : []) : [])]) ?? [];
-    const components = componentRefs.length ? await hydrate(componentRefs, true)
+    const components = componentRefs.length ? await hydrate(componentRefs, NODE_DETAIL)
       : { nodes: [], coverage: ownCoverage, coverageFor: (_targets: readonly Ref[]) => ownCoverage };
     const selectorField = field(node, 'frozenScope');
     const selectedLinks = selectorField?.links ?? [];
@@ -273,7 +327,7 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     const logRead = node.resolvedType === 'EffortWorkspace' && logRefs.length === 1 ? selectedNodes(components, logRefs) : null;
     const log = logRead?.nodes[0];
     const logSectionRefs = log?.workspace?.fields.flatMap(item => item.sectionNodes ?? []) ?? [];
-    const logSections = logSectionRefs.length ? await hydrate(logSectionRefs, true)
+    const logSections = logSectionRefs.length ? await hydrate(logSectionRefs, NODE_DETAIL)
       : { nodes: [], coverage: ownCoverage, coverageFor: (_targets: readonly Ref[]) => ownCoverage };
     const selector: ScopeSelector = {
       state: selectorState(selectorField, selectedNode, components.coverageFor(selectedLinks.flatMap(link => link.ref ? [link.ref] : []))),
@@ -311,7 +365,7 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
         : { checklist: { state: 'unreadable' } satisfies Checklist, nodes: [], coverage: absent('Work log unavailable or ambiguous') };
     result.checklist = checklistRead.checklist;
     const targetRefs = [...distinctTargets([...scope.specs, ...scope.selections]).values()];
-    const targets = targetRefs.length ? await hydrate(targetRefs, true) : { nodes: [], coverage: ownCoverage };
+    const targets = targetRefs.length ? await hydrate(targetRefs, NODE_DETAIL) : { nodes: [], coverage: ownCoverage };
     scope.coverage = combine([scope.coverage, targets.coverage], scope.coverage.sourceRevision);
     if (!scope.coverage.complete && scope.state === 'known') {
       scope.state = 'incomplete';

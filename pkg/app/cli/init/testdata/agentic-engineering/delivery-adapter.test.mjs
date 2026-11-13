@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { reader, locator } from '../../templates/starters/agentic-engineering/module/views/delivery/reads.ts';
 import { identity, promptFor } from '../../templates/starters/agentic-engineering/module/views/delivery/lib/index.ts';
+import { NODE_DETAIL } from '../../templates/starters/agentic-engineering/module/views/delivery/queries.ts';
 const ref = (notePath, typeName = 'EffortNote', fragment = '') => ({ notePath, typeName, fragment, kind: fragment ? 'section' : 'note', nodeId: fragment || notePath });
 const field = (name, sectionNodes = [], values = null, links = []) => ({ name, present: true, values, sectionNodes, links, issues: [] });
 const node = (r, fields = [], format = 'markdown') => ({ ref: r, title: r.notePath, resolvedType: r.typeName, content: 'Full authored prose', format,
@@ -270,7 +271,7 @@ test('hydration honors canonical resolution across enriched refs and refuses omi
   h.api.generation = () => '7';
   h.api.readNodes = async () => ({ nodes: [own], complete: true, errors: [], unresolved: [], truncated: [] });
   for (const target of [requested, { notePath: 'effort.md', kind: 'note' }]) {
-    const result = await reader(h.api).hydrate([target], true);
+    const result = await reader(h.api).hydrate([target], NODE_DETAIL);
     assert.equal(result.coverage.complete, true);
     assert.equal(result.nodes[0].ref, own.ref);
   }
@@ -286,7 +287,7 @@ test('API hydration consumes the canonical public ref and keeps the returned ref
     requested = targets;
     return { nodes: [own], complete: true, errors: [], unresolved: [], truncated: [] };
   };
-  const result = await reader(h.api).hydrate([own.ref], true);
+  const result = await reader(h.api).hydrate([own.ref], NODE_DETAIL);
   assert.deepEqual(requested, ['canonical:spec']);
   assert.equal(result.nodes[0].ref, own.ref);
 });
