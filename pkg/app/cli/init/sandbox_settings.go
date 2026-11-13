@@ -243,10 +243,12 @@ func (b tomlBlock) write(data, part []byte) ([]byte, error) {
 	}
 	if len(moved) > 0 {
 		var out strings.Builder
-		for _, line := range strings.SplitAfter(rest, "\n") {
+		lines := strings.SplitAfter(rest, "\n")
+		quoted := tomlQuotedLines(lines)
+		for i, line := range lines {
 			out.WriteString(line)
 			root, sub := tomlKey(line)
-			if keys := moved[root]; keys != nil && sub == "" && tomlHeader(line) == 1 {
+			if keys := moved[root]; keys != nil && sub == "" && !quoted[i] && tomlHeader(line) == 1 {
 				if !strings.HasSuffix(line, "\n") {
 					out.WriteString("\n")
 				}
@@ -295,9 +297,11 @@ func tomlPlacement(rest string, part []byte) (map[string]bool, string) {
 	}
 	tables := map[string]bool{}
 	table, topLevel := "", true
-	for _, line := range strings.Split(rest, "\n") {
+	lines := strings.Split(rest, "\n")
+	quoted := tomlQuotedLines(lines)
+	for i, line := range lines {
 		root, sub := tomlKey(line)
-		if root == "" {
+		if root == "" || quoted[i] {
 			continue
 		}
 		if kind := tomlHeader(line); kind > 0 {
@@ -321,6 +325,48 @@ func tomlPlacement(rest string, part []byte) (map[string]bool, string) {
 		}
 	}
 	return tables, ""
+}
+
+// tomlQuotedLines marks the lines that start inside a multiline string,
+// which are text, not keys or tables.
+func tomlQuotedLines(lines []string) []bool {
+	quoted := make([]bool, len(lines))
+	open := ""
+	for i, line := range lines {
+		quoted[i] = open != ""
+		for line != "" {
+			if open != "" {
+				end := strings.Index(line, open)
+				if end < 0 {
+					break
+				}
+				line, open = line[end+3:], ""
+				continue
+			}
+			start := strings.IndexAny(line, `"'#`)
+			if start < 0 || line[start] == '#' {
+				break
+			}
+			if delim := line[start:min(start+3, len(line))]; delim == `"""` || delim == "'''" {
+				line, open = line[start+3:], delim
+				continue
+			}
+			// A one-line string: skip past its closing quote; a basic
+			// string's quote can be escaped.
+			end := start + 1
+			for end < len(line) && line[end] != line[start] {
+				if line[start] == '"' && line[end] == '\\' {
+					end++
+				}
+				end++
+			}
+			if end >= len(line) {
+				break
+			}
+			line = line[end+1:]
+		}
+	}
+	return quoted
 }
 
 // tomlHeader is 1 for a [table] line, 2 for an [[array]] line, else 0.

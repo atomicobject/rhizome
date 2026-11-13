@@ -114,6 +114,16 @@ func TestCodexProfileJoinsAPersonsFeaturesTable(t *testing.T) {
 	require.Equal(t, mine, string(data), "removing the profile restores the person's file")
 }
 
+func TestCodexProfileSkipsTablesInsideMultilineStrings(t *testing.T) {
+	block := tomlBlock("codex-sandbox")
+	mine := "developer_instructions = \"\"\"\nExample:\n[features]\n\"\"\"\n\n[features]\nhooks = true\n"
+	out, err := block.write([]byte(mine), []byte(codexLoopbackProfile))
+	require.NoError(t, err)
+	require.Contains(t, string(out), "Example:\n[features]\n\"\"\"\n", "the instructions stay as written")
+	require.Contains(t, string(out), "\n[features]\n# BEGIN RZM INIT BLOCK: [features] codex-sandbox\nnetwork_proxy = true\n")
+	require.Empty(t, block.conflict([]byte("notes = '''\n[[features]]\nfeatures = 1\n'''\n"), []byte(codexLoopbackProfile)))
+}
+
 func TestCodexGetsALoopbackOnlyProfileAboveAPersonsSettings(t *testing.T) {
 	root := machineRunRepo(t)
 	writeFixtureFile(t, root, ".codex/config.toml", "[projects.\"/x\"]\ntrust_level = \"trusted\"\n")
