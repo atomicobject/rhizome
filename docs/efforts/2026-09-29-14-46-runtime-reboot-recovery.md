@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-09-29-14-46
 name: Runtime reboot recovery
 created-at: 2026-09-29T18:46:38Z
-status: active
+status: complete
 summary: Recover dead-owner locks from a proven earlier local boot without taking locks from live or foreign owners.
 aliases:
   - EFF-2026-09-29-14-46
@@ -89,4 +89,4 @@ None within this slice. Stronger machine and process identity could support reco
 
 ## Status
 
-Implementation, focused checks, integration suites, independent review, documentation validation, and local build are complete on `fix/runtime-reboot-recovery`. The full gate retains an unrelated identifier-reconciliation failure. This effort remains active pending resolution or accepted carry-forward of that failure and a landing PR or merge commit; no release was published.
+Complete. Delivered on `main` in the squashed `7ec4bcb9f` initial commit of the rewritten history (2026-10-05); the PR numbers above predate that rewrite. Drew closed this effort on 2026-11-12 after an audit of open efforts. Unchecked items above are carried forward under that decision rather than verified at closure.

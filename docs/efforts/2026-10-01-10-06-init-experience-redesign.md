@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-10-01-10-06
 name: Init experience redesign
 created-at: 2026-10-01T14:06:08Z
-status: active
+status: complete
 summary: Replace the rzm init interaction with an opinionated first run, a maintenance-first rerun, a four-section settings menu, and one file-ownership rule that asks only about locally edited files; align the rhizome skill's setup and troubleshooting guidance.
 aliases:
   - EFF-2026-10-01-10-06
@@ -447,7 +447,7 @@ A first run that asks at most three questions and writes quietly, a rerun that n
 
 ## Status
 
-Implementation complete and verified; uncommitted in the working tree, awaiting Drew's review before commit and closure.
+Complete. Delivered on `main` in the squashed `7ec4bcb9f` initial commit of the rewritten history (2026-10-05); the PR numbers above predate that rewrite. Drew closed this effort on 2026-11-12 after an audit of open efforts. Unchecked items above are carried forward under that decision rather than verified at closure.
 
 ## Compounding Follow-ups
 

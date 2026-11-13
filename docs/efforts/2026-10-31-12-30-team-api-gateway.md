@@ -5,7 +5,7 @@ aliases: [EFF-2026-10-31-12-30]
 name: Team API gateway
 created-at: 2026-10-31T16:29:31Z
 plan-approved-by: Drew Colthorp
-status: active
+status: complete
 summary: "Deliver SPEC-0129: Google Workspace sign-in with one shared macOS session per OS user, an Atomic-run AWS gateway that holds the Voyage and TypeSafe keys and enforces hard admission limits, Rhizome client and desktop integration, a pilot, and retirement of the distributed key bundle. Approval currently covers Batch 0 and the Google-independent part of Batch 1."
 governing-specs: ["[[team-api-gateway]]"]
 ---
@@ -239,8 +239,4 @@ The local build, on `t3/team-api-proxy-auth`:
 
 ## Status
 
-Active. The local build is complete and verified end to end with fake and live providers; PR #60 carries that delivery. Remaining, outside the approved local scope:
-- Google configuration, P1–P4, and the domain list (X3) are done.
-- AWS deployment and live DynamoDB verification (Batch 5); the DynamoDB state implementation passes the Local suites.
-- The pilot and live drills (Batch 6).
-- Rollout and key retirement (Batch 7).
+Complete. Delivered on `main` in PR #60 (`98e2bb507`, merged 2026-11-01). Drew closed this effort on 2026-11-12 after an audit of open efforts. Unchecked items above are carried forward under that decision rather than verified at closure. Drew confirmed on 2026-11-12 that the gateway is deployed and shipped, which covers the AWS deployment, pilot, and rollout batches (5–7) that were still open.

@@ -2,8 +2,8 @@
 type: ExperienceSpec
 id: SPEC-0118
 summary: "Rhizome Desktop sets up an unconfigured worktree from one review sheet backed by rzm init's machine-readable report, lets a person change a set-up repository's workflow, add-ons, agents, and search provider from a Settings tab, and gives every repository a page for administering what gets indexed, including rules inherited from .gitignore."
-spec-status: proposed
-last-updated: 2026-11-10
+spec-status: active
+last-updated: 2026-11-12
 aliases:
   - SPEC-0118
 ---

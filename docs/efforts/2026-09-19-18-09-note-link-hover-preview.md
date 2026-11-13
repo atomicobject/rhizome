@@ -5,7 +5,7 @@ aliases:
   - EFF-2026-09-19-18-09
 name: Note Link Hover Preview
 created-at: 2026-09-19T22:09:06Z
-status: active
+status: complete
 plan-approved-by: Drew Colthorp
 plan-approved-at: 2026-09-19T22:09:06Z
 summary: "Ship index-backed hover preview cards for note links in the web workspace, shaped by a new field-level @display annotation, with the starter ontologies annotated and configured-view labels moved to a shared humanizer."
@@ -128,4 +128,4 @@ All four stories of SPEC-0106 in one pull request.
 
 ## Status
 
-Active. Implementation in progress on 2026-09-19.
+Complete. Delivered on `main` in the squashed `7ec4bcb9f` initial commit of the rewritten history (2026-10-05); the PR numbers above predate that rewrite. Drew closed this effort on 2026-11-12 after an audit of open efforts. Unchecked items above are carried forward under that decision rather than verified at closure. SPEC-0106 moved to active in the same change.

@@ -2,8 +2,8 @@
 type: TechnicalSpec
 summary: "Defines the shared core starter template and explicit template dependency resolution for composing spec-driven, project-kb, action-items, and future starter templates."
 id: SPEC-0061
-spec-status: proposed
-last-updated: 2026-05-06
+spec-status: active
+last-updated: 2026-11-12
 aliases:
   - SPEC-0061
   - Core template and template dependencies

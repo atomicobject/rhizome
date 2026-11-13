@@ -5,8 +5,8 @@ aliases:
   - SPEC-0130
   - Rhizome modules
 summary: "A module is a folder under .rhizome/modules/<name>/ that groups the ontology, query recipes, views, tasks, and scripts one capability ships. Every starter installs as one module; repository-owned files in the flat .rhizome folders keep working. One asset locator gives every loader both layouts, rzm init migrates installed starter files, and rzm <module> <command> runs a module's recipes from the command line."
-spec-status: proposed
-last-updated: 2026-11-09
+spec-status: active
+last-updated: 2026-11-12
 ---
 
 # Rhizome modules

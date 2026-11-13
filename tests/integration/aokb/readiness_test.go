@@ -3,12 +3,15 @@
 package aokb
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -32,6 +35,23 @@ func TestInstalledStarterAcceptsLinkedGuidance(t *testing.T) {
 	testInstalledStarterReadiness(t, false, true)
 }
 
+var warmNodeOnce sync.Once
+
+// warmNode launches Node once before the readiness wait. The starter's
+// readiness actions run Node, and on a fresh Windows runner the first
+// node.exe launch spends 4 to 27 seconds starting (Defender on or off) while
+// later launches take about 20 ms. Without this, that one-time runner cost
+// lands inside the first readiness wait.
+func warmNode(t *testing.T) {
+	t.Helper()
+	warmNodeOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		output, err := exec.CommandContext(ctx, "node", "--input-type=module", "-e", "import 'node:fs/promises'").CombinedOutput()
+		require.NoError(t, err, "the AO KB readiness actions need node on PATH: %s", output)
+	})
+}
+
 func testInstalledStarterReadiness(t *testing.T, populated, linkedGuidance bool) {
 	kb := &aoKB{t: t, root: filepath.Join(t.TempDir(), "vault"), home: t.TempDir()}
 	if populated {
@@ -53,6 +73,7 @@ func testInstalledStarterReadiness(t *testing.T, populated, linkedGuidance bool)
 	_, err = store.Trust(kb.root)
 	require.NoError(t, err)
 	t.Cleanup(func() { _, _, _ = store.Untrust(kb.root) })
+	warmNode(t)
 	base := kb.serve()
 	output, err := kb.rzm("init", "--add-addon", "ao-kb", "--agents", "none")
 	require.NoError(t, err, output)

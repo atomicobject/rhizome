@@ -2,8 +2,8 @@
 type: ExperienceSpec
 id: SPEC-0072
 summary: "Surfaces a satisfaction rollup for any typed parent note whose schema declares a collection of embedded children with a status enum — visible at three densities (type-home card badge, parent-note pane strip, dedicated coverage view) sharing one schema-derived contract. Generalizes the spec-completion idea so it applies to spec-driven, complex-domain, and any custom Rhizome ontology with a parent/children/status shape; the spec-driven starter is one instance of the pattern, not the only one."
-spec-status: proposed
-last-updated: 2026-06-15
+spec-status: archived
+last-updated: 2026-11-12
 aliases:
   - SPEC-0072
 ---

@@ -36,7 +36,7 @@ type settingFormat interface {
 	// nothing else is left in it.
 	write(data, part []byte) ([]byte, error)
 	// conflict says why the part cannot be added to data, or "".
-	conflict(data []byte) string
+	conflict(data, part []byte) string
 }
 
 // codexLoopbackProfile is Codex's own workspace sandbox plus loopback, which
@@ -100,7 +100,7 @@ func (path jsonKey) write(data, part []byte) ([]byte, error) {
 }
 
 // conflict reports a non-object value where the path needs an object.
-func (path jsonKey) conflict(data []byte) string {
+func (path jsonKey) conflict(data, _ []byte) string {
 	obj, err := parseOrderedObject(data)
 	for i, name := range path[:len(path)-1] {
 		if err != nil {
@@ -143,72 +143,6 @@ func withJSONValue(raw []byte, path []string, value json.RawMessage) ([]byte, er
 	return obj.marshal(), nil
 }
 
-// tomlBlock is a fenced block at the top of a TOML file, where top-level
-// keys must be.
-type tomlBlock string
-
-func (b tomlBlock) fences() (string, string) {
-	return "# BEGIN RZM INIT BLOCK: " + string(b), "# END RZM INIT BLOCK: " + string(b)
-}
-
-// split returns the text before, inside, and after the block.
-func (b tomlBlock) split(data []byte) (before, body, after string, found bool) {
-	begin, end := b.fences()
-	text := string(data)
-	i := strings.Index(text, begin)
-	j := strings.Index(text, end)
-	if i < 0 || j < i+len(begin) {
-		return text, "", "", false
-	}
-	// The newline after the fence and the blank line write adds belong to
-	// the block, with either line ending.
-	after = text[j+len(end):]
-	for range 2 {
-		after = strings.TrimPrefix(strings.TrimPrefix(after, "\r"), "\n")
-	}
-	return text[:i], strings.ReplaceAll(strings.TrimSpace(text[i+len(begin):j]), "\r\n", "\n"), after, true
-}
-
-func (b tomlBlock) read(data []byte) ([]byte, error) {
-	if _, body, _, found := b.split(data); found {
-		return []byte(body), nil
-	}
-	return nil, nil
-}
-
-func (b tomlBlock) write(data, part []byte) ([]byte, error) {
-	before, _, after, _ := b.split(data)
-	rest := before + after
-	if part == nil {
-		if strings.TrimSpace(rest) == "" {
-			return nil, nil
-		}
-		return []byte(rest), nil
-	}
-	begin, end := b.fences()
-	block := begin + "\n" + string(part) + "\n" + end + "\n"
-	if strings.TrimSpace(rest) != "" {
-		block += "\n"
-	}
-	return []byte(block + rest), nil
-}
-
-// conflict reports a definition outside the block that the block's keys
-// would redefine, which TOML rejects.
-func (b tomlBlock) conflict(data []byte) string {
-	before, _, after, _ := b.split(data)
-	for _, line := range strings.Split(before+after, "\n") {
-		// The first key of a table header or assignment, without quotes.
-		key := strings.TrimLeft(strings.TrimSpace(line), "[ \t\"'")
-		for _, name := range []string{"default_permissions", "features", "permissions"} {
-			if rest, ok := strings.CutPrefix(key, name); ok && (rest == "" || strings.ContainsRune(" \t=.]\"'", rune(rest[0]))) {
-				return fmt.Sprintf("it already defines %s; add the loopback profile Rhizome writes by hand", name)
-			}
-		}
-	}
-	return ""
-}
-
 // classifySetting reports the change a setting needs, or nil. A value with
 // no record is someone's own choice, so it is never removed.
 func classifySetting(projectRoot string, s generatedSetting, record *generatedFiles) (*change, error) {
@@ -234,7 +168,7 @@ func classifySetting(projectRoot string, s generatedSetting, record *generatedFi
 		}
 		return &change{key: key, rel: s.rel, group: key, removal: true, current: part, state: stateUnedited}, nil
 	}
-	if part == nil && s.format.conflict(current) != "" {
+	if part == nil && s.format.conflict(current, s.desired) != "" {
 		return nil, nil // applySetting says why
 	}
 	c := &change{key: key, rel: s.rel, group: key, current: part, desired: s.desired}
@@ -258,7 +192,7 @@ func settingConflict(projectRoot string, s generatedSetting) string {
 	if part, _ := s.format.read(current); part != nil {
 		return ""
 	}
-	if why := s.format.conflict(current); why != "" {
+	if why := s.format.conflict(current, s.desired); why != "" {
 		return fmt.Sprintf("skipping %s: %s", s.rel, why)
 	}
 	return ""

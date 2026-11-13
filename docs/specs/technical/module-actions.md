@@ -5,8 +5,8 @@ aliases:
   - SPEC-0131
   - Module actions
 summary: "An action is a named, typed operation a module declares in .rhizome/modules/<name>/actions/. One runner executes it as a command or a code-mode script with bounded time and output and returns one envelope: ok, refused, or error. Views call it over HTTP through two kit hooks, agents through the action_list and action_run operations, and people through rzm <module> <action>. Every run requires a trusted repository."
-spec-status: proposed
-last-updated: 2026-11-02
+spec-status: active
+last-updated: 2026-11-12
 ---
 
 # Module actions

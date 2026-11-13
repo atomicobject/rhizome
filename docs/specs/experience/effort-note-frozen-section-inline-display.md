@@ -2,8 +2,8 @@
 type: ExperienceSpec
 id: SPEC-0066
 summary: "Two related bugs in EffortNote frozen section rendering: (1) wikilinks to newly written notes resolve to unresolved short names in the section pane context because the server's in-memory noteCache is stale and fswatcher events are dropped when the cache was nil at write time; (2) frozen sections display as click-through PANE buttons rather than inline markdown in the structural view."
-spec-status: proposed
-last-updated: 2026-06-05
+spec-status: archived
+last-updated: 2026-11-12
 aliases:
   - SPEC-0066
   - effort-note-frozen-section-inline-display
