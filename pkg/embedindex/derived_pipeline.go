@@ -177,9 +177,6 @@ func vectorBytes(vectors []embeddings.Embedding) int {
 }
 
 func (s *Syncer) PublishDerived(ctx context.Context, result CodeDerivedResult) error {
-	if err := s.CacheDerived(ctx, result); err != nil {
-		return err
-	}
 	if s.ChunkWriter != nil {
 		if err := s.persistIntelChunks(ctx, []codeTask{result.task}); err != nil {
 			return err

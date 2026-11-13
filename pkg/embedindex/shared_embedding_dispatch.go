@@ -300,7 +300,22 @@ func (n *SharedEmbeddingNode) run() {
 			indexingperf.AddCount(batchCtx, indexingperf.ProviderTexts, int64(len(texts)))
 			callStarted := time.Now()
 			setProviderInflight(phase, 1)
-			vecs, err := n.provider.EmbedTexts(batchCtx, texts)
+			wantedCtx, stopWanted := context.WithCancel(batchCtx)
+			stops := make([]func() bool, 0, len(jobs))
+			for _, job := range jobs {
+				stops = append(stops, context.AfterFunc(job.req.ctx, func() {
+					if allJobsCancelled(jobs) != nil {
+						stopWanted()
+					}
+				}))
+			}
+			callCtx, stopCall := providerCallContext(wantedCtx)
+			vecs, err := n.provider.EmbedTexts(callCtx, texts)
+			stopCall()
+			for _, stop := range stops {
+				stop()
+			}
+			stopWanted()
 			setProviderInflight(phase, -1)
 			callDur := time.Since(callStarted)
 			indexingperf.ObserveLatency(batchCtx, indexingperf.ProviderLatency, callDur)

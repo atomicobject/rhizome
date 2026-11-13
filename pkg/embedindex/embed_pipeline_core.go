@@ -229,7 +229,9 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() (runErr error) {
 			} else {
 				providerCtx := p.ctx
 				if p.abandon != nil {
-					providerCtx = context.WithoutCancel(p.ctx)
+					var cancel context.CancelFunc
+					providerCtx, cancel = providerCallContext(p.ctx)
+					defer cancel()
 				}
 				if err = p.ctx.Err(); err == nil {
 					vecs, err = p.provider.EmbedTexts(providerCtx, batchTexts)
