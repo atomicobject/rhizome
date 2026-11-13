@@ -61,6 +61,8 @@ The implementation recovers unchanged starter schemas, keeps edited or unproven 
 - The built macOS app opened the recovered fixture with its bundled executable. After trusting the disposable fixture, the Delivery dashboard and navigation rendered successfully.
 - Greptile found that a custom protected identifier in a retained flat schema could abort the entire preview. The review fix keeps that replacement pending, permits keep or defer, and rejects an unsafe take before writes. Regression coverage exercises both known and unknown ownership through `Run`; the verified-ownership migration also now exercises `Run`. The README documents the choice and snapshot flags.
 - After the review fix, `make check`, `make build`, the Delivery upgrade replay, and `./scripts/rzm validate` passed. A second replay using the rebuilt CLI verified custom-schema defer, keep, and rejected take. Rejection left project and generated files unchanged; the CLI wrote its expected failure-diagnostic logs. The earlier desktop verification remains applicable because this follow-up changes no desktop code.
+- A later Greptile pass confirmed those findings resolved and identified a nested-project history path error. A regression test reproduced it, and recovery now uses Git's explicit project-relative path. Main was integrated with only a changelog conflict, retaining both entries.
+- The combined branch passed `make check`, `make build`, the Delivery and custom-schema CLI replays, and `./scripts/rzm validate` after the nested-project fix.
 
 ## Deviations
 

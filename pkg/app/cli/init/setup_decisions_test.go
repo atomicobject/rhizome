@@ -201,21 +201,28 @@ func historyGit(t *testing.T, root string, args ...string) {
 }
 
 func TestLegacyOwnershipRecoveryUsesOnlyExactGitEvidence(t *testing.T) {
-	for _, changed := range []bool{false, true} {
-		t.Run(map[bool]string{false: "exact", true: "changed"}[changed], func(t *testing.T) {
+	for _, scenario := range []struct {
+		name            string
+		changed, nested bool
+	}{{"exact", false, false}, {"changed", true, false}, {"nested exact", false, true}, {"nested changed", true, true}} {
+		t.Run(scenario.name, func(t *testing.T) {
 			root := legacyOwnershipRepo(t)
-			historyGit(t, root, "init", "-q")
+			gitRoot := root
+			if scenario.nested {
+				gitRoot = filepath.Dir(root)
+			}
+			historyGit(t, gitRoot, "init", "-q")
 			historyGit(t, root, "add", "-f", ".rhizome/workflows.yml")
 			historyGit(t, root, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false", "commit", "-qm", "legacy metadata")
 			clearLegacyEvidence(t, root)
-			if changed {
+			if scenario.changed {
 				writeTestFile(t, root, legacyEffortPath, legacyEffortSchema+"type Custom { name: String }\n")
 			}
 			workflow := readTestFile(t, root, ".rhizome/workflows.yml")
 			plan, err := Plan(RunOptions{Dir: root})
 			require.NoError(t, err)
 			require.Equal(t, workflow, readTestFile(t, root, ".rhizome/workflows.yml"))
-			if changed {
+			if scenario.changed {
 				findSetupDecision(t, plan.Writes.Decisions, moduleEffortPath)
 				require.NotContains(t, plan.Writes.Files, moduleEffortPath)
 			} else {

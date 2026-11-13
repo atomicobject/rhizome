@@ -13,6 +13,7 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/indexingperf"
@@ -20,7 +21,6 @@ import (
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
-	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/stretchr/testify/require"
 
 	"github.com/atomicobject/rhizome/pkg/embedindex"
@@ -194,7 +194,7 @@ func derivedCounterTotal(snapshot indexingperf.Snapshot, name string) int64 {
 	return total
 }
 
-func TestDerivedDiagnosticsRetainExternalPriorityCancellationCause(t *testing.T) {
+func TestDerivedDiagnosticsRetainExplicitPreemptionCause(t *testing.T) {
 	root := t.TempDir()
 	w, cacheService, store := newLiveOwnershipTestWatcher(t, root, obsidian.VaultDefinition{Path: root})
 	t.Cleanup(func() { require.NoError(t, cacheService.Close()); require.NoError(t, store.Close()) })
@@ -204,21 +204,31 @@ func TestDerivedDiagnosticsRetainExternalPriorityCancellationCause(t *testing.T)
 	t.Cleanup(func() { require.NoError(t, recorder.Close()) })
 	ctx := diagnostics.WithRecorder(t.Context(), recorder)
 	ctx, finish := observeDerivedWork(ctx, codeanchor.DerivedWork{DerivedScope: codeanchor.DerivedScope{Kind: codeanchor.DerivedNotes}})
-	priority, err := indexlock.RequestPriority(repoconfig.IndexLockPath(root))
+	started, release := make(chan struct{}), make(chan struct{})
+	releaseIndex := shutdownRelease(t, release)
+	_, _, err = w.lane.Submit(t.Context(), lane.Request{Kind: lane.KindExplicitIndex, Run: func(ctx context.Context, _ *indexlock.Lease, _ lane.Reporter) error {
+		close(started)
+		select {
+		case <-release:
+		case <-ctx.Done():
+		}
+		return nil
+	}})
 	require.NoError(t, err)
-	t.Cleanup(priority.Close)
+	<-started
+	defer releaseIndex()
 	d := &derivedScheduler{watcher: w, ctx: ctx}
 	err = d.compute(ctx, "embed_notes", func(ctx context.Context) error {
 		<-ctx.Done()
 		return ctx.Err()
 	})
 	require.ErrorIs(t, err, context.Canceled)
-	require.ErrorIs(t, err, errDerivedExternalPriority)
+	require.ErrorIs(t, err, lane.ErrPreempted)
 	finish(err)
 	result, err := diagnostics.ReadReports(root, diagnostics.Filter{Kind: "derived-work"})
 	require.NoError(t, err)
 	require.Len(t, result.Reports, 1)
 	require.Equal(t, "preempted", result.Reports[0].Status)
-	require.Equal(t, "external_priority", result.Reports[0].ReasonCode)
+	require.Equal(t, "explicit_index", result.Reports[0].ReasonCode)
 	require.Empty(t, stderr.String())
 }

@@ -48,8 +48,6 @@ func observeDerivedWork(ctx context.Context, ticket codeanchor.DerivedWork) (con
 			status, reason = "skipped", "source_changed"
 		case errors.Is(err, lane.ErrPreempted):
 			status, reason = "preempted", "explicit_index"
-		case errors.Is(err, errDerivedExternalPriority):
-			status, reason = "preempted", "external_priority"
 		case errors.Is(err, lane.ErrClosed):
 			status, reason = "canceled", "runtime_shutdown"
 		case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
@@ -86,7 +84,7 @@ func (s *derivedScheduler) compute(parent context.Context, phase string, run fun
 			panic(panicked)
 		}
 		if errors.Is(resultErr, context.Canceled) {
-			if cause := context.Cause(ctx); errors.Is(cause, lane.ErrPreempted) || errors.Is(cause, errDerivedExternalPriority) {
+			if cause := context.Cause(ctx); errors.Is(cause, lane.ErrPreempted) {
 				resultErr = errors.Join(resultErr, cause)
 			}
 		}

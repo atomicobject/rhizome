@@ -1,6 +1,7 @@
 package embedindex
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"slices"
@@ -94,7 +95,7 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() (runErr error) {
 		timerCh = nil
 	}
 	startTimer := func() {
-		if timer != nil || len(pending) == 0 {
+		if p.opts.FlushOnSubmit || timer != nil || len(pending) == 0 {
 			return
 		}
 		timer = time.NewTimer(p.opts.MaxWait)
@@ -119,7 +120,7 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() (runErr error) {
 			MaxConcurrent: p.maxConcurrent,
 			Warmups:       adaptiveWarmups,
 			OldestAge:     oldestAge(),
-			Draining:      draining,
+			Draining:      draining || (p.opts.FlushOnSubmit && !preparedOpen),
 		})
 	}
 	readyForImmediateDispatch := func() bool {
@@ -226,7 +227,18 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() (runErr error) {
 				// cancelled pass does not discard vectors the provider already returned.
 				vecs, err = p.sharedNode.submit(p.ctx, indexingperf.PhaseFromContext(p.ctx), batchTexts, p.abandon != nil)
 			} else {
-				vecs, err = p.provider.EmbedTexts(p.ctx, batchTexts)
+				providerCtx := p.ctx
+				if p.abandon != nil {
+					var cancel context.CancelFunc
+					providerCtx, cancel = providerCallContext(p.ctx)
+					defer cancel()
+				}
+				if err = p.ctx.Err(); err == nil {
+					vecs, err = p.provider.EmbedTexts(providerCtx, batchTexts)
+				}
+				if err != nil {
+					vecs = nil
+				}
 			}
 			callDur := time.Since(callStarted)
 			if !useSharedNode {
@@ -238,6 +250,7 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() (runErr error) {
 			}
 			if err == nil && len(vecs) != len(batchTexts) {
 				err = fmt.Errorf("embed: unexpected vector count %d for %d texts", len(vecs), len(batchTexts))
+				vecs = nil
 			}
 			if !useSharedNode && p.globalSem != nil {
 				<-p.globalSem
@@ -246,6 +259,9 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() (runErr error) {
 		}(jobs)
 	}
 	dispatchReady := func(force bool) {
+		if p.ctx.Err() != nil {
+			return
+		}
 		draining := force
 		for active < p.maxConcurrent && len(pending) > 0 {
 			if !force && !readyForImmediateDispatch() {
@@ -315,7 +331,7 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() (runErr error) {
 				select {
 				case res := <-p.resultCh:
 					for idx, qjob := range res.jobs {
-						if res.err == nil && idx < len(res.vecs) {
+						if idx < len(res.vecs) && len(res.vecs[idx]) > 0 {
 							_ = p.applyResult(qjob.owner, qjob.job, res.vecs[idx])
 						}
 					}
@@ -400,6 +416,13 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() (runErr error) {
 				indexingperf.SetGauge(p.ctx, indexingperf.ProviderInflight, int64(active))
 			}
 			if res.err != nil {
+				if p.abandon != nil {
+					for i, job := range res.jobs {
+						if i < len(res.vecs) && len(res.vecs[i]) > 0 {
+							_ = p.applyResult(job.owner, job.job, res.vecs[i])
+						}
+					}
+				}
 				return res.err
 			}
 			for idx, qjob := range res.jobs {
@@ -438,5 +461,8 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() (runErr error) {
 
 	finalizeMu.Lock()
 	defer finalizeMu.Unlock()
+	if p.ctx.Err() != nil {
+		return p.ctx.Err()
+	}
 	return finalizeErr
 }

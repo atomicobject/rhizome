@@ -307,7 +307,7 @@ func (p *voyageProvider) embedBatch(ctx context.Context, texts []string) ([]Embe
 
 	if resp.StatusCode >= 300 {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return nil, fmt.Errorf("voyage embeddings status %d: %s", resp.StatusCode, string(msg))
+		return nil, inputErrorForStatus(resp.StatusCode, fmt.Errorf("voyage embeddings status %d: %s", resp.StatusCode, string(msg)))
 	}
 
 	var parsed struct {
@@ -394,7 +394,7 @@ func (p *voyageProvider) doEmbeddingRequestWithRetry(ctx context.Context, body [
 				// Terminal codes, including upstream_outcome_unknown and
 				// result_unavailable, end this logical request.
 				if !gatewayErr.Retryable() {
-					return nil, err
+					return nil, inputErrorForStatus(gatewayErr.Status, err)
 				}
 				retryAfter = gatewayErr.RetryAfter
 				if gatewayErr.Code == wire.CodeInProgress {

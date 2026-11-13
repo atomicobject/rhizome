@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
+	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
 	"github.com/atomicobject/rhizome/pkg/app/web"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil/migration"
@@ -22,7 +23,7 @@ func TestReadinessCoordinatorWaitsForLivePublicationAndOpensGates(t *testing.T) 
 	defer cancel()
 
 	indexStarted := make(chan struct{})
-	coordinator := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+	coordinator := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, runtimeview.Snapshot, bool) error {
 		close(indexStarted)
 		return nil
 	})
@@ -41,7 +42,7 @@ func TestReadinessCoordinatorWaitsForLivePublicationAndOpensGates(t *testing.T) 
 
 func TestReadinessCoordinatorRefreshesValidationAfterSuccessfulBackgroundIndex(t *testing.T) {
 	ctx := context.Background()
-	coordinator := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+	coordinator := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, runtimeview.Snapshot, bool) error {
 		return nil
 	})
 	coordinator.BindLive(ctx, &bootstrap.LiveRuntime{})
@@ -54,7 +55,7 @@ func TestReadinessCoordinatorRefreshesValidationAfterSuccessfulBackgroundIndex(t
 
 func TestReadinessCoordinatorDoesNotRefreshValidationAfterFailedBackgroundIndex(t *testing.T) {
 	ctx := context.Background()
-	coordinator := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+	coordinator := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, runtimeview.Snapshot, bool) error {
 		return errors.New("index failed")
 	})
 	coordinator.BindLive(ctx, &bootstrap.LiveRuntime{})
@@ -133,7 +134,7 @@ func TestReadinessCoordinatorObservesExternalModelAfterIndexFailure(t *testing.T
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	coordinator := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+	coordinator := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, runtimeview.Snapshot, bool) error {
 		return errors.New("index deferred")
 	})
 	var countCalls atomic.Int32
@@ -368,7 +369,7 @@ func TestQueuedValidationWaitsForBootIndexAttempt(t *testing.T) {
 	defer cancel()
 	started := make(chan struct{})
 	finish := make(chan struct{})
-	coordinator := NewReadinessCoordinator(func(ctx context.Context, _ *indexlock.Lease, _ notemeta.Indexer, _ string, _ obsidian.VaultDefinition, _ bool) error {
+	coordinator := NewReadinessCoordinator(func(ctx context.Context, _ *indexlock.Lease, _ notemeta.Indexer, _ string, _ runtimeview.Snapshot, _ bool) error {
 		close(started)
 		select {
 		case <-finish:
@@ -401,7 +402,7 @@ func TestReadinessCoordinatorReportsUnreadableIndex(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	future := &migration.ErrFutureSchema{Domain: migration.DomainIntel, Current: 80, Supported: 78}
-	c := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+	c := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, runtimeview.Snapshot, bool) error {
 		return future
 	})
 	c.usableNoteCount = func(context.Context, *bootstrap.LiveRuntime) (int64, error) { return 0, future }

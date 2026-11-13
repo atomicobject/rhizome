@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
+	"github.com/atomicobject/rhizome/pkg/app/codeintel"
 	"github.com/atomicobject/rhizome/pkg/app/noteownership"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
@@ -39,17 +41,36 @@ func (rt *LiveRuntime) currentOwnershipVaultDefinition() obsidian.VaultDefinitio
 
 // publishOwnershipConfiguration changes the selection and its public snapshot
 // only after proving that existing resources remain valid for the new settings.
-func (rt *LiveRuntime) publishOwnershipConfiguration(definition obsidian.VaultDefinition, resolved repoconfig.Resolved, policy cache.SelectionPolicy) error {
+func (rt *LiveRuntime) publishOwnershipConfiguration(definition obsidian.VaultDefinition, resolved repoconfig.Resolved, policy cache.SelectionPolicy) (*codeanchor.Service, error) {
 	rt.ownershipConfigMu.Lock()
 	defer rt.ownershipConfigMu.Unlock()
 	if err := resolved.ValidateFor(rt.VaultPath); err != nil {
-		return err
+		return nil, err
 	}
-	if err := validateLiveResourceConfiguration(rt.Configuration(), resolved); err != nil {
-		return err
+	current := rt.Configuration()
+	if err := validateLiveResourceConfiguration(current, resolved); err != nil {
+		return nil, err
 	}
 	if hub := rt.hub.Load(); hub != nil {
 		hub.ReplaceUserExcludes(definition.Excludes)
+	}
+	service := rt.codeAnchorSvc.Load()
+	if !reflect.DeepEqual(current.Code, resolved.Code) {
+		if err := rt.updateCodeWatchRoots(current.Code, resolved.Code); err != nil {
+			return nil, err
+		}
+		if store := rt.intelStore.Load(); store != nil {
+			includeIndexers := resolved.Code.Enabled && rt.requirements.Includes(RuntimeCapabilityCodeAnchorWarmup)
+			var warmCtx context.Context
+			if includeIndexers {
+				warmCtx = rt.ctx
+			}
+			service, _ = codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{
+				VaultPath: rt.VaultPath, CodeCfg: resolved.Code, Store: store,
+				IncludeIndexers: includeIndexers, WriteAccess: includeIndexers, WarmCacheContext: warmCtx,
+			})
+			rt.codeAnchorSvc.Store(service)
+		}
 	}
 	if service := rt.cache.Load(); service != nil {
 		service.ReplaceSelectionPolicy(policy)
@@ -60,7 +81,7 @@ func (rt *LiveRuntime) publishOwnershipConfiguration(definition obsidian.VaultDe
 	rt.ownershipVaultDef.Store(&definition)
 	rt.setNoteSelectionPolicy(policy)
 	rt.configGeneration.advance(rt.VaultPath)
-	return nil
+	return service, nil
 }
 
 func (rt *LiveRuntime) publishPhase3OwnershipConfiguration() (codeanchor.Config, error) {
@@ -153,6 +174,9 @@ func liveCacheSelectionPolicy(vaultDef obsidian.VaultDefinition, runtime notefor
 		CodeRoots:       roots,
 		CodeLanguage: func(ref paths.CodePathRef) codeanchor.Lang {
 			lang, _ := codeanchor.LangForPath(ref.Abs.String())
+			if codeCfg.AutomaticScope && codeCfg.LanguageDisabled(lang) {
+				return ""
+			}
 			return lang
 		},
 	})
@@ -221,8 +245,12 @@ func (w *unifiedSemanticWatcher) reloadOwnershipSelection() error {
 		}
 	}
 	if w.onConfigurationChanged != nil {
-		if err := w.onConfigurationChanged(updated, resolved, policy); err != nil {
+		service, err := w.onConfigurationChanged(updated, resolved, policy)
+		if err != nil {
 			return err
+		}
+		if service != nil {
+			w.noteSvc = service
 		}
 	} else {
 		if w.watchHub != nil {

@@ -44,7 +44,7 @@ func (g *generatedFiles) recoverLegacyStarterFiles(root string, templates []stri
 		return nil
 	}
 	for _, sha := range strings.Fields(string(log)) {
-		data, err := exec.CommandContext(ctx, "git", "-C", root, "show", sha+":.rhizome/workflows.yml").Output()
+		data, err := exec.CommandContext(ctx, "git", "-C", root, "show", sha+":./.rhizome/workflows.yml").Output()
 		if err != nil {
 			continue
 		}

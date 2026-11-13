@@ -51,14 +51,17 @@ func (commandOptions *vaultCommandOptions) runExplicitIndexJob(ctx context.Conte
 		ctx = indexingperf.WithCollector(ctx, collector)
 	}
 
+	snapshot := rt.Snapshot()
 	err := indexing.RunUnifiedCore(ctx, lease, indexing.UnifiedOptions{
-		SkillOverlays: initactions.ValidateBundledSkillOverlays,
-		VaultPath:     rt.VaultPath,
-		VaultDef:      rt.VaultDef,
-		NoteMetadata:  rt.NoteMetadataIndexer(),
-		ProgressBar:   &laneProgressBar{progress: progress},
-		Verbose:       commandOptions.debug,
-		TxLockMode:    sqliteutil.TxLockImmediate,
+		SkillOverlays:         initactions.ValidateBundledSkillOverlays,
+		VaultPath:             rt.VaultPath,
+		VaultDef:              snapshot.VaultDefinition,
+		Config:                snapshot.Configuration,
+		NoteMetadata:          rt.NoteMetadataIndexer(),
+		ProgressBar:           &laneProgressBar{progress: progress},
+		Verbose:               commandOptions.debug,
+		TxLockMode:            sqliteutil.TxLockImmediate,
+		SkipConfigPersistence: true,
 	})
 	return err
 }

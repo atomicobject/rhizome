@@ -29,6 +29,9 @@ func adaptiveDispatch(in adaptiveDispatchInput) adaptiveDispatchDecision {
 		return adaptiveDispatchDecision{Ready: true, Threshold: 1, BatchTexts: opts.MaxTexts}
 	}
 
+	if opts.FlushOnSubmit {
+		return adaptiveDispatchDecision{Ready: in.Pending >= opts.MaxTexts || in.PendingBytes >= opts.MaxBytes, Threshold: opts.MaxTexts, BatchTexts: opts.MaxTexts}
+	}
 	floor := adaptiveFloorFor(opts)
 	if !adaptiveModeFor(opts, floor) {
 		return adaptiveDispatchDecision{Ready: in.Pending >= opts.MinTexts, Threshold: opts.MinTexts, BatchTexts: opts.MaxTexts}

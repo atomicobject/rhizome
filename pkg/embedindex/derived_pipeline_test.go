@@ -190,7 +190,7 @@ func (p *blockingFirstProvider) EmbedTexts(ctx context.Context, texts []string) 
 	if first {
 		<-p.release
 	}
-	return p.Provider.EmbedTexts(context.Background(), texts)
+	return p.Provider.EmbedTexts(ctx, texts)
 }
 
 // Cancelling a plain-note pass while its batch is at the shared node's

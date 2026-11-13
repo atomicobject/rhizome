@@ -15,6 +15,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	initactions "github.com/atomicobject/rhizome/pkg/app/cli/init"
 	"github.com/atomicobject/rhizome/pkg/app/indexing"
+	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
 	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
 	"github.com/atomicobject/rhizome/pkg/app/web"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
@@ -28,7 +29,7 @@ const (
 	noteReadinessMaxPollInterval = 2 * time.Second
 )
 
-type IndexJobRunner func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error
+type IndexJobRunner func(context.Context, *indexlock.Lease, notemeta.Indexer, string, runtimeview.Snapshot, bool) error
 
 type modelCountFunc func(context.Context) (int64, error)
 type liveModelCountFunc func(context.Context, *bootstrap.LiveRuntime) (int64, error)
@@ -85,7 +86,7 @@ func NewReadinessCoordinator(runIndex IndexJobRunner) *ReadinessCoordinator {
 // BackgroundIndexer is the callback passed to bootstrap.NewLiveRuntime. It can
 // start before BindLive returns from runtime construction, so it waits for live
 // publication before probing or indexing.
-func (c *ReadinessCoordinator) BackgroundIndexer(ctx context.Context, noteMetadata notemeta.Indexer, vaultPath string, vaultDef obsidian.VaultDefinition, debug bool) error {
+func (c *ReadinessCoordinator) BackgroundIndexer(ctx context.Context, noteMetadata notemeta.Indexer, vaultPath string, _ obsidian.VaultDefinition, debug bool) error {
 	if c == nil {
 		return nil
 	}
@@ -115,7 +116,7 @@ func (c *ReadinessCoordinator) BackgroundIndexer(ctx context.Context, noteMetada
 
 	var indexErr error
 	if c.runIndex != nil {
-		indexErr = c.runIndexOnLane(ctx, live, noteMetadata, vaultPath, vaultDef, debug)
+		indexErr = c.runIndexOnLane(ctx, live, noteMetadata, vaultPath, debug)
 	}
 	// A failed startup index (one this build cannot read, for example) would
 	// otherwise leave "Preparing index…" up forever; record it before the
@@ -145,7 +146,7 @@ func (c *ReadinessCoordinator) BackgroundIndexer(ctx context.Context, noteMetada
 // did its work); one displaced by an explicit index that failed or was
 // cancelled, or by an external priority request, is resubmitted (bounded).
 // Without a lane (one-shot runtimes, tests) the index runs directly.
-func (c *ReadinessCoordinator) runIndexOnLane(ctx context.Context, live *bootstrap.LiveRuntime, noteMetadata notemeta.Indexer, vaultPath string, vaultDef obsidian.VaultDefinition, debug bool) error {
+func (c *ReadinessCoordinator) runIndexOnLane(ctx context.Context, live *bootstrap.LiveRuntime, noteMetadata notemeta.Indexer, vaultPath string, debug bool) error {
 	indexLane := live.Lane()
 	if indexLane == nil {
 		lease, err := indexing.TryAcquireIndexLock(ctx, vaultPath, indexing.LockWaitOptions{Role: lane.KindBootCatchUp.LockRole()})
@@ -153,7 +154,7 @@ func (c *ReadinessCoordinator) runIndexOnLane(ctx context.Context, live *bootstr
 			return err
 		}
 		defer lease.Release()
-		return c.runIndex(ctx, lease, noteMetadata, vaultPath, vaultDef, debug)
+		return c.runIndex(ctx, lease, noteMetadata, vaultPath, live.Snapshot(), debug)
 	}
 	var err error
 	for attempt := 0; attempt < 3; attempt++ {
@@ -161,7 +162,7 @@ func (c *ReadinessCoordinator) runIndexOnLane(ctx context.Context, live *bootstr
 			Kind:     lane.KindBootCatchUp,
 			Coalesce: true,
 			Run: func(jobCtx context.Context, lease *indexlock.Lease, _ lane.Reporter) error {
-				return c.runIndex(jobCtx, lease, noteMetadata, vaultPath, vaultDef, debug)
+				return c.runIndex(jobCtx, lease, noteMetadata, vaultPath, live.Snapshot(), debug)
 			},
 		})
 		if submitErr != nil {
@@ -395,15 +396,12 @@ func (c *ReadinessCoordinator) refreshValidation(ctx context.Context, live *boot
 				c.repairReviews = validate.NewRepairReviewStore(validate.RepairReviewStoreOptions{PathReservations: c.repairPaths})
 			}
 			coordinator := validationproduct.NewRefreshCoordinator(validationproduct.RefreshCoordinatorOptions{
-				Context: c.liveContext(ctx), Store: store, VaultDef: live.VaultDef,
+				Context: c.liveContext(ctx), Store: store, VaultDef: live.Snapshot().VaultDefinition,
 				NoteMetadata: live.NoteMetadataIndexer(), RepairStore: c.repairReviews, MaxIssues: 500,
 				Run: func(ctx context.Context) (validationproduct.AuthoritativeRun, error) {
-					return validationproduct.RunLiveOnLane(ctx, live.NoteMetadataIndexer(), live.VaultDef, 500, initactions.ValidateBundledSkillOverlays, live.Lane())
+					return validationproduct.RunLiveOnLane(ctx, live.NoteMetadataIndexer(), live.Snapshot().VaultDefinition, 500, initactions.ValidateBundledSkillOverlays, live.Lane())
 				},
-				ApplyOptions: validate.ApplyOptions{PostApplyRefresher: validationproduct.ValidationProjectionPostApplyRefresher{
-					VaultPath: live.VaultPath, VaultDef: live.VaultDef,
-					NoteMetadata: live.NoteMetadataIndexer(), NoteReader: &obsidian.Note{},
-				}},
+				ApplyOptions: validate.ApplyOptions{PostApplyRefresher: liveValidationProjectionRefresher{live}},
 			})
 			c.validation = coordinator
 			refresher = coordinator

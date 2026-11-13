@@ -11,13 +11,14 @@ import (
 
 // MetadataKey constants for index metadata.
 const (
-	MetaKeyIndexerVersion  = "indexer_version"
-	MetaKeyConfigHash      = "config_hash"
-	MetaKeyModelHash       = "model_hash"
-	MetaKeyAlgoVersion     = "algo_version"
-	MetaKeyScopeConfigHash = "scope_config_hash"
-	MetaKeyReverseIndexVer = "reverse_index_version"
-	MetaKeyReverseIdxReady = "reverse_index_backfill_complete"
+	MetaKeyIndexerVersion   = "indexer_version"
+	MetaKeyConfigHash       = "config_hash"
+	MetaKeyModelHash        = "model_hash"
+	MetaKeyAlgoVersion      = "algo_version"
+	MetaKeyScopeConfigHash  = "scope_config_hash"
+	MetaKeyParserConfigHash = "parser_config_hash"
+	MetaKeyReverseIndexVer  = "reverse_index_version"
+	MetaKeyReverseIdxReady  = "reverse_index_backfill_complete"
 )
 
 // GetMetadata retrieves a metadata value by key.

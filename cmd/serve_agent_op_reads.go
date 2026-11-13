@@ -76,5 +76,5 @@ func (l liveCodeModeReads) Views(schema *ontoschema.Schema, exec *ontologyquery.
 	if err != nil {
 		return nil, err
 	}
-	return newViewService(l.rt.VaultDef, l.rt.IntelStore(), schema, exec, formats, nil, nil)
+	return newViewService(l.rt.Snapshot().VaultDefinition, l.rt.IntelStore(), schema, exec, formats, nil, nil)
 }

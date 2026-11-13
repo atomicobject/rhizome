@@ -31,6 +31,9 @@ func (w *unifiedSemanticWatcher) run() {
 		defer ticker.Stop()
 		tick = ticker.C
 	}
+	var retryAt time.Time
+	var retryDelay time.Duration
+	inputVersion := w.inputVersion.Load()
 	for {
 		select {
 		case <-w.runCtx.Done():
@@ -41,12 +44,24 @@ func (w *unifiedSemanticWatcher) run() {
 			}
 		case <-w.ownershipWake:
 		}
+		if current := w.inputVersion.Load(); current != inputVersion {
+			inputVersion = current
+			retryAt, retryDelay = time.Time{}, 0
+		}
+		if w.opts.Now().Before(retryAt) {
+			continue
+		}
 		if handle := w.processOwnershipBatch(); handle != nil {
 			select {
 			case <-w.runCtx.Done():
 				return
 			case <-handle.Done():
 			}
+			retryDelay = min(max(2*retryDelay, w.opts.TickInterval), time.Minute)
+			if err := handle.Err(); err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				retryDelay = 0
+			}
+			retryAt = w.opts.Now().Add(retryDelay)
 		}
 	}
 }
@@ -76,10 +91,10 @@ func (w *unifiedSemanticWatcher) hasPendingWork() bool {
 // returns its handle without waiting: the lane owns the index lock and the
 // ordering, and a batch already queued or running absorbs this tick's changes.
 // An explicit index job or an external priority request may cancel the batch,
-// so a cancelled batch marks the cache stale and its drained paths are
-// rediscovered on the next tick rather than lost (SPEC-0104 US3).
+// so a cancelled batch restores its inputs for the next tick. Durable
+// reconciliation and unready tickets decide whether recovery needs full scope.
 func (w *unifiedSemanticWatcher) processOwnershipBatch() lane.Handle {
-	if w == nil || w.cacheService == nil || w.intelStore == nil || w.noteSvc == nil || w.lane == nil {
+	if w == nil || w.cacheService == nil || w.intelStore == nil || w.lane == nil {
 		return nil
 	}
 	handle, _, err := w.lane.Submit(w.runCtx, lane.Request{
@@ -87,12 +102,17 @@ func (w *unifiedSemanticWatcher) processOwnershipBatch() lane.Handle {
 		Coalesce: true,
 		Run: func(ctx context.Context, lease *indexlock.Lease, _ lane.Reporter) error {
 			err := w.reconcileBatchUnderLease(ctx, lease)
-			if err := ctx.Err(); err != nil {
-				if w.debug {
-					log.Printf("semantic watch: ownership batch interrupted: %v", err)
-				}
+			if err != nil && !errors.Is(err, ctx.Err()) {
 				w.cacheService.MarkStale()
-				return err
+			}
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				if w.debug {
+					log.Printf("semantic watch: ownership batch interrupted: %v", ctxErr)
+				}
+				if err == nil {
+					w.cacheService.MarkStale()
+				}
+				return ctxErr
 			}
 			return err
 		},
@@ -161,7 +181,6 @@ func (w *unifiedSemanticWatcher) reconcileBatchUnderLease(ctx context.Context, l
 			for rel, kind := range dirty {
 				w.cacheService.MarkDirty(rel, kind)
 			}
-			w.cacheService.MarkStale()
 		}
 	}()
 	generation, pending, err := w.intelStore.PendingOwnershipReconciliation(ctx)
@@ -203,7 +222,6 @@ func (w *unifiedSemanticWatcher) reconcileBatchUnderLease(ctx context.Context, l
 	err = w.reconcileOwnershipBatch(ctx, lease, dirty, result.Resynced, pending, generation, now, epochID(epoch))
 	if err != nil {
 		w.health.fail(epochID(epoch), "ownership", err)
-		w.cacheService.MarkStale()
 		w.publishInvalidation("metadata-ontology")
 		return err
 	}
@@ -254,7 +272,10 @@ func (w *unifiedSemanticWatcher) reconcileOwnershipBatch(ctx context.Context, le
 		return nil
 	}
 
-	request := indexcore.Request{VaultDefinition: w.vaultDef, CodeConfig: w.codeCfg, NoteMetadata: w.noteMetadataIndexer, ForceMetadata: forceMetadata, ForceOntology: forceOntology}
+	request := indexcore.Request{VaultDefinition: w.vaultDef, CodeConfig: w.codeCfg, ParserConfigHash: w.codeCfg.ParserConfigHash(), NoteMetadata: w.noteMetadataIndexer, ForceMetadata: forceMetadata, ForceOntology: forceOntology}
+	if w.configuration != nil {
+		request.ScopeConfigHash = w.configuration.Local.ScopeConfigHash()
+	}
 	if !forceAll && !forceMetadata && !forceOntology {
 		request.Paths = make([]paths.RelPath, 0, len(affected))
 		for path := range affected {

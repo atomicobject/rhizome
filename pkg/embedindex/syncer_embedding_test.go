@@ -88,7 +88,7 @@ func TestSyncerCodeEmbedPackerBatchesAcrossItems(t *testing.T) {
 	}{
 		{"default packer", 31, 1, 100, 250, nil, nil},
 		{"explicit single chunks", 6, 1, 0, 0, &EmbedPackerOptions{MaxTexts: 3, MaxBytes: 1 << 20, MinTexts: 3, MaxWait: 200 * time.Millisecond}, []int{3, 3}},
-		{"explicit multiple chunks", 6, 2, 0, 0, &EmbedPackerOptions{MaxTexts: 6, MaxBytes: 1 << 20, MinTexts: 4, MaxWait: 200 * time.Millisecond}, []int{4, 4, 4}},
+		{"explicit multiple chunks", 6, 2, 0, 0, &EmbedPackerOptions{MaxTexts: 6, MaxBytes: 1 << 20, MinTexts: 4, MaxWait: 200 * time.Millisecond}, []int{6, 6}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()

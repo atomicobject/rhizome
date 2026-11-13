@@ -25,7 +25,6 @@ import (
 	"github.com/atomicobject/rhizome/pkg/sqliteutil/migration"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
@@ -33,7 +32,7 @@ import (
 // vault runtime submits it as a lane job and the lane owns .rhizome/index.lock
 // and the yield policy (SPEC-0104 US3). ctx is the job's context, so an
 // explicit index job or an external priority request cancels this run.
-func runBackgroundIndex(ctx context.Context, lease *indexlock.Lease, noteMetadata notemeta.Indexer, vaultPath string, vaultDef obsidian.VaultDefinition, dbg bool, label string) error {
+func runBackgroundIndex(ctx context.Context, lease *indexlock.Lease, noteMetadata notemeta.Indexer, vaultPath string, snapshot runtimeview.Snapshot, dbg bool, label string) error {
 	if dbg {
 		log.Printf("%s: starting background index", label)
 	}
@@ -44,7 +43,8 @@ func runBackgroundIndex(ctx context.Context, lease *indexlock.Lease, noteMetadat
 	err := indexing.RunUnifiedCore(ctx, lease, indexing.UnifiedOptions{
 		SkillOverlays: initactions.ValidateBundledSkillOverlays,
 		VaultPath:     vaultPath,
-		VaultDef:      vaultDef,
+		VaultDef:      snapshot.VaultDefinition,
+		Config:        snapshot.Configuration,
 		NoteMetadata:  noteMetadata,
 		ProgressBar:   bar,
 		Verbose:       dbg,

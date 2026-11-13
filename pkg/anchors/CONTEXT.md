@@ -4,6 +4,7 @@ Binds **vault notes → code** via code anchors (note frontmatter targeting symb
 
 - **Entry point**: `Service.NotesForFile(ctx, path)` — which notes apply to this file?
 - **Note ingestion boundary**: `ExtractAnchorDeclarations(ctx, NoteSource)` is the narrow adapter seam for note-derived code-anchor declarations. Do not add new general note metadata ownership here; consume canonical note facts from `notemeta`/orchestration.
+- **Code-to-note publication**: `CodeIndexWork.ReplaceDocLinks` carries linker authority from a batch-local parser to the queued writer. An authoritative empty result clears prior links. The writer service retains cache invalidation and does not need to hold that batch's linker.
 - **Canonical source only**: production callers provide `notemeta.NoteSourceSnapshot` with a vault-relative path. Raw path/content ingestion adapters are intentionally absent; the degraded-mode watcher receives a snapshot factory from bootstrap to avoid an import cycle.
 - **Format provenance boundary**: SQLite metadata now records source format and projection status, but this package remains a Markdown code-anchor adapter. Do not interpret, persist, or promote generic provider projections here; a provider-aware adapter is a later migration.
 - **Requested-path availability**: global note-metadata readiness gates Store inventory reads. The internal durable-row seam exists for provider-aware `notemeta.Indexer` orchestration; SQLite does not independently decide whether a row is compatible with the active provider or currently note-owned.
