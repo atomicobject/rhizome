@@ -3,6 +3,7 @@
 package aokb
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -44,7 +45,9 @@ var warmNodeOnce sync.Once
 func warmNode(t *testing.T) {
 	t.Helper()
 	warmNodeOnce.Do(func() {
-		output, err := exec.Command("node", "--input-type=module", "-e", "import 'node:fs/promises'").CombinedOutput()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		output, err := exec.CommandContext(ctx, "node", "--input-type=module", "-e", "import 'node:fs/promises'").CombinedOutput()
 		require.NoError(t, err, "the AO KB readiness actions need node on PATH: %s", output)
 	})
 }
