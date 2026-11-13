@@ -110,7 +110,8 @@ These are single runs on a busy host with different observed loads. They show fe
 - C1 reused the existing coherent `Snapshot()` rather than adding a getter. C7 needed no shutdown fallback. Its zero-provider-text assertion uses a parse-limit change with unchanged embedding inputs. Root changes can alter fully qualified names in embedding text and legitimately require new texts.
 - Batch 5 builds its linker after dependency expansion, since retiring a note can add referring code to the batch. Note additions alone still do not relink unchanged code. Note-add and rename tests compare with incremental batch output and exclude doc links and graph scores from fresh-batch comparison. Alias mentions are excluded from that fresh comparison.
 - The stop/index flake predates this effort. The diagnosis reproduced EOF and connection-refused outcomes on `d581e3487`. Runtime shutdown may end the HTTP stream before the job result and before ownership is released within the existing grace. `0fc28ce4f` allows the racing index to exit with 1 or 130, still requires successful stop, and then requires ordinary indexing and a persisted symbol read to succeed. The deterministic HTTP test proves stream cancellation does not cancel the shared job. No product retry or timeout was added. The exact cleanup operation that exceeded the grace remains unknown.
-- `TestIndexRacingStopStillSucceeds` now overstates its assertion. It verifies a normal interruption and later recovery, not unconditional success of the racing index. Its name is retained in this delivery and recorded for correction below.
+- `TestIndexRacingStopStillSucceeds` was renamed `TestIndexRacingStopRecovers`, because it now verifies a normal interruption and later recovery, not unconditional success of the racing index.
+- Review (sol-loop round 1) found that boot catch-up still indexed with the startup vault definition, so a delayed or retried catch-up could re-add a note excluded live. `35e22910c` takes the runtime's applied snapshot inside each catch-up attempt, as the explicit job already did.
 - The C1 audit found a web `FileCatalog` constructed with the startup selection. Suggestions, classification, and note/viewer projection retain that selector. Correcting it requires cache invalidation and coordination with HTTP readers. It was left out of scope and was not exercised in a browser.
 - Earlier worker gates had unresolved serve/shutdown and other test failures. A later batch 3 full gate passed on its worker tree, with some cached results. That pass does not explain earlier failures or prove the complete integrated HEAD passed. The coordinator retains integrated review and CI before merge. This documentation closure does not declare merge readiness.
 
@@ -147,13 +148,13 @@ Drew owns access to real-vault diagnostics and the decision to start the conditi
   assignee:: [[Drew Colthorp]]
 - [ ] Revisit S8's duplicate startup work only after a measured slow restart on a large vault and after saves have durable derived tickets under R4. Do not remove restart discovery while saves still rely on it. #action-item
   assignee:: [[Drew Colthorp]]
-- [ ] Rename `TestIndexRacingStopStillSucceeds` to describe interruption and recovery when next editing that runtime test. Preserve its exit-status, stop, subsequent-index, and persisted-read checks. #action-item
+- [ ] Decide whether runtime shutdown should keep provider vectors already in flight. Pass cancellation keeps them, but shutdown closes the shared embedding node and writer lane first, so a later run can re-send those texts (the documented known limit in the indexing note). Fixing it means draining derived caching before the node and lane close. Raised in sol-loop round 1 and declined as outside this plan. #action-item
   assignee:: [[Drew Colthorp]]
 
 The deterministic cancellation, retry, member-publication, packing, and equivalence tests capture the reusable lessons. The six-millisecond lane cost remains deferred as a separate optimization. Revisit only if grouped measurements show lane jobs as the remaining bottleneck or a job exceeds 20 ms on Windows.
 
 ## Status
 
-Complete on the branch under the owner's closure brief, with implementation recorded through `54d86c054`. Conditional batch 6, the D1 diagnostics week, and deferred findings remain explicit follow-ups. The coordinator owns integrated review/CI, inserts the PR number once it exists, and updates this record before merge if the delivered scope changes. Completion does not authorize publication.
+Complete on the branch under the owner's closure brief, with implementation recorded through `35e22910c`. Conditional batch 6, the D1 diagnostics week, and deferred findings remain explicit follow-ups. The coordinator owns integrated review/CI, inserts the PR number once it exists, and updates this record before merge if the delivered scope changes. Completion does not authorize publication.
 
 PR: pending

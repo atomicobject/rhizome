@@ -117,7 +117,7 @@ func TestIndexRecoversAfterTheRuntimeIsKilled(t *testing.T) {
 	require.NotEqual(t, first.PID, vault.requireLiveRuntime(t).PID)
 }
 
-func TestIndexRacingStopStillSucceeds(t *testing.T) {
+func TestIndexRacingStopRecovers(t *testing.T) {
 	t.Parallel()
 	vault := newRuntimeVault(t, "")
 	for round := 0; round < 3; round++ {
