@@ -177,6 +177,37 @@ test('story and criterion collection order and full detail survive typed hydrati
   assert.deepEqual(duplicate.record.stories.map(story => story.ref.fragment), ['b', 'a']);
 });
 
+test('a spec record reads its story tree with the spec and reads again flat when the tree read errors', async () => {
+  const keyed = (...args) => { const r = ref(...args); return { ...r, ref: JSON.stringify(r) }; };
+  const wrapper = node(keyed('spec.md', 'UserStoriesSection', 'wrapper'));
+  const ac = node(keyed('spec.md', 'AcceptanceCriteriaSection', 'criteria'));
+  const criterion = node(keyed('spec.md', 'AcceptanceCriterion', 'one'));
+  const story = node(keyed('spec.md', 'UserStory', 'a'), [field('status', [], ['ready']), field('acceptanceCriteria', [ac.ref])]);
+  const own = node(keyed('spec.md', 'ExperienceSpec'), [field('specStatus', [], ['active']), field('userStories', [wrapper.ref])]);
+  wrapper.workspace.collections = [{ name: 'stories', items: [{ ref: story.ref }] }];
+  ac.workspace.collections = [{ name: 'criteria', items: [{ ref: criterion.ref }] }];
+  const read = async treeFault => {
+    const h = harness([own, wrapper, story, ac, criterion]);
+    const flat = h.api.readNodes;
+    h.api.readNodes = async (targets, selection) => {
+      const result = await flat(targets, selection);
+      if (!selection.includes('deliveryTreeExperienceSpec')) return result;
+      if (treeFault) result.errors.push({ message: 'Nested field failed', extensions: { requestedRef: own.ref.ref } });
+      else result.nodes = [{ ...own, deliveryTreeExperienceSpec: { ...wrapper, stories: [{ ...story, acceptanceCriteria: { ...ac, criteria: [criterion] } }] } }];
+      return result;
+    };
+    return { detail: await h.read.record(own.ref), calls: h.calls.length };
+  };
+  const nested = await read(false);
+  assert.equal(nested.calls, 1);
+  assert.equal(nested.detail.coverage.complete, true, nested.detail.coverage.errors.join('\n'));
+  assert.equal(nested.detail.record.stories[0].criteria[0].source.content, 'Full authored prose');
+  assert.equal('deliveryTreeExperienceSpec' in nested.detail.node, false);
+  const fallback = await read(true);
+  assert.equal(fallback.calls, 6);
+  assert.deepEqual(fallback.detail, nested.detail);
+});
+
 test('ambiguous spec sections retain prose but cannot supply copied scope', async () => {
   for (const section of ['userStories', 'acceptanceCriteria']) {
     for (const fault of ['duplicate', 'issue']) {

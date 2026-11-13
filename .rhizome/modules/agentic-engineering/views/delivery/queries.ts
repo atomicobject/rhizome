@@ -33,14 +33,21 @@ export const NODE_SUMMARY = `${SUMMARY} ${FIELDS}`;
 export const SECTION_CHILDREN = `ref { ${REF} } title workspace { collections { name items { ref { ${REF} } } } fields { name sectionNodes { ${REF} } issues { code message } } }`;
 export const STORY_SUMMARY = `${SUMMARY} workspace { collections { name items { ref { ${REF} } } } fields { name present values sectionNodes { ${REF} } issues { code message } } }`;
 export const NODE_DETAIL = `${NODE_SUMMARY} ... on NoteNode { content format } ... on Section { content sectionType: __typename }`;
+/** NODE_DETAIL for section types; it is also valid nested inside their typed parent fields. */
+export const SECTION_DETAIL = `${NODE_SUMMARY} ... on Section { content sectionType: __typename }`;
+/** A source section whose links are read but whose prose is not shown. */
+export const REVISION = `ref { ${REF} } workspace { sourceRevision { contentFingerprint } }`;
 export const SOURCE_PAGE = `query DeliverySource($ref: String!, $offset: Int!) { node(ref: $ref) { ref { ${REF} } workspace { sourceRevision { contentFingerprint } sourceLinkCount sourceLinks(first: 100, offset: $offset) { target authoredTarget text kind anchor embed targetKind resolved resolvedRef { ${REF} } title preview } } } }`;
 export type SourcePage = { node: { ref: Ref; workspace: { sourceRevision: { contentFingerprint: string } | null; sourceLinkCount: number; sourceLinks: SourceLink[] } | null } | null };
 export const SPEC_TREE_ALIAS = 'deliveryTree';
 /** The section each nested tree field holds, read with the selection hydration would use for it. */
 export const SPEC_TREE_CHILDREN = { stories: STORY_SUMMARY, acceptanceCriteria: SECTION_CHILDREN, criteria: SUMMARY } as const;
+export const SPEC_DETAIL_CHILDREN = { stories: SECTION_DETAIL, acceptanceCriteria: SECTION_CHILDREN, criteria: SECTION_DETAIL } as const;
 // Spec types disagree on whether userStories is nullable, so each gets its own alias.
-export const SPEC_TREE = ['ProductSpec', 'TechnicalSpec', 'ExperienceSpec', 'OperationsSpec'].map(type =>
-  `... on ${type} { ${SPEC_TREE_ALIAS}${type}: userStories { ${SECTION_CHILDREN} stories { ${STORY_SUMMARY} acceptanceCriteria { ${SECTION_CHILDREN} criteria { ${SUMMARY} } } } } }`).join(' ');
+const specTree = (children: { [K in keyof typeof SPEC_TREE_CHILDREN]: string }) => ['ProductSpec', 'TechnicalSpec', 'ExperienceSpec', 'OperationsSpec'].map(type =>
+  `... on ${type} { ${SPEC_TREE_ALIAS}${type}: userStories { ${SECTION_CHILDREN} stories { ${children.stories} acceptanceCriteria { ${children.acceptanceCriteria} criteria { ${children.criteria} } } } } }`).join(' ');
+export const SPEC_TREE = specTree(SPEC_TREE_CHILDREN);
+export const SPEC_DETAIL_TREE = specTree(SPEC_DETAIL_CHILDREN);
 /** Inventory pages read together; with the effort read they fill the browser's five free connections. */
 export const SPEC_PAGE_SIZE = 35;
 export const SPEC_PAGE_WINDOW = 4;

@@ -1,7 +1,7 @@
 import { composePages, composeCoverage, deferredScope, frozenScope, distinctTargets, identity, inventoryComplete,
   type Coverage, type Ref, type ScopeMaterial, type ScopeSection, type ScopeSelector, type Occurrence,
   type Portfolio, type Checklist } from './lib/index.ts';
-import { NODE_DETAIL, NODE_SUMMARY, SECTION_CHILDREN, STORY_SUMMARY, SUMMARY, SOURCE_PAGE,
+import { NODE_DETAIL, NODE_SUMMARY, REVISION, SECTION_CHILDREN, SOURCE_PAGE, SPEC_DETAIL_CHILDREN, SPEC_DETAIL_TREE,
   SPEC_TREE, SPEC_TREE_ALIAS, SPEC_TREE_CHILDREN, SPEC_PAGE_SIZE, SPEC_PAGE_WINDOW, type LiveNode, type SourcePage,
   type FieldState, type LiveSpec, type LiveStory, type LiveEffort, type RecordDetail, type PortfolioRead } from './queries.ts';
 
@@ -55,12 +55,12 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     complete: complete && errors.length === 0 && generation(data) !== undefined,
     errors, truncated: false, graphGeneration: generation(data) ?? null, sourceRevision,
   });
-  function remember(spec: LiveNode, pageGeneration: string | undefined) {
+  function remember(spec: LiveNode, pageGeneration: string | undefined, children: Record<string, string> = SPEC_TREE_CHILDREN) {
     const visit = (value: unknown, selection: string) => {
       for (const item of [value].flat()) {
         if (!item || typeof item !== 'object') continue;
         const node = item as LiveNode & Record<string, unknown>;
-        for (const [key, childSelection] of Object.entries(SPEC_TREE_CHILDREN)) {
+        for (const [key, childSelection] of Object.entries(children)) {
           if (key in node) { visit(node[key], childSelection); delete node[key]; }
         }
         if (node.ref?.ref) {
@@ -74,7 +74,16 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
       if (key.startsWith(SPEC_TREE_ALIAS)) { visit(record[key], SECTION_CHILDREN); delete record[key]; }
     }
   }
-  async function readNodes(refs: string[], selection: string): ReturnType<ReadAPI['readNodes']> {
+  async function readNodes(refs: string[], selection: string, specTree = false): ReturnType<ReadAPI['readNodes']> {
+    if (specTree) {
+      // As with inventory pages, a tree read with any error is read again flat so each error stays with the record that owns it.
+      const nested = await api.readNodes<LiveNode>(refs, `${selection} ${SPEC_DETAIL_TREE}`, { signal }).catch(() => null);
+      check();
+      if (nested && !nested.errors.length) {
+        for (const node of nested.nodes) remember(node, api.generation(nested), SPEC_DETAIL_CHILDREN);
+        return nested;
+      }
+    }
     const known = prefetched.get(selection);
     const unique = [...new Set(refs)];
     const hits = known ? unique.flatMap(ref => known.get(ref) ?? []) : [];
@@ -90,13 +99,14 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     merged.set(result, generations.size === 1 ? [...generations][0] : undefined);
     return result;
   }
-  async function hydrate(targets: readonly Ref[], selection: string) {
+  /** With specTree, a spec target also brings its stories and criteria for later hydration. */
+  async function hydrate(targets: readonly Ref[], selection: string, specTree = false) {
     check();
     if (!targets.length) return { nodes: [], coverage: absent('No hydration requested'), missing: false,
       coverageFor: (_owned: readonly Ref[]) => absent('No hydration requested') };
     let result: Omit<Awaited<ReturnType<ReadAPI['readNodes']>>, 'nodes'> & { nodes: LiveNode[] };
     try {
-      result = await readNodes(targets.map(readRef), selection) as typeof result;
+      result = await readNodes(targets.map(readRef), selection, specTree) as typeof result;
     } catch (error) {
       check();
       const failed = absent(String(error));
@@ -217,10 +227,11 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     } };
   }
   async function specs(nodes: LiveNode[], base: Coverage, detail = false): Promise<LiveSpec[]> {
+    const tree = detail ? SPEC_DETAIL_CHILDREN : SPEC_TREE_CHILDREN;
     const wrappers = await children(nodes, 'userStories', SECTION_CHILDREN);
-    const stories = await children(wrappers.nodes, 'stories', detail ? NODE_DETAIL : STORY_SUMMARY);
-    const ac = await children(stories.nodes, 'acceptanceCriteria', SECTION_CHILDREN);
-    const criteria = await children(ac.nodes, 'criteria', detail ? NODE_DETAIL : SUMMARY);
+    const stories = await children(wrappers.nodes, 'stories', tree.stories);
+    const ac = await children(stories.nodes, 'acceptanceCriteria', tree.acceptanceCriteria);
+    const criteria = await children(ac.nodes, 'criteria', tree.criteria);
     const byIdentity = (items: LiveNode[]) => new Map(items.map(node => [identity(node.ref), node]));
     const wrapperNodes = byIdentity(wrappers.nodes);
     const storyNodes = byIdentity(stories.nodes);
@@ -275,7 +286,7 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
       const targets = refs(node, name);
       if (field(node, name)?.issues?.length) return { state: targets.length > 1 ? 'duplicate' : 'unreadable', coverage: read, occurrences: [] };
       if (targets.length !== 1) return { state: targets.length ? 'duplicate' : 'missing', coverage: read, occurrences: [] };
-      const hydrated = loaded ? selectedNodes(loaded, targets) : await hydrate(targets, NODE_DETAIL);
+      const hydrated = loaded ? selectedNodes(loaded, targets) : await hydrate(targets, REVISION);
       const child = hydrated.nodes[0];
       if (!child) return { state: 'unreadable', coverage: hydrated.coverage, occurrences: [] };
       const links = await occurrences(child);
@@ -298,7 +309,7 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     return { checklist: counts ? { state: counts.total ? 'recorded' : 'empty', ...counts } : { state: 'unreadable' }, nodes: section.nodes, coverage: read };
   }
   async function record(ref: Ref): Promise<RecordDetail | null> {
-    const own = await hydrate([ref], NODE_DETAIL);
+    const own = await hydrate([ref], NODE_DETAIL, true);
     const node = own.nodes[0];
     if (!node) {
       if (!own.missing && !own.coverage.complete) throw new Error(own.coverage.errors.join('\n') || 'Subject read failed');
@@ -318,26 +329,32 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
     const componentRefs = node.workspace?.fields.flatMap(item => [...(item.sectionNodes ?? []),
       ...(['implementationPlan', 'workLog', 'frozenScope', 'materials'].includes(item.name)
         ? (item.links ?? []).flatMap(link => link.ref ? [link.ref] : []) : [])]) ?? [];
-    const components = componentRefs.length ? await hydrate(componentRefs, NODE_DETAIL)
-      : { nodes: [], coverage: ownCoverage, coverageFor: (_targets: readonly Ref[]) => ownCoverage };
+    const none: LoadedNodes & { coverage: Coverage } = { nodes: [], coverage: ownCoverage, coverageFor: () => ownCoverage };
+    const [components, entryMentions] = await Promise.all([
+      componentRefs.length ? hydrate(componentRefs, NODE_DETAIL) : none, occurrences(node)]);
     const selectorField = field(node, 'frozenScope');
     const selectedLinks = selectorField?.links ?? [];
     const selectedNode = components.nodes.find(item => selectedLinks.some(link => link.ref && identity(link.ref) === identity(item.ref)));
     const logRefs = (field(node, 'workLog')?.links ?? []).flatMap(link => link.resolved && link.ref ? [link.ref] : []);
     const logRead = node.resolvedType === 'EffortWorkspace' && logRefs.length === 1 ? selectedNodes(components, logRefs) : null;
     const log = logRead?.nodes[0];
+    const selectedIsLog = !!log && !!selectedNode && identity(log.ref) === identity(selectedNode.ref);
     const logSectionRefs = log?.workspace?.fields.flatMap(item => item.sectionNodes ?? []) ?? [];
-    const logSections = logSectionRefs.length ? await hydrate(logSectionRefs, NODE_DETAIL)
-      : { nodes: [], coverage: ownCoverage, coverageFor: (_targets: readonly Ref[]) => ownCoverage };
+    const logSectionsRead: Promise<typeof none> = logSectionRefs.length ? hydrate(logSectionRefs, NODE_DETAIL) : Promise.resolve(none);
+    // Only material read from the log's own sections waits for them.
+    const [logSections, selectedMaterial, inline, logMaterial] = await Promise.all([
+      logSectionsRead,
+      selectedNode ? (async () => material(selectedNode, { ...components.coverageFor([selectedNode.ref]), sourceRevision: revision(selectedNode) },
+        selectedIsLog ? await logSectionsRead : undefined))() : null,
+      node.resolvedType === 'EffortNote' ? material(node, ownCoverage, components) : null,
+      log && logRead && !selectedIsLog
+        ? logSectionsRead.then(loaded => material(log, { ...logRead.coverage, sourceRevision: revision(log) }, loaded)) : null,
+    ]);
     const selector: ScopeSelector = {
       state: selectorState(selectorField, selectedNode, components.coverageFor(selectedLinks.flatMap(link => link.ref ? [link.ref] : []))),
-      authored: selectorField?.values ?? [], coverage: ownCoverage,
-      material: selectedNode ? await material(selectedNode, { ...components.coverageFor([selectedNode.ref]), sourceRevision: revision(selectedNode) },
-        log && identity(log.ref) === identity(selectedNode.ref) ? logSections : undefined) : null,
+      authored: selectorField?.values ?? [], coverage: ownCoverage, material: selectedMaterial,
     };
-    const scope = node.resolvedType === 'EffortNote'
-      ? frozenScope({ form: 'EffortNote', inline: await material(node, ownCoverage, components) })
-      : frozenScope({ form: 'EffortWorkspace', selector });
+    const scope = inline ? frozenScope({ form: 'EffortNote', inline }) : frozenScope({ form: 'EffortWorkspace', selector });
     const result = effort(node, ownCoverage, scope);
     result.contextSources = (['implementationPlan', 'workLog'] as const).flatMap(name => {
       const state = field(node, name);
@@ -348,17 +365,13 @@ export function reader(api: ReadAPI, signal?: AbortSignal) {
           authored, locator: component ? locator(component) : null };
       });
     });
-    const entryMentions = await occurrences(node);
     const governingField = field(node, 'governingSpecs');
     const governing = { coverage: governingField ? ownCoverage : absent('Governing metadata unavailable'),
       occurrences: (governingField?.links ?? []).map((link, ordinal): Occurrence => ({ source: node.ref, ordinal, authored: link.value,
         target: link.ref, targetKind: link.resolved ? 'spec' : 'unresolved', link: { target: link.value, authoredTarget: link.value,
           text: link.title, kind: 'field', anchor: null, embed: false, targetKind: 'note', resolved: link.resolved,
           resolvedRef: link.ref, title: link.title, preview: null } })) };
-    const workLogSnapshot = log && logRead
-      ? selectedNode && identity(selectedNode.ref) === identity(log.ref)
-        ? selector.material
-        : await material(log, { ...logRead.coverage, sourceRevision: revision(log) }, logSections) : null;
+    const workLogSnapshot = log && logRead ? selectedIsLog ? selector.material : logMaterial : null;
     const checklistRead = node.resolvedType === 'EffortNote'
       ? await checklist(node, ownCoverage, components)
       : log && logRead ? await checklist(log, combine([ownCoverage, logRead.coverage], revision(log)), logSections)
