@@ -2,8 +2,8 @@
 type: TechnicalSpec
 summary: "Defines source-shape support for embedded ontology nodes whose authored form is lighter than a markdown heading section, including list items and checkbox items."
 id: SPEC-0059
-spec-status: proposed
-last-updated: 2026-07-11
+spec-status: active
+last-updated: 2026-11-12
 aliases:
   - SPEC-0059
   - Non-section embedded node source shapes

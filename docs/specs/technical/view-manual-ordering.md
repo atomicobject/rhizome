@@ -2,8 +2,8 @@
 type: TechnicalSpec
 summary: "Lets a reader drag rows, cards, and kanban cards into a new order in any configured view sorted by an editable number, enum, or boolean field. A drop stages ordinary field updates through the edit session, so the new order is the view's own sort and Save commits it like any other edit."
 id: SPEC-0108
-spec-status: proposed
-last-updated: 2026-10-02
+spec-status: active
+last-updated: 2026-11-12
 aliases:
   - SPEC-0108
   - View manual ordering

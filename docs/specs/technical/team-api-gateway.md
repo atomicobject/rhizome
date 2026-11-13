@@ -5,8 +5,8 @@ aliases:
   - SPEC-0129
   - Team API gateway
 summary: "Atomic Object staff sign in once per computer with their Workspace Google account, and every Rhizome process on that account uses Voyage embeddings and Jev evaluation through an Atomic-run gateway that holds the shared provider keys. The gateway issues its own revocable sessions, enforces hard per-person and global admission limits, never replays an ambiguous paid request, and lets the distributed key bundle be retired. Direct provider keys keep working unchanged."
-spec-status: proposed
-last-updated: 2026-11-06
+spec-status: active
+last-updated: 2026-11-12
 ---
 
 # Team API gateway

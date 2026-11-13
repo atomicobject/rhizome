@@ -2,8 +2,8 @@
 type: TechnicalSpec
 summary: "Defines a NodeRef-centric batch traversal and hydration API for performant ontology queries, semantic indexing, search expansion, and HTTP read paths."
 id: SPEC-0022
-spec-status: proposed
-last-updated: 2026-10-04
+spec-status: active
+last-updated: 2026-11-12
 aliases:
   - SPEC-0022
   - NodeRef batch traversal read API

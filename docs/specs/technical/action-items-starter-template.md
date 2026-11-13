@@ -2,8 +2,8 @@
 type: TechnicalSpec
 summary: "Defines the composable action-items starter template, including ActionItem ontology, dependency on shared core identity, default init enablement, saved query recipes, configured views, skill routing, and date validation."
 id: SPEC-0060
-spec-status: proposed
-last-updated: 2026-05-06
+spec-status: active
+last-updated: 2026-11-12
 aliases:
   - SPEC-0060
   - Action items starter template

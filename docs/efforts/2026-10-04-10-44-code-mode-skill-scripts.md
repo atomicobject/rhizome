@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-10-04-10-44
 name: Code-mode skill scripts
 created-at: 2026-10-04T14:44:46Z
-status: active
+status: complete
 summary: Serve code-mode typed reads from the vault runtime behind a disk-checked freshness barrier, trim view output, add script input, and teach skill authors to ship code-mode scripts.
 governing-specs:
   - "[[code-mode-skill-scripts|SPEC-0115]]"
@@ -116,7 +116,7 @@ The brief suggested forwarding typed reads to the runtime with its cached ontolo
 
 ## Status
 
-Active. PR #78 merged the original runtime-read and script-input implementation. The approved readable-information and tooltip extension is in [PR #81](https://github.com/atomicobject/rhizome/pull/81); merging that extension and adopting its vault migration remain separate steps.
+Complete. Delivered on `main` in the squashed `7ec4bcb9f` initial commit of the rewritten history (2026-10-05); the PR numbers in this record predate that rewrite. Drew closed this effort on 2026-11-12 after an audit of open efforts. Unchecked items above are carried forward under that decision rather than verified at closure. The subsections below are the earlier status history.
 
 ### Tooltip refinement, October 4
 
