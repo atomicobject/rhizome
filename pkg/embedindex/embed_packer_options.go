@@ -14,6 +14,9 @@ const FullScanAdaptivePackerFloor = 512
 
 // EmbedPackerOptions controls staged embedding request packing.
 type EmbedPackerOptions struct {
+	// FlushOnSubmit packs a complete derived plan to request limits and flushes
+	// its final packet when submitted, including at the shared physical node.
+	FlushOnSubmit bool
 	// MaxTexts is the hard text-count ceiling for one provider request.
 	MaxTexts int
 	// MaxBytes is the hard approximate byte ceiling for one provider request.

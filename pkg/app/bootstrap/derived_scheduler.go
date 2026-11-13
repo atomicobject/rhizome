@@ -4,26 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
-	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
-	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"log/slog"
-	"slices"
 	"sync"
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
-	graphindex "github.com/atomicobject/rhizome/pkg/graph/index"
-	"github.com/atomicobject/rhizome/pkg/indexingperf"
-	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
-
+	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-
-	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
 
 var errDerivedSuperseded = fmt.Errorf("derived work superseded: %w", lane.ErrSkipped)
+
+// A bounded group keeps preparation below the lane's one-second priority poll.
+const derivedGroupSize = 64
 
 type derivedScheduler struct {
 	watcher *unifiedSemanticWatcher
@@ -33,12 +27,14 @@ type derivedScheduler struct {
 	done    chan struct{}
 	mu      sync.Mutex
 	running codeanchor.DerivedKind
-	witness string
+	witness map[string]map[string]string
+	single  map[codeanchor.DerivedScope]int64
+	members []codeanchor.DerivedWork
 }
 
 func newDerivedScheduler(w *unifiedSemanticWatcher) *derivedScheduler {
 	ctx, cancel := context.WithCancel(w.runCtx)
-	s := &derivedScheduler{watcher: w, ctx: ctx, cancel: cancel, wake: make(chan struct{}, 1), done: make(chan struct{})}
+	s := &derivedScheduler{watcher: w, ctx: ctx, cancel: cancel, wake: make(chan struct{}, 1), done: make(chan struct{}), single: map[codeanchor.DerivedScope]int64{}}
 	go s.run()
 	return s
 }
@@ -49,6 +45,7 @@ func (s *derivedScheduler) notify() {
 	default:
 	}
 }
+
 func (s *derivedScheduler) run() {
 	defer close(s.done)
 	ticker := time.NewTicker(250 * time.Millisecond)
@@ -60,79 +57,71 @@ func (s *derivedScheduler) run() {
 		case <-s.wake:
 		case <-ticker.C:
 		}
-		work, err := s.watcher.intelStore.PendingDerivedWork(s.ctx, time.Now(), 32)
-		if err != nil {
-			if s.ctx.Err() != nil {
-				return
-			}
-			continue
-		}
-		if len(work) > 0 {
-			watcherEvent(s.ctx, slog.LevelInfo, "derived.pending", slog.Int("ready_tickets", len(work)))
-		}
-		for _, ticket := range work {
-			if s.ctx.Err() != nil {
-				return
-			}
-			s.mu.Lock()
-			s.running = ticket.Kind
-			s.mu.Unlock()
-			err = s.execute(ticket)
-			s.mu.Lock()
-			s.running = ""
-			s.mu.Unlock()
-			if err != nil && s.ctx.Err() == nil {
-				failed := !errors.Is(err, errDerivedSuperseded) && !errors.Is(err, context.Canceled) && !errors.Is(err, lane.ErrPreempted)
-				delay := time.Second
-				if failed {
-					delay = 250 * time.Millisecond << min(ticket.Attempt, 6)
+		for _, kind := range []codeanchor.DerivedKind{codeanchor.DerivedNotes, codeanchor.DerivedOntology, codeanchor.DerivedCode, codeanchor.DerivedGraph} {
+			work, err := s.watcher.intelStore.PendingDerivedWorkForKind(s.ctx, kind, time.Now(), derivedGroupSize)
+			if err != nil {
+				if s.ctx.Err() != nil {
+					return
 				}
-				_ = s.inLane(s.ctx, "derived_retry", func(ctx context.Context) error {
-					return s.watcher.intelStore.RetryDerivedWork(ctx, ticket, time.Now().Add(delay), failed)
-				})
+				continue
+			}
+			var groups [][]codeanchor.DerivedWork
+			var paths []codeanchor.DerivedWork
+			for _, ticket := range work {
+				if ticket.Path == "" {
+					for scope := range s.single {
+						if scope.Kind == kind {
+							delete(s.single, scope)
+						}
+					}
+				}
+				if ticket.Path == "" || s.single[ticket.DerivedScope] == ticket.Generation {
+					groups = append(groups, []codeanchor.DerivedWork{ticket})
+					delete(s.single, ticket.DerivedScope)
+				} else {
+					delete(s.single, ticket.DerivedScope)
+					paths = append(paths, ticket)
+				}
+			}
+			if len(paths) > 0 {
+				groups = append(groups, paths)
+			}
+			for _, group := range groups {
+				if s.ctx.Err() != nil {
+					return
+				}
+				s.mu.Lock()
+				s.running = kind
+				s.mu.Unlock()
+				watcherEvent(s.ctx, slog.LevelInfo, "derived.pending", slog.Int("ready_tickets", len(group)))
+				s.members = group
+				err = s.execute(group...)
+				s.mu.Lock()
+				s.running = ""
+				s.mu.Unlock()
+				if err != nil && s.ctx.Err() == nil && len(s.members) > 0 {
+					group = s.members
+					failed := !errors.Is(err, errDerivedSuperseded) && !errors.Is(err, context.Canceled) && !errors.Is(err, lane.ErrPreempted)
+					delay := time.Second
+					if failed {
+						attempt := 0
+						for _, ticket := range group {
+							attempt = max(attempt, ticket.Attempt)
+						}
+						delay = 250 * time.Millisecond << min(attempt, 6)
+						if len(group) > 1 && errors.Is(err, embeddings.ErrInvalidInput) {
+							for _, ticket := range group {
+								s.single[ticket.DerivedScope] = ticket.Generation
+							}
+						}
+					}
+					_ = s.inLane(s.ctx, "derived_retry", func(ctx context.Context) error {
+						return s.watcher.intelStore.RetryDerivedWorkBatch(ctx, group, time.Now().Add(delay), failed)
+					})
+				}
 			}
 		}
 	}
-}
-
-func (s *derivedScheduler) withLease(parent context.Context, ticket codeanchor.DerivedWork, ack bool, phase string, run func(context.Context) error) error {
-	w := s.watcher
-	return s.inLane(parent, phase, func(ctx context.Context) error {
-		current, err := w.intelStore.CurrentDerivedWork(ctx, ticket)
-		if err != nil {
-			return err
-		}
-		if !current {
-			return errDerivedSuperseded
-		}
-		if s.witness != "" {
-			fingerprint, err := w.intelStore.DerivedSourceFingerprint(ctx, ticket.DerivedScope)
-			if err != nil {
-				return err
-			}
-			if fingerprint != s.witness {
-				return errDerivedSuperseded
-			}
-		}
-		if err := run(ctx); err != nil {
-			return err
-		}
-		if ack {
-			if err := w.intelStore.AckDerivedWork(ctx, []codeanchor.DerivedWork{ticket}); err != nil {
-				return err
-			}
-			indexingperf.AddCount(parent, indexingperf.DerivedAcknowledged, 1)
-			watcherEvent(ctx, slog.LevelInfo, "derived.acknowledged", derivedAttrs(ticket)...)
-			if w.publishEvent != nil {
-				data := map[string]any{"source": "vault-runtime", "domains": []string{string(ticket.Kind)}}
-				if ticket.Path != "" {
-					data["paths"] = []string{ticket.Path}
-				}
-				w.publishEvent(appruntime.GlobalEventIndexChanged, data)
-			}
-		}
-		return nil
-	})
 }
 
 func (s *derivedScheduler) inLane(parent context.Context, phase string, run func(context.Context) error) error {
@@ -161,119 +150,6 @@ func (s *derivedScheduler) inLane(parent context.Context, phase string, run func
 	}
 }
 
-// Publication batch bounds keep each lane job short enough for explicit
-// indexing and watcher batches to interleave with a large derived pass.
-const (
-	derivedPublishBatchResults = 128
-	derivedPublishBatchBytes   = 16 << 20
-	derivedPublishBatchWait    = 250 * time.Millisecond
-)
-
-type derivedResult interface{ RetainedBytes() int }
-
-// computeAndPublish gives compute a sink that hands results to one publisher.
-// The publisher publishes bounded batches, each inside one lease, so a pass
-// admits one lane job and one witness check per batch rather than per result.
-// A sink call blocks while the buffer is full and returns the publisher's
-// error once a batch fails; a failed batch also cancels compute's context so
-// the pass stops calling the provider. It returns after the publisher has
-// drained, so a nil result means every computed result was published. A
-// non-nil cache records the vectors of every result left unpublished (failed or
-// superseded publication, cancelled compute, or an owner a failed compute left
-// incomplete), so the retry or replacement does not resend that text.
-func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context, ticket codeanchor.DerivedWork, compute func(context.Context, func(context.Context, R) error) error, publish func(context.Context, R) error, cache func(context.Context, ...R) error) error {
-	computeCtx, stopCompute := context.WithCancel(ctx)
-	defer stopCompute()
-	// ponytail: the byte cap bounds a batch, not this buffer; buffered results
-	// are capped by count only. Weigh the buffer too if owners grow huge.
-	results := make(chan R, derivedPublishBatchResults)
-	failed := make(chan struct{})
-	done := make(chan struct{})
-	var publishErr error
-	var unpublishedMu sync.Mutex
-	var unpublished []R
-	keep := func(results ...R) {
-		unpublishedMu.Lock()
-		unpublished = append(unpublished, results...)
-		unpublishedMu.Unlock()
-	}
-	go func() {
-		defer close(done)
-		for open := true; open; {
-			first, ok := <-results
-			if !ok {
-				return
-			}
-			batch, bytes := []R{first}, first.RetainedBytes()
-			timer := time.NewTimer(derivedPublishBatchWait)
-		fill:
-			for len(batch) < derivedPublishBatchResults && bytes < derivedPublishBatchBytes {
-				select {
-				case next, ok := <-results:
-					if !ok {
-						open = false
-						break fill
-					}
-					batch, bytes = append(batch, next), bytes+next.RetainedBytes()
-				case <-timer.C:
-					break fill
-				}
-			}
-			timer.Stop()
-			if err := s.withLease(ctx, ticket, false, "derived_publication", func(ctx context.Context) error {
-				for _, result := range batch {
-					if err := publish(ctx, result); err != nil {
-						return err
-					}
-				}
-				return nil
-			}); err != nil {
-				publishErr = err
-				keep(batch...)
-				stopCompute()
-				close(failed)
-				return
-			}
-		}
-	}()
-	err := compute(computeCtx, func(sinkCtx context.Context, result R) error {
-		select {
-		case <-failed:
-			keep(result)
-			return publishErr
-		default:
-		}
-		select {
-		case results <- result:
-			return nil
-		case <-failed:
-			keep(result)
-			return publishErr
-		case <-sinkCtx.Done():
-			keep(result)
-			return sinkCtx.Err()
-		}
-	})
-	close(results)
-	<-done
-	for result := range results {
-		keep(result)
-	}
-	var incomplete *embedindex.IncompleteDerivedError[R]
-	if errors.As(err, &incomplete) {
-		keep(incomplete.Results...)
-	}
-	if cache != nil && len(unpublished) > 0 {
-		if cacheErr := s.inLane(context.WithoutCancel(ctx), "derived_vector_cache", func(ctx context.Context) error { return cache(ctx, unpublished...) }); cacheErr != nil && ctx.Err() == nil {
-			watcherEvent(ctx, slog.LevelWarn, "derived.vector_cache_failed", append(derivedAttrs(ticket), slog.String("error", cacheErr.Error()))...)
-		}
-	}
-	if publishErr != nil {
-		return publishErr
-	}
-	return err
-}
-
 func (s *derivedScheduler) computeContext(parent context.Context) (context.Context, func()) {
 	ctx, cancel := context.WithCancelCause(parent)
 	done := make(chan struct{})
@@ -295,195 +171,6 @@ func (s *derivedScheduler) computeContext(parent context.Context) (context.Conte
 		}
 	}()
 	return ctx, func() { cancel(context.Canceled); <-done }
-}
-
-func (s *derivedScheduler) execute(ticket codeanchor.DerivedWork) (resultErr error) {
-	ctx, finish := observeDerivedWork(s.ctx, ticket)
-	defer func() {
-		if panicked := recover(); panicked != nil {
-			finish(errors.New("diagnostic boundary panicked"))
-			panic(panicked)
-		}
-		finish(resultErr)
-	}()
-	return s.executeObserved(ctx, ticket)
-}
-
-func (s *derivedScheduler) executeObserved(ctx context.Context, ticket codeanchor.DerivedWork) error {
-	s.witness = ""
-	if err := s.withLease(ctx, ticket, false, "derived_prepare", func(ctx context.Context) error {
-		var err error
-		s.witness, err = s.watcher.intelStore.DerivedSourceFingerprint(ctx, ticket.DerivedScope)
-		return err
-	}); err != nil {
-		return err
-	}
-	w := s.watcher
-	switch ticket.Kind {
-	case codeanchor.DerivedNotes:
-		if w.noteSyncer == nil {
-			if w.noteSemanticStore {
-				return fmt.Errorf("note syncer unavailable")
-			}
-			return s.withLease(ctx, ticket, true, "derived_publication", func(context.Context) error { return nil })
-		}
-		var plan embedindex.NotePlan
-		err := s.withLease(ctx, ticket, false, "derived_prepare", func(ctx context.Context) error {
-			var err error
-			if ticket.Path == "" {
-				plan, err = w.noteSyncer.Plan(ctx)
-			} else {
-				plan, err = w.noteSyncer.PlanPaths(ctx, []string{ticket.Path})
-			}
-			return err
-		})
-		if err != nil {
-			return err
-		}
-		err = computeAndPublish(s, ctx, ticket, func(ctx context.Context, sink func(context.Context, embedindex.NoteDerivedResult) error) error {
-			return s.compute(ctx, "embed_notes", func(computeCtx context.Context) error {
-				return w.noteSyncer.ComputeDerived(computeCtx, plan, sink)
-			})
-		}, w.noteSyncer.PublishDerived, w.noteSyncer.CacheDerived)
-		if err != nil {
-			return err
-		}
-		return s.withLease(ctx, ticket, true, "derived_publication", func(ctx context.Context) error { return w.noteSyncer.FinishDerived(ctx, plan) })
-	case codeanchor.DerivedCode:
-		if w.codeSyncer == nil {
-			if w.codeSemanticStore {
-				return fmt.Errorf("code syncer unavailable")
-			}
-			return s.withLease(ctx, ticket, true, "derived_publication", func(context.Context) error { return nil })
-		}
-		var plan embedindex.SyncPlan
-		err := s.withLease(ctx, ticket, false, "derived_prepare", func(ctx context.Context) error {
-			var err error
-			paths := []string{ticket.Path}
-			if ticket.Path == "" {
-				paths, err = w.intelStore.IndexedFilePaths(ctx)
-				if err != nil {
-					return err
-				}
-				// Full recovery must visit stranded legacy semantic items even
-				// when structural ownership already removed their final file.
-				items, err := w.codeSyncer.Index.ListItems(ctx)
-				if err != nil {
-					return err
-				}
-				for _, item := range items {
-					paths = append(paths, item.Path)
-				}
-				slices.Sort(paths)
-				paths = slices.Compact(paths)
-			}
-			loader, err := w.publishedCodeLoader(ctx, paths)
-			if err != nil {
-				return err
-			}
-			plan, err = w.codeSyncer.PlanPublishedPaths(ctx, paths, loader)
-			return err
-		})
-		if err != nil {
-			return err
-		}
-		err = computeAndPublish(s, ctx, ticket, func(ctx context.Context, sink func(context.Context, embedindex.CodeDerivedResult) error) error {
-			return s.compute(ctx, "embed_code", func(computeCtx context.Context) error {
-				return w.codeSyncer.ComputeDerived(computeCtx, plan, sink)
-			})
-		}, w.codeSyncer.PublishDerived, w.codeSyncer.CacheDerived)
-		if err != nil {
-			return err
-		}
-		return s.withLease(ctx, ticket, true, "derived_publication", func(context.Context) error { return nil })
-	case codeanchor.DerivedOntology:
-		if w.nodeSyncer == nil {
-			if w.noteSemanticStore {
-				return fmt.Errorf("ontology syncer unavailable")
-			}
-			return s.withLease(ctx, ticket, true, "derived_publication", func(context.Context) error { return nil })
-		}
-		var plan embedindex.OntologyDerivedPlan
-		var syncer embedindex.OntologyNodeSyncer
-		err := s.withLease(ctx, ticket, false, "derived_prepare", func(ctx context.Context) error {
-			schema, err := ontoschema.LoadSchema(w.vaultPath)
-			if err != nil && !errors.Is(err, ontoschema.ErrNoOntologyFiles) {
-				return err
-			}
-			syncer = *w.nodeSyncer
-			syncer.Schema = schema
-			if schema == nil {
-				return nil
-			}
-			state, err := w.intelStore.GetOntologySchemaState(ctx)
-			if err != nil {
-				return err
-			}
-			if schema.Hash != state.SchemaHash {
-				return errDerivedSuperseded
-			}
-			paths, err := w.ontologyTicketPaths(ctx, schema, ticket.Path)
-			if err != nil {
-				return err
-			}
-			rows, err := w.intelStore.CurrentNoteMetadataRowsByPaths(ctx, paths)
-			if err != nil {
-				return err
-			}
-			live := paths[:0]
-			for _, path := range paths {
-				if _, ok := rows[path]; ok {
-					live = append(live, path)
-				}
-			}
-			reader, err := w.publishedNoteReader(ctx, live)
-			if err != nil {
-				return err
-			}
-			if len(live) == 0 {
-				return nil
-			}
-			sources, err := w.noteMetadataIndexer.LoadNoteSourceSnapshots(ctx, w.vaultDef, reader, w.intelStore, live)
-			if err != nil {
-				return err
-			}
-			plan, err = syncer.PrepareSourceSnapshots(ctx, sources)
-			return err
-		})
-		if err != nil {
-			return err
-		}
-		var result embedindex.OntologyDerivedResult
-		err = s.compute(ctx, "embed_ontology_nodes", func(ctx context.Context) error {
-			var err error
-			result, err = syncer.ComputeDerived(ctx, plan)
-			return err
-		})
-		if err == nil {
-			err = s.withLease(ctx, ticket, true, "derived_publication", func(ctx context.Context) error { return syncer.PublishDerived(ctx, result) })
-		}
-		// The cache is content-addressed, so the retry or replacement ticket
-		// reuses the vectors of a failed or superseded run instead of sending
-		// the same text again.
-		if err != nil && result.HasVectors() {
-			if cacheErr := s.inLane(context.WithoutCancel(ctx), "derived_vector_cache", func(ctx context.Context) error { return syncer.CacheDerived(ctx, result) }); cacheErr != nil && ctx.Err() == nil {
-				watcherEvent(ctx, slog.LevelWarn, "derived.vector_cache_failed", append(derivedAttrs(ticket), slog.String("error", cacheErr.Error()))...)
-			}
-		}
-		return err
-	case codeanchor.DerivedGraph:
-		var scores semdb.DerivedGraphScores
-		err := s.compute(ctx, "graph_scores", func(ctx context.Context) error {
-			var err error
-			scores, err = graphindex.ComputeDerivedScores(ctx, w.intelStore, graphindex.DocScoresOptions{WikilinkOptions: markdownsyntax.DefaultWikilinkOptions, VaultRoot: w.vaultPath})
-			return err
-		})
-		if err != nil {
-			return err
-		}
-		return s.withLease(ctx, ticket, true, "derived_publication", func(ctx context.Context) error { return graphindex.PublishDerivedScores(ctx, w.intelStore, scores) })
-	}
-	return fmt.Errorf("unknown derived kind %q", ticket.Kind)
 }
 
 func (w *unifiedSemanticWatcher) closeDerived() {

@@ -95,7 +95,7 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() (runErr error) {
 		timerCh = nil
 	}
 	startTimer := func() {
-		if timer != nil || len(pending) == 0 {
+		if p.opts.FlushOnSubmit || timer != nil || len(pending) == 0 {
 			return
 		}
 		timer = time.NewTimer(p.opts.MaxWait)
@@ -120,7 +120,7 @@ func (p *embedPipelineCore[K, Prepared, Owner, Job]) run() (runErr error) {
 			MaxConcurrent: p.maxConcurrent,
 			Warmups:       adaptiveWarmups,
 			OldestAge:     oldestAge(),
-			Draining:      draining,
+			Draining:      draining || (p.opts.FlushOnSubmit && !preparedOpen),
 		})
 	}
 	readyForImmediateDispatch := func() bool {

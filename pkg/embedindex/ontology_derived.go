@@ -35,10 +35,6 @@ type OntologyDerivedResult struct {
 // HasVectors reports whether the result holds provider vectors to cache.
 func (r OntologyDerivedResult) HasVectors() bool { return len(r.vectors) > 0 }
 
-// ontologyEmbedSliceTexts bounds how much provider work one failure discards
-// when the shared embedding node owns batching.
-const ontologyEmbedSliceTexts = 256
-
 // ontologyEmbedNodeInFlightSlices bounds slices submitted to the shared node
 // at once.
 const ontologyEmbedNodeInFlightSlices = 8
@@ -50,17 +46,23 @@ const ontologyEmbedNodeInFlightSlices = 8
 func (s OntologyNodeSyncer) ComputeDerived(ctx context.Context, plan OntologyDerivedPlan) (OntologyDerivedResult, error) {
 	ctx = indexingperf.WithPhase(ctx, "embed_ontology_nodes")
 	vectors := make([]embeddings.Embedding, len(plan.texts))
-	sliceTexts := ontologyEmbedSliceTexts
+	sliceTexts := EffectiveBatchSize(s.Provider, s.BatchSize)
+	if s.EmbeddingNode != nil {
+		sliceTexts = derivedPackerOptions(s.Provider, s.BatchSize, s.EmbeddingNode, s.EmbeddingNode.config().opts).MaxTexts
+	}
 	embed := func(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
 		return s.EmbeddingNode.Submit(ctx, "embed_ontology_nodes", texts)
 	}
 	// Slices start only as capacity frees, so goroutines stay bounded on a
 	// cold index. The shared node packs and limits provider calls itself; a
 	// few slices in flight keep its batches full.
-	sem := make(chan struct{}, ontologyEmbedNodeInFlightSlices)
+	slicesInFlight := ontologyEmbedNodeInFlightSlices
+	if s.EmbeddingNode != nil {
+		slicesInFlight = min(slicesInFlight, s.EmbeddingNode.config().maxConcurrent)
+	}
+	sem := make(chan struct{}, slicesInFlight)
 	if s.EmbeddingNode == nil {
-		batchSize := EffectiveBatchSize(s.Provider, s.BatchSize)
-		sliceTexts = batchSize
+		batchSize := sliceTexts
 		sem = make(chan struct{}, EffectiveMaxConcurrent(s.Provider, s.MaxConcurrent))
 		embed = func(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
 			return embedProviderBatch(ctx, s.Provider, texts, batchSize, s.EmbedGate)

@@ -15,7 +15,7 @@ func (s *Syncer) buildModuleTask(id codeindex.AnchorID, fingerprint, path string
 	return codeTask{
 		id:          id,
 		fingerprint: fingerprint,
-		payload:     codeTaskPayload{ownerKind: "module", chunks: chunks},
+		payload:     codeTaskPayload{path: path, ownerKind: "module", chunks: chunks},
 	}
 }
 
@@ -24,6 +24,6 @@ func (s *Syncer) buildAnchorTask(anchor codeanchor.IntelAnchor, content []byte, 
 	return codeTask{
 		id:          codeindex.AnchorID(anchor.AnchorID),
 		fingerprint: anchor.Fingerprint,
-		payload:     codeTaskPayload{ownerKind: strings.TrimSpace(anchor.Kind), chunks: chunks},
+		payload:     codeTaskPayload{path: anchor.Path, ownerKind: strings.TrimSpace(anchor.Kind), chunks: chunks},
 	}
 }

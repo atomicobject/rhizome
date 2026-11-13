@@ -124,9 +124,9 @@ func TestOntologyComputeDerivedBoundsSliceGoroutines(t *testing.T) {
 	node := NewSharedEmbeddingNode(context.Background(), prov, 1, nil, EmbedPackerOptions{MinTexts: 1, MaxTexts: 64, MaxBytes: 1 << 20, MaxWait: time.Millisecond})
 	defer node.Close()
 
-	const slices = 100
+	const slices, textsPerSlice = 100, 256
 	plan := OntologyDerivedPlan{textHashes: map[string]string{}}
-	for i := range slices * ontologyEmbedSliceTexts {
+	for i := range slices * textsPerSlice {
 		id := fmt.Sprintf("chunk-%d", i)
 		plan.ids = append(plan.ids, id)
 		plan.texts = append(plan.texts, id)

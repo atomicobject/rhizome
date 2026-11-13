@@ -49,7 +49,8 @@ semantic readiness.
 
 ### Semantic Runtime
 
-- Live syncers use `pkg/app/semanticruntime` for watcher packer policy, provider ceilings, shared gates, and long-lived compatible embedding lanes.
+- Live syncers use `pkg/embedindex` for provider ceilings, shared gates, and long-lived compatible embedding lanes. Complete derived plans use throughput request caps and flush on submission.
+- The derived scheduler groups up to 64 path tickets of one kind with per-member consumed-input witnesses captured alongside planning. Publication, cleanup, and acknowledgement filter survivors; RECORD source sets wait together. Input-dependent rejections isolate the next attempt in memory. Global work remains single.
 - Watcher ontology primary-chunk follow-up reuses the note runtime lane; do not create burst-only or intent-only embedding nodes in bootstrap/scheduler code.
 - Ontology rebuild follow-up selects provider-current, ontology-eligible paths through `ontology.ProjectableMetadataPaths`, matching full indexing. Raw metadata inventory includes descriptor-only sources and must never be sent directly to Markdown ontology projection.
 - Intent exemplar sync is indexing-owned semantic work and must be routed through the shared runtime when run from CLI or live indexing paths.

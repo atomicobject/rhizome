@@ -97,7 +97,7 @@ func (n *SharedEmbeddingNode) run() {
 			MaxConcurrent: cfg.maxConcurrent,
 			Warmups:       adaptiveWarmups,
 			OldestAge:     oldestAge(),
-			Draining:      draining,
+			Draining:      draining || cfg.opts.FlushOnSubmit,
 		})
 	}
 	ready := func() bool {

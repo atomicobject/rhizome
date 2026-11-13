@@ -230,7 +230,7 @@ func (p *openAIProvider) embedBatch(ctx context.Context, texts []string) ([]Embe
 
 	if resp.StatusCode >= 300 {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return nil, fmt.Errorf("openai embeddings status %d: %s", resp.StatusCode, string(msg))
+		return nil, inputErrorForStatus(resp.StatusCode, fmt.Errorf("openai embeddings status %d: %s", resp.StatusCode, string(msg)))
 	}
 
 	var parsed struct {

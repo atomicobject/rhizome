@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"context"
 	"errors"
-	"fmt"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"os"
 	"path/filepath"
@@ -12,13 +11,10 @@ import (
 	"time"
 
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
-	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	"github.com/atomicobject/rhizome/pkg/embeddings/codeindex"
 	codeembsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
-	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/ontology"
-	"github.com/atomicobject/rhizome/pkg/paths"
 
 	anchorsqlite "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/indexingworkload"
@@ -57,53 +53,7 @@ func TestDerivedResultRejectsDirectSaveBeforeWatcherMarksNewSource(t *testing.T)
 	require.NoError(t, os.WriteFile(filepath.Join(rt.VaultPath, path), []byte(indexingworkload.Note(0, 16, "Saved B")), 0o600))
 	// Direct save publication happens under the writer lease, without a watcher
 	// dirty mark. It must independently invalidate the prepared source witness.
-	save, _, err := w.lane.Submit(t.Context(), lane.Request{Kind: lane.KindValidationRefresh, Run: func(ctx context.Context, _ *indexlock.Lease, _ lane.Reporter) error {
-		baseline, err := w.noteMetadataIndexer.CapturePublishedBaseline(ctx, w.vaultDef, w.intelStore)
-		if err != nil {
-			return err
-		}
-		bytes, err := os.ReadFile(filepath.Join(rt.VaultPath, path))
-		if err != nil {
-			return err
-		}
-		stat, err := os.Stat(filepath.Join(rt.VaultPath, path))
-		if err != nil {
-			return err
-		}
-		format, ok := w.noteRuntime.Provider("markdown")
-		if !ok {
-			return fmt.Errorf("markdown provider unavailable")
-		}
-		source, err := noteformat.NewAuthoredSource(paths.NotePath(path), format.Descriptor(), bytes, stat.ModTime().Unix())
-		if err != nil {
-			return err
-		}
-		prep, err := w.noteMetadataIndexer.PreparePublishedMetadata(ctx, []paths.NotePath{paths.NotePath(path)}, map[paths.NotePath]noteformat.AuthoredSource{paths.NotePath(path): source})
-		if err != nil {
-			return err
-		}
-		delta, full, err := w.noteMetadataIndexer.BuildPublishedPathMetadataDeltaFromPreparation(ctx, w.vaultDef, w.intelStore, baseline, prep, nil)
-		if full {
-			return fmt.Errorf("direct-save fixture unexpectedly needs full metadata")
-		}
-		if err != nil {
-			return err
-		}
-		if delta != nil {
-			if err := w.intelStore.ApplyNoteMetadataDelta(ctx, *delta); err != nil {
-				return err
-			}
-		}
-		queue := w.structuralWriter(ctx)
-		_, err = ontology.SyncPublishedPaths(ctx, w.noteMetadataIndexer, w.vaultDef, &obsidian.Note{}, w.intelStore, queue, []string{path}, nil)
-		if err != nil {
-			return errors.Join(err, queue.Close())
-		}
-		return errors.Join(queue.FlushAndWait(ctx), queue.Close())
-	}})
-	require.NoError(t, err)
-	watcherJobTerminal(t, save)
-	require.NoError(t, save.Err())
+	publishDerivedTestSave(t, w, schema, path)
 	provider.fail.Store(true)
 	releaseProvider()
 	require.Eventually(t, func() bool { return provider.failures.Load() > 0 }, 3*time.Second, 5*time.Millisecond)

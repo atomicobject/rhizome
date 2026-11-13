@@ -91,6 +91,7 @@ func (s *Syncer) pruneOnlyAnchorTask(anchor codeanchor.IntelAnchor) codeTask {
 		id:          codeindex.AnchorID(anchor.AnchorID),
 		fingerprint: anchor.Fingerprint,
 		payload: codeTaskPayload{
+			path:      anchor.Path,
 			ownerKind: strings.TrimSpace(anchor.Kind),
 		},
 	}

@@ -25,6 +25,7 @@ func (s *NoteSyncer) ComputeDerived(ctx context.Context, plan NotePlan, sink fun
 	if s.NoteEmbedPacker != nil {
 		opts = *s.NoteEmbedPacker
 	}
+	opts = derivedPackerOptions(s.Provider, s.BatchSize, s.EmbeddingNode, opts)
 	pipeline := newNoteEmbeddingPipelineWithNode(ctx, s.Provider, s.EmbeddingNode, s.maxConcurrent(), s.EmbedGate, opts)
 	var incomplete []NoteDerivedResult
 	pipeline.stage.core.abandon = func(owners []*notePipelineOwner) {
@@ -64,6 +65,8 @@ type IncompleteDerivedError[R any] struct {
 func (e *IncompleteDerivedError[R]) Error() string { return e.Err.Error() }
 func (e *IncompleteDerivedError[R]) Unwrap() error { return e.Err }
 
+func (r NoteDerivedResult) SourcePath() string { return string(r.task.id) }
+
 // RetainedBytes approximates the vector memory a publisher holds for result.
 func (r NoteDerivedResult) RetainedBytes() int { return vectorBytes(r.vectors) }
 
@@ -90,7 +93,11 @@ func (s *NoteSyncer) PublishDerived(ctx context.Context, result NoteDerivedResul
 	return applySemanticWriteIntents(ctx, noteWriteSink{syncer: s, useLegacy: result.prepared.useLegacy, intelWriter: writer}, buildNoteWriteIntents(result.prepared, result.vectors, s.EmbeddingWriter != nil)...)
 }
 
-func (s *NoteSyncer) FinishDerived(ctx context.Context, plan NotePlan) error {
+func (s *NoteSyncer) FinishDerived(ctx context.Context, plan NotePlan, paths []string) error {
+	if paths != nil {
+		plan.state.deleteIDs = slices.DeleteFunc(slices.Clone(plan.state.deleteIDs), func(id embeddings.NoteID) bool { return !slices.Contains(paths, string(id)) })
+		plan.state.typedRawPrunePaths = slices.DeleteFunc(slices.Clone(plan.state.typedRawPrunePaths), func(path string) bool { return !slices.Contains(paths, path) })
+	}
 	lazy, _ := s.Index.(embeddings.LazyPruningNoteIndex)
 	if err := s.applyNotePlanCleanup(ctx, lazy, plan.state); err != nil {
 		return err
@@ -113,6 +120,7 @@ func (s *Syncer) ComputeDerived(ctx context.Context, plan SyncPlan, sink func(co
 	if s.CodeEmbedPacker != nil {
 		opts = *s.CodeEmbedPacker
 	}
+	opts = derivedPackerOptions(s.Provider, s.BatchSize, s.EmbeddingNode, opts)
 	pipeline := newCodeEmbeddingPipelineWithNode(ctx, s.Provider, s.EmbeddingNode, s.maxConcurrent(), s.EmbedGate, opts)
 	tasks := make(map[string]codeTask, len(plan.tasks))
 	for _, task := range plan.tasks {
@@ -159,6 +167,8 @@ func (s *Syncer) CacheDerived(ctx context.Context, results ...CodeDerivedResult)
 	}
 	return s.Index.CacheEmbeddings(ctx, vectors)
 }
+
+func (r CodeDerivedResult) SourcePath() string { return r.task.payload.path }
 
 func (r CodeDerivedResult) RetainedBytes() int {
 	n := vectorBytes(r.vectors)

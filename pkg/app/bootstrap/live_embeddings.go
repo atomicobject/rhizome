@@ -123,7 +123,7 @@ func sameSQLitePath(a, b string) bool {
 func (rt *LiveRuntime) createSyncers(intelStore *semdb.Store) {
 	policy := embedindex.PolicyFor(embedindex.IndexRequest{
 		Source:       embedindex.IndexSourceWatcher,
-		LatencyClass: embedindex.LatencyAuto,
+		LatencyClass: embedindex.LatencyThroughput,
 	})
 	runtime := embedindex.NewRuntime()
 	// Create code syncer if code embeddings are available
