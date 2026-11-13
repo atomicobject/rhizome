@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -336,11 +337,11 @@ func tomlQuotedLines(lines []string) []bool {
 		quoted[i] = open != ""
 		for line != "" {
 			if open != "" {
-				end := strings.Index(line, open)
+				end := tomlStringEnd(line, open)
 				if end < 0 {
 					break
 				}
-				line, open = line[end+3:], ""
+				line, open = line[end:], ""
 				continue
 			}
 			start := strings.IndexAny(line, `"'#`)
@@ -351,19 +352,11 @@ func tomlQuotedLines(lines []string) []bool {
 				line, open = line[start+3:], delim
 				continue
 			}
-			// A one-line string: skip past its closing quote; a basic
-			// string's quote can be escaped.
-			end := start + 1
-			for end < len(line) && line[end] != line[start] {
-				if line[start] == '"' && line[end] == '\\' {
-					end++
-				}
-				end++
-			}
-			if end >= len(line) {
+			end := tomlStringEnd(line[start+1:], line[start:start+1])
+			if end < 0 {
 				break
 			}
-			line = line[end+1:]
+			line = line[start+1+end:]
 		}
 	}
 	return quoted
@@ -396,10 +389,30 @@ func tomlKey(line string) (root, sub string) {
 	return root, sub
 }
 
+// tomlStringEnd is the index just past quote, the closing delimiter of a
+// string whose text starts s, or -1. A basic string's quote can be escaped.
+func tomlStringEnd(s, quote string) int {
+	for i := 0; i < len(s); i++ {
+		if quote[0] == '"' && s[i] == '\\' {
+			i++
+		} else if strings.HasPrefix(s[i:], quote) {
+			return i + len(quote)
+		}
+	}
+	return -1
+}
+
 func tomlKeyPart(t string) (part, rest string) {
 	if t != "" && (t[0] == '"' || t[0] == '\'') {
-		if end := strings.IndexByte(t[1:], t[0]); end >= 0 {
-			return t[1 : end+1], t[end+2:]
+		if end := tomlStringEnd(t[1:], t[:1]); end >= 0 {
+			part, rest = t[1:end], t[end+1:]
+			if t[0] == '"' {
+				// Escapes name the same key as the plain spelling.
+				if unquoted, err := strconv.Unquote(`"` + part + `"`); err == nil {
+					part = unquoted
+				}
+			}
+			return part, rest
 		}
 	}
 	end := strings.IndexAny(t, " \t.=]\"'")

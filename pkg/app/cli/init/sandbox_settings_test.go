@@ -122,6 +122,8 @@ func TestCodexProfileSkipsTablesInsideMultilineStrings(t *testing.T) {
 	require.Contains(t, string(out), "Example:\n[features]\n\"\"\"\n", "the instructions stay as written")
 	require.Contains(t, string(out), "\n[features]\n# BEGIN RZM INIT BLOCK: [features] codex-sandbox\nnetwork_proxy = true\n")
 	require.Empty(t, block.conflict([]byte("notes = '''\n[[features]]\nfeatures = 1\n'''\n"), []byte(codexLoopbackProfile)))
+	require.Empty(t, block.conflict([]byte("notes = \"\"\"\nsay \\\"\"\" and\n[[features]]\n\"\"\"\n"), []byte(codexLoopbackProfile)), "an escaped quote does not end the string")
+	require.NotEmpty(t, block.conflict([]byte("[features]\n\"network\\u005fproxy\" = false\n"), []byte(codexLoopbackProfile)), "an escaped key is the same key")
 }
 
 func TestCodexGetsALoopbackOnlyProfileAboveAPersonsSettings(t *testing.T) {
