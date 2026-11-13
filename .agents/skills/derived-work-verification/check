@@ -145,13 +145,19 @@ def tla_jar():
         if not jar.exists():
             jar.parent.mkdir(parents=True, exist_ok=True)
             print(f"downloading TLA+ tools {TLA_VERSION} to {jar}")
-            partial = jar.with_suffix(".partial")
+            # A private temporary file lets concurrent first runs share the cache.
+            fd, partial = tempfile.mkstemp(dir=jar.parent, suffix=".partial")
+            os.close(fd)
             try:
                 urllib.request.urlretrieve(TLA_URL, partial)
             except OSError as err:
+                os.unlink(partial)
                 die(f"cannot download {TLA_URL}: {err}")
-            partial.rename(jar)
-    jar = Path(jar)
+            if sha256(partial) != TLA_SHA256:
+                os.unlink(partial)
+                die(f"{TLA_URL} is not TLA+ tools {TLA_VERSION} (SHA-256 mismatch)")
+            os.replace(partial, jar)
+    jar = Path(jar).resolve()
     if not jar.exists():
         die(f"{jar} does not exist")
     if sha256(jar) != TLA_SHA256:
