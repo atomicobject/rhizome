@@ -63,6 +63,7 @@ The implementation recovers unchanged starter schemas, keeps edited or unproven 
 - After the review fix, `make check`, `make build`, the Delivery upgrade replay, and `./scripts/rzm validate` passed. A second replay using the rebuilt CLI verified custom-schema defer, keep, and rejected take. Rejection left project and generated files unchanged; the CLI wrote its expected failure-diagnostic logs. The earlier desktop verification remains applicable because this follow-up changes no desktop code.
 - A later Greptile pass confirmed those findings resolved and identified a nested-project history path error. A regression test reproduced it, and recovery now uses Git's explicit project-relative path. Main was integrated with only a changelog conflict, retaining both entries.
 - The combined branch passed `make check`, `make build`, the Delivery and custom-schema CLI replays, and `./scripts/rzm validate` after the nested-project fix.
+- Windows CI exposed a Unix-only fake Git executable in the history-invocation test. The test now records real Git invocations through `GIT_TRACE2_EVENT`, retaining the same assertion without depending on a shell script. The focused test and `make check` passed locally; Windows verification runs in CI.
 
 ## Deviations
 

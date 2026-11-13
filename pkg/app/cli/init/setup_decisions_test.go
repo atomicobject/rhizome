@@ -240,10 +240,7 @@ func TestLegacyOwnershipRecoveryUsesOnlyExactGitEvidence(t *testing.T) {
 func TestOrdinaryOwnershipDoesNotInvokeGitHistory(t *testing.T) {
 	root := t.TempDir()
 	marker := filepath.Join(root, "called")
-	bin := t.TempDir()
-	writeTestFile(t, bin, "git", "#!/bin/sh\n: > '"+marker+"'\nexit 1\n")
-	require.NoError(t, os.Chmod(filepath.Join(bin, "git"), 0o755))
-	t.Setenv("PATH", bin)
+	t.Setenv("GIT_TRACE2_EVENT", marker)
 	record := &generatedFiles{Written: map[string]string{}, Declined: map[string]string{}}
 	require.NoError(t, record.recoverLegacyStarterFiles(root, []string{templateAgenticEngineering}))
 	require.NoFileExists(t, marker)
