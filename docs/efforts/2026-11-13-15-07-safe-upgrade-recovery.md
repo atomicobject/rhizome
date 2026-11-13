@@ -77,4 +77,4 @@ An installed executable on the host must not determine a missing-executable test
 
 ## Status
 
-Implementation, independent review, and verification are complete on the feature branch. Publication and installation are separate release work. The live affected repository remains unchanged.
+Implementation, independent review, and verification are complete in [PR #144](https://github.com/atomicobject/rhizome/pull/144), based on implementation commit `e02d1019`. Publication and installation are separate release work. The live affected repository remains unchanged.
