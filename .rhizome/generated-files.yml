@@ -25,7 +25,7 @@ written:
   .agents/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
   .agents/skills/compounding/SKILL.md: 365b1ba0e8741ce9
   .agents/skills/compounding/references/models.md: ba80e96ccd08f5db
-  .agents/skills/custom-views/SKILL.md: cf7e4e751cbad65b
+  .agents/skills/custom-views/SKILL.md: 026a97a6554d1198
   .agents/skills/custom-views/references/example.md: 6c1e54b739c646b9
   .agents/skills/custom-views/references/experiences.md: 65bd2513a15f3754
   .agents/skills/custom-views/references/kit-api.md: 4d38d9619bc905e2
@@ -36,7 +36,7 @@ written:
   .agents/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
   .agents/skills/legacy-codebase-assessor/references/findings-template.md: 6172ac9f5c6d79fd
   .agents/skills/rhizome/SKILL.md: 255391890ffd96fc
-  .agents/skills/rhizome/references/code-mode.md: 270b930fc6c7b609
+  .agents/skills/rhizome/references/code-mode.md: 0d29f619134584e4
   .agents/skills/rhizome/references/configuration.md: 519acbe756f1d74c
   .agents/skills/rhizome/references/diagnostics.md: d8b9dbcb6ac0660f
   .agents/skills/rhizome/references/documentation-bindings.md: 5b35408613b2b137
@@ -81,7 +81,7 @@ written:
   .claude/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
   .claude/skills/compounding/SKILL.md: 365b1ba0e8741ce9
   .claude/skills/compounding/references/models.md: ba80e96ccd08f5db
-  .claude/skills/custom-views/SKILL.md: cf7e4e751cbad65b
+  .claude/skills/custom-views/SKILL.md: 026a97a6554d1198
   .claude/skills/custom-views/references/example.md: 6c1e54b739c646b9
   .claude/skills/custom-views/references/experiences.md: 65bd2513a15f3754
   .claude/skills/custom-views/references/kit-api.md: 4d38d9619bc905e2
@@ -92,7 +92,7 @@ written:
   .claude/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
   .claude/skills/legacy-codebase-assessor/references/findings-template.md: 6172ac9f5c6d79fd
   .claude/skills/rhizome/SKILL.md: 255391890ffd96fc
-  .claude/skills/rhizome/references/code-mode.md: 270b930fc6c7b609
+  .claude/skills/rhizome/references/code-mode.md: 0d29f619134584e4
   .claude/skills/rhizome/references/configuration.md: 519acbe756f1d74c
   .claude/skills/rhizome/references/diagnostics.md: d8b9dbcb6ac0660f
   .claude/skills/rhizome/references/documentation-bindings.md: 5b35408613b2b137
@@ -138,8 +138,8 @@ written:
   .rhizome/modules/agentic-engineering/views/delivery/panel.tsx: f57ae1ff2ec60c6c
   .rhizome/modules/agentic-engineering/views/delivery/panel.yaml: b6c4f49c1dc2dae6
   .rhizome/modules/agentic-engineering/views/delivery/presentation.tsx: 9c239cf913827d4c
-  .rhizome/modules/agentic-engineering/views/delivery/queries.ts: 44602b0b66eb95ec
-  .rhizome/modules/agentic-engineering/views/delivery/reads.ts: b3b7a943b3e34546
+  .rhizome/modules/agentic-engineering/views/delivery/queries.ts: 90ec15e7d24c256f
+  .rhizome/modules/agentic-engineering/views/delivery/reads.ts: 3fecd28ccf9048a9
   .rhizome/modules/agentic-engineering/views/delivery/relationships.tsx: 611ac7c039534a6e
   .rhizome/modules/agentic-engineering/views/delivery/spec-experience.yaml: 758c7c2c0a5bf650
   .rhizome/modules/agentic-engineering/views/delivery/spec-operations.yaml: 32cb9c84d33183fe
