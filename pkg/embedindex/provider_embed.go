@@ -54,7 +54,12 @@ func embedProviderBatch(ctx context.Context, provider embeddings.Provider, texts
 	}
 
 	callStarted := time.Now()
-	vecs, err := provider.EmbedTexts(ctx, texts)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	callCtx, cancel := providerCallContext(ctx)
+	defer cancel()
+	vecs, err := provider.EmbedTexts(callCtx, texts)
 	callDur := time.Since(callStarted)
 	indexingperf.ObserveLatency(ctx, indexingperf.ProviderLatency, callDur)
 	indexingperf.ObserveInterval(ctx, indexingperf.ProviderLatency, callStarted, callDur)

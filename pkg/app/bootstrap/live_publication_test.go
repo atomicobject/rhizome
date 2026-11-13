@@ -36,6 +36,10 @@ func TestPublishCurrentProjectionMakesAuthoredChangesReadable(t *testing.T) {
 			codePaths, err := rt.IntelStore().IndexedFilePaths(t.Context())
 			require.NoError(t, err)
 			require.Contains(t, codePaths, "main.go", "structural publication must keep the code obligations it acknowledges")
+			links, err := rt.IntelStore().DocLinksForNote(t.Context(), "note.md", 10)
+			require.NoError(t, err)
+			require.Len(t, links, 1)
+			require.Equal(t, "main.go", links[0].SrcPath)
 
 			require.NoError(t, os.WriteFile(filepath.Join(rt.VaultPath, "note.md"), []byte("---\nname: Second\n---\n# Project\n"), 0o644))
 			require.NoError(t, rt.PublishCurrentProjection(t.Context()))
@@ -77,7 +81,7 @@ func newProjectionPublicationRuntime(t *testing.T) *LiveRuntime {
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "config.yml"), []byte("notes:\n  includes: [\"**/*.md\"]\ncode:\n  enabled: true\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".rhizome", "ontology", "schema.graphql"), []byte("type Project @node(paths: [\"note.md\"]) { name: String! }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "note.md"), []byte("---\nname: First\n---\n# Project\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\nfunc main() {}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n// See [[note]].\nfunc main() {}\n"), 0o644))
 	ctx := vaultconfig.WithEnv(t.Context(), testkit.Env(t))
 	rt, err := NewLiveRuntime(ctx, LiveOptions{
 		VaultName: root, DisableLeaderWork: true, DisableWatchHub: true,

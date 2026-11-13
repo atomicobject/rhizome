@@ -33,6 +33,7 @@ type CodeIndexWork struct {
 	RefFootprint          DurableRefFootprint
 	ScopeReady            ScopeReadyFootprint
 	DocLinks              []DocLink
+	ReplaceDocLinks       bool // Certifies linker output, including an empty result.
 	Rationale             []Rationale
 	ReplaceIndex          bool
 	HasRefSignals         bool
@@ -225,6 +226,7 @@ func (s *Service) buildCodeIndexWork(ctx context.Context, lang Lang, ref paths.C
 		RefFootprint:          refFootprint,
 		ScopeReady:            scopeReady,
 		DocLinks:              docLinks,
+		ReplaceDocLinks:       s.linker != nil,
 		Rationale:             rationale,
 		ReplaceIndex:          replaceSummary,
 		HasRefSignals:         hasRefSignals,
@@ -442,9 +444,6 @@ func (s *Service) ApplyCodeIndexBatch(ctx context.Context, works []CodeIndexWork
 	// Process auxiliary data (tail index, doc links, intel).
 	intelReps := make([]IntelCodeFileReplace, 0, len(works))
 	var docLinkBatches []DocLinksBatch
-	if s.linker != nil {
-		docLinkBatches = make([]DocLinksBatch, 0, len(works))
-	}
 	rationaleBatches := make([]RationaleBatch, 0, len(works))
 	refStore, hasRefStore := s.store.(intelRefStore)
 	symbolRefBatches := make(map[string][]SymbolRefRow)
@@ -455,7 +454,7 @@ func (s *Service) ApplyCodeIndexBatch(ctx context.Context, works []CodeIndexWork
 		if s.tailIdx != nil {
 			s.tailIdx.Add(work.Path)
 		}
-		if s.linker != nil {
+		if work.ReplaceDocLinks {
 			docLinkBatches = append(docLinkBatches, DocLinksBatch{SrcPath: work.Path, Links: work.DocLinks})
 		}
 		intelPath := string(paths.NormalizeCode(work.Path))

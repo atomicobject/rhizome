@@ -120,6 +120,7 @@ type Index interface {
 	EmbeddingByHash(ctx context.Context, hash string) (embeddings.Embedding, bool, error)
 	EmbeddingByHashes(ctx context.Context, hashes []string) (map[string]embeddings.Embedding, error)
 	CacheEmbedding(ctx context.Context, hash string, emb embeddings.Embedding) error
+	CacheEmbeddings(ctx context.Context, vectors map[string]embeddings.Embedding) error
 	ClearEmbeddingCache(ctx context.Context) error
 	UpsertItemMeta(ctx context.Context, item Item) error
 	DeleteItemsNotIn(ctx context.Context, anchorIDs []AnchorID) error

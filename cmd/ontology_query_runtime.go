@@ -220,15 +220,15 @@ func (commandOptions *vaultCommandOptions) ontologyQueryLiveOptions(requirements
 }
 
 func (rt *ontologyQueryRuntime) deps() (ontologyquery.Deps, error) {
-	base := ontologyquery.Deps{VaultDef: rt.live.VaultDef, NoteReader: rt.noteReader, Store: rt.runtime.Store}
+	snapshot := rt.live.Snapshot()
+	base := ontologyquery.Deps{VaultDef: snapshot.VaultDefinition, NoteReader: rt.noteReader, Store: rt.runtime.Store}
 	if rt.noteFormatRuntime != nil {
 		base.NoteFormats = *rt.noteFormatRuntime
 	} else if formats, err := rt.live.NoteMetadataIndexer().FormatRuntime(); err == nil {
 		base.NoteFormats = formats
 	}
 	_, codeProvider := rt.live.CodeEmbeddings()
-	resolved := rt.live.Configuration()
-	deps, err := queryengine.Dependencies(base, unifiedsearch.Options{Config: &resolved, VaultPath: rt.live.VaultDef.BasePath(), VaultDef: rt.live.VaultDef, IntelStore: rt.live.IntelStore(), NoteProvider: rt.live.NoteProvider(), CodeProvider: codeProvider})
+	deps, err := queryengine.Dependencies(base, unifiedsearch.Options{Config: snapshot.Configuration, VaultPath: snapshot.VaultDefinition.BasePath(), VaultDef: snapshot.VaultDefinition, IntelStore: rt.live.IntelStore(), NoteProvider: rt.live.NoteProvider(), CodeProvider: codeProvider})
 	if err != nil {
 		return ontologyquery.Deps{}, err
 	}

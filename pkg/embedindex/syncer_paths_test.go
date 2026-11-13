@@ -115,8 +115,8 @@ func TestSyncerSyncPathsBatchesAcrossPaths(t *testing.T) {
 	}
 
 	require.NoError(t, syncer.SyncPaths(context.Background(), []string{"pkg/foo.go", "pkg/bar.go"}))
-	require.Equal(t, int64(2), prov.calls.Load())
-	require.ElementsMatch(t, []int{2, 4}, prov.BatchSizes())
+	require.Equal(t, int64(1), prov.calls.Load())
+	require.Equal(t, []int{6}, prov.BatchSizes())
 }
 
 func TestSyncerPlanPrefetchesReuseCacheAndPrepUsesMemory(t *testing.T) {

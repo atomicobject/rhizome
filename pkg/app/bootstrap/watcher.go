@@ -59,6 +59,7 @@ type unifiedSemanticWatcher struct {
 	// eventCount numbers filesystem events per path, so a verified source
 	// stat stays trusted only until the next event for it (live_sync.go).
 	eventCount     map[string]uint64
+	inputVersion   atomic.Uint64
 	pendingResync  bool
 	pendingReasons map[string]int64
 	// seenRecrawls is the cache recrawl count the watcher last acted on, and
@@ -77,7 +78,7 @@ type unifiedSemanticWatcher struct {
 	validationTimer    *time.Timer
 	validationDeadline time.Time
 
-	onConfigurationChanged func(obsidian.VaultDefinition, repoconfig.Resolved, cache.SelectionPolicy) error
+	onConfigurationChanged func(obsidian.VaultDefinition, repoconfig.Resolved, cache.SelectionPolicy) (*codeanchor.Service, error)
 	configuration          *repoconfig.Resolved
 	onProcessedPath        func(rel string)
 	publishEvent           func(kind string, data any)
@@ -119,7 +120,7 @@ type WatcherDeps struct {
 	Options      *UnifiedSemanticWatcherOptions
 	PublishEvent func(kind string, data any)
 	// OnConfigurationChanged publishes one validated ownership/configuration replacement.
-	OnConfigurationChanged func(obsidian.VaultDefinition, repoconfig.Resolved, cache.SelectionPolicy) error
+	OnConfigurationChanged func(obsidian.VaultDefinition, repoconfig.Resolved, cache.SelectionPolicy) (*codeanchor.Service, error)
 	Configuration          *repoconfig.Resolved
 }
 

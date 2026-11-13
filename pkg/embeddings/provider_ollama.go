@@ -183,7 +183,7 @@ func (p *ollamaProvider) embedBatch(ctx context.Context, texts []string) ([]Embe
 
 		if resp.StatusCode >= 300 {
 			msg, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-			return nil, fmt.Errorf("ollama embeddings status %d: %s", resp.StatusCode, string(msg))
+			return nil, inputErrorForStatus(resp.StatusCode, fmt.Errorf("ollama embeddings status %d: %s", resp.StatusCode, string(msg)))
 		}
 
 		bodyBytes, err := io.ReadAll(resp.Body)
@@ -290,7 +290,7 @@ func (p *ollamaProvider) embedLegacyPrompt(ctx context.Context, text string) (Em
 
 	if resp.StatusCode >= 300 {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return nil, fmt.Errorf("ollama embeddings status %d: %s", resp.StatusCode, string(msg))
+		return nil, inputErrorForStatus(resp.StatusCode, fmt.Errorf("ollama embeddings status %d: %s", resp.StatusCode, string(msg)))
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)

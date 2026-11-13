@@ -8,25 +8,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/ontology"
-	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 
 	"github.com/atomicobject/rhizome/pkg/embedindex"
 )
-
-// ontologyTicketPaths names the hosts an ontology ticket prepares: every
-// projectable note for a full ticket, otherwise its path plus, for a RECORD
-// host, the source set whose numbering it can change.
-func (w *unifiedSemanticWatcher) ontologyTicketPaths(ctx context.Context, schema *ontoschema.Schema, path string) ([]string, error) {
-	projectable := func() ([]string, error) {
-		return ontology.ProjectableMetadataPaths(ctx, w.noteMetadataIndexer, w.intelStore)
-	}
-	if path == "" {
-		return projectable()
-	}
-	return ontology.RecordSourceSetPaths(schema, []string{path}, projectable)
-}
 
 type publishedNoteReader struct {
 	obsidian.NoteReader
@@ -45,42 +30,57 @@ func (r publishedNoteReader) GetModTime(_ obsidian.VaultDefinition, path string)
 	return r.mtimes[path], nil
 }
 
-func (w *unifiedSemanticWatcher) publishedNoteReader(ctx context.Context, paths []string) (obsidian.NoteReader, error) {
+func (w *unifiedSemanticWatcher) publishedNoteReader(ctx context.Context, paths []string) (obsidian.NoteReader, []string, error) {
 	rows, err := w.intelStore.CurrentNoteMetadataRowsByPaths(ctx, paths)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	var changed []string
 	reader := publishedNoteReader{NoteReader: &obsidian.Note{}, contents: map[string]string{}, mtimes: map[string]time.Time{}}
 	for _, path := range paths {
+		if _, present := rows[path]; !present {
+			continue
+		}
 		data, err := os.ReadFile(filepath.Join(w.vaultPath, filepath.FromSlash(path)))
+		if os.IsNotExist(err) {
+			changed = append(changed, path)
+			continue
+		}
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if fmt.Sprintf("%x", sha256.Sum256(data)) != rows[path].ContentHash {
-			return nil, errDerivedSuperseded
+			changed = append(changed, path)
+			continue
 		}
 		reader.contents[path] = string(data)
 		reader.mtimes[path] = time.Unix(rows[path].Mtime, 0)
 	}
-	return reader, nil
+	return reader, changed, nil
 }
 
-func (w *unifiedSemanticWatcher) publishedCodeLoader(ctx context.Context, paths []string) (embedindex.FileLoader, error) {
+func (w *unifiedSemanticWatcher) publishedCodeLoader(ctx context.Context, paths []string) (embedindex.FileLoader, []string, error) {
+	var changed []string
 	sources := make(map[string][]byte, len(paths))
 	for _, path := range paths {
 		hash, _, _, present, err := w.intelStore.FileHash(ctx, path)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if !present {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(w.vaultPath, filepath.FromSlash(path)))
+		if os.IsNotExist(err) {
+			changed = append(changed, path)
+			continue
+		}
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if fmt.Sprintf("%x", sha256.Sum256(data)) != hash {
-			return nil, errDerivedSuperseded
+			changed = append(changed, path)
+			continue
 		}
 		sources[path] = data
 	}
@@ -90,5 +90,5 @@ func (w *unifiedSemanticWatcher) publishedCodeLoader(ctx context.Context, paths 
 			return nil, fmt.Errorf("code source was not prepared")
 		}
 		return data, nil
-	}, nil
+	}, changed, nil
 }

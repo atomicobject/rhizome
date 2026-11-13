@@ -81,6 +81,9 @@ func (w *unifiedSemanticWatcher) retainWatchInputs(dirty map[string]cache.DirtyK
 func (w *unifiedSemanticWatcher) retainInputs(dirty map[string]cache.DirtyKind, resync bool, reasons map[string]int64) {
 	w.pendingMu.Lock()
 	defer w.pendingMu.Unlock()
+	if len(dirty) > 0 || resync {
+		w.inputVersion.Add(1)
+	}
 	if w.pendingByRel == nil {
 		w.pendingByRel = make(map[string]cache.DirtyKind, len(dirty))
 	}

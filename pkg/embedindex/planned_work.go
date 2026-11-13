@@ -31,6 +31,7 @@ func (p plannedWorkPlan[Task, State]) TaskCount() int {
 }
 
 type codeTaskPayload struct {
+	path      string
 	ownerKind string
 	chunks    []SemanticChunk
 }

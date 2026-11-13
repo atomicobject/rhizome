@@ -94,6 +94,20 @@ func (s *engine) CacheEmbedding(ctx context.Context, hash string, emb embeddings
 		return err
 	})
 }
+
+// CacheEmbeddings retains unpublished provider results in one transaction.
+func (s *engine) CacheEmbeddings(ctx context.Context, vectors map[string]embeddings.Embedding) error {
+	ctx = indexingperf.WithOp(ctx, s.spec.label+".cache_embeddings")
+	rows := make([]embeddingCacheRow, 0, len(vectors))
+	for hash, vector := range vectors {
+		if strings.TrimSpace(hash) != "" && len(vector) > 0 {
+			rows = append(rows, embeddingCacheRow{hash: hash, vec: vector})
+		}
+	}
+	return s.withWriteTx(ctx, func(tx *sql.Tx) error {
+		return bulkUpsertEmbeddingCacheTx(ctx, tx, s.spec.cache, rows, time.Now().Unix())
+	})
+}
 func (s *engine) ClearEmbeddingCache(ctx context.Context) error {
 	ctx = indexingperf.WithOp(ctx, s.spec.label+".clear_embedding_cache")
 	return s.withWrite(ctx, func(ctx context.Context, db *sql.DB) error {

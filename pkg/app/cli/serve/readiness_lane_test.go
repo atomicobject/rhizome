@@ -10,9 +10,9 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
+	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,7 +33,7 @@ func newCatchUpHarness(t *testing.T) *catchUpHarness {
 	t.Cleanup(h.lane.Close)
 	h.live = &bootstrap.LiveRuntime{}
 	h.live.SetLane(h.lane)
-	h.coord = NewReadinessCoordinator(func(ctx context.Context, _ *indexlock.Lease, _ notemeta.Indexer, _ string, _ obsidian.VaultDefinition, _ bool) error {
+	h.coord = NewReadinessCoordinator(func(ctx context.Context, _ *indexlock.Lease, _ notemeta.Indexer, _ string, _ runtimeview.Snapshot, _ bool) error {
 		// The first run blocks until displaced; a resubmitted run completes.
 		if h.runs.Add(1) == 1 {
 			h.started <- struct{}{}
@@ -48,7 +48,7 @@ func newCatchUpHarness(t *testing.T) *catchUpHarness {
 func (h *catchUpHarness) runCatchUp() <-chan error {
 	done := make(chan error, 1)
 	go func() {
-		done <- h.coord.runIndexOnLane(context.Background(), h.live, notemeta.Indexer{}, "", obsidian.VaultDefinition{}, false)
+		done <- h.coord.runIndexOnLane(context.Background(), h.live, notemeta.Indexer{}, "", false)
 	}()
 	return done
 }
@@ -93,12 +93,12 @@ func TestCatchUpDisplacedByAFailedIndexRunsAgain(t *testing.T) {
 
 func TestCatchUpRunsDirectlyWithoutALane(t *testing.T) {
 	var ran atomic.Bool
-	coord := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+	coord := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, runtimeview.Snapshot, bool) error {
 		ran.Store(true)
 		return nil
 	})
 
-	require.NoError(t, coord.runIndexOnLane(context.Background(), &bootstrap.LiveRuntime{}, notemeta.Indexer{}, t.TempDir(), obsidian.VaultDefinition{}, false))
+	require.NoError(t, coord.runIndexOnLane(context.Background(), &bootstrap.LiveRuntime{}, notemeta.Indexer{}, t.TempDir(), false))
 	require.True(t, ran.Load())
 }
 
@@ -107,7 +107,7 @@ func TestCatchUpRunsDirectlyWithoutALane(t *testing.T) {
 // status would treat as still pending.
 func TestCatchUpReportsTheFailureWhenEveryAttemptIsDisplaced(t *testing.T) {
 	h := newCatchUpHarness(t)
-	h.coord.runIndex = func(ctx context.Context, _ *indexlock.Lease, _ notemeta.Indexer, _ string, _ obsidian.VaultDefinition, _ bool) error {
+	h.coord.runIndex = func(ctx context.Context, _ *indexlock.Lease, _ notemeta.Indexer, _ string, _ runtimeview.Snapshot, _ bool) error {
 		h.runs.Add(1)
 		h.started <- struct{}{}
 		<-ctx.Done()

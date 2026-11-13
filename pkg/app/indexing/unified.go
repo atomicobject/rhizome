@@ -158,24 +158,18 @@ func RunUnifiedCore(ctx context.Context, lease *indexlock.Lease, opts UnifiedOpt
 	if localCfg != nil {
 		currentScopeHash = localCfg.ScopeConfigHash()
 	}
-	structuralRequest := indexcore.Request{VaultDefinition: opts.VaultDef, CodeConfig: codeCfg, NoteMetadata: opts.NoteMetadata}
+	structuralRequest := indexcore.Request{VaultDefinition: opts.VaultDef, CodeConfig: codeCfg, ParserConfigHash: codeCfg.ParserConfigHash(), NoteMetadata: opts.NoteMetadata}
 	var ownershipDiscovery indexcore.Discovery
 	ownershipDiscovery, err = indexcore.Discover(ctx, structuralRequest, intelStore)
 	if err != nil {
 		return fmt.Errorf("discover full-index ownership: %w", err)
 	}
-	linker, err := codeintel.NewDocLinkerFromNotePaths(ownershipDiscovery.MarkdownPaths(), intelStore)
-	if err != nil {
-		return fmt.Errorf("build code-to-note linker: %w", err)
-	}
-
 	tailIdx := codeanchor.NewPathTailIndex(5)
 	service, _ := codeintel.NewCodeAnchorService(codeintel.CodeAnchorServiceConfig{
 		VaultPath:       opts.VaultPath,
 		CodeCfg:         codeCfg,
 		Store:           intelStore,
 		TailIndex:       tailIdx,
-		Linker:          linker,
 		IncludeIndexers: true,
 		WriteAccess:     true,
 	})
@@ -407,7 +401,7 @@ func RunUnifiedCore(ctx context.Context, lease *indexlock.Lease, opts UnifiedOpt
 	}
 
 	if err := runUnifiedPostIndex(ctx, unifiedPostIndexOptions{
-		ForceGraph:            ownershipDiscovery.Recovery || ownershipDiscovery.GraphRecovery || (initialOntologyResult != nil && (initialOntologyResult.Dirty || initialOntologyResult.Rebuilt)),
+		ForceGraph:            len(structuralResult.CodeRetirements) > 0 || ownershipDiscovery.Recovery || ownershipDiscovery.GraphRecovery || (initialOntologyResult != nil && (initialOntologyResult.Dirty || initialOntologyResult.Rebuilt)),
 		VaultPath:             opts.VaultPath,
 		Vacuum:                opts.Vacuum,
 		CurrentScopeHash:      currentScopeHash,

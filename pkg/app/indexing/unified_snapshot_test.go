@@ -62,6 +62,7 @@ func canonicalWorkloadSnapshot(t testing.TB, ctx context.Context, store *semdb.S
 		"dependencies":     `SELECT source_note_path, node_id, type_name, field_name, target_input, target_input_norm, resolved_target_note_path, resolved_target_type_name, schema_hash FROM ontology_node_field_value_dependencies`,
 		"note-types":       `SELECT note_path, type_name, schema_hash FROM ontology_note_types`,
 		"links":            `SELECT src_path, dst_path, kind FROM graph_doc_edges`,
+		"doc-links":        `SELECT src_type, src_path, src_id, dst_kind, dst_id, dst_path, lang, label, snippet, meta_json FROM doc_links`,
 		"doc-sections":     `SELECT section_id, path, source_node_id, title, level, start_byte, end_byte, content, fingerprint, ord FROM intel_doc_sections`,
 		"code-anchors":     `SELECT anchor_id, lang, kind, path, symbol, fqn, signature, doc_comment, start_byte, end_byte, start_line, end_line, fingerprint FROM intel_code_anchors`,
 		"code-symbols":     `SELECT lang, kind, file, pkg, name, fqn FROM symbols`,
@@ -72,6 +73,12 @@ func canonicalWorkloadSnapshot(t testing.TB, ctx context.Context, store *semdb.S
 		"go-state":         `SELECT import_path, directory, package_name, build_variant, membership_digest, analyzer_version, complete, valid, diagnostics_json FROM intel_go_package_relationship_state`,
 		"vectors":          `SELECT s.note_path, s.type_name, s.node_kind, s.provider, s.model, s.source_content_hash, s.node_structure_fingerprint, s.chunk_text_hash, hex(v.embedding) FROM ontology_node_embedding_state s LEFT JOIN intel_embeddings e ON e.chunk_id=s.chunk_id LEFT JOIN intel_chunks c ON c.chunk_id=e.chunk_id LEFT JOIN intel_embeddings_vec_d8 v ON v.chunk_id=c.id`,
 		"chunk-vectors":    `SELECT c.owner_type, c.owner_id, c.granularity, c.content_hash, hex(v.embedding) FROM intel_chunks c LEFT JOIN intel_embeddings_vec_d8 v ON v.chunk_id=c.id`,
+		"chunks":           `SELECT chunk_id, owner_id, owner_type, chunk_family, ord, granularity, breadcrumb, heading, content_hash, start_byte, end_byte FROM intel_chunks`,
+		"code-embeddings":  `SELECT a.anchor_id, i.fingerprint, c.chunk_index, c.granularity, c.breadcrumb, c.heading, c.start_byte, c.end_byte, c.start_line, c.end_line, c.content_hash, c.dimensions, hex(c.embedding) FROM code_items i JOIN intel_code_anchors a ON a.id=i.anchor_row_id LEFT JOIN code_chunk_embeddings c ON c.item_row_id=i.id`,
+		"note-embeddings":  `SELECT n.note_id, n.path, n.title, c.chunk_index, c.breadcrumb, c.heading, c.content_hash, c.dimensions, hex(c.embedding) FROM emb_notes n LEFT JOIN emb_chunk_embeddings c ON c.note_row_id=n.id`,
+		"graph-doc-scores": `SELECT doc_path, doc_type, round(hub, 12), round(authority, 12), community, inbound, outbound FROM graph_doc_scores`,
+		"graph-anchors":    `SELECT anchor_id, round(pagerank, 12) FROM graph_anchor_scores`,
+		"scope":            `SELECT value FROM index_metadata WHERE key='scope_config_hash'`,
 	}
 	snapshot := make(map[string][]string)
 	for name, query := range queries {

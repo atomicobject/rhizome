@@ -47,7 +47,7 @@ func runUnifiedPostIndex(
 ) error {
 
 	// Graph scores (HITS + label propagation) derived from intel tables.
-	// Only rebuild when notes actually changed (including deletes) to avoid expensive recomputation on no-op runs.
+	// Structural changes and recovery require new scores; no-op runs keep them.
 	noteChanged := len(noteResult.ChangedPaths) > 0 || noteResult.Deleted > 0
 	progress.AdvanceTo("Computing graph", ontologyEnd)
 	if noteChanged || total.Indexed > 0 || opts.ForceGraph {

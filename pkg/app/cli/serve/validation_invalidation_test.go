@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
+	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
 	"github.com/atomicobject/rhizome/pkg/app/validationproduct"
 	"github.com/atomicobject/rhizome/pkg/app/web"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
@@ -80,7 +81,7 @@ func TestValidationRequestsRecoverAfterFailedReconcile(t *testing.T) {
 
 func TestBackgroundValidationAdmissionPrecedesIndexWork(t *testing.T) {
 	indexStarted, finishIndex := make(chan struct{}), make(chan struct{})
-	c := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, obsidian.VaultDefinition, bool) error {
+	c := NewReadinessCoordinator(func(context.Context, *indexlock.Lease, notemeta.Indexer, string, runtimeview.Snapshot, bool) error {
 		close(indexStarted)
 		<-finishIndex
 		return nil
