@@ -210,7 +210,9 @@ func (h *jobHandle) fanOutLocked(event Event) {
 	}
 }
 
-func (h *jobHandle) finish(err error) {
+func (h *jobHandle) finish(err error) { h.finishWithClock(err, time.Now) }
+
+func (h *jobHandle) finishWithClock(err error, now func() time.Time) {
 	h.mu.Lock()
 	if h.finished || h.finishing {
 		h.mu.Unlock()
@@ -236,7 +238,7 @@ func (h *jobHandle) finish(err error) {
 	if h.summaryFn != nil {
 		summary = h.summaryFn(h.diagnosticCtx)
 	}
-	h.publishDiagnostics(err)
+	h.publishDiagnostics(err, now())
 	h.mu.Lock()
 	if h.summaryFn != nil {
 		h.summary = summary

@@ -1,11 +1,13 @@
 package runtime
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -88,6 +90,44 @@ func TestRequestShutdownWaitsForTheRuntimeToRelease(t *testing.T) {
 	fake := startFakeRuntime(t, vault, ModeHeadless, "build-a")
 	require.NoError(t, RequestShutdown(t.Context(), fake.client(), 5*time.Second))
 	_, _, err := LiveManifest(t.Context(), vault)
+	require.ErrorIs(t, err, ErrNoRuntime)
+}
+
+func TestRequestShutdownReturnsOnlyAfterTheRuntimeFinishedCleaningUp(t *testing.T) {
+	vault := newTestVault(t)
+	fake := startFakeRuntime(t, vault, ModeHeadless, "build-a")
+	gate := make(chan struct{})
+	started := make(chan struct{})
+	fake.cleanupStarted = started
+	fake.cleanupGate = gate
+	release := sync.OnceFunc(func() { close(gate) })
+	t.Cleanup(release)
+
+	shutdown := make(chan error, 1)
+	go func() { shutdown <- RequestShutdown(context.Background(), fake.client(), 5*time.Second) }()
+	select {
+	case <-started:
+	case err := <-shutdown:
+		t.Fatalf("RequestShutdown returned before cleanup started: %v", err)
+	}
+	_, err := ReadManifest(vault)
+	require.True(t, os.IsNotExist(err), "the manifest is removed before the listener signals exit: %v", err)
+	joined := make(chan struct{})
+	go func() { fake.stop(); close(joined) }()
+
+	select {
+	case err := <-shutdown:
+		t.Fatalf("RequestShutdown returned while the runtime was still cleaning up: %v", err)
+	case <-joined:
+		t.Fatal("a concurrent stop returned while the first caller's cleanup was still in flight")
+	case <-time.After(5 * exitPoll):
+	}
+	release()
+	require.NoError(t, <-shutdown)
+	_, err = ReadManifest(vault)
+	require.True(t, os.IsNotExist(err), "the manifest is gone once RequestShutdown returns: %v", err)
+	<-joined
+	_, _, err = LiveManifest(t.Context(), vault)
 	require.ErrorIs(t, err, ErrNoRuntime)
 }
 

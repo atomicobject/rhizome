@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -44,12 +45,15 @@ func newTestVault(t *testing.T) string {
 // fakeRuntime is an in-process stand-in for a live runtime: a real listener, a
 // real manifest, and a health answer that matches it.
 type fakeRuntime struct {
-	server   *httptest.Server
-	manifest InstanceManifest
-	health   Health
-	probes   atomic.Int64
-	posts    atomic.Int64
-	stopped  atomic.Bool
+	server         *httptest.Server
+	vaultPath      string
+	manifest       InstanceManifest
+	health         Health
+	probes         atomic.Int64
+	posts          atomic.Int64
+	stopOnce       sync.Once
+	cleanupStarted chan struct{}
+	cleanupGate    <-chan struct{}
 	// hijackPosts drops this many leading index-job connections without
 	// answering, standing in for a runtime that idle-exits between probe and
 	// request.
@@ -63,7 +67,7 @@ type fakeRuntime struct {
 
 func startFakeRuntime(t *testing.T, vaultPath string, mode Mode, buildID string) *fakeRuntime {
 	t.Helper()
-	fake := &fakeRuntime{}
+	fake := &fakeRuntime{vaultPath: vaultPath}
 	mux := http.NewServeMux()
 	mux.HandleFunc(HealthPath, func(w http.ResponseWriter, r *http.Request) {
 		fake.probes.Add(1)
@@ -79,7 +83,7 @@ func startFakeRuntime(t *testing.T, vaultPath string, mode Mode, buildID string)
 	})
 	mux.HandleFunc(ShutdownPath, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
-		go fake.stop(vaultPath)
+		go fake.stop()
 	})
 	mux.HandleFunc(IndexJobsPath, func(w http.ResponseWriter, r *http.Request) {
 		if fake.posts.Add(1) <= fake.hijackPosts {
@@ -93,7 +97,7 @@ func startFakeRuntime(t *testing.T, vaultPath string, mode Mode, buildID string)
 		writeTestJSON(w, IndexJobResponse{JobID: "job-1"})
 	})
 	fake.server = httptest.NewServer(mux)
-	t.Cleanup(func() { fake.stop(vaultPath) })
+	t.Cleanup(fake.stop)
 
 	host, port := splitTestAddr(t, fake.server.Listener.Addr().String())
 	fake.manifest = InstanceManifest{
@@ -124,12 +128,18 @@ func startFakeRuntime(t *testing.T, vaultPath string, mode Mode, buildID string)
 	return fake
 }
 
-func (f *fakeRuntime) stop(vaultPath string) {
-	if f.stopped.Swap(true) {
-		return
-	}
-	f.server.Close()
-	_ = RemoveManifestIfOwner(vaultPath, f.manifest.PID)
+// The fake has no election lock, so its listener is WaitForExit's exit signal.
+func (f *fakeRuntime) stop() {
+	f.stopOnce.Do(func() {
+		_ = RemoveManifestIfOwner(f.vaultPath, f.manifest.PID)
+		if f.cleanupStarted != nil {
+			close(f.cleanupStarted)
+		}
+		if f.cleanupGate != nil {
+			<-f.cleanupGate
+		}
+		f.server.Close()
+	})
 }
 
 func (f *fakeRuntime) client() *Client {
