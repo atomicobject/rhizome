@@ -10,9 +10,9 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
 	appserve "github.com/atomicobject/rhizome/pkg/app/cli/serve"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
+	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
 	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
-	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/spf13/cobra"
 )
 
@@ -64,8 +64,8 @@ func (commandOptions *vaultCommandOptions) newServeCommand(use, short string, de
 				OpenBrowser:         func(url string) error { return openBrowserCmd(url) },
 				Stderr:              cmd.ErrOrStderr(),
 				FinalizeDiagnostics: diagnosticCommandFinalizer(cmd.Context()),
-				BackgroundIndexer: func(ctx context.Context, lease *indexlock.Lease, noteMetadata notemeta.Indexer, vaultPath string, vaultDef obsidian.VaultDefinition, dbg bool) error {
-					return runBackgroundIndex(ctx, lease, noteMetadata, vaultPath, vaultDef, dbg, "serve")
+				BackgroundIndexer: func(ctx context.Context, lease *indexlock.Lease, noteMetadata notemeta.Indexer, vaultPath string, snapshot runtimeview.Snapshot, dbg bool) error {
+					return runBackgroundIndex(ctx, lease, noteMetadata, vaultPath, snapshot, dbg, "serve")
 				},
 				RegisterHooks: func(hooks *appserve.ControlHooks, rt *bootstrap.LiveRuntime) {
 					commandOptions.registerIndexJobHooks(hooks, rt)

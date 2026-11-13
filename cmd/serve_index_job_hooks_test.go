@@ -11,9 +11,83 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
 	appserve "github.com/atomicobject/rhizome/pkg/app/cli/serve"
+	"github.com/atomicobject/rhizome/pkg/app/runtimeview"
+	"github.com/atomicobject/rhizome/pkg/notemeta"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
+	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
 	"github.com/stretchr/testify/require"
 )
+
+func TestBootCatchUpUsesAppliedSelectionAndPreservesPendingConfiguration(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rhizome"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "public.md"), []byte("# Public\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "private.md"), []byte("# Private\n"), 0o600))
+	configPath := filepath.Join(root, ".rhizome/config.yml")
+	config := "notes:\n  includes: [\"*.md\"]\nnoteEmbeddings: {enabled: false}\ncodeEmbeddings: {enabled: false}\n"
+	require.NoError(t, os.WriteFile(configPath, []byte(config), 0o600))
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	rt, err := bootstrap.NewLiveRuntime(ctx, bootstrap.LiveOptions{
+		VaultName: root, DisableWatchHub: true, DisableSessionStore: true,
+	})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, rt.Close()) }()
+	require.NoError(t, rt.WaitForSearch(ctx))
+	require.NoError(t, rt.WaitForCodeIndex(ctx))
+	settle := func(want []string) {
+		t.Helper()
+		require.Eventually(t, func() bool {
+			paths, err := rt.IntelStore().NotePaths(ctx)
+			sort.Strings(paths)
+			last := rt.LiveHealth().LastCompletedEpoch
+			return err == nil && slices.Equal(paths, want) && last != nil && last.Status == "completed" && !rt.Lane().Status().Busy
+		}, 10*time.Second, 10*time.Millisecond)
+	}
+	settle([]string{"private.md", "public.md"})
+	startup := rt.Snapshot()
+	var catchUpPaths []string
+	coordinator := appserve.NewReadinessCoordinator(func(ctx context.Context, lease *indexlock.Lease, noteMetadata notemeta.Indexer, vaultPath string, snapshot runtimeview.Snapshot, debug bool) error {
+		if err := runBackgroundIndex(ctx, lease, noteMetadata, vaultPath, snapshot, debug, "test"); err != nil {
+			return err
+		}
+		paths, err := rt.IntelStore().NotePaths(ctx)
+		catchUpPaths = paths
+		return err
+	})
+	defer func() {
+		cancel()
+		coordinator.Drain()
+	}()
+	done := make(chan error, 1)
+	go func() {
+		done <- coordinator.BackgroundIndexer(ctx, rt.NoteMetadataIndexer(), root, startup.VaultDefinition, false)
+	}()
+
+	excluded := "notes:\n  includes: [\"*.md\"]\n  excludes: [private.md]\nnoteEmbeddings: {enabled: false}\ncodeEmbeddings: {enabled: false}\n"
+	require.NoError(t, os.WriteFile(configPath, []byte(excluded), 0o600))
+	rt.Cache().MarkDirty(".rhizome/config.yml", cache.DirtyModified)
+	settle([]string{"public.md"})
+	applied := rt.Snapshot()
+	require.Equal(t, []string{"private.md"}, applied.VaultDefinition.Excludes)
+	pending := "# Unapplied edit\n" + config
+	require.NoError(t, os.WriteFile(configPath, []byte(pending), 0o600))
+	coordinator.BindLive(ctx, rt)
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	require.Equal(t, []string{"public.md"}, catchUpPaths, "catch-up must preserve the selection before validation refreshes it")
+	stored, present, err := rt.IntelStore().GetScopeConfigHash(ctx)
+	require.NoError(t, err)
+	require.True(t, present)
+	require.Equal(t, applied.Configuration.Local.ScopeConfigHash(), stored)
+	disk, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	require.Equal(t, pending, string(disk))
+}
 
 func TestExplicitIndexUsesAppliedSelectionAndPreservesPendingConfiguration(t *testing.T) {
 	for _, addExclude := range []bool{true, false} {
