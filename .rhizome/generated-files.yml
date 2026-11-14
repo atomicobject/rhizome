@@ -27,8 +27,8 @@ written:
   .agents/skills/compounding/references/models.md: ba80e96ccd08f5db
   .agents/skills/custom-views/SKILL.md: 026a97a6554d1198
   .agents/skills/custom-views/references/example.md: 6c1e54b739c646b9
-  .agents/skills/custom-views/references/experiences.md: 65bd2513a15f3754
-  .agents/skills/custom-views/references/kit-api.md: 4d38d9619bc905e2
+  .agents/skills/custom-views/references/experiences.md: 9c649c7ec2bb5b0b
+  .agents/skills/custom-views/references/kit-api.md: 8d62f9621602b57b
   .agents/skills/custom-views/references/module-example.md: 0bcc51feb1c7416c
   .agents/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
   .agents/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
@@ -83,8 +83,8 @@ written:
   .claude/skills/compounding/references/models.md: ba80e96ccd08f5db
   .claude/skills/custom-views/SKILL.md: 026a97a6554d1198
   .claude/skills/custom-views/references/example.md: 6c1e54b739c646b9
-  .claude/skills/custom-views/references/experiences.md: 65bd2513a15f3754
-  .claude/skills/custom-views/references/kit-api.md: 4d38d9619bc905e2
+  .claude/skills/custom-views/references/experiences.md: 9c649c7ec2bb5b0b
+  .claude/skills/custom-views/references/kit-api.md: 8d62f9621602b57b
   .claude/skills/custom-views/references/module-example.md: 0bcc51feb1c7416c
   .claude/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
   .claude/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
@@ -121,7 +121,7 @@ written:
   .rhizome/modules/agentic-engineering/recipes/spec-driven.yaml: abaa87c1fde45376
   .rhizome/modules/agentic-engineering/views/delivery/README.md: 35530cdcc6a25489
   .rhizome/modules/agentic-engineering/views/delivery/data.tsx: 71512c444128e202
-  .rhizome/modules/agentic-engineering/views/delivery/delivery.css: 43e6cac061d7156c
+  .rhizome/modules/agentic-engineering/views/delivery/delivery.css: 9233863c8f6362dd
   .rhizome/modules/agentic-engineering/views/delivery/effort-note.yaml: 6f8ba81b367e6642
   .rhizome/modules/agentic-engineering/views/delivery/effort-workspace.yaml: b2925723a67ab90e
   .rhizome/modules/agentic-engineering/views/delivery/effort.tsx: f21e6001a451f4d3
