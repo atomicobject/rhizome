@@ -1204,7 +1204,7 @@ export function App() {
               className="icon-button"
               aria-label={paneCollapsed ? "Show right pane" : "Hide right pane"}
               aria-pressed={paneCollapsed === false}
-              title={`Show right pane (]) · Chat (${isMacOS() ? "⌥⌘B" : "Ctrl+Alt+B"})`}
+              title={`${paneCollapsed ? "Show" : "Hide"} right pane (]) · Chat (${isMacOS() ? "⌥⌘B" : "Ctrl+Alt+B"})`}
               disabled={paneCollapsed === undefined}
               onClick={() => pageCommand({ command: "pane" })}
             >

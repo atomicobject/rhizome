@@ -217,7 +217,7 @@ describe("desktop shell", () => {
       searchHint: "⌘K",
       reloadTitle: "Reload (⌘R)",
       sidebarTitle: "Hide sidebar (⌘B or ⌘\\)",
-      paneTitle: "Show right pane (]) · Chat (⌥⌘B)",
+      paneTitle: "Hide right pane (]) · Chat (⌥⌘B)",
     },
     {
       macOS: false,
@@ -229,7 +229,7 @@ describe("desktop shell", () => {
       searchHint: "Ctrl+K",
       reloadTitle: "Reload (Ctrl+R)",
       sidebarTitle: "Hide sidebar (Ctrl+B or Ctrl+\\)",
-      paneTitle: "Show right pane (]) · Chat (Ctrl+Alt+B)",
+      paneTitle: "Hide right pane (]) · Chat (Ctrl+Alt+B)",
     },
   ])("shows native shortcut hints when macOS is $macOS", async (expected) => {
     window.__RHIZOME_MACOS__ = expected.macOS;
