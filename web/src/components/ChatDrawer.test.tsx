@@ -272,8 +272,11 @@ describe("the page text the agent reads", () => {
 
     root.innerHTML = `
       <div class="app-shell__main">
-        <section>Backlink Decision</section>
-        <section hidden>Another open tab<iframe></iframe></section>
+        <div style="display: contents">
+          <section>Backlink Decision</section>
+          <section hidden>Another open tab<iframe></iframe></section>
+          <section style="visibility: hidden">A retained view</section>
+        </div>
         <aside data-right-pane>Chat about it</aside>
       </div>`;
 

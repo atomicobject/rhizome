@@ -17,21 +17,28 @@ const rendered = (element: HTMLElement): string =>
 // tabs, retained panels, and inactive sections are skipped before reading.
 function shown(element: Element): boolean {
   // jsdom has no layout, and so no checkVisibility.
-  if (!("checkVisibility" in Element.prototype)) return !element.closest("[hidden]");
+  if (!("checkVisibility" in Element.prototype))
+    return !element.closest("[hidden]") && getComputedStyle(element).visibility !== "hidden";
 
-  return element.checkVisibility();
+  return element.checkVisibility({ visibilityProperty: true });
 }
+
+// A display: contents element has no box: it reads as not shown and its
+// innerText is its raw text, so its children are read one by one instead.
+const boxless = (element: Element) => getComputedStyle(element).display === "contents";
 
 // The rendered text of an element, leaving out the right pane (the chat
 // itself) wherever it sits inside.
 function textWithoutPane(element: HTMLElement): string {
   if (element.matches("[data-right-pane]")) return "";
 
-  if (!element.querySelector("[data-right-pane]")) return rendered(element);
+  if (!boxless(element) && !element.querySelector("[data-right-pane]")) return rendered(element);
 
   return [...element.children]
     .flatMap((child) =>
-      child instanceof HTMLElement && shown(child) ? [textWithoutPane(child)] : [],
+      child instanceof HTMLElement && (boxless(child) || shown(child))
+        ? [textWithoutPane(child)]
+        : [],
     )
     .filter(Boolean)
     .join("\n");
