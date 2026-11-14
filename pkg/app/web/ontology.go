@@ -485,13 +485,15 @@ func (s *Server) ontologyAtlas(ctx context.Context) (OntologyAtlasResponse, erro
 
 // Pseudo-type sentinels accepted by ontologyType. They produce synthetic views
 // across all notes rather than a single schema-defined type: "__all__" shows
-// every indexed note, "__issues__" shows only notes with validation issues.
+// every indexed note, "__issues__" shows only notes with validation issues,
+// and "__untyped__" shows notes without a note type or with an ambiguous one.
 // "__modified__" is surfaced in the ontology workspace rail while an edit
 // session has uncommitted changes; its content is fetched separately via the
 // session diff endpoint rather than through ontologyType.
 const (
-	pseudoTypeAll    = "__all__"
-	pseudoTypeIssues = "__issues__"
+	pseudoTypeAll     = "__all__"
+	pseudoTypeIssues  = "__issues__"
+	pseudoTypeUntyped = "__untyped__"
 )
 
 // ontologyType lists a type's instances; a non-nil overlay reflects an edit session.
@@ -610,7 +612,7 @@ func (s *Server) enrichOntologyType(ctx context.Context, typeName string, schema
 		IssueCount: issueCount,
 		Notes:      items,
 	}
-	if result.TypeDoc != nil && typeName != pseudoTypeAll && typeName != pseudoTypeIssues {
+	if result.TypeDoc != nil && typeName != pseudoTypeAll && typeName != pseudoTypeIssues && typeName != pseudoTypeUntyped {
 		if schema != nil {
 			if text, err := schemadoc.RenderGuideMarkdown(schema, schemadoc.GuideOptions{Types: []string{typeName}, ResolveCompanion: s.ontologyCompanionResolver()}); err == nil {
 				resp.AuthoringGuide = text
@@ -650,7 +652,7 @@ func (s *Server) ontologyTypeInstances(ctx context.Context, typeName string, ove
 	if err != nil {
 		return nil, nil, ontology.TypeListResult{}, err
 	}
-	if result.TypeDoc == nil && typeName != pseudoTypeAll && typeName != pseudoTypeIssues {
+	if result.TypeDoc == nil && typeName != pseudoTypeAll && typeName != pseudoTypeIssues && typeName != pseudoTypeUntyped {
 		return nil, nil, ontology.TypeListResult{}, fmt.Errorf("unknown ontology type %q", typeName)
 	}
 	return schema, nodeScope, result, nil

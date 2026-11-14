@@ -18,6 +18,13 @@ export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
 /** The folder filter for notes at the vault root, which sit in no folder. */
 export const ROOT_FOLDER = "/";
 
+/** The note type filter for notes without a note type, or with an ambiguous one. */
+export const UNTYPED_NOTES = "__untyped__";
+
+/** Whether a search without a query lists anything: it lists a folder's notes or the untyped notes. */
+export const listsNotes = (filters: SearchFilters) =>
+  Boolean(filters.folder) || filters.noteType === UNTYPED_NOTES;
+
 /** A folder filter without surrounding slashes; slashes alone name the vault root. */
 function normalizeFolder(folder: string | null | undefined) {
   const trimmed = folder?.trim();
@@ -58,8 +65,12 @@ export function searchTabIdentity(query: string, filters?: Partial<SearchFilters
   return `search:${encodeURIComponent(JSON.stringify([normalizedQuery, effective]))}`;
 }
 
-export function searchTabLabel(query: string, folder?: string | null): string {
-  return normalizeSearchQuery(query) || (folder ? folderLabel(folder) : "Search");
+export function searchTabLabel(query: string, filters?: Partial<SearchFilters>): string {
+  if (normalizeSearchQuery(query)) return normalizeSearchQuery(query);
+
+  if (filters?.noteType === UNTYPED_NOTES) return "Untyped notes";
+
+  return filters?.folder ? folderLabel(filters.folder) : "Search";
 }
 
 export function useSearchScrollRestoration(tab: SearchTab, active: boolean, ready: boolean) {

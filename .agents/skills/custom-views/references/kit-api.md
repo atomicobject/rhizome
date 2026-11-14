@@ -40,7 +40,7 @@ Import narrative rendering and task parsing from `@rhizome/kit/markdown`. This o
 | `customViewHref(id, context, { params? })` | A contextual `/views/<id>` URL for embedded/direct launch parity. |
 | `useViewParams()` / `getViewParams()` / `subscribeViewParams(listener)` / `setViewParams(patch)` | Read and change the view's declared URL params. See [View params](#view-params). |
 | `useActionQuery(id, input?, options?)` / `useActionCommand(id)` / `ActionError` | Run a module action. See [Module actions](#module-actions). |
-| `openCollection(name)` | Open a type or interface collection in the workspace. |
+| `openCollection(name)` | Open a type or interface collection in the workspace. `"__untyped__"` lists the notes without a note type, or with an ambiguous one. |
 | `openSearch({ folder?, query? })` | Open a project search tab, ranking matches when `query` is set. `folder` filters it to a vault folder, listing the folder's notes without a query; `folder: "/"` lists the notes at the vault root, which sit in no folder. Without `folder` the search covers the whole vault. |
 | `openIssues(scope?)` | Open the issues panel, optionally scoped to `{ kind: "type" \| "interface" \| "note", key }`. Without a scope, a view presenting a note opens that note's issues; a view anywhere else, or a standalone page, opens every issue. |
 | `usePageNavigation()` | `{ openNode, openView, openNote, openIssues, openCollection, openSearch, setViewParams }` bound to the page this component renders in. In an experience a hidden page's late call, such as a debounced param change after a tab switch, still names its own page; the imperative exports act for the page on screen. |

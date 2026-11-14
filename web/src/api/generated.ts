@@ -3789,6 +3789,7 @@ export interface operations {
       };
       header?: never;
       path: {
+        /** @description A type or interface name, or a pseudo type. __all__ lists every note, __issues__ notes with validation issues, and __untyped__ notes without a note type or with an ambiguous one. */
         name: string;
       };
       cookie?: never;
