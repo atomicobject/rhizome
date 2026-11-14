@@ -30,19 +30,12 @@ import { clampWidth, type PanelRange } from "./shellPanes";
 
 export const PANEL_HEIGHT_RANGE: PanelRange = { min: 120, max: 640, initial: 280 };
 
-/** The Folder panel's identity, in place of an experience's. */
-export const FOLDER_PANEL_IDENTITY = "builtin:folder";
-
 /**
- * The identity a panel's split height and minimised state are kept under: its
- * experience, or the built-in Folder, never its subject or view ID.
+ * The identity a custom panel's split height and minimised state are kept
+ * under: its experience, never its subject or view ID.
  */
 export function panelIdentity(panel: ViewPanel): string | null {
-  return panel.kind === "view"
-    ? `experience:${panel.experienceKey}`
-    : panel.kind === "folder"
-      ? FOLDER_PANEL_IDENTITY
-      : null;
+  return panel.kind === "view" ? `experience:${panel.experienceKey}` : null;
 }
 
 /**
@@ -65,14 +58,10 @@ const isBoolean = (value: unknown): value is boolean => typeof value === "boolea
 
 const MINIMISED = { defaultValue: false, validate: isBoolean };
 
-const MINIMISED_BY_DEFAULT = { defaultValue: true, validate: isBoolean };
-
 export type SidebarPanel = {
   /** From `panelIdentity`. */
   identity: string;
   title: string;
-  /** Folder starts minimised in each vault until someone opens it. */
-  minimisedByDefault?: boolean;
   /** The ID of the panel's frame, which lives outside the region so it never reloads. */
   owns?: string;
 };
@@ -130,12 +119,7 @@ export function SidebarPanelSlot({
   const key = panel ? vaultKey : null;
   const height = useScopedViewPreference(scope, key, "height", HEIGHT);
 
-  const minimised = useScopedViewPreference(
-    scope,
-    key,
-    "minimised",
-    panel?.minimisedByDefault ? MINIMISED_BY_DEFAULT : MINIMISED,
-  );
+  const minimised = useScopedViewPreference(scope, key, "minimised", MINIMISED);
 
   const navRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);

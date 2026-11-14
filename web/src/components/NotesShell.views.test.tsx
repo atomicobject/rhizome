@@ -105,6 +105,13 @@ describe("NotesShell configured views", () => {
     window.history.replaceState({}, "", "/notes");
     window.localStorage.clear();
     window.sessionStorage.clear();
+    // The sidebar's Files panel reads the folder graph.
+    http.json("GET", "/api/v1/graphs/folders", {
+      files: [],
+      links: [],
+      nestedTypes: [],
+      truncated: false,
+    });
   });
 
   it("opens a standalone configured view in place of Home", async () => {

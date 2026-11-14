@@ -9,7 +9,7 @@ import type {
 import type { ActivePanel } from "./activePanel";
 import { panelFrameId } from "./ExperienceFrameLayer";
 import type { ExperienceFrames } from "./experienceFrames";
-import { FolderPanel } from "./FolderPanel";
+import { FILES_PANEL_IDENTITY, FilesPanel } from "./FilesPanel";
 import { DiagnosticRegion } from "../diagnostics/DiagnosticRegion";
 import { PANEL_SLOT_REGION } from "../diagnostics/clientMetrics";
 import { panelIdentity, type SidebarPanel, SidebarPanelSlot } from "./SidebarPanelSlot";
@@ -29,6 +29,8 @@ import { validationHealth } from "./validation/validationPresentation";
 import { groupStandaloneViews } from "./viewCatalog";
 
 const EXPANDED_KEY = "rhizome:notes:left-rail:expanded:v1";
+
+const FILES_PANEL: SidebarPanel = { identity: FILES_PANEL_IDENTITY, title: "Files" };
 
 export type NotesLeftRailProps = {
   active?: boolean;
@@ -50,7 +52,7 @@ export type NotesLeftRailProps = {
   vaultKey?: string | null;
   /** The active tab's sidebar panel and the context it is invoked with (SPEC-0136 R6); null while unknown. */
   activePanel?: ActivePanel | null;
-  /** The window's experience frames, which a custom panel's frame joins; without them only Folder shows. */
+  /** The window's experience frames, which a custom panel's frame joins; without them only Files shows. */
   frames?: ExperienceFrames;
   /** What a custom panel's page may ask the workspace to do. */
   panelServices?: PanelServices;
@@ -88,8 +90,7 @@ export const NotesLeftRail = memo(function NotesLeftRail({
   const panel = shown?.panel;
   const context = shown?.context;
 
-  const folderNote =
-    panel?.kind === "folder" && context?.kind === "node" ? context.ref.notePath : null;
+  const currentNote = context?.kind === "node" ? (context.ref.notePath ?? null) : null;
 
   const panelView =
     panel?.kind === "view" ? catalog.find((view) => view.id === panel.viewId) : undefined;
@@ -97,15 +98,13 @@ export const NotesLeftRail = memo(function NotesLeftRail({
   const hostsView = panelView !== undefined && frames !== undefined && panelServices !== undefined;
 
   const slotPanel: SidebarPanel | null =
-    folderNote !== null && panel
-      ? { identity: panelIdentity(panel) ?? "", title: "Folder", minimisedByDefault: true }
-      : hostsView && panel
-        ? {
-            identity: panelIdentity(panel) ?? "",
-            title: panelView.name,
-            owns: panel.kind === "view" ? panelFrameId(panel.experienceKey) : undefined,
-          }
-        : null;
+    hostsView && panel
+      ? {
+          identity: panelIdentity(panel) ?? "",
+          title: panelView.name,
+          owns: panel.kind === "view" ? panelFrameId(panel.experienceKey) : undefined,
+        }
+      : null;
 
   const standaloneGroups = useMemo(() => groupStandaloneViews(catalog), [catalog]);
 
@@ -269,23 +268,30 @@ export const NotesLeftRail = memo(function NotesLeftRail({
   return (
     <aside className="notes-left-rail" aria-label="Notes navigation">
       <DiagnosticRegion name={PANEL_SLOT_REGION}>
-        <SidebarPanelSlot vaultKey={vaultKey} panel={slotPanel} navigation={navigation}>
-          {folderNote !== null ? (
-            <FolderPanel
-              notePath={folderNote}
-              active={active}
-              onOpenNote={panelServices && ((path) => panelServices.onOpenNote(path, "activate"))}
-            />
-          ) : hostsView && panel?.kind === "view" && context ? (
-            <SidebarPanelView
-              frames={frames}
-              view={panelView}
-              experienceKey={panel.experienceKey}
-              context={context}
-              services={panelServices}
-              active={active}
-            />
-          ) : null}
+        {/* Files stays docked at the bottom; a custom panel sits above it. */}
+        <SidebarPanelSlot
+          vaultKey={vaultKey}
+          panel={FILES_PANEL}
+          navigation={
+            <SidebarPanelSlot vaultKey={vaultKey} panel={slotPanel} navigation={navigation}>
+              {hostsView && panel?.kind === "view" && context ? (
+                <SidebarPanelView
+                  frames={frames}
+                  view={panelView}
+                  experienceKey={panel.experienceKey}
+                  context={context}
+                  services={panelServices}
+                  active={active}
+                />
+              ) : null}
+            </SidebarPanelSlot>
+          }
+        >
+          <FilesPanel
+            notePath={currentNote}
+            active={active}
+            onOpenNote={panelServices && ((path) => panelServices.onOpenNote(path, "activate"))}
+          />
         </SidebarPanelSlot>
       </DiagnosticRegion>
       {frames ? <SidebarPanelFrames frames={frames} /> : null}
