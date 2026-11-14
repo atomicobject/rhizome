@@ -55,7 +55,8 @@ describe("table column overflow", () => {
       expect(screen.getAllByText(/fields? in Record/)[0]).toBeVisible();
       expect(screen.getByText(/ID shows in the Record pane/)).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: "Open Alpha Spec" }));
+      const alphaRow = screen.getByRole("button", { name: "Open Alpha Spec" }).closest("tr")!;
+      fireEvent.click(alphaRow.cells[alphaRow.cells.length - 1]);
       const record = screen.getByRole("article", { name: "Selected record Alpha Spec" });
       expect(within(record).getByText("ID")).toBeVisible();
     });

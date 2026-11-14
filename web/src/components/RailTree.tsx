@@ -119,7 +119,14 @@ function moveRailFocus(event: KeyboardEvent<HTMLElement>) {
   if (!(target instanceof HTMLElement) || !target.matches(ROW)) return;
   const rows = [...event.currentTarget.querySelectorAll<HTMLElement>(`${ROW}:not(:disabled)`)];
   const index = rows.indexOf(target);
-  const caret = target.parentElement?.querySelector<HTMLButtonElement>(":scope > [aria-expanded]");
+
+  // A row inside a wrapper toggles through the wrapper's caret; a flat rail's
+  // parent is the rail itself, whose first caret belongs to another row.
+  const caret =
+    target.parentElement === event.currentTarget
+      ? null
+      : target.parentElement?.querySelector<HTMLButtonElement>(":scope > [aria-expanded]");
+
   const expanded = (caret ?? target).getAttribute("aria-expanded");
 
   const next =

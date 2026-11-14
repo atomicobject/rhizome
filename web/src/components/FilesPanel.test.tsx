@@ -103,6 +103,27 @@ describe("the Files panel", () => {
     expect(await screen.findByRole("button", { name: "plan.html" })).toBeVisible();
   });
 
+  it("toggles the focused folder with the arrow keys, and never a folder from a note", async () => {
+    render(<FilesPanel notePath={null} />);
+    const tree = await screen.findByRole("navigation", { name: "Files" });
+    const docs = within(tree).getByRole("button", { name: "docs" });
+    fireEvent.click(docs);
+    const efforts = within(tree).getByRole("button", { name: "efforts" });
+    const specs = within(tree).getByRole("button", { name: "specs" });
+
+    fireEvent.keyDown(specs, { key: "ArrowRight" });
+    expect(specs).toHaveAttribute("aria-expanded", "true");
+    expect(efforts).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.keyDown(within(tree).getByRole("button", { name: "readme.md" }), {
+      key: "ArrowLeft",
+    });
+    expect(docs).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.keyDown(specs, { key: "ArrowLeft" });
+    expect(specs).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("opens a note in Notes by URL, keeping the page under it, without a workspace handler", async () => {
     render(<FilesPanel notePath={null} />);
     fireEvent.click(await screen.findByRole("button", { name: "readme.md" }));

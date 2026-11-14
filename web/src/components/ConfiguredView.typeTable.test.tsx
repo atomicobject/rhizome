@@ -119,14 +119,18 @@ describe("type collection table rows", () => {
     const title = screen.getByRole("button", { name: "Open Alpha Spec" });
     const alpha = expect.objectContaining({ title: "Alpha Spec" });
 
-    // The rest of the row selects it into the rail without opening it.
-    fireEvent.click(title.closest("tr")!.cells[3]);
-    expect(onOpenRow).not.toHaveBeenCalled();
-    expect(within(rail).getByRole("article", { name: "Selected record Alpha Spec" })).toBeVisible();
-
-    // The title is a link: a click opens the note, Cmd-click beside, Enter too.
+    // The title is a link: a click opens the note without selecting the row.
+    fireEvent.mouseDown(title);
     fireEvent.click(title);
     expect(onOpenRow).toHaveBeenLastCalledWith(alpha, "activate");
+    expect(within(rail).queryByRole("article", { name: "Selected record Alpha Spec" })).toBeNull();
+
+    // The rest of the row selects it into the rail without opening it.
+    fireEvent.click(title.closest("tr")!.cells[3]);
+    expect(onOpenRow).toHaveBeenCalledTimes(1);
+    expect(within(rail).getByRole("article", { name: "Selected record Alpha Spec" })).toBeVisible();
+
+    // Cmd-click opens beside, and Enter opens too.
     fireEvent.click(title, { metaKey: true });
     expect(onOpenRow).toHaveBeenLastCalledWith(alpha, "beside");
     fireEvent.keyDown(title, { key: "Enter" });

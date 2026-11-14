@@ -378,6 +378,7 @@ export function ScalarEditableCell({
           previewTrigger.close();
           setEditing(true);
         }}
+        onMouseDown={onOpenRow ? gestures.onMouseDown : undefined}
         onClick={(event) => (onOpenRow ? gestures.onClick(event) : setEditing(true))}
         onKeyDown={(event) => {
           if (onOpenRow) previewTriggerProps.onKeyDown?.(event);
