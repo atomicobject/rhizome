@@ -31,13 +31,15 @@
   color: var(--chrome-muted);
 }
 
-/* Split keeps at least 96px of navigation above the panel. */
-.sidebar-panel-slot.is-split .sidebar-panel {
+/* Split keeps at least 96px of navigation above the panel. A slot nests in
+   another's navigation (Files below a custom panel), so these rules reach
+   only the slot's own panel. */
+.sidebar-panel-slot.is-split > .sidebar-panel {
   height: var(--panel-height);
   max-height: calc(100% - 96px);
 }
 
-.sidebar-panel-slot.is-cover .sidebar-panel {
+.sidebar-panel-slot.is-cover > .sidebar-panel {
   flex: 1;
   border-top: 0;
 }
@@ -144,28 +146,29 @@
   background: var(--chrome-link);
 }
 
-/* ---- Folder: the active note's folder, its ancestors, and its notes ---- */
+/* ---- Files: the vault's folders and notes as an expandable tree ---- */
 
-.folder-panel {
+.files-panel {
   display: flex;
   flex-direction: column;
   gap: 1px;
   padding: 0 8px;
 }
 
-.folder-panel__state {
+.files-panel__state {
   margin: 4px 10px;
   color: var(--chrome-muted);
   font-size: var(--fs-sm);
 }
 
-.folder-panel__row {
+.files-panel__row {
   display: flex;
+  flex: none;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  height: 30px;
-  padding: 0 10px 0 calc(8px + var(--folder-depth, 0) * 16px);
+  height: 28px;
+  padding: 0 10px 0 calc(4px + var(--files-depth, 0) * 14px);
   border: 0;
   border-radius: var(--r-md);
   background: transparent;
@@ -177,45 +180,44 @@
   transition: background-color 0.12s var(--ease);
 }
 
-.folder-panel__row:hover {
+.files-panel__row:hover {
   background: var(--chrome-raised);
 }
 
-.folder-panel__row:focus-visible {
+.files-panel__row:focus-visible {
   outline: 2px solid var(--chrome-text);
   outline-offset: -2px;
 }
 
-.folder-panel__row--folder {
+.files-panel__row--folder {
   color: var(--chrome-text);
 }
 
-/* The folder the note sits in: its name opens Explorer there. */
-.folder-panel__row--current {
-  font-weight: 600;
-}
-
-.folder-panel__row--current .folder-panel__icon {
-  color: var(--chrome-link);
-}
-
-.folder-panel__row.is-selected {
+.files-panel__row.is-selected {
   background: var(--chrome-pill);
   color: var(--chrome-pill-text);
   font-weight: 600;
 }
 
-.folder-panel__row.is-selected:focus-visible {
+.files-panel__row.is-selected:focus-visible {
   outline-color: var(--chrome-pill-text);
 }
 
-.folder-panel__icon {
+.files-panel__caret,
+.files-panel__icon {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  justify-content: center;
   width: 16px;
   height: 16px;
 }
 
-.folder-panel__label {
+.files-panel__caret {
+  color: var(--chrome-muted);
+}
+
+.files-panel__label {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -224,7 +226,7 @@
 }
 
 /* A custom panel's frame: in a layer over the rail, laid over the slot's
-   body, so it outlives the slot showing Folder or nothing (moving an iframe
+   body, so it outlives the slot showing nothing (moving an iframe
    reloads it). */
 .notes-left-rail {
   position: relative;
@@ -263,7 +265,7 @@
 @media (prefers-reduced-motion: reduce) {
   .sidebar-panel__title,
   .sidebar-panel__control,
-  .folder-panel__row {
+  .files-panel__row {
     transition: none;
   }
 }

@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 import { withFakeFetch } from "../test/fakeFetch";
 import {
   bridgePanelEscape,
-  FOLDER_PANEL_IDENTITY,
   panelIdentity,
   panelPreferenceScope,
   type SidebarPanel,
@@ -15,12 +14,6 @@ import {
 const http = withFakeFetch();
 
 const PANEL: SidebarPanel = { identity: "experience:kb", title: "Contents" };
-
-const FOLDER: SidebarPanel = {
-  identity: FOLDER_PANEL_IDENTITY,
-  title: "Folder",
-  minimisedByDefault: true,
-};
 
 // Panel content with its own state, to see whether it stays mounted.
 function Counter({ subject }: { subject: string }) {
@@ -183,33 +176,14 @@ describe("the sidebar panel slot", () => {
     await waitFor(() => expect(title()).toHaveAttribute("aria-expanded", "false"));
   });
 
-  it("keys a panel by its experience or by builtin:folder, in a slot apart from the panel page's preferences", () => {
+  it("keys a custom panel by its experience, in a slot apart from the panel page's preferences", () => {
     expect(panelIdentity({ kind: "view", viewId: "contents", experienceKey: "kb" })).toBe(
       "experience:kb",
     );
-    expect(panelIdentity({ kind: "folder" })).toBe("builtin:folder");
+    expect(panelIdentity({ kind: "folder" })).toBeNull();
     expect(panelIdentity({ kind: "none" })).toBeNull();
     // web/kit/preferences.ts keeps a panel page's own values at this view ID with no slot.
     expect(panelPreferenceScope("experience:kb").slot).toBe("rhizome-panel");
-  });
-
-  it("starts Folder minimised until someone opens it, then remembers that", async () => {
-    const first = render(<Slot panel={FOLDER} />);
-    const folderTitle = () => screen.getByRole("button", { name: "Folder" });
-
-    await waitFor(() => expect(folderTitle()).toHaveAttribute("aria-expanded", "false"));
-    fireEvent.click(folderTitle());
-    await waitFor(() => expect(folderTitle()).toHaveAttribute("aria-expanded", "true"));
-    await waitFor(() =>
-      expect(patches().at(-1)).toMatchObject({
-        scope: { viewId: "builtin:folder", slot: "rhizome-panel" },
-        set: { minimised: false },
-      }),
-    );
-    first.unmount();
-
-    render(<Slot panel={FOLDER} />);
-    await waitFor(() => expect(folderTitle()).toHaveAttribute("aria-expanded", "true"));
   });
 
   it("keeps the panel's component mounted across subjects and states", async () => {
