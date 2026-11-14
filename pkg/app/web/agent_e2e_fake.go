@@ -38,7 +38,7 @@ func (h *agentE2EHarness) Status(context.Context) (harness.Status, error) {
 		Models: []harness.ModelOption{{ID: "fake", DisplayName: "Fake", Efforts: []string{"low"}, Default: true}},
 		Capabilities: harness.Capabilities{
 			SupportsAllowedTools: true, SupportsAllowForSession: true,
-			PermissionModes: []harness.PermissionMode{harness.PermissionApprovalRequired},
+			PermissionModes: []harness.PermissionMode{harness.PermissionAuto, harness.PermissionApprovalRequired},
 		},
 	}, nil
 }
