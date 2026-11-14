@@ -83,7 +83,7 @@ func TestPermissionModeMapping(t *testing.T) {
 		mode   harness.PermissionMode
 		want   string
 		danger bool
-	}{{"", "default", false}, {harness.PermissionApprovalRequired, "default", false}, {harness.PermissionAutoAcceptEdits, "acceptEdits", false}, {harness.PermissionFullAccess, "bypassPermissions", true}}
+	}{{harness.PermissionAuto, "auto", false}, {"", "default", false}, {harness.PermissionApprovalRequired, "default", false}, {harness.PermissionAutoAcceptEdits, "acceptEdits", false}, {harness.PermissionFullAccess, "bypassPermissions", true}}
 	for _, test := range tests {
 		mode, danger := permissionMode(test.mode)
 		require.Equal(t, test.want, mode)

@@ -39,6 +39,7 @@ func (commandOptions *vaultCommandOptions) registerAgentCommands(agentCmd, rootC
 	rootCmd.AddCommand(agentCmd)
 
 	children := []*cobra.Command{
+		newAgentPageMCPCmd(),
 		commandOptions.newAgentSurfaceCmd(),
 		commandOptions.newAgentCodeCmd(),
 		commandOptions.newAgentStartCmd(),

@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -325,6 +326,13 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 	defer listener.Close()
 
 	actualPort := listener.Addr().(*net.TCPAddr).Port
+	relayHost := "127.0.0.1"
+	if listener.Addr().(*net.TCPAddr).IP.To4() == nil {
+		relayHost = "::1"
+	}
+	if err := srv.SetPageRelayOrigin("http://" + net.JoinHostPort(relayHost, strconv.Itoa(actualPort))); err != nil {
+		return err
+	}
 	// Best effort: a missing record only costs the next start a stable URL.
 	_ = appruntime.WriteLastPort(vaultPath, actualPort)
 	url := ServeURL(opts.Host, actualPort)

@@ -60,6 +60,7 @@ func (s *Service) drainEvents(sessionID string, kind harness.Kind, live *liveSes
 	}
 
 	s.mu.Lock()
+	live.page.close()
 	remaining := live.turn
 	if s.live[sessionID] == live {
 		delete(s.live, sessionID)

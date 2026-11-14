@@ -71,3 +71,63 @@ func TestStoreMigratesOldSchemaIdempotently(t *testing.T) {
 		require.NoError(t, store.Close())
 	}
 }
+
+func TestStoreContextSurvivesUpgradeAndReopen(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	store, err := OpenStore(ctx, root)
+	require.NoError(t, err)
+	session, err := store.CreateSession(ctx, "Context", harness.KindCodex, "")
+	require.NoError(t, err)
+	_, err = store.AddMessage(ctx, session.ID, "user", "old")
+	require.NoError(t, err)
+	// Recreate the previous messages schema and remove only the new migration witness.
+	_, err = store.db.Exec(`ALTER TABLE agent_messages DROP COLUMN context_json; UPDATE rzm_migration_state SET version = 1 WHERE domain = 'agent_chat'`)
+	require.NoError(t, err)
+	require.NoError(t, store.Close())
+	store, err = OpenStore(ctx, root)
+	require.NoError(t, err)
+	view := &ViewContext{Kind: "note", Title: "A", Route: "/notes", Path: "notes/a.md"}
+	_, err = store.AddMessage(ctx, session.ID, "user", "  unchanged  ", view)
+	require.NoError(t, err)
+	require.NoError(t, store.Close())
+	store, err = OpenStore(ctx, root)
+	require.NoError(t, err)
+	defer store.Close()
+	messages, err := store.Messages(ctx, session.ID)
+	require.NoError(t, err)
+	require.Len(t, messages, 2)
+	require.Nil(t, messages[0].Context)
+	require.Equal(t, view, messages[1].Context)
+	require.Equal(t, "  unchanged  ", messages[1].Content)
+}
+
+func TestChatStoresPreserveConcurrentMessages(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	first, err := OpenStore(ctx, root)
+	require.NoError(t, err)
+	defer first.Close()
+	second, err := OpenStore(ctx, root)
+	require.NoError(t, err)
+	defer second.Close()
+	session, err := first.CreateSession(ctx, "Concurrent", harness.KindCodex, "")
+	require.NoError(t, err)
+	done := make(chan error, 2)
+	for _, store := range []*Store{first, second} {
+		go func() {
+			for range 20 {
+				if _, err := store.AddMessage(ctx, session.ID, "user", "message"); err != nil {
+					done <- err
+					return
+				}
+			}
+			done <- nil
+		}()
+	}
+	require.NoError(t, <-done)
+	require.NoError(t, <-done)
+	messages, err := first.Messages(ctx, session.ID)
+	require.NoError(t, err)
+	require.Len(t, messages, 40)
+}

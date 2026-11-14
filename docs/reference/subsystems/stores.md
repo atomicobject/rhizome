@@ -1,7 +1,7 @@
 ---
 summary: "Operational constraints for the SQLite store layer: shared single-writer mutex, retrying write transactions, DSN/pragma policy, domain-versioned migrations, FTS5 build tag, and store contracts."
 reference-kind: guide
-last-verified: 2026-11-13
+last-verified: 2026-11-14
 code-paths:
   - pkg/sqliteutil
   - pkg/indexstore
@@ -28,6 +28,8 @@ The SQLite foundation under the unified `.rhizome/db.sqlite` code index and the 
 `pkg/store` owns the unified store implementation, domain SQL, schema assembly, validation, and diagnostics. Code intelligence owns ingestion and code-anchor contracts in `pkg/anchors`, while ontology node, field, and query-plan DTOs belong to `pkg/ontology/readmodel`. Consumers define the narrow interfaces they use. Domain files share the concrete `Store`, its connection pool, and its write mutex; code persistence, note metadata, ontology publication, and ownership retirement can therefore remain atomic across table families.
 
 ## Design constraints
+
+- **Chat transcripts have independent migration authority.** `pkg/app/agentchat` opens `.rhizome/agent/sessions.sqlite` through `sqliteutil`, takes the schema initialization lock, and versions the `agent_chat` domain through `migration.EnsureDomain`. Version 1 adopts the existing schema without changing rows. Version 2 adds nullable `agent_messages.context_json`. Every durable chat write uses the shared per-database mutex and transaction retry. Handles release writer ownership on close. Tokens, pending page reads, and page-request events are never stored.
 
 **Neutral structural persistence (SPEC-0133).** Intel schemas 79 and 80 persist source presence/value kind, reference member qualifiers, relation occurrence JSON, and composition-dependent RECORD identity context through the normal single-writer transaction. Empty structured containers have a presence row; null does not satisfy exists. Query SQL preserves the existing indexed Markdown exists branch and adds a separately indexed structured-presence branch. Migration/restart tests retain all occurrence evidence; no alternate store or compatibility schema is introduced.
 

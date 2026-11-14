@@ -3,6 +3,7 @@ package codex
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/harness"
@@ -10,7 +11,7 @@ import (
 
 func permissionConfig(mode harness.PermissionMode) (string, string) {
 	switch mode {
-	case harness.PermissionAutoAcceptEdits:
+	case harness.PermissionAuto, harness.PermissionAutoAcceptEdits:
 		return "on-request", "workspace-write"
 	case harness.PermissionFullAccess:
 		return "never", "danger-full-access"
@@ -46,6 +47,12 @@ func appServerArgs(servers []harness.MCPServer) ([]string, error) {
 			return nil, fmt.Errorf("MCP server %q command is required", name)
 		}
 		args = appendConfig(args, "mcp_servers."+name+".command", server.Command)
+		for _, tool := range server.AutoApproveTools {
+			if tool == "" || strings.ContainsAny(tool, ".= \t\r\n") {
+				return nil, fmt.Errorf("invalid MCP tool name %q", tool)
+			}
+			args = appendConfig(args, "mcp_servers."+name+".tools."+tool+".approval_mode", "approve")
+		}
 		if len(server.Args) > 0 {
 			encoded, _ := json.Marshal(server.Args)
 			args = append(args, "-c", "mcp_servers."+name+".args="+string(encoded))
@@ -55,8 +62,19 @@ func appServerArgs(servers []harness.MCPServer) ([]string, error) {
 			if err != nil {
 				return nil, fmt.Errorf("MCP server %q: %w", name, err)
 			}
-			encoded, _ := json.Marshal(env)
-			args = append(args, "-c", "mcp_servers."+name+".env="+string(encoded))
+			keys := make([]string, 0, len(env))
+			for key := range env {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			// Codex splits override paths literally; environment keys belong in a TOML table.
+			entries := make([]string, 0, len(keys))
+			for _, key := range keys {
+				quotedKey, _ := json.Marshal(key)
+				quotedValue, _ := json.Marshal(env[key])
+				entries = append(entries, string(quotedKey)+"="+string(quotedValue))
+			}
+			args = append(args, "-c", "mcp_servers."+name+".env={"+strings.Join(entries, ",")+"}")
 		}
 	}
 	return args, nil
@@ -65,4 +83,11 @@ func appServerArgs(servers []harness.MCPServer) ([]string, error) {
 func appendConfig(args []string, key, value string) []string {
 	encoded, _ := json.Marshal(value)
 	return append(args, "-c", key+"="+string(encoded))
+}
+
+func approvalsReviewer(mode harness.PermissionMode) string {
+	if mode == harness.PermissionAuto {
+		return "auto_review"
+	}
+	return ""
 }

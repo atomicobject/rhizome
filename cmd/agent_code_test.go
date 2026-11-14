@@ -49,6 +49,7 @@ func TestCodeModeCoversEveryExecutableAgentTask(t *testing.T) {
 		}
 	}
 	controls := map[string]bool{
+		"agent page-mcp":     true, // Window page transport, not a code-mode task.
 		"agent code surface": true, "agent code describe": true,
 		"agent code generate": true, "agent code serve": true, "agent code execute": true,
 		"agent current-user": true, // Help-only parent, not a task operation.

@@ -29,3 +29,13 @@ func TestApprovalResponseEchoesSessionSuggestionsVerbatim(t *testing.T) {
 	require.Len(t, body.Response.UpdatedPermissions, 1)
 	require.JSONEq(t, `{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"go test:*"}],"behavior":"allow","destination":"session"}`, string(body.Response.UpdatedPermissions[0]))
 }
+
+func TestAutoPageToolOnStartAndResume(t *testing.T) {
+	for _, resume := range []string{"", "session-old"} {
+		args, err := sessionArgs(harness.SessionOptions{Resume: resume, PermissionMode: harness.PermissionAuto, Instructions: "Keep answers short.", MCPServers: []harness.MCPServer{{Name: "rhizome_page", Command: "rzm", AutoApproveTools: []string{"page_text"}}}}, "/tmp/project")
+		require.NoError(t, err)
+		require.Equal(t, "auto", argValue(t, args, "--permission-mode"))
+		require.Equal(t, "Keep answers short.", argValue(t, args, "--append-system-prompt"))
+		require.Contains(t, args, "mcp__rhizome_page__page_text")
+	}
+}

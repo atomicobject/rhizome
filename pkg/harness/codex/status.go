@@ -10,7 +10,7 @@ import (
 func (d *Driver) Status(ctx context.Context) (harness.Status, error) {
 	status := harness.Status{Kind: harness.KindCodex, LoginHint: "codex login", Capabilities: harness.Capabilities{
 		SupportsAllowedTools: false, SupportsAllowForSession: true,
-		PermissionModes: []harness.PermissionMode{harness.PermissionApprovalRequired, harness.PermissionAutoAcceptEdits, harness.PermissionFullAccess},
+		PermissionModes: []harness.PermissionMode{harness.PermissionAuto, harness.PermissionApprovalRequired, harness.PermissionAutoAcceptEdits, harness.PermissionFullAccess},
 	}}
 	path, err := d.runner.LookPath(d.binary)
 	if err != nil {

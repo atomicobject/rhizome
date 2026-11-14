@@ -246,7 +246,7 @@ func TestOptionsAndMCPReachCodex(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, spawnArgs, `mcp_servers.local.command="rzm"`)
 	require.Contains(t, spawnArgs, `mcp_servers.local.args=["mcp","serve"]`)
-	require.Contains(t, spawnArgs, `mcp_servers.local.env={"MODE":"test"}`)
+	require.Contains(t, spawnArgs, `mcp_servers.local.env={"MODE"="test"}`)
 	done := make(chan error, 1)
 	go func() { done <- session.SendTurn(context.Background(), "go") }()
 	require.Eventually(t, func() bool { return script.WriteCount() >= 5 }, time.Second, time.Millisecond)
