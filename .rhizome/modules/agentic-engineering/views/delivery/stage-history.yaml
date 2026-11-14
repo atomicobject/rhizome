@@ -1,0 +1,9 @@
+apiVersion: rhizome.view.v1
+id: agentic-engineering.stage.history
+name: History
+source: { kind: custom, entry: stage.tsx }
+mount:
+  kind: group
+  group: Delivery
+  order: 5
+configuration: { stage: history }

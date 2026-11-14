@@ -1,0 +1,9 @@
+apiVersion: rhizome.view.v1
+id: agentic-engineering.stage.planned
+name: Planned
+source: { kind: custom, entry: stage.tsx }
+mount:
+  kind: group
+  group: Delivery
+  order: 3
+configuration: { stage: planned }

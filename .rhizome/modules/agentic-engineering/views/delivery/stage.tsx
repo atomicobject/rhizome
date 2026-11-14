@@ -1,6 +1,6 @@
 import { useDeliveryPortfolio, useDeliverySelectedEfforts } from "./data.tsx";
 import { useEffect, useState } from "react";
-import { DisclosureIcon, Segmented, useViewParams } from "@rhizome/kit";
+import { DisclosureIcon, Segmented, useViewConfiguration, useViewParams } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import {
   eligibility,
@@ -34,13 +34,20 @@ const sorts: readonly { value: RowSort; label: string }[] = [
   { value: "title-desc", label: "Z–A" },
 ];
 
+/** A Delivery group tab fixes its stage in configuration; the standalone page takes it as a param. */
+function useStage() {
+  const configured = useViewConfiguration()?.stage;
+  const params = useViewParams();
+  const stage = typeof configured === "string" ? configured : params.stage;
+  return { group: groupFor(typeof stage === "string" ? stage : ""), tab: configured !== undefined };
+}
+
 export function DeliveryStage({
   portfolio,
   status,
   stale = false,
 }: PortfolioProps & { stale?: boolean }) {
-  const params = useViewParams();
-  const group = groupFor(typeof params.stage === "string" ? params.stage : "");
+  const { group, tab } = useStage();
   const [sort, setSort] = useState<RowSort>("source");
   const [selectedRecords, setSelectedRecords] = useState<RecordSummary[]>([]);
   const selected = selectedRecords.map((record) => identity(record.ref));
@@ -180,7 +187,7 @@ export function DeliveryStage({
         )}
       </header>
       {group.rule && <p className="ae-note ae-rule">{group.rule}</p>}
-      <StageTabs portfolio={current} current={group.stage} />
+      {!tab && <StageTabs portfolio={current} current={group.stage} />}
       <div className="ae-with-aside">
         <section aria-label={group.title} className="ae-list">
           {rows.length > 0 && (
@@ -297,9 +304,8 @@ export function DeliveryStage({
 }
 
 export default function Page() {
-  const params = useViewParams();
-  const valid = groupFor(typeof params.stage === "string" ? params.stage : "");
-  const query = useDeliveryPortfolio({ enabled: !!valid, review: params.stage === "review" });
+  const { group: valid } = useStage();
+  const query = useDeliveryPortfolio({ enabled: !!valid, review: valid?.stage === "review" });
   if (!valid)
     return (
       <main className="ae-page">

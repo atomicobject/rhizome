@@ -15,7 +15,7 @@ import {
 } from "@rhizome/kit";
 import { Button } from "@rhizome/ui";
 import type { SectionStatus } from "@rhizome/kit";
-import { groups, groupResult, identity } from "./lib/index.ts";
+import { groups, groupFor, groupResult, identity } from "./lib/index.ts";
 import type {
   Coverage,
   Effort,
@@ -101,15 +101,19 @@ export function StageLink({
   children: ReactNode;
 }) {
   const nav = usePageNavigation();
+  // Primary stages are tabs on the Delivery group; supporting views stay standalone pages.
+  const target: Parameters<typeof workspaceViewHref> = groupFor(stage)?.primary
+    ? [`agentic-engineering.stage.${stage}`, { kind: "group", group: "Delivery" }]
+    : ["agentic-engineering.stage", { kind: "standalone" }, { stage }];
   return (
     <a
       className="ae-link"
       aria-current={current ? "page" : undefined}
-      href={workspaceViewHref("agentic-engineering.stage", { kind: "standalone" }, { stage })}
+      href={workspaceViewHref(...target)}
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
-        nav.openView("agentic-engineering.stage", { kind: "standalone" }, { stage });
+        nav.openView(...target);
       }}
     >
       {children}

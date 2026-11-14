@@ -116,22 +116,32 @@ test("record review names the exact pending selected record and its locator", as
 test("the panel marks the stage on screen and no stage on the home page", async ({
   page,
 }, info) => {
-  await page.goto(stage("ready"));
+  await page.goto(stage("review"));
   const panel = page.frameLocator("iframe.panel-frame[data-shown]");
-  const ready = panel.getByRole("link", { name: /Ready stories/ });
-  const active = panel.getByRole("link", { name: /Active efforts/ });
-  await expect(ready).toHaveAttribute("aria-current", "page");
-  await expect(active).not.toHaveAttribute("aria-current", "page");
+  const review = panel.getByRole("link", { name: "Record review", exact: true });
+  const contracts = panel.getByRole("link", { name: "Current contracts", exact: true });
+  await expect(review).toHaveAttribute("aria-current", "page");
+  await expect(contracts).not.toHaveAttribute("aria-current", "page");
   const find = panel.getByRole("searchbox", { name: "Find a spec or effort" });
   await find.fill("Harbor");
-  await active.click();
-  await expect(page).toHaveURL(/stage=active/);
-  await expect(active).toHaveAttribute("aria-current", "page");
-  await expect(ready).not.toHaveAttribute("aria-current", "page");
+  await contracts.click();
+  await expect(page).toHaveURL(/stage=contracts/);
+  await expect(contracts).toHaveAttribute("aria-current", "page");
+  await expect(review).not.toHaveAttribute("aria-current", "page");
+  await expect(find).toHaveValue("Harbor");
+  // A stage list is a Delivery group tab: the host's tab strip marks it.
+  await panel.getByRole("link", { name: /Active efforts/ }).click();
+  await expect(page).toHaveURL(/presentation=agentic-engineering\.stage\.active/);
+  await expect(
+    page.getByRole("toolbar", { name: "Workspace view" }).getByRole("button", { name: "Active" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    content(page).getByRole("heading", { name: "Active efforts", exact: true, level: 1 }),
+  ).toBeVisible();
   await expect(find).toHaveValue("Harbor");
   await capture(page, info, "panel-active-stage");
   await page.goto(home);
-  await expect(ready).toBeVisible();
+  await expect(review).toBeVisible();
   await expect(
     panel.getByRole("navigation", { name: "Delivery workflow" }).locator('[aria-current="page"]'),
   ).toHaveCount(0);

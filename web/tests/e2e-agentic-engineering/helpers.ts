@@ -8,7 +8,13 @@ export const content = (page: Page) => page.frameLocator("iframe.experience-fram
 
 export const home = "/notes/group/Delivery";
 
-export const stage = (value: string) => `/notes?view=agentic-engineering.stage&stage=${value}`;
+const tabs = ["shaping", "ready", "planned", "active", "history"];
+
+/** Stage lists are Delivery group tabs; Current contracts and Record review stay standalone pages. */
+export const stage = (value: string) =>
+  tabs.includes(value)
+    ? `/notes/group/Delivery?presentation=agentic-engineering.stage.${value}`
+    : `/notes?view=agentic-engineering.stage&stage=${value}`;
 
 export const specPath = "docs/specs/experience/harbor-booking.md";
 
