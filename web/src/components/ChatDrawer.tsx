@@ -238,13 +238,17 @@ export function ChatPanel() {
     ? models.find((option) => option.id === modelID)?.displayName || modelID
     : (models.find((option) => option.default) ?? models[0])?.displayName;
 
-  const running = thread.isSending || thread.turnRunning;
+  // Held from the first keypress until the send returns, so a second Enter,
+  // even in the same frame, cannot start a second session or turn.
+  const sendingRef = useRef(false);
+  const [starting, setStarting] = useState(false);
+  const running = starting || thread.isSending || thread.turnRunning;
   const empty = thread.messages.length === 0 && thread.events.length === 0;
 
-  // A session the server no longer has (deleted on the Agent page) starts over.
+  // A session deleted on the Agent page, which archives it, starts over.
   useEffect(() => {
-    if (thread.sessionQuery.isError && sessionID) startNewChat();
-  }, [thread.sessionQuery.isError, sessionID]);
+    if (sessionID && (thread.sessionQuery.isError || session?.archived)) startNewChat();
+  }, [thread.sessionQuery.isError, session?.archived, sessionID]);
 
   // The log stays on the newest message, also when the pane resizes or the
   // page settles around it, unless the user scrolled up to read.
@@ -272,7 +276,9 @@ export function ChatPanel() {
   const send = async (text: string) => {
     const message = text.trim();
 
-    if (!message || running || blocked) return;
+    if (!message || running || blocked || sendingRef.current) return;
+    sendingRef.current = true;
+    setStarting(true);
     setError("");
     const sent = attachContext ? boundedContext(context) : undefined;
 
@@ -289,6 +295,9 @@ export function ChatPanel() {
       await thread.send(target, message, sent);
     } catch (cause) {
       setError(errorText(cause));
+    } finally {
+      sendingRef.current = false;
+      setStarting(false);
     }
   };
 
@@ -347,7 +356,7 @@ export function ChatPanel() {
               .
             </p>
           </div>
-        ) : empty && !thread.sessionQuery.isPending ? (
+        ) : empty && !(sessionID && thread.sessionQuery.isPending) ? (
           <div className="chat-drawer__empty">
             <p>Ask about what you're looking at.</p>
             <div className="chat-starters">

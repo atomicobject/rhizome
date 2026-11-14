@@ -89,5 +89,5 @@ The pane and the Agent page show the same sessions. The Agent page is the expand
 ## Requirements
 
 - The pane and the Agent page share one implementation of a session's thread, stream, and sending.
-- The page-text relay authenticates the tool with a random per-session token held in memory, and it never persists page text.
+- The page-text relay authenticates the tool with a random per-session token held in memory, and the relay itself keeps no page text. The tool's result is part of the session transcript, bounded like any tool output, as a file the agent reads is.
 - Context fields are bounded and validated at the HTTP boundary.

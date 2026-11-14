@@ -175,6 +175,38 @@ describe("Chat in the right pane", () => {
     }
   });
 
+  it("starts one session and one turn however fast the first message is sent", async () => {
+    http
+      .json("POST", "/api/agent/sessions", { session: session() })
+      .json("GET", "/api/agent/sessions/agt-1", { session: session(), messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    render(<ChatDrawer />);
+
+    const composer = await screen.findByRole("textbox", { name: "Message" });
+    await screen.findByText(/Codex · GPT Standard/);
+    fireEvent.change(composer, { target: { value: "Explain this graph" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    fireEvent.keyDown(composer, { key: "Enter" });
+
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(1));
+    expect(http.count("POST", "/api/agent/sessions")).toBe(1);
+  });
+
+  it("starts over when the Agent page deleted the pane's session", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+    http.json("GET", "/api/agent/sessions/agt-1", {
+      session: session({ archived: true }),
+      messages: [],
+      events: [],
+    });
+    render(<ChatDrawer />);
+
+    await waitFor(() => expect(window.localStorage.getItem(SESSION_KEY)).toBeNull());
+    expect(await screen.findByText("Ask about what you're looking at.")).toBeVisible();
+  });
+
   it("offers setup instead of a composer when no coding agent is installed", async () => {
     http.json("GET", "/api/agent/settings", settingsWith({ ...readyStatus, installed: false }));
     render(<ChatDrawer />);
@@ -230,5 +262,21 @@ describe("a command line", () => {
     expect(displayCommand("/bin/zsh -lc 'cat notes/a.md'")).toBe("cat notes/a.md");
     expect(displayCommand('/bin/bash -lc "rg -n overdue notes"')).toBe("rg -n overdue notes");
     expect(displayCommand("git status")).toBe("git status");
+  });
+});
+
+describe("the page text the agent reads", () => {
+  it("leaves out the chat and hidden tabs, panels, and frames", async () => {
+    const { visiblePageText } = await import("./agent/pageText");
+    const root = document.createElement("div");
+
+    root.innerHTML = `
+      <div class="app-shell__main">
+        <section>Backlink Decision</section>
+        <section hidden>Another open tab<iframe></iframe></section>
+        <aside data-right-pane>Chat about it</aside>
+      </div>`;
+
+    expect(visiblePageText(root)).toBe("Backlink Decision");
   });
 });

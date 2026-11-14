@@ -13,6 +13,15 @@ const rendered = (element: HTMLElement): string =>
     ? element.innerText
     : (element.textContent ?? "");
 
+// innerText of an element that is not rendered is its raw text, so hidden
+// tabs, retained panels, and inactive sections are skipped before reading.
+function shown(element: Element): boolean {
+  // jsdom has no layout, and so no checkVisibility.
+  if (!("checkVisibility" in Element.prototype)) return !element.closest("[hidden]");
+
+  return element.checkVisibility();
+}
+
 // The rendered text of an element, leaving out the right pane (the chat
 // itself) wherever it sits inside.
 function textWithoutPane(element: HTMLElement): string {
@@ -21,7 +30,9 @@ function textWithoutPane(element: HTMLElement): string {
   if (!element.querySelector("[data-right-pane]")) return rendered(element);
 
   return [...element.children]
-    .flatMap((child) => (child instanceof HTMLElement ? [textWithoutPane(child)] : []))
+    .flatMap((child) =>
+      child instanceof HTMLElement && shown(child) ? [textWithoutPane(child)] : [],
+    )
     .filter(Boolean)
     .join("\n");
 }
@@ -29,6 +40,8 @@ function textWithoutPane(element: HTMLElement): string {
 // Same-origin frames, such as custom views, keep their text out of innerText.
 function frameText(root: HTMLElement): string[] {
   return [...root.querySelectorAll("iframe")].flatMap((frame) => {
+    if (!shown(frame)) return [];
+
     try {
       const body = frame.contentDocument?.body;
       const text = body ? rendered(body).trim() : "";
