@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- In-app chat defaults to automatic permission review, preserves the current view with each message, and can read visible page text through a window-scoped MCP tool.
+- Chat beside what you're looking at: the right pane gains a Chat tab in every section, toggled from the top bar (and Rhizome Desktop's toolbar), `]`, or ⌥⌘B, with ⌘B now toggling the left sidebar. Each message carries the note, view, or type on screen, the agent can read the page's visible text with a `page_text` tool, and the conversation continues on the Agent page. Chat sessions default to a new `auto` permission mode (Claude auto mode, Codex Approve for me), so routine actions show as one line and only escalations ask. Rhizome Desktop's View menu moves the sidebar shortcut from ⌃⌘S to ⌘B and adds Show Chat.
 
 - Live indexing embeds changed notes in groups, preserves independent results when another file changes, and bounds cancellation of in-flight embedding calls.
 

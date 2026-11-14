@@ -40,7 +40,7 @@ The pane and the Agent page show the same sessions. The Agent page is the expand
 
 #### Acceptance Criteria
 
-- The right pane is one pane for the whole app. In Notes its tabs are Info, Outline, Graph, and Chat for a note, Record and Chat for a selected row, and Chat alone where Notes has nothing else to show. Other sections show Chat alone. The Agent page has no right pane, because it is the full chat.
+- The right pane is one pane for the whole app. In Notes its tabs are Info, Outline, Graph, and Chat for a note, and Record and Chat for a selected row. Where a section has nothing of its own for the pane, such as Notes Home, a view without a selected row, or another section, the pane holds Chat alone and shows only once the person chooses Chat, so those pages keep their width. The Agent page has no right pane, because it is the full chat.
 - One button at the far right of the top bar toggles the pane; Rhizome Desktop has the same button at the far right of its toolbar.
 - `]` toggles the pane. ⌥⌘B (Ctrl+Alt+B elsewhere) shows the pane on Chat and focuses the message box, or hides the pane when Chat is showing. ⌘B (Ctrl+B) toggles the left sidebar. In Rhizome Desktop the View menu owns ⌘B and has a Show Chat item on ⌥⌘B.
 - The pane is resizable from 280 to 720 pixels and never leaves the section narrower than about 640 pixels. Below 1200 pixels it opens over the content, and Escape closes it.
