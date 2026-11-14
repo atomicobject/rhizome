@@ -44,12 +44,14 @@ func (b *Broker) Subscribe(sessionID string) (<-chan Event, func()) {
 	}
 }
 
-func (b *Broker) Publish(event Event) {
+func (b *Broker) Publish(event Event) int {
+	delivered := 0
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for ch := range b.subscribers[event.SessionID] {
 		select {
 		case ch <- event:
+			delivered++
 		default:
 			if event.ID < 0 {
 				continue
@@ -61,6 +63,7 @@ func (b *Broker) Publish(event Event) {
 	if len(b.subscribers[event.SessionID]) == 0 {
 		delete(b.subscribers, event.SessionID)
 	}
+	return delivered
 }
 
 func (b *Broker) Close() {

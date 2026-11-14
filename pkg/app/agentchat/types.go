@@ -61,11 +61,12 @@ type Session struct {
 }
 
 type Message struct {
-	ID        int64     `json:"id"`
-	SessionID string    `json:"sessionId"`
-	Role      string    `json:"role"`
-	Content   string    `json:"content"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID        int64        `json:"id"`
+	SessionID string       `json:"sessionId"`
+	Role      string       `json:"role"`
+	Content   string       `json:"content"`
+	Context   *ViewContext `json:"context,omitempty"`
+	CreatedAt time.Time    `json:"createdAt"`
 }
 
 type EventResult struct {
@@ -115,7 +116,8 @@ type SessionResponse struct {
 }
 
 type SendMessageRequest struct {
-	Content string `json:"content"`
+	Content string       `json:"content"`
+	Context *ViewContext `json:"context,omitempty"`
 }
 
 type SendMessageResponse struct {

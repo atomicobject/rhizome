@@ -43,10 +43,11 @@ type SessionOptions struct {
 }
 
 type MCPServer struct {
-	Name    string
-	Command string
-	Args    []string
-	Env     []string
+	AutoApproveTools []string
+	Name             string
+	Command          string
+	Args             []string
+	Env              []string
 }
 
 // GenerateRequest is one tool-free, sessionless model call.
@@ -80,6 +81,7 @@ const (
 type PermissionMode string
 
 const (
+	PermissionAuto             PermissionMode = "auto"
 	PermissionApprovalRequired PermissionMode = "approval-required"
 	PermissionAutoAcceptEdits  PermissionMode = "auto-accept-edits"
 	PermissionFullAccess       PermissionMode = "full-access"

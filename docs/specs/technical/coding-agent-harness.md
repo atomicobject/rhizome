@@ -4,7 +4,7 @@ id: SPEC-0101
 aliases: [SPEC-0101, coding-agent-harness]
 summary: "Drive Claude Code and Codex as child-process harnesses over stdio for chat, one-shot generation, and specialized in-code agents, using the user's own subscriptions and a per-user harness setting."
 spec-status: active
-last-updated: 2026-11-03
+last-updated: 2026-11-14
 ---
 
 # Coding-agent harness
@@ -115,9 +115,9 @@ Reference implementation for protocol and lifecycle decisions: T3 Code ([pingdot
 
 #### Acceptance Criteria
 
-- `SessionOptions` carries `Instructions`, `AllowedTools`, `DisallowedTools`, `PermissionMode`, `MCPServers`, `Model`, `Effort`, `Cwd`, `Resume`, and `Env`; the zero value means the harness's repository-default behavior, which is what chat uses. Permission modes are `approval-required`, `auto-accept-edits`, and `full-access`; there is no `auto` mode because Claude Code's `-p` mode cannot honor it. A driver that cannot enforce an option fails closed: Codex rejects non-empty `AllowedTools`/`DisallowedTools` at `StartSession` rather than approximating them with instructions. `Status.Capabilities` reports `supportsAllowedTools`, `supportsAllowForSession`, and the supported permission modes so callers can choose before starting.
-  verification:: each driver test asserts how every populated field reaches the CLI (Claude flags and initialize options; Codex `-c` overrides, `collaborationMode.settings.developer_instructions`, sandbox and approval policy).
-- `MCPServer` is stdio-only: `Name`, `Command`, `Args`, `Env`. An HTTP variant needs its own contract for headers, authentication, and network policy before it is added.
+- `SessionOptions` carries `Instructions`, `AllowedTools`, `DisallowedTools`, `PermissionMode`, `MCPServers` (including per-tool pre-approval), `Model`, `Effort`, `Cwd`, `Resume`, and `Env`; the zero value retains approval-required behavior for existing consumers. Chat explicitly supplies its instructions, window page MCP server, and configured permission mode, defaulting to `auto`. Permission modes are `auto`, `approval-required`, `auto-accept-edits`, and `full-access`. Claude Code 2.1.325 supports `auto` in print mode. Codex 0.169.0 maps it to `on-request`, `workspace-write`, and `approvalsReviewer: "auto_review"`. A driver that cannot enforce an option fails closed: Codex rejects non-empty `AllowedTools`/`DisallowedTools` at `StartSession` rather than approximating them with instructions. `Status.Capabilities` reports `supportsAllowedTools`, `supportsAllowForSession`, and the supported permission modes so callers can choose before starting.
+  verification:: each driver test asserts how every populated field reaches the CLI (Claude flags and initialize options; Codex `-c` overrides, `developerInstructions`, sandbox and approval policy).
+- `MCPServer` is stdio-only: `Name`, `Command`, `Args`, `Env`, `AutoApproveTools`. An HTTP variant needs its own contract for headers, authentication, and network policy before it is added.
 - `rzm mcp serve --tools <allowlist>` exposes existing `pkg/app/mcp` handlers over stdio MCP using the vendored `mcp-go` server; handlers are not duplicated or re-described.
   verification:: server test lists only allowlisted tools and dispatches one call through the shared handler.
 - A session with an MCP server entry injects it as a Claude `mcpServers` entry and a Codex `mcp_servers.<name>` override, and the Codex driver reloads the MCP catalog before each turn.

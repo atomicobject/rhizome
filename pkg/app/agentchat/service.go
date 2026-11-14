@@ -43,6 +43,7 @@ type liveSession struct {
 	pending       map[string]struct{}
 	stopOnce      sync.Once
 	drainOnce     sync.Once
+	page          *pageRelay
 }
 
 type chatStore interface {
@@ -52,7 +53,7 @@ type chatStore interface {
 	UpdateSessionHarness(context.Context, string, harness.Kind, string, string) error
 	ListSessions(context.Context, int) ([]Session, error)
 	ArchiveSession(context.Context, string) error
-	AddMessage(context.Context, string, string, string) (Message, error)
+	AddMessage(context.Context, string, string, string, ...*ViewContext) (Message, error)
 	Messages(context.Context, string) ([]Message, error)
 	AddEvent(context.Context, Event) (Event, error)
 	EventsAfter(context.Context, string, int64) ([]Event, error)
@@ -73,6 +74,8 @@ type Service struct {
 	closeError       error
 	transientEventID atomic.Int64
 	startupTimeout   time.Duration
+	pageRelayOrigin  string
+	pageTimeout      time.Duration
 }
 
 func NewService(ctx context.Context, vaultPath string, harnesses map[harness.Kind]harness.Harness) (*Service, error) {
@@ -85,7 +88,7 @@ func NewService(ctx context.Context, vaultPath string, harnesses map[harness.Kin
 		ctx: serviceCtx, cancel: cancel, store: store, vaultPath: vaultPath,
 		harnesses: harnesses, broker: NewBroker(), live: make(map[string]*liveSession),
 		status:         make(map[harness.Kind]statusCacheEntry),
-		startupTimeout: defaultSessionStartupTimeout,
+		startupTimeout: defaultSessionStartupTimeout, pageTimeout: 20 * time.Second,
 	}, nil
 }
 
@@ -220,9 +223,15 @@ func (s *Service) Subscribe(sessionID string) (<-chan Event, func()) {
 	return s.broker.Subscribe(sessionID)
 }
 
-func (s *Service) SendMessage(ctx context.Context, sessionID, content string) (SendMessageResponse, error) {
-	content = strings.TrimSpace(content)
-	if content == "" {
+func (s *Service) SendMessage(ctx context.Context, sessionID, content string, view ...*ViewContext) (SendMessageResponse, error) {
+	var viewContext *ViewContext
+	if len(view) > 0 {
+		viewContext = view[0]
+	}
+	if err := viewContext.Validate(); err != nil {
+		return SendMessageResponse{}, err
+	}
+	if strings.TrimSpace(content) == "" {
 		return SendMessageResponse{}, fmt.Errorf("content is required")
 	}
 	session, err := s.store.GetSession(ctx, sessionID)
@@ -240,11 +249,11 @@ func (s *Service) SendMessage(ctx context.Context, sessionID, content string) (S
 	if err != nil {
 		return SendMessageResponse{}, err
 	}
-	if _, err := s.store.AddMessage(s.ctx, sessionID, "user", content); err != nil {
+	if _, err := s.store.AddMessage(s.ctx, sessionID, "user", content, viewContext); err != nil {
 		s.finishTurn(sessionID, live, turn)
 		return SendMessageResponse{}, err
 	}
-	go s.sendTurn(session, live, turn, content)
+	go s.sendTurn(session, live, turn, turnText(content, viewContext))
 	updated, err := s.store.GetSession(s.ctx, sessionID)
 	if err != nil {
 		return SendMessageResponse{}, err
@@ -276,19 +285,36 @@ func (s *Service) beginTurn(session Session, settings Settings) (*liveSession, *
 			s.mu.Unlock()
 			return nil, nil, fmt.Errorf("harness %q is unavailable", session.Harness)
 		}
+		page, err := newPageRelay(s.ctx)
+		if err != nil {
+			s.mu.Unlock()
+			return nil, nil, err
+		}
 		startupCtx, cancelStartup := context.WithTimeout(s.ctx, s.startupTimeout)
 		live = &liveSession{
-			ready: make(chan struct{}), drained: make(chan struct{}), starting: true,
+			page: page, ready: make(chan struct{}), drained: make(chan struct{}), starting: true,
 			startupCancel: cancelStartup, pending: make(map[string]struct{}),
 		}
 		s.live[session.ID] = live
+		origin := s.pageRelayOrigin
 		s.mu.Unlock()
 
 		configured := settings.Harnesses[session.Harness]
-		harnessSession, err := driver.StartSession(startupCtx, harness.SessionOptions{
+		options := harness.SessionOptions{
 			Cwd: s.vaultPath, Model: session.Model, Effort: configured.Effort,
 			PermissionMode: configured.PermissionMode, Resume: session.HarnessSessionID,
-		})
+			Instructions: chatInstructions,
+		}
+		if origin != "" {
+			server, pageErr := page.server(origin, session.ID)
+			if pageErr != nil {
+				cancelStartup()
+				s.failStartup(session.ID, live)
+				return nil, nil, pageErr
+			}
+			options.MCPServers = []harness.MCPServer{server}
+		}
+		harnessSession, err := driver.StartSession(startupCtx, options)
 		cancelStartup()
 		if err != nil {
 			s.failStartup(session.ID, live)
@@ -336,6 +362,7 @@ func sessionError(err error) error {
 }
 
 func stopLiveSession(live *liveSession) error {
+	live.page.close()
 	if live.startupCancel != nil {
 		live.startupCancel()
 	}
@@ -353,6 +380,7 @@ func (s *Service) failStartup(sessionID string, live *liveSession) {
 	if s.live[sessionID] == live {
 		delete(s.live, sessionID)
 	}
+	live.page.close()
 	live.starting = false
 	close(live.ready)
 	live.drainOnce.Do(func() { close(live.drained) })
@@ -364,6 +392,7 @@ func (s *Service) failStartedSession(sessionID string, live *liveSession) {
 	if s.live[sessionID] == live {
 		delete(s.live, sessionID)
 	}
+	live.page.close()
 	live.starting = false
 	close(live.ready)
 	s.mu.Unlock()

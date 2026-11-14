@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- In-app chat defaults to automatic permission review, preserves the current view with each message, and can read visible page text through a window-scoped MCP tool.
+
 - Live indexing embeds changed notes in groups, preserves independent results when another file changes, and bounds cancellation of in-flight embedding calls.
 
 - Upgrading a repository's Rhizome now updates the agent files `rzm init` generates. In Rhizome Desktop, the "Update to X" offer opens a review of the pin and file changes, then installs the new version, refreshes skills and managed guidance with it, and restarts the runtime, with Retry for a failed step and a copyable commit command. When a worktree's generated files are behind the Rhizome it runs, the toolbar offers "Update Rhizome files". `rzm update` runs the new executable's `rzm init` whenever it changes the Rhizome the current repository runs.

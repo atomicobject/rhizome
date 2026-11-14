@@ -30,7 +30,7 @@ func TestSettingsPersistInUserConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, harness.KindClaude, saved.Harness)
 	require.Equal(t, "gpt-5.6", saved.Harnesses[harness.KindCodex].Model)
-	require.Equal(t, harness.PermissionApprovalRequired, saved.Harnesses[harness.KindClaude].PermissionMode)
+	require.Equal(t, harness.PermissionAuto, saved.Harnesses[harness.KindClaude].PermissionMode)
 	require.NotContains(t, saved.Harnesses, harness.Kind("unknown"))
 
 	loaded, err := LoadSettings(env)
@@ -39,7 +39,7 @@ func TestSettingsPersistInUserConfig(t *testing.T) {
 	data, err := os.ReadFile(configFile)
 	require.NoError(t, err)
 	require.Contains(t, string(data), "harness: claude")
-	require.Contains(t, string(data), "permission-mode: approval-required")
+	require.Contains(t, string(data), "permission-mode: auto")
 	require.NotContains(t, string(data), "enginePreference")
 }
 
@@ -54,7 +54,7 @@ func TestLoadSettingsDefaultsAndInvalidHarness(t *testing.T) {
 	settings, err := LoadSettings(env)
 	require.NoError(t, err)
 	require.Empty(t, settings.Harness)
-	require.Equal(t, harness.PermissionApprovalRequired, settings.Harnesses[harness.KindCodex].PermissionMode)
+	require.Equal(t, harness.PermissionAuto, settings.Harnesses[harness.KindCodex].PermissionMode)
 	require.NoFileExists(t, configFile)
 
 	require.NoError(t, os.MkdirAll(configRoot, 0o700))

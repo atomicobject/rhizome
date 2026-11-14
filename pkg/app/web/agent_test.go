@@ -57,7 +57,7 @@ func TestAgentSettingsEndpointUsesHarnessStatuses(t *testing.T) {
 	require.NoError(t, json.Unmarshal(putResponse.Body.Bytes(), &response))
 	require.Equal(t, "configured", response.Resolved.Reason)
 	require.Equal(t, "gpt-test", response.Settings.Harnesses[harness.KindCodex].Model)
-	require.Equal(t, harness.PermissionApprovalRequired, response.Settings.Harnesses[harness.KindCodex].PermissionMode)
+	require.Equal(t, harness.PermissionAuto, response.Settings.Harnesses[harness.KindCodex].PermissionMode)
 }
 
 func TestParseAgentApprovalAndInterruptPaths(t *testing.T) {

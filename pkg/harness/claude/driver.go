@@ -468,7 +468,7 @@ func validDecision(decision harness.Decision) bool {
 }
 
 func supportedPermissionMode(mode harness.PermissionMode) bool {
-	return mode == "" || mode == harness.PermissionApprovalRequired || mode == harness.PermissionAutoAcceptEdits || mode == harness.PermissionFullAccess
+	return mode == "" || mode == harness.PermissionAuto || mode == harness.PermissionApprovalRequired || mode == harness.PermissionAutoAcceptEdits || mode == harness.PermissionFullAccess
 }
 
 func claudeTurnScoped(messageType string) bool {
