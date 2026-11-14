@@ -9,6 +9,7 @@ import {
   panelPreferenceScope,
   type SidebarPanel,
   SidebarPanelSlot,
+  usePanelOpen,
 } from "./SidebarPanelSlot";
 
 const http = withFakeFetch();
@@ -64,6 +65,30 @@ const patches = () =>
     .map((request) => JSON.parse(request.body ?? "{}"));
 
 describe("the sidebar panel slot", () => {
+  it("tells a panel nested in the navigation it is closed while the outer panel covers it", () => {
+    function Shown() {
+      return <span data-testid="inner">{usePanelOpen() ? "open" : "closed"}</span>;
+    }
+
+    render(
+      <SidebarPanelSlot
+        vaultKey="/vault"
+        panel={{ identity: "files", title: "Files" }}
+        navigation={
+          <SidebarPanelSlot vaultKey="/vault" panel={PANEL} navigation={null}>
+            <Shown />
+          </SidebarPanelSlot>
+        }
+      >
+        <span>Tree</span>
+      </SidebarPanelSlot>,
+    );
+
+    expect(screen.getByTestId("inner")).toHaveTextContent("open");
+    fireEvent.click(screen.getByRole("button", { name: "Fill the sidebar with Files" }));
+    expect(screen.getByTestId("inner")).toHaveTextContent("closed");
+  });
+
   it("shows split with a divider, minimised to its title bar, and cover over the navigation", async () => {
     render(<Slot />);
 

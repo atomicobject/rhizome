@@ -139,6 +139,8 @@ export function SidebarPanelSlot({
         : "split";
 
   const covering = state === "cover";
+  // A slot nested in another's navigation is shown only while that one is.
+  const shown = usePanelOpen();
   const panelStyle: PanelStyle = { "--panel-height": `${height.value}px` };
 
   const setMinimised = (next: boolean) => {
@@ -173,7 +175,7 @@ export function SidebarPanelSlot({
         hidden={covering}
         inert={covering ? true : undefined}
       >
-        {navigation}
+        <PanelOpen.Provider value={shown && !covering}>{navigation}</PanelOpen.Provider>
       </div>
       {panel && state ? (
         <section
@@ -227,7 +229,9 @@ export function SidebarPanelSlot({
             hidden={state === "minimised"}
             inert={state === "minimised" ? true : undefined}
           >
-            <PanelOpen.Provider value={state !== "minimised"}>{children}</PanelOpen.Provider>
+            <PanelOpen.Provider value={shown && state !== "minimised"}>
+              {children}
+            </PanelOpen.Provider>
           </div>
         </section>
       ) : null}
