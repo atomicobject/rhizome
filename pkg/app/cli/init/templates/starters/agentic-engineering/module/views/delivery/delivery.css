@@ -690,7 +690,8 @@ body:has(.ae-panel-state) {
   .ae-brief {
     grid-template-columns: minmax(0, 1fr);
   }
-  .ae-brief-aside {
+  /* Outranks `.ae-with-aside > aside`, or the stacked aside stays sticky and the brief scrolls under it. */
+  .ae-brief > .ae-brief-aside {
     position: static;
     order: -1;
   }
