@@ -883,6 +883,11 @@ func (s *Server) waitForPreparedQuery(ctx context.Context, defs *ontologyDefinit
 					break
 				}
 			}
+			if !rawOnly {
+				if err := s.requirePublishedQuerySchema(gateCtx, store, defs.schema); err != nil {
+					return nil, nil, err
+				}
+			}
 			if allAccountedFor && !rawOnly {
 				catalogPaths, err := ontology.PublishedCatalogPaths(gateCtx, store, facts.MetadataRows, defs.schema.Hash)
 				if err != nil {
@@ -895,7 +900,7 @@ func (s *Server) waitForPreparedQuery(ctx context.Context, defs *ontologyDefinit
 					}
 				}
 				if allAccountedFor {
-					return store, nil, s.requirePublishedQuerySchema(gateCtx, store, defs.schema)
+					return store, nil, nil
 				}
 			}
 			if allAccountedFor {
@@ -921,14 +926,17 @@ func (s *Server) waitForPreparedQuery(ctx context.Context, defs *ontologyDefinit
 }
 
 func (s *Server) requirePublishedQuerySchema(ctx context.Context, store *semdb.Store, schema *ontoschema.Schema) error {
-	published, err := ontology.PublishedRuntimeWithStore(ctx, s.noteMetadata, s.cfg.VaultDef, store)
+	if store == nil {
+		return fmt.Errorf("%w: ontology publication is unavailable", errIndexInitializing)
+	}
+	published, err := store.GetOntologySchemaState(ctx)
 	if err != nil {
 		return fmt.Errorf("%w: load ontology publication: %v", errIndexInitializing, err)
 	}
-	if !published.Ready {
+	if !published.Ready || published.MaterializationVersion != ontology.OntologyMaterializationVersion {
 		return fmt.Errorf("%w: ontology publication is not ready", errIndexInitializing)
 	}
-	if published.Schema.Hash != schema.Hash {
+	if published.SchemaHash != schema.Hash {
 		return fmt.Errorf("%w: ontology schema changed during query preparation", errIndexInitializing)
 	}
 	return nil

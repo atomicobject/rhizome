@@ -81,6 +81,7 @@ func TestPublicGraphQLRejectsSchemaChangedDuringSelectedPathPolling(t *testing.T
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(res, req)
+	require.NoError(t, ctx.Err(), "a schema mismatch must fail before the selected-path deadline")
 	require.Equal(t, http.StatusServiceUnavailable, res.Code, res.Body.String())
 	require.Contains(t, res.Body.String(), PublicErrorIndexInitializing)
 
