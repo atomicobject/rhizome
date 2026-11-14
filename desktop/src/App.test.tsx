@@ -216,7 +216,8 @@ describe("desktop shell", () => {
       searchShortcut: "Meta+K",
       searchHint: "⌘K",
       reloadTitle: "Reload (⌘R)",
-      sidebarTitle: "Hide sidebar (⌃⌘S or ⌘\\)",
+      sidebarTitle: "Hide sidebar (⌘B or ⌘\\)",
+      paneTitle: "Show right pane (]) · Chat (⌥⌘B)",
     },
     {
       macOS: false,
@@ -227,7 +228,8 @@ describe("desktop shell", () => {
       searchShortcut: "Control+K",
       searchHint: "Ctrl+K",
       reloadTitle: "Reload (Ctrl+R)",
-      sidebarTitle: "Hide sidebar (Ctrl+Alt+S or Ctrl+\\)",
+      sidebarTitle: "Hide sidebar (Ctrl+B or Ctrl+\\)",
+      paneTitle: "Show right pane (]) · Chat (Ctrl+Alt+B)",
     },
   ])("shows native shortcut hints when macOS is $macOS", async (expected) => {
     window.__RHIZOME_MACOS__ = expected.macOS;
@@ -258,6 +260,10 @@ describe("desktop shell", () => {
     expect(screen.getByRole("button", { name: "Hide sidebar" })).toHaveAttribute(
       "title",
       expected.sidebarTitle,
+    );
+    expect(screen.getByRole("button", { name: "Hide right pane" })).toHaveAttribute(
+      "title",
+      expected.paneTitle,
     );
   });
 
@@ -635,7 +641,7 @@ describe("desktop shell", () => {
     expect(toggle()).toBeEnabled();
     expect(toggle()).toHaveAccessibleName("Hide sidebar");
     expect(toggle()).toHaveAttribute("aria-pressed", "true");
-    expect(toggle()).toHaveAttribute("title", "Hide sidebar (⌃⌘S or ⌘\\)");
+    expect(toggle()).toHaveAttribute("title", "Hide sidebar (⌘B or ⌘\\)");
     fireEvent.click(toggle());
     expect(call).toHaveBeenCalledWith("page", { command: "sidebar", collapsed: true });
 
@@ -651,6 +657,38 @@ describe("desktop shell", () => {
       emit({ type: "page", state: { section: "graphql", search: "", sidebarCollapsed: true } }),
     );
     expect(toggle()).toBeDisabled();
+    act(() => emit({ type: "page", state: null }));
+    expect(toggle()).toBeDisabled();
+  });
+
+  it("toggles the reported right pane in every section and disables it without a page", async () => {
+    start();
+    await waitFor(() => expect(opened()).toHaveLength(1));
+    const toggle = () => screen.getByRole("button", { name: /right pane$/ });
+    expect(toggle()).toBeDisabled();
+    report({ step: "ready" });
+    act(() => emit({ type: "page", state: { section: "notes", search: "" } }));
+    expect(toggle()).toBeDisabled();
+    fireEvent.click(toggle());
+    expect(call).not.toHaveBeenCalledWith("page", { command: "pane" });
+
+    for (const section of ["notes", "ontology", "explorer", "agent", "tasks", "graphql"] as const) {
+      for (const collapsed of [true, false]) {
+        act(() => emit({ type: "page", state: { section, search: "", paneCollapsed: collapsed } }));
+        expect(toggle()).toBeEnabled();
+        expect(toggle()).toHaveAccessibleName(collapsed ? "Show right pane" : "Hide right pane");
+        expect(toggle()).toHaveAttribute("aria-pressed", String(!collapsed));
+        fireEvent.click(toggle());
+        expect(call).toHaveBeenLastCalledWith("page", { command: "pane" });
+        // A click waits for the page's report before changing the button's state.
+        expect(toggle()).toHaveAttribute("aria-pressed", String(!collapsed));
+      }
+    }
+    expect(toggle().parentElement?.lastElementChild).toBe(toggle());
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(toggle()).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(toggle()).toBeEnabled();
     act(() => emit({ type: "page", state: null }));
     expect(toggle()).toBeDisabled();
   });

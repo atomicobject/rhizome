@@ -20,6 +20,13 @@ fn shell_menu_entries_deserialize() {
 fn the_sidebar_item_names_what_it_will_do() {
     assert_eq!(sidebar_label(false), "Hide Sidebar");
     assert_eq!(sidebar_label(true), "Show Sidebar");
-    #[cfg(target_os = "macos")]
-    assert_eq!(SIDEBAR_SHORTCUT, "Ctrl+CmdOrCtrl+S");
+    assert_eq!(SIDEBAR_SHORTCUT, "CmdOrCtrl+B");
+}
+
+#[test]
+fn panel_shortcuts_are_distinct_from_other_menu_accelerators() {
+    assert!(SHORTCUTS.contains(&("chat", "Alt+CmdOrCtrl+B")));
+    for (i, (_, shortcut)) in SHORTCUTS.iter().enumerate() {
+        assert!(!SHORTCUTS[..i].iter().any(|(_, other)| shortcut == other));
+    }
 }

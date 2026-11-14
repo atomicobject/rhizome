@@ -126,15 +126,8 @@ mod tests {
             (b'O' as u32, CTRL | SHIFT, "worktrees"),
             (b'P' as u32, CTRL, "find"),
             (b'R' as u32, CTRL, "reload"),
-            (
-                b'S' as u32,
-                if cfg!(target_os = "macos") {
-                    CTRL
-                } else {
-                    CTRL | ALT
-                },
-                "sidebar",
-            ),
+            (b'B' as u32, CTRL, "sidebar"),
+            (b'B' as u32, CTRL | ALT, "chat"),
             (0x7a, 0, "fullscreen"),
         ] {
             assert_eq!(action(key, modifiers, |_| true), Some(expected));
@@ -155,5 +148,8 @@ mod tests {
         assert_eq!(action(b'N' as u32, CTRL | ALT, |_| true), None);
         assert_eq!(action(b'N' as u32, CTRL | META, |_| true), None);
         assert_eq!(action(0x7a, 0, |_| false), None);
+        assert_eq!(action(b'B' as u32, CTRL, |_| false), None);
+        assert_eq!(action(b'B' as u32, CTRL | ALT, |_| false), None);
+        assert_eq!(action(b'S' as u32, CTRL | ALT, |_| true), None);
     }
 }

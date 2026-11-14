@@ -404,7 +404,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
                     crate::tasks::handle(app, &label, ask);
                 }
                 crate::inbox::reported(app, webview.window().label());
-                crate::menu::refresh_sidebar(app);
+                crate::menu::refresh_panels(app);
             })
             .on_new_window(move |target, _| {
                 if security::external_url(&target) {
@@ -437,7 +437,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
                             page::loading(pane, payload.url())
                         });
                     crate::inbox::refresh(webview.app_handle());
-                    crate::menu::refresh_sidebar(webview.app_handle());
+                    crate::menu::refresh_panels(webview.app_handle());
                     crate::pipeline::navigation_started(
                         webview.app_handle(),
                         webview.window().label(),
@@ -467,7 +467,7 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         WindowEvent::Focused(true) => {
             app.state::<Focus>().focused(events.label());
             app.state::<Presence>().rediscover();
-            crate::menu::refresh_sidebar(&app);
+            crate::menu::refresh_panels(&app);
         }
         WindowEvent::Moved(_) | WindowEvent::Resized(_) => record(&app, &events),
         // Match System follows the OS; repaint in the new appearance.
@@ -524,7 +524,7 @@ pub fn layout(window: &Window, bounds: Rect, covered: bool) -> Result<(), String
         .state::<Panes>()
         .with(window.label(), |pane| pane.cover(covered));
     let synced = sync_visibility(window);
-    crate::menu::refresh_sidebar(window.app_handle());
+    crate::menu::refresh_panels(window.app_handle());
     synced
 }
 
@@ -609,7 +609,10 @@ pub fn page_command(window: &Window, command: &page::Command) {
     let shown = window
         .app_handle()
         .state::<Panes>()
-        .with(window.label(), |pane| page::on_runtime(pane))
+        .with(window.label(), |pane| match command {
+            page::Command::Pane {} | page::Command::Chat {} => page::toggles_pane(pane),
+            _ => page::on_runtime(pane),
+        })
         .unwrap_or(false);
     let content = window.get_webview(&content_label(window.label()));
     if let (true, Some(content), Some(script)) = (shown, content, command.script()) {

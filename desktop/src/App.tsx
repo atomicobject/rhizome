@@ -300,6 +300,7 @@ export function App() {
   const shown = !covered && open?.step === "ready" ? page : null;
   // A page reports its sidebar once the app has sent it one; GraphQL has none.
   const sidebarCollapsed = shown?.section === "graphql" ? undefined : shown?.sidebarCollapsed;
+  const paneCollapsed = shown?.paneCollapsed;
   const pageCommand = (command: PageCommand) => void request("page", command).catch(() => {});
 
   const repositories = library?.repositories ?? [];
@@ -1061,7 +1062,7 @@ export function App() {
               className="icon-button"
               aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
               aria-pressed={sidebarCollapsed === false}
-              title={`${sidebarCollapsed ? "Show" : "Hide"} sidebar (${isMacOS() ? "⌃⌘S or ⌘\\" : "Ctrl+Alt+S or Ctrl+\\"})`}
+              title={`${sidebarCollapsed ? "Show" : "Hide"} sidebar (${isMacOS() ? "⌘B or ⌘\\" : "Ctrl+B or Ctrl+\\"})`}
               disabled={sidebarCollapsed === undefined}
               onClick={() => pageCommand({ command: "sidebar", collapsed: !sidebarCollapsed })}
             >
@@ -1197,6 +1198,19 @@ export function App() {
               <svg viewBox="0 0 16 16" aria-hidden="true">
                 <circle cx="8" cy="8" r="2.2" />
                 <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
+              </svg>
+            </button>
+            <button
+              className="icon-button"
+              aria-label={paneCollapsed ? "Show right pane" : "Hide right pane"}
+              aria-pressed={paneCollapsed === false}
+              title={`Show right pane (]) · Chat (${isMacOS() ? "⌥⌘B" : "Ctrl+Alt+B"})`}
+              disabled={paneCollapsed === undefined}
+              onClick={() => pageCommand({ command: "pane" })}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <rect x="2" y="3" width="12" height="10" rx="1.5" />
+                <path d="M10 3v10" />
               </svg>
             </button>
           </div>
