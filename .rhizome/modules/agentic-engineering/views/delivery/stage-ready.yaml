@@ -1,0 +1,9 @@
+apiVersion: rhizome.view.v1
+id: agentic-engineering.stage.ready
+name: Ready
+source: { kind: custom, entry: stage.tsx }
+mount:
+  kind: group
+  group: Delivery
+  order: 2
+configuration: { stage: ready }

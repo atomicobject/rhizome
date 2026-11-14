@@ -1,0 +1,9 @@
+apiVersion: rhizome.view.v1
+id: agentic-engineering.stage.shaping
+name: Shaping
+source: { kind: custom, entry: stage.tsx }
+mount:
+  kind: group
+  group: Delivery
+  order: 1
+configuration: { stage: shaping }

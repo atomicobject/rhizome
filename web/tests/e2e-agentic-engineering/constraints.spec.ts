@@ -1,6 +1,6 @@
 import { isJsonObject, isString, type JsonValue } from "../../src/api/parse";
 import { expect, test } from "@playwright/test";
-import { capture, content, home, noOverflow, record, specPath, specTitle } from "./helpers";
+import { capture, content, home, noOverflow, record, specPath, specTitle, stage } from "./helpers";
 
 test.afterEach(async ({ page }) => {
   await page.unrouteAll({ behavior: "wait" });
@@ -113,7 +113,7 @@ for (const colorScheme of ["light", "dark"] as const) {
 test("refresh reports removed selection before allowing a reduced prompt", async ({
   page,
 }, info) => {
-  await page.goto("/notes?view=agentic-engineering.stage&stage=ready");
+  await page.goto(stage("ready"));
   const f = content(page);
   await f.getByRole("checkbox", { name: /Select US1.*Reserve a seat/ }).check();
   await f.getByRole("checkbox", { name: /Select US3.*Recover a saved itinerary/ }).check();
@@ -416,7 +416,7 @@ for (const colorScheme of ["light", "dark"] as const) {
 
           await route.fulfill({ response, json });
         });
-        await page.goto("/notes?view=agentic-engineering.stage&stage=ready");
+        await page.goto(stage("ready"));
         const f = content(page);
         await expect(
           f.getByRole("status").filter({ hasText: "Some sources didn't load" }),
@@ -495,7 +495,7 @@ test("ambiguous spec sections disable ready selection while preserving authored 
     update(json.data);
     await route.fulfill({ response, json });
   });
-  await page.goto("/notes?view=agentic-engineering.stage&stage=ready");
+  await page.goto(stage("ready"));
   const f = content(page);
   await expect(f.getByRole("checkbox", { name: /Select US1.*Reserve a seat/ })).toBeDisabled();
   await expect(f.getByRole("button", { name: "Copy workflow prompt", exact: true })).toBeDisabled();
@@ -508,7 +508,7 @@ test("ambiguous spec sections disable ready selection while preserving authored 
 });
 
 test("selecting another effort does not reread efforts already loaded", async ({ page }) => {
-  await page.goto("/notes?view=agentic-engineering.stage&stage=active");
+  await page.goto(stage("active"));
   const f = content(page);
   const copy = f.getByRole("button", { name: "Copy workflow prompt", exact: true });
   await f.getByRole("checkbox", { name: "Select Active all checked", exact: true }).check();
@@ -526,7 +526,7 @@ test("selecting another effort does not reread efforts already loaded", async ({
 
 test("a cached effort from an earlier graph generation is read again", async ({ page }) => {
   await page.route("**/api/v1/events", (route) => route.abort("blockedbyclient"));
-  await page.goto("/notes?view=agentic-engineering.stage&stage=active");
+  await page.goto(stage("active"));
   const f = content(page);
   const copy = f.getByRole("button", { name: "Copy workflow prompt", exact: true });
   await f.getByRole("checkbox", { name: "Select Active all checked", exact: true }).check();
@@ -551,7 +551,7 @@ test("refresh rereads selected efforts before allowing Copy and recovers", async
 }, info) => {
   const path = "docs/efforts/2026-11-09-10-02-harbor.md";
   await page.route("**/api/v1/events", (route) => route.abort("blockedbyclient"));
-  await page.goto("/notes?view=agentic-engineering.stage&stage=active");
+  await page.goto(stage("active"));
   const f = content(page);
   const copy = f.getByRole("button", { name: "Copy workflow prompt", exact: true });
   await f.getByRole("checkbox", { name: "Select Active all checked", exact: true }).check();
