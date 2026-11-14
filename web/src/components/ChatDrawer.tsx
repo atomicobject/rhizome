@@ -1,22 +1,32 @@
-// PROTOTYPE: chat as a tab of the app's one right pane. The conversation is
-// mocked and nothing reaches a harness; it exists to judge placement,
-// toggling, resizing, and how "what you're looking at" reads.
-import {
-  type CSSProperties,
-  type FormEvent,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+// Chat, a tab of the app's one right pane (SPEC-0140). It talks to the same
+// agent chat sessions as the Agent page, and each message carries what the
+// user is looking at.
+import { useQuery } from "@tanstack/react-query";
+import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from "react";
 
+import {
+  createAgentSession,
+  getAgentSettings,
+  interruptAgentSession,
+  respondToAgentApproval,
+} from "../api/internalAgentClient";
+import { queryKeys } from "../api/queryKeys";
+import type {
+  AgentApprovalDecision,
+  AgentHarnessKind,
+  AgentPermissionMode,
+  AgentViewContext,
+} from "../api/types";
+import { emptySettingsResponse } from "./agent/AgentSettingsPanel";
+import { harnessBlocked } from "./agent/AgentStatusHeader";
+import { useAgentThread } from "./agent/useAgentThread";
+import { setChatDraft, setChatSession, startNewChat, useChatPane } from "./chat/chatSession";
+import { ChatTimeline, ContextChip, Icon } from "./chat/ChatTimeline";
+import { CONTEXT_KIND_LABELS, useViewContext } from "./chat/viewContext";
 import { readSingleKey, typingIn } from "./KeyboardShortcuts";
-import { useLocationSnapshot } from "./locationStore";
-import { parseNotesLocation } from "./notesRoute";
-import { isOntologyPath, parseOntologyRoute } from "./ontologyRoute";
+import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { PanelResizeHandle } from "./PanelResizeHandle";
 import { PANE_RANGE, toggleChat, togglePaneOpen, useShellPanes } from "./shellPanes";
-import { useViewCatalogQuery } from "./useNotesQueries";
 import { PanelIcon } from "./WorkbenchSidebar";
 
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -51,7 +61,7 @@ function keepingFocus(toggle: () => void) {
 export const togglePane = () => keepingFocus(() => togglePaneOpen());
 
 /** Shows the pane on Chat and focuses the composer, or hides Chat when it shows. */
-function toggleChatPane() {
+export function toggleChatPane() {
   // Only the active section's pane renders a chat panel.
   const showing = Boolean(document.querySelector("[data-right-pane] .chat-panel"));
 
@@ -78,7 +88,8 @@ function isPaneKey(event: KeyboardEvent): boolean {
 export function useChatShortcut() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
+      // The Agent page is the full chat and has no right pane.
+      if (event.defaultPrevented || window.location.pathname.startsWith("/agent")) return;
 
       if (isChatShortcut(event)) {
         // Works from the composer too, so it can close the pane.
@@ -99,7 +110,7 @@ export function useChatShortcut() {
 }
 
 /** The top bar's right-pane toggle, at its right end: the pane's one toggle. */
-export function PaneToggle() {
+export function PaneToggle({ disabled = false }: { disabled?: boolean }) {
   const { paneCollapsed } = useShellPanes();
   const label = paneCollapsed ? "Show right pane" : "Hide right pane";
 
@@ -108,9 +119,12 @@ export function PaneToggle() {
       type="button"
       className="app-shell__sidebar-toggle chat-toggle"
       aria-label={label}
-      aria-expanded={!paneCollapsed}
+      aria-expanded={disabled ? undefined : !paneCollapsed}
       aria-keyshortcuts={IS_MAC ? "] Alt+Meta+B" : "] Control+Alt+B"}
-      title={`${label} (]) · Chat (${CHAT_SHORTCUT})`}
+      title={
+        disabled ? "The Agent page is the full chat" : `${label} (]) · Chat (${CHAT_SHORTCUT})`
+      }
+      disabled={disabled}
       onClick={() => togglePaneOpen()}
     >
       <PanelIcon side="right" />
@@ -118,278 +132,117 @@ export function PaneToggle() {
   );
 }
 
-type ViewContext = { kind: string; label: string; detail?: string };
-
-function sameContext(a: ViewContext | null, b: ViewContext | null) {
-  return a?.kind === b?.kind && a?.label === b?.label;
-}
-
-function describeLocation(pathname: string, search: string, hash: string): ViewContext {
-  if (isOntologyPath(pathname)) {
-    const selection = parseOntologyRoute(pathname);
-
-    return selection.kind === "type"
-      ? { kind: "Type", label: selection.name, detail: "Ontology · schema, fields, relations" }
-      : { kind: "Ontology", label: "Atlas", detail: "All types and how they relate" };
-  }
-
-  const section = pathname.split("/")[1] || "notes";
-
-  if (section !== "notes") {
-    return { kind: "Section", label: section[0].toUpperCase() + section.slice(1) };
-  }
-
-  const location = parseNotesLocation(pathname, search, hash);
-
-  if (location.note) {
-    const name = location.note.split("/").pop() ?? location.note;
-
-    return {
-      kind: "Note",
-      label: name.replace(/\.md$/, ""),
-      detail: location.fragment ? `${location.note} › ${location.fragment}` : location.note,
-    };
-  }
-
-  if (location.view)
-    return { kind: "View", label: location.view, detail: "Filters, sort, visible rows" };
-
-  const selection = location.selection;
-
-  switch (selection.kind) {
-    case "type":
-      return { kind: "Type", label: selection.slug, detail: "Visible rows, filters, counts" };
-    case "group":
-      return { kind: "Group", label: selection.group, detail: "Visible rows, filters, counts" };
-    case "issues":
-      return { kind: "Notes", label: "Problems" };
-    case "modified":
-      return { kind: "Notes", label: "Changes" };
-    default:
-      return { kind: "Notes", label: "All notes" };
-  }
-}
-
-type ActivityIcon = "edit" | "read" | "screenshot" | "denied";
-
-type Message =
-  | { id: number; role: "user"; text: string; context: ViewContext | null }
-  | { id: number; role: "assistant"; text: string }
-  /** Something the agent did or read on its own; `note` says who allowed it. */
-  | { id: number; role: "activity"; icon: ActivityIcon; text: string; note?: string }
-  | {
-      id: number;
-      role: "approval";
-      title: string;
-      detail: string;
-      state: "pending" | "allowed" | "denied";
-    };
-
-const ACTION_ITEMS: ViewContext = {
-  kind: "View",
-  label: "Action items",
-  detail: "status ≠ done · sorted by due",
-};
-
-const SEED: Message[] = [
-  { id: 1, role: "user", text: "Which of these are overdue?", context: ACTION_ITEMS },
-  { id: 2, role: "activity", icon: "read", text: "Ran the view's query for all 41 rows" },
-  {
-    id: 3,
-    role: "assistant",
-    text: "3 are past due: “Renew TLS cert” (Nov 2), “Send Q4 plan to Rachel” (Nov 8), and “Close indexer effort” (Nov 11).",
-  },
-  { id: 4, role: "user", text: "Mark the indexer one done.", context: ACTION_ITEMS },
-  {
-    id: 5,
-    role: "activity",
-    icon: "edit",
-    text: "Checked “Close indexer effort” in Indexer reliability",
-    note: "Allowed by auto mode · docs/efforts/indexer-reliability.md",
-  },
-  { id: 6, role: "assistant", text: "Done. The view now shows 2 overdue items." },
-  {
-    id: 7,
-    role: "user",
-    text: "Why does the table on this note look empty?",
-    context: { kind: "Note", label: "Weekly sync", detail: "notes/meetings/weekly-sync.md" },
-  },
-  { id: 8, role: "activity", icon: "screenshot", text: "Took a screenshot of the page" },
-  {
-    id: 9,
-    role: "assistant",
-    text: "Its embedded view filters to owner = you, and all three items on this note belong to Priya. Clear the Owner filter to see them.",
-  },
-  {
-    id: 10,
-    role: "user",
-    text: "Delete the action items that have been done for more than a year.",
-    context: ACTION_ITEMS,
-  },
-  {
-    id: 11,
-    role: "approval",
-    title: "Delete 14 action items across 9 notes",
-    detail: "Auto mode asks before deleting content. Each note keeps its history in Git.",
-    state: "pending",
-  },
-];
-
-// The conversation, shared by the pane's header and its panel, and kept when
-// the pane moves between sections.
-type ChatState = { messages: Message[]; draft: string; working: boolean };
-
-let chat: ChatState = { messages: SEED, draft: "", working: false };
-
-const chatListeners = new Set<() => void>();
-
-function setChat(change: Partial<ChatState>) {
-  chat = { ...chat, ...change };
-
-  for (const listener of chatListeners) listener();
-}
-
-function subscribeChat(listener: () => void) {
-  chatListeners.add(listener);
-
-  return () => chatListeners.delete(listener);
-}
-
-const useChat = () => useSyncExternalStore(subscribeChat, () => chat);
-
-// The Notes tab strip's title for the shown note or view, which the URL
-// cannot give: it names a file or a view id.
-let notesTitle: string | null = null;
-
-const titleListeners = new Set<() => void>();
-
-export function publishNotesTitle(title: string | null) {
-  if (title === notesTitle) return;
-  notesTitle = title;
-
-  for (const listener of titleListeners) listener();
-}
-
-function subscribeTitle(listener: () => void) {
-  titleListeners.add(listener);
-
-  return () => titleListeners.delete(listener);
-}
-
-function useViewContext(): ViewContext {
-  const { pathname, search, hash } = useLocationSnapshot();
-  const located = describeLocation(pathname, search, hash);
-  const title = useSyncExternalStore(subscribeTitle, () => notesTitle);
-  const titled = located.kind === "Note" || located.kind === "View";
-  const catalog = useViewCatalogQuery(located.kind === "View" && !title);
-
-  if (titled && title) return { ...located, label: title };
-
-  const viewName = catalog.data?.views.find((view) => view.id === located.label)?.name;
-
-  return viewName ? { ...located, label: viewName } : located;
-}
-
-function ContextChip({ context, onRemove }: { context: ViewContext; onRemove?: () => void }) {
-  return (
-    <span className="chat-context" title={context.detail}>
-      <span className="chat-context__kind">{context.kind}</span>
-      <span className="chat-context__label">{context.label}</span>
-      {onRemove ? (
-        <button type="button" aria-label="Don't attach what I'm looking at" onClick={onRemove}>
-          ×
-        </button>
-      ) : null}
-    </span>
-  );
-}
-
-function Icon({ d, strokeWidth = 1.4 }: { d: string; strokeWidth?: number }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-    >
-      <path d={d} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-const ACTIVITY_ICONS: Record<ActivityIcon, string> = {
-  edit: "m3.5 8.5 3 3 6-7",
-  read: "M3 3.5h10M3 6.5h10M3 9.5h6M3 12.5h4",
-  screenshot:
-    "M2.5 5.5v-2h2M11.5 3.5h2v2M13.5 10.5v2h-2M4.5 12.5h-2v-2M6 8a2 2 0 1 0 4 0 2 2 0 0 0-4 0",
-  denied: "M4.5 4.5l7 7M11.5 4.5l-7 7",
-};
-
-function Activity({ icon, text, note }: { icon: ActivityIcon; text: string; note?: string }) {
-  return (
-    <div className={`chat-activity chat-activity--${icon}`} title={note}>
-      <Icon d={ACTIVITY_ICONS[icon]} strokeWidth={icon === "edit" ? 1.6 : 1.4} />
-      <span>{text}</span>
-    </div>
-  );
-}
-
-function startersFor(kind: string): string[] {
+function startersFor(kind: AgentViewContext["kind"]): string[] {
   switch (kind) {
-    case "Note":
+    case "note":
       return [
         "Summarize this note",
         "What links here, and why?",
         "Find notes that disagree with this",
       ];
-    case "View":
-      return ["Which rows need attention?", "Summarize what's here", "Group these by owner"];
-    case "Type":
-    case "Group":
+    case "view":
+      return ["Which rows need attention?", "Summarize what's here"];
+    case "type":
+    case "group":
       return ["Which records are missing fields?", "Summarize what's here"];
-    case "Ontology":
+    case "ontology":
       return ["Explain how these types relate", "Which types have no records yet?"];
     default:
       return ["What changed this week?", "What should I look at first?"];
   }
 }
 
+const MODE_LABELS: Record<AgentPermissionMode, { label: string; title: string }> = {
+  auto: {
+    label: "Auto",
+    title:
+      "Claude runs in auto mode and Codex in Approve for me: a reviewer allows routine actions and asks you only about risky ones.",
+  },
+  "approval-required": { label: "Ask first", title: "The agent asks before every action." },
+  "auto-accept-edits": {
+    label: "Auto edits",
+    title: "File edits run without asking; other actions ask first.",
+  },
+  "full-access": { label: "Full access", title: "Every action runs without asking." },
+};
+
+const HARNESS_LABELS: Record<AgentHarnessKind, string> = { claude: "Claude", codex: "Codex" };
+
+function openInAgent(sessionID: string) {
+  window.history.pushState({}, "", `/agent?session=${encodeURIComponent(sessionID)}`);
+  notifyLocationChange();
+}
+
+const errorText = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
+
 /** New chat and Open in Agent, in the pane's header while Chat shows. */
 export function ChatHeaderActions() {
-  const { messages } = useChat();
+  const { sessionID } = useChatPane();
+
+  if (!sessionID) return null;
 
   return (
     <div className="chat-pane-actions">
-      {messages.length ? (
-        <button
-          type="button"
-          title="New chat"
-          aria-label="New chat"
-          onClick={() => setChat({ messages: [], draft: "", working: false })}
-        >
-          <Icon d="M8 3.5v9M3.5 8h9" />
-        </button>
-      ) : null}
-      <button type="button" title="Open in Agent" aria-label="Open in Agent">
+      <button type="button" title="New chat" aria-label="New chat" onClick={startNewChat}>
+        <Icon d="M8 3.5v9M3.5 8h9" />
+      </button>
+      <button
+        type="button"
+        title="Open in Agent"
+        aria-label="Open in Agent"
+        onClick={() => openInAgent(sessionID)}
+      >
         <Icon d="M6.5 3.5H4a.5.5 0 0 0-.5.5v8a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5V9.5M9 3.5h3.5V7M12.5 3.5 7.5 8.5" />
       </button>
     </div>
   );
 }
 
-let replyTimer = 0;
-
 /** The chat tab's contents: the conversation and the composer. */
 export function ChatPanel() {
   const log = useRef<HTMLDivElement>(null);
   const { pathname, search } = useLocationSnapshot();
   const context = useViewContext();
-  const { messages, draft, working } = useChat();
+  const { sessionID, draft } = useChatPane();
+  const [error, setError] = useState("");
   // The page whose context the user detached; moving on re-attaches.
   const [detachedFrom, setDetachedFrom] = useState<string | null>(null);
   const routeKey = `${pathname}?${search}`;
   const attachContext = detachedFrom !== routeKey;
+  const contextRef = useRef(context);
+
+  contextRef.current = context;
+
+  const settingsQuery = useQuery({
+    queryKey: queryKeys.agent.settings(),
+    queryFn: ({ signal }) => getAgentSettings({ signal }),
+  });
+
+  const thread = useAgentThread(sessionID, () => ({
+    title: contextRef.current.title,
+    route: contextRef.current.route,
+  }));
+
+  const session = thread.sessionQuery.data?.session;
+  const settings = settingsQuery.data ?? emptySettingsResponse;
+  const harness = session?.harness || settings.settings.harness || settings.resolved.harness;
+  const status = settings.harnesses.find((item) => item.kind === harness)?.status;
+  const blocked = settingsQuery.isSuccess && harnessBlocked(harness, status);
+  const mode = harness ? settings.settings.harnesses[harness].permissionMode : "auto";
+  const modelID = session?.model || (harness ? settings.settings.harnesses[harness].model : "");
+  const models = status?.models ?? [];
+
+  const model = modelID
+    ? models.find((option) => option.id === modelID)?.displayName || modelID
+    : (models.find((option) => option.default) ?? models[0])?.displayName;
+
+  const running = thread.isSending || thread.turnRunning;
+  const empty = thread.messages.length === 0 && thread.events.length === 0;
+
+  // A session the server no longer has (deleted on the Agent page) starts over.
+  useEffect(() => {
+    if (thread.sessionQuery.isError && sessionID) startNewChat();
+  }, [thread.sessionQuery.isError, sessionID]);
 
   // The log stays on the newest message, also when the pane resizes or the
   // page settles around it, unless the user scrolled up to read.
@@ -398,7 +251,7 @@ export function ChatPanel() {
   useEffect(() => {
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
     pinned.current = true;
-  }, [messages, working]);
+  }, [thread.messages, thread.events]);
 
   useEffect(() => {
     const element = log.current;
@@ -414,55 +267,52 @@ export function ChatPanel() {
     return () => observer.disconnect();
   }, []);
 
-  const send = (text: string) => {
+  const send = async (text: string) => {
     const message = text.trim();
 
-    if (!message || working) return;
-    const sent = attachContext ? context : null;
+    if (!message || running || blocked) return;
+    setError("");
+    const sent = attachContext ? context : undefined;
 
-    setChat({
-      messages: [...chat.messages, { id: Date.now(), role: "user", text: message, context: sent }],
-      draft: "",
-      working: true,
-    });
-    window.clearTimeout(replyTimer);
-    replyTimer = window.setTimeout(
-      () =>
-        setChat({
-          working: false,
-          messages: [
-            ...chat.messages,
-            {
-              id: Date.now(),
-              role: "assistant",
-              text: `Prototype reply. A real agent would get ${
-                sent ? `${sent.kind.toLowerCase()} “${sent.label}”` : "no page context"
-              }, and would read the page text or take a screenshot only if it needed them.`,
-            },
-          ],
-        }),
-      1400,
-    );
+    try {
+      let target = sessionID;
+
+      if (!target) {
+        const created = await createAgentSession(message.slice(0, 48));
+        target = created.session.id;
+        setChatSession(target);
+      }
+
+      setChatDraft("");
+      await thread.send(target, message, sent);
+    } catch (cause) {
+      setError(errorText(cause));
+    }
   };
 
-  const stop = () => {
-    window.clearTimeout(replyTimer);
-    setChat({ working: false });
+  const stop = async () => {
+    if (!sessionID) return;
+
+    try {
+      await interruptAgentSession(sessionID);
+    } catch (cause) {
+      setError(errorText(cause));
+    }
   };
 
-  const decide = (id: number, state: "allowed" | "denied") =>
-    setChat({
-      messages: chat.messages.map((message) =>
-        message.id === id && message.role === "approval" ? { ...message, state } : message,
-      ),
-    });
+  const approve = async (requestID: string, decision: AgentApprovalDecision) => {
+    try {
+      await respondToAgentApproval(sessionID, requestID, decision);
+    } catch (cause) {
+      setError(errorText(cause));
+      throw cause;
+    }
+  };
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    send(draft);
+    void send(draft);
   };
-
-  let previousContext: ViewContext | null = null;
 
   return (
     <div className="chat-panel">
@@ -471,100 +321,55 @@ export function ChatPanel() {
         ref={log}
         role="log"
         aria-live="polite"
+        aria-label="Conversation"
         onScroll={(event) => {
           const element = event.currentTarget;
 
           pinned.current = element.scrollHeight - element.scrollTop - element.clientHeight < 24;
         }}
       >
-        {messages.length === 0 ? (
+        {blocked ? (
+          <div className="chat-drawer__empty" role="status">
+            <p>
+              Chat needs Codex or Claude Code.{" "}
+              <a
+                href="/agent"
+                onClick={(event) => {
+                  event.preventDefault();
+                  window.history.pushState({}, "", "/agent");
+                  notifyLocationChange();
+                }}
+              >
+                Set one up on the Agent page
+              </a>
+              .
+            </p>
+          </div>
+        ) : empty && !thread.sessionQuery.isPending ? (
           <div className="chat-drawer__empty">
             <p>Ask about what you're looking at.</p>
             <div className="chat-starters">
               {startersFor(context.kind).map((starter) => (
-                <button key={starter} type="button" onClick={() => send(starter)}>
+                <button key={starter} type="button" onClick={() => void send(starter)}>
                   {starter}
                 </button>
               ))}
             </div>
           </div>
         ) : null}
-        {messages.map((message) => {
-          if (message.role === "activity")
-            return (
-              <Activity
-                key={message.id}
-                icon={message.icon}
-                text={message.text}
-                note={message.note}
-              />
-            );
-
-          if (message.role === "approval")
-            return message.state === "pending" ? (
-              <div key={message.id} className="chat-approval">
-                <strong>{message.title}</strong>
-                <span>{message.detail}</span>
-                <div className="chat-approval__buttons">
-                  <button
-                    type="button"
-                    className="button button--primary"
-                    onClick={() => decide(message.id, "allowed")}
-                  >
-                    Allow
-                  </button>
-                  <button
-                    type="button"
-                    className="button"
-                    onClick={() => decide(message.id, "denied")}
-                  >
-                    Deny
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <Activity
-                key={message.id}
-                icon={message.state === "allowed" ? "edit" : "denied"}
-                text={message.state === "allowed" ? message.title : `Didn't ${message.title}`}
-                note={message.state === "allowed" ? "You allowed this" : "You denied this"}
-              />
-            );
-
-          if (message.role === "assistant")
-            return (
-              <div key={message.id} className="chat-message chat-message--assistant">
-                <p>{message.text}</p>
-              </div>
-            );
-
-          // A chip only where the context changes, so a thread about one page
-          // doesn't repeat it on every message.
-          const changed =
-            message.context && !sameContext(message.context, previousContext)
-              ? message.context
-              : null;
-
-          previousContext = message.context;
-
-          return (
-            <div key={message.id} className="chat-message chat-message--user">
-              {changed ? (
-                <div className="chat-message__context">
-                  <ContextChip context={changed} />
-                </div>
-              ) : null}
-              <p>{message.text}</p>
-            </div>
-          );
-        })}
-        {working ? (
-          <div className="chat-activity chat-activity--working">
-            <span className="chat-spinner" aria-hidden="true" />
-            <span>Working…</span>
-          </div>
-        ) : null}
+        <ChatTimeline
+          messages={thread.messages}
+          events={thread.events}
+          running={running}
+          autoNote={mode === "auto" ? "Allowed by auto mode" : undefined}
+          onApproval={approve}
+        />
       </div>
+      {error ? (
+        <p className="chat-error chat-error--composer" role="alert">
+          {error}
+        </p>
+      ) : null}
       <form className="agent-composer chat-composer" onSubmit={onSubmit}>
         <div className="agent-composer__frame">
           <div className="chat-composer__context">
@@ -572,39 +377,39 @@ export function ChatPanel() {
               <ContextChip context={context} onRemove={() => setDetachedFrom(routeKey)} />
             ) : (
               <button type="button" className="chat-attach" onClick={() => setDetachedFrom(null)}>
-                + {context.kind} “{context.label}”
+                + {CONTEXT_KIND_LABELS[context.kind]} “{context.title}”
               </button>
             )}
           </div>
           <textarea
             value={draft}
             aria-label="Message"
-            placeholder={`Ask about ${context.label}…`}
+            placeholder={`Ask about ${context.title}…`}
             rows={2}
-            onChange={(event) => setChat({ draft: event.target.value })}
+            disabled={blocked}
+            onChange={(event) => setChatDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault();
-                send(draft);
+                void send(draft);
               }
             }}
           />
           <div className="agent-composer__bar">
-            <span
-              className="chat-composer__agent"
-              title="Claude in auto mode: a reviewer approves routine actions and asks you only about risky ones. Codex uses Approve for me."
-            >
-              Claude · Opus 5.5 <span className="chat-composer__mode">Auto</span>
+            <span className="chat-composer__agent" title={MODE_LABELS[mode].title}>
+              {harness ? HARNESS_LABELS[harness] : "No agent"}
+              {model ? ` · ${model}` : ""}{" "}
+              <span className="chat-composer__mode">{MODE_LABELS[mode].label}</span>
             </span>
-            {working ? (
-              <button type="button" className="button" onClick={stop}>
+            {running ? (
+              <button type="button" className="button" onClick={() => void stop()}>
                 Stop
               </button>
             ) : (
               <button
                 type="submit"
                 className={`button${draft.trim() ? " button--primary" : ""}`}
-                disabled={!draft.trim()}
+                disabled={!draft.trim() || blocked}
               >
                 Send
               </button>

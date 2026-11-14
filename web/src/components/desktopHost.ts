@@ -30,6 +30,10 @@ export type DesktopCommand =
   | { command: "shortcuts" }
   | { command: "find" }
   | { command: "sidebar"; collapsed: boolean }
+  /** Toggles the right pane, from the toolbar button. */
+  | { command: "pane" }
+  /** Shows the right pane on Chat, or hides it when Chat shows (⌥⌘B). */
+  | { command: "chat" }
   /** Opens a task's page, after a click on its notification. */
   | { command: "task"; task: string };
 
@@ -54,6 +58,8 @@ export type DesktopReport = {
   sidebarCollapsed?: boolean;
   /** How many times the page itself toggled it, sent with `sidebarCollapsed`. */
   sidebarToggles?: number;
+  /** The right pane's state; absent where a section has no right pane. */
+  paneCollapsed?: boolean;
   /** The page's latest Tasks request; the app acts on each new `n` once. */
   request?: NumberedRequest;
   /** The repository's open task items that need the person, unsnoozed. */
@@ -114,7 +120,14 @@ function readCommand(event: Event): DesktopCommand | null {
 
   if (command === "search") return isString(detail.query) ? { command, query: detail.query } : null;
 
-  if (command === "issues" || command === "shortcuts" || command === "find") return { command };
+  if (
+    command === "issues" ||
+    command === "shortcuts" ||
+    command === "find" ||
+    command === "pane" ||
+    command === "chat"
+  )
+    return { command };
 
   if (command === "task") return isString(detail.task) ? { command, task: detail.task } : null;
 

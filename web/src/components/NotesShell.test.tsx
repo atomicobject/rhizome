@@ -23,6 +23,7 @@ import {
 } from "../test/fakeFetch";
 import { withFakeEventSource } from "../test/fakeEventSource";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
+import { readyStatus, settingsWith } from "./AgentWorkspace.test-support";
 import { PaneToggle, useChatShortcut } from "./ChatDrawer";
 import { NotesShell } from "./NotesShell";
 import { resetPanesForTests } from "./shellPanes";
@@ -303,6 +304,7 @@ describe("NotesShell", () => {
   });
 
   it("shows the pane on Chat with ⌥⌘B, and hides it when Chat is showing", async () => {
+    http.json("GET", "/api/agent/settings", settingsWith(readyStatus));
     render(<NotesWithPane />);
     await screen.findByRole("button", { name: "All notes (2)" });
     openNote(planNote.path);

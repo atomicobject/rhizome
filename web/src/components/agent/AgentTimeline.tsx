@@ -20,7 +20,7 @@ function preview(value: JsonValue): string {
   }
 }
 
-type ApprovalOutcome = AgentApprovalDecision | "cancelled";
+export type ApprovalOutcome = AgentApprovalDecision | "cancelled";
 
 function approvalDecision(value: string): ApprovalOutcome | undefined {
   switch (value) {
@@ -70,13 +70,13 @@ function coalesceEvents(events: AgentEvent[]): AgentEvent[] {
   return result;
 }
 
-type TimelineEntry =
+export type TimelineEntry =
   | { kind: "message"; message: AgentMessage; at: string }
   | { kind: "event"; event: AgentEvent; at: string };
 
-type TurnGroup = { key: string; turnId?: string; entries: TimelineEntry[] };
+export type TurnGroup = { key: string; turnId?: string; entries: TimelineEntry[] };
 
-function buildGroups(messages: AgentMessage[], events: AgentEvent[]): TurnGroup[] {
+export function buildGroups(messages: AgentMessage[], events: AgentEvent[]): TurnGroup[] {
   const entries: TimelineEntry[] = [
     ...messages.map((message): TimelineEntry => ({
       kind: "message",
@@ -124,6 +124,41 @@ function buildGroups(messages: AgentMessage[], events: AgentEvent[]): TurnGroup[
   }
 
   return groups;
+}
+
+/** Each approval request's outcome, by request id. */
+export function approvalOutcomes(events: AgentEvent[]): Map<string, ApprovalOutcome> {
+  const mapped = new Map<string, ApprovalOutcome>();
+
+  for (const event of events) {
+    if (event.type === "approval-decision" && event.result?.requestId && event.result.status) {
+      const decision = approvalDecision(event.result.status);
+
+      if (decision) mapped.set(event.result.requestId, decision);
+    }
+
+    if (
+      event.type === "approval-requested" &&
+      event.result?.requestId &&
+      (event.result.phase === "cancelled" || event.result.phase === "declined")
+    ) {
+      mapped.set(event.result.requestId, "cancelled");
+    }
+  }
+
+  return mapped;
+}
+
+/** The text an assistant has streamed so far in one turn group. */
+export function streamedText(group: TurnGroup): string {
+  return group.entries
+    .map((entry) =>
+      entry.kind === "event" &&
+      (entry.event.type === "assistant-text-delta" || entry.event.type === "message_delta")
+        ? entry.event.content || ""
+        : "",
+    )
+    .join("");
 }
 
 function DetailItem({ event, label }: { event: AgentEvent; label: string }) {
@@ -303,27 +338,7 @@ export function AgentTimeline({
 }) {
   const groups = useMemo(() => buildGroups(messages, events), [events, messages]);
 
-  const decisions = useMemo(() => {
-    const mapped = new Map<string, ApprovalOutcome>();
-
-    for (const event of events) {
-      if (event.type === "approval-decision" && event.result?.requestId && event.result.status) {
-        const decision = approvalDecision(event.result.status);
-
-        if (decision) mapped.set(event.result.requestId, decision);
-      }
-
-      if (
-        event.type === "approval-requested" &&
-        event.result?.requestId &&
-        (event.result.phase === "cancelled" || event.result.phase === "declined")
-      ) {
-        mapped.set(event.result.requestId, "cancelled");
-      }
-    }
-
-    return mapped;
-  }, [events]);
+  const decisions = useMemo(() => approvalOutcomes(events), [events]);
 
   // An empty thread that can take a turn says so beside the composer.
   if (groups.length === 0) {
@@ -338,14 +353,7 @@ export function AgentTimeline({
   }
 
   return groups.map((group) => {
-    const deltas = group.entries
-      .filter(
-        (entry) =>
-          entry.kind === "event" &&
-          (entry.event.type === "assistant-text-delta" || entry.event.type === "message_delta"),
-      )
-      .map((entry) => (entry.kind === "event" ? entry.event.content || "" : ""))
-      .join("");
+    const deltas = streamedText(group);
 
     const assistantStored = group.entries.some(
       (entry) => entry.kind === "message" && entry.message.role === "assistant",

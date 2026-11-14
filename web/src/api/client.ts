@@ -10,6 +10,7 @@ import type {
 import type {
   AgentApprovalDecision,
   AgentSendMessageResponse,
+  AgentViewContext,
   AgentSessionResponse,
   AgentSessionsResponse,
   AgentSettings,
@@ -1033,10 +1034,24 @@ export function deleteAgentSession(sessionId: string) {
   });
 }
 
-export function sendAgentMessage(sessionId: string, content: string) {
-  return postJSON<{ content: string }, AgentSendMessageResponse>(
+export function sendAgentMessage(sessionId: string, content: string, context?: AgentViewContext) {
+  return postJSON<{ content: string; context?: AgentViewContext }, AgentSendMessageResponse>(
     `/api/agent/sessions/${encodeURIComponent(sessionId)}/messages`,
-    { content },
+    context ? { content, context } : { content },
+  );
+}
+
+/** The page's answer to an agent's page_text request (SPEC-0140). */
+export type AgentPageReply = { title?: string; route?: string; text?: string; error?: string };
+
+export function replyToAgentPageRequest(
+  sessionId: string,
+  requestId: string,
+  reply: AgentPageReply,
+) {
+  return postJSON<AgentPageReply, unknown>(
+    `/api/agent/sessions/${encodeURIComponent(sessionId)}/page-relay/${encodeURIComponent(requestId)}`,
+    reply,
   );
 }
 

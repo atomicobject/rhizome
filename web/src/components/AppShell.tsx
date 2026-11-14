@@ -30,7 +30,8 @@ import { TypeLabelsProvider } from "./typeLabels";
 import { NOTES_ROOT_PATH, parseNotesLocation } from "./notesRoute";
 import { OntologyAtlasWorkspace } from "./OntologyAtlasWorkspace";
 import { isOntologyPath, ONTOLOGY_ROOT_PATH } from "./ontologyRoute";
-import { ChatDrawer, PaneToggle, useChatShortcut } from "./ChatDrawer";
+import { ChatDrawer, PaneToggle, toggleChatPane, togglePane, useChatShortcut } from "./ChatDrawer";
+import { useShellPanes } from "./shellPanes";
 import { OntologyEditSessionProvider } from "./useOntologyEditSession";
 import { isTasksPath, navigateTasks, TASKS_ROOT_PATH } from "./tasks/tasksRoute";
 import { TasksWorkspace } from "./tasks/TasksWorkspace";
@@ -235,6 +236,9 @@ function DesktopReporter({ route }: { route: Route }) {
   const sidebarToggles = sidebar.synced ? sidebar.toggles : undefined;
   const request = useDesktopRequest();
   const tasks = useDesktopTasks();
+  // The Agent page is the full chat, so it has no right pane.
+  const pane = useShellPanes();
+  const paneCollapsed = route === "agent" ? undefined : pane.paneCollapsed;
 
   useEffect(() => {
     document.title = desktopTitle({
@@ -244,10 +248,21 @@ function DesktopReporter({ route }: { route: Route }) {
       health,
       sidebarCollapsed,
       sidebarToggles,
+      paneCollapsed,
       request,
       tasks,
     });
-  }, [route, search, issues, health, sidebarCollapsed, sidebarToggles, request, tasks]);
+  }, [
+    route,
+    search,
+    issues,
+    health,
+    sidebarCollapsed,
+    sidebarToggles,
+    paneCollapsed,
+    request,
+    tasks,
+  ]);
 
   return null;
 }
@@ -275,6 +290,10 @@ export function AppShell() {
       openIssues();
     } else if (command.command === "sidebar") {
       applyDesktopSidebar(command.collapsed);
+    } else if (command.command === "pane") {
+      if (route !== "agent") togglePane();
+    } else if (command.command === "chat") {
+      if (route !== "agent") toggleChatPane();
     } else if (command.command === "task") {
       navigateTasks({ task: command.task });
     }
@@ -405,7 +424,7 @@ export function AppShell() {
             <VaultTools />
             <AppearanceMenu />
             <KeyboardShortcuts />
-            <PaneToggle />
+            <PaneToggle disabled={route === "agent"} />
           </div>
         </header>
       )}
@@ -474,7 +493,7 @@ export function AppShell() {
             </ErrorBoundary>
           </OntologyEditSessionProvider>
         </div>
-        {route === "notes" ? null : <ChatDrawer />}
+        {route === "notes" || route === "agent" ? null : <ChatDrawer />}
       </div>
       <FinderQuickOpen />
     </div>

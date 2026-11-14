@@ -1,6 +1,8 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach } from "vitest";
 
+import { resetChatPaneForTests } from "../components/chat/chatSession";
+import { resetPanesForTests } from "../components/shellPanes";
 import { clearPreferenceStores } from "../viewPreferences/store";
 import { preferenceServer } from "../viewPreferences/testServer";
 
@@ -322,6 +324,17 @@ export function withFakeFetch(): FakeFetch {
     clearPreferenceStores();
     fake.install();
     preferenceServer(fake);
+    // Every section's right pane can show Chat, which reads the agent
+    // settings; with no harness it shows its setup note. Tests override it.
+    resetPanesForTests();
+    resetChatPaneForTests();
+    fake.json("GET", "/api/agent/settings", {
+      settings: {
+        harnesses: { codex: { permissionMode: "auto" }, claude: { permissionMode: "auto" } },
+      },
+      resolved: { reason: "none available" },
+      harnesses: [],
+    });
   });
   afterEach(() => {
     // Unmount first: a throwing hook would otherwise leave this test's tree
