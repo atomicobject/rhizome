@@ -222,3 +222,13 @@ describe("streamed assistant text", () => {
     ).toBe("Checking.\n\npong");
   });
 });
+
+describe("a command line", () => {
+  it("drops the login shell a harness wrapped it in", async () => {
+    const { displayCommand } = await import("./chat/ChatTimeline");
+
+    expect(displayCommand("/bin/zsh -lc 'cat notes/a.md'")).toBe("cat notes/a.md");
+    expect(displayCommand('/bin/bash -lc "rg -n overdue notes"')).toBe("rg -n overdue notes");
+    expect(displayCommand("git status")).toBe("git status");
+  });
+});

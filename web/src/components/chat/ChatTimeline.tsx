@@ -80,6 +80,13 @@ function Activity({
 
 const basename = (path: string) => path.split("/").pop() || path;
 
+/** The command a harness ran, without the login shell it wrapped it in. */
+export function displayCommand(command: string): string {
+  const wrapped = /^\/bin\/(?:ba|z)?sh -lc (['"])([\s\S]*)\1$/.exec(command);
+
+  return wrapped?.[2] ?? command;
+}
+
 function isPageTool(name: string) {
   return name === "page_text" || name.endsWith("page_text");
 }
@@ -166,7 +173,7 @@ function EventLine({
       return (
         <Activity
           icon="run"
-          text={`Ran ${result?.command || "a command"}`}
+          text={result?.command ? `Ran ${displayCommand(result.command)}` : "Ran a command"}
           note={[result?.cwd, failed ? `Exit ${result?.exitCode ?? "error"}` : autoNote]
             .filter(Boolean)
             .join(" · ")}
