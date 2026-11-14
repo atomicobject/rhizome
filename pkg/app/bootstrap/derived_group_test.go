@@ -15,6 +15,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	embsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	"github.com/atomicobject/rhizome/pkg/embedindex"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/testutil/indexingworkload"
 	"github.com/atomicobject/rhizome/pkg/vault/cache"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -195,6 +196,60 @@ func TestDerivedGroupDropsOnlyChangedMembersAndReusesVectors(t *testing.T) {
 			require.Equal(t, sent, after)
 		})
 	}
+}
+
+// revertingCache runs after once the vector cache job has stored the results a
+// pass kept unpublished, which is after the last publication batch and before
+// the final acknowledgement job.
+type revertingCache struct {
+	embedindex.NoteEmbeddingCache
+	after func()
+}
+
+func (c *revertingCache) UpsertEmbeddingCache(ctx context.Context, entries []semdb.EmbeddingCacheEntry) error {
+	err := c.NoteEmbeddingCache.UpsertEmbeddingCache(ctx, entries)
+	if c.after != nil {
+		c.after()
+		c.after = nil
+	}
+	return err
+}
+
+// Finding F1 of the derived-work model: a member whose result a publication
+// batch kept back must keep its ticket, even when its file is back at the
+// planned text by the time the final job acknowledges the group.
+func TestDerivedGroupKeepsTicketOfMemberSkippedByPublication(t *testing.T) {
+	w, p, work := groupedWatcher(t, false, 2)
+	group := groupKind(work, codeanchor.DerivedNotes)
+	a, c := "notes/project-0000.md", "notes/project-0001.md"
+	require.ElementsMatch(t, []string{a, c}, memberPaths(group))
+	write := func(marker string) {
+		require.NoError(t, os.WriteFile(filepath.Join(w.vaultPath, a), []byte(indexingworkload.Note(0, 2, marker)), 0600))
+	}
+	p.before = func() { write("Ahead on disk") }
+	w.noteSyncer.EmbeddingCache = &revertingCache{NoteEmbeddingCache: w.noteSyncer.EmbeddingCache, after: func() { write("Changed") }}
+	unembedded := func(path string) int {
+		var sections int
+		require.NoError(t, w.intelStore.DB().QueryRowContext(t.Context(), `SELECT count(*) FROM intel_doc_sections d
+			WHERE d.path=? AND NOT EXISTS (SELECT 1 FROM intel_chunks c JOIN intel_embeddings e ON e.chunk_id=c.chunk_id WHERE c.owner_id=d.section_id)`, path).Scan(&sections))
+		return sections
+	}
+	d := &derivedScheduler{watcher: w, ctx: t.Context()}
+	require.NoError(t, d.execute(group...))
+	require.Zero(t, unembedded(c))
+	require.Positive(t, unembedded(a), "a's result was kept back, not published")
+	pending, err := w.intelStore.PendingDerivedWork(t.Context(), time.Now().Add(time.Hour), 100)
+	require.NoError(t, err)
+	pending = groupKind(pending, codeanchor.DerivedNotes)
+	require.Equal(t, []string{a}, memberPaths(pending), "the unpublished member keeps its ticket")
+	_, sent := p.counts()
+	require.NoError(t, d.execute(pending...))
+	_, after := p.counts()
+	require.Equal(t, sent, after, "the retry publishes a from the cached vectors")
+	require.Zero(t, unembedded(a))
+	pending, err = w.intelStore.PendingDerivedWork(t.Context(), time.Now().Add(time.Hour), 100)
+	require.NoError(t, err)
+	require.Empty(t, groupKind(pending, codeanchor.DerivedNotes))
 }
 
 func TestDerivedGroupOutageBacklogRemainsGroupable(t *testing.T) {

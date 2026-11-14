@@ -27,6 +27,7 @@ Read `docs/reference/subsystems/indexing.md` first and treat its constraints as 
 - [ ] No new write path bypasses the writer lane; no per-row autocommit loops.
 - [ ] New work is inside a pipeline stage, lock-guarded, and backpressured.
 - [ ] Barrier ordering unchanged or change is justified in the note/spec.
+- [ ] Derived-work ticket or scheduler changes pass the `derived-work-verification` skill's model check.
 - [ ] Watcher/MCP handshake never blocked by new synchronous init.
 - [ ] Tests added beside the change; run:
   `go test ./pkg/app/indexing/... ./pkg/app/indexcore/... ./pkg/app/indexwriter/... ./pkg/embedindex/... ./pkg/graph/... ./pkg/vault/indexlock/... ./pkg/vault/watchhub/... ./pkg/indexingperf/...`

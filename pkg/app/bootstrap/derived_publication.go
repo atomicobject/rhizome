@@ -30,11 +30,13 @@ type derivedResult interface {
 // A sink call blocks while the buffer is full and returns the publisher's
 // error once a batch fails; a failed batch also cancels compute's context so
 // the pass stops calling the provider. It returns after the publisher has
-// drained, so a nil result means every computed result was published. A
-// non-nil cache records the vectors of every result left unpublished (failed or
-// superseded publication, cancelled compute, or an owner a failed compute left
+// drained, with the tickets whose results were all published; a member that
+// dropped while a batch held its result is left out, so its ticket survives
+// the final acknowledgement and its retry rebuilds it. A non-nil cache records
+// the vectors of every result left unpublished (failed or superseded
+// publication, cancelled compute, or an owner a failed compute left
 // incomplete), so the retry or replacement does not resend that text.
-func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context, tickets []codeanchor.DerivedWork, compute func(context.Context, func(context.Context, R) error) error, publish func(context.Context, R) error, cache func(context.Context, ...R) error) error {
+func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context, tickets []codeanchor.DerivedWork, compute func(context.Context, func(context.Context, R) error) error, publish func(context.Context, R) error, cache func(context.Context, ...R) error) ([]codeanchor.DerivedWork, error) {
 	computeCtx, stopCompute := context.WithCancel(ctx)
 	defer stopCompute()
 	// shortcut: buffered results are bounded by count; add a byte bound if owners grow large.
@@ -125,7 +127,12 @@ func computeAndPublish[R derivedResult](s *derivedScheduler, ctx context.Context
 		}
 	}
 	if publishErr != nil {
-		return publishErr
+		return nil, publishErr
 	}
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(slices.Clone(tickets), func(ticket codeanchor.DerivedWork) bool {
+		return slices.ContainsFunc(unpublished, func(result R) bool { return result.SourcePath() == ticket.Path })
+	}), nil
 }

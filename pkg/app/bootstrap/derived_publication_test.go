@@ -73,7 +73,7 @@ func produce(n int, sink func(context.Context, fakeDerivedResult) error) error {
 func TestDerivedPublicationBatchesResultsIntoFewLaneJobs(t *testing.T) {
 	s, counted, ticket := derivedPublicationFixture(t)
 	published := map[fakeDerivedResult]bool{}
-	err := computeAndPublish(s, t.Context(), []codeanchor.DerivedWork{ticket}, func(_ context.Context, sink func(context.Context, fakeDerivedResult) error) error {
+	_, err := computeAndPublish(s, t.Context(), []codeanchor.DerivedWork{ticket}, func(_ context.Context, sink func(context.Context, fakeDerivedResult) error) error {
 		return produce(1000, sink)
 	}, func(_ context.Context, r fakeDerivedResult) error {
 		published[r] = true
@@ -92,7 +92,7 @@ func TestDerivedPublicationStopsWhenWorkIsSupersededMidPass(t *testing.T) {
 	var computeStopped bool
 	var mu sync.Mutex
 	computed, covered := map[fakeDerivedResult]bool{}, map[fakeDerivedResult]bool{}
-	err := computeAndPublish(s, t.Context(), []codeanchor.DerivedWork{ticket}, func(ctx context.Context, sink func(context.Context, fakeDerivedResult) error) error {
+	_, err := computeAndPublish(s, t.Context(), []codeanchor.DerivedWork{ticket}, func(ctx context.Context, sink func(context.Context, fakeDerivedResult) error) error {
 		err := produce(1000, func(ctx context.Context, r fakeDerivedResult) error {
 			mu.Lock()
 			computed[r] = true
@@ -132,7 +132,7 @@ func TestDerivedPublicationCachesIncompleteResultsOfFailedCompute(t *testing.T) 
 	s, _, ticket := derivedPublicationFixture(t)
 	providerErr := errors.New("provider rejected text")
 	var published, cached []fakeDerivedResult
-	err := computeAndPublish(s, t.Context(), []codeanchor.DerivedWork{ticket}, func(ctx context.Context, sink func(context.Context, fakeDerivedResult) error) error {
+	_, err := computeAndPublish(s, t.Context(), []codeanchor.DerivedWork{ticket}, func(ctx context.Context, sink func(context.Context, fakeDerivedResult) error) error {
 		if err := sink(ctx, 1); err != nil {
 			return err
 		}
@@ -156,7 +156,7 @@ func TestDerivedPublicationYieldsToExplicitIndexBetweenBatches(t *testing.T) {
 	var once sync.Once
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- computeAndPublish(s, t.Context(), []codeanchor.DerivedWork{ticket}, func(_ context.Context, sink func(context.Context, fakeDerivedResult) error) error {
+		_, err := computeAndPublish(s, t.Context(), []codeanchor.DerivedWork{ticket}, func(_ context.Context, sink func(context.Context, fakeDerivedResult) error) error {
 			return produce(1000, sink)
 		}, func(ctx context.Context, _ fakeDerivedResult) error {
 			batches.Add(1)
@@ -164,6 +164,7 @@ func TestDerivedPublicationYieldsToExplicitIndexBetweenBatches(t *testing.T) {
 			<-ctx.Done()
 			return ctx.Err()
 		}, nil)
+		errCh <- err
 	}()
 	<-entered
 	explicit, _, err := s.watcher.lane.Submit(t.Context(), lane.Request{Kind: lane.KindExplicitIndex, Run: func(context.Context, *indexlock.Lease, lane.Reporter) error { return nil }})

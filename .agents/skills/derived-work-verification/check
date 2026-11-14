@@ -1,0 +1,378 @@
+#!/usr/bin/env python3
+"""Model-check the live indexer's derived-work protocol (see SKILL.md).
+
+Runs TLC on model/DerivedWork.tla for every check below and compares each
+rule's outcome with its expectation. Exit status: 0 when every run matches,
+1 on any unexpected result, 2 when TLC or Java cannot be set up.
+
+  check                 default checks (about a minute)
+  check --deep          also the larger bounds and lifecycle liveness (a few minutes)
+  check --only NAME...  just the named checks
+  check --list          list the checks and the code each variant stands for
+  check --out DIR       keep TLC output and generated configs in DIR (by default
+                        they go to a temp directory, removed when every run passes)
+  check --coverage      list covered files that changed since the sync commit
+  check --resync        run the default checks, then record HEAD as the sync commit
+"""
+import argparse
+import hashlib
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
+from pathlib import Path
+
+TLA_VERSION = "1.7.4"
+TLA_SHA256 = "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
+TLA_URL = f"https://github.com/tlaplus/tlaplus/releases/download/v{TLA_VERSION}/tla2tools.jar"
+MISE_JAVA = "java@temurin-25"
+
+SKILL = Path(__file__).resolve().parent
+MODEL = SKILL / "model"
+SPEC = MODEL / "DerivedWork.tla"
+SYNC = MODEL / "sync.txt"
+
+SAFETY = ["NoStalePublication", "QuietMeansCurrent", "NoAckWithoutPublication",
+          "AckNeverCoversNewerChange", "GroupPublishesOnlyCurrentMembers", "QuietMeansIndexed"]
+LIVE = "EventuallyQuiet"
+COVER = "CoverSurvivorsContinue"
+
+
+@dataclass
+class Check:
+    name: str
+    base: str
+    kind: str  # code | variant | assumption
+    why: str
+    holds: list
+    breaks: list = field(default_factory=list)
+    overrides: dict = field(default_factory=dict)
+    deep: bool = False
+
+
+CHECKS = [
+    # The code as it is. COVER must break: survivors of a dropped member go on.
+    Check("notes-churn", "notes-churn", "code", "note/code tickets as written",
+          holds=SAFETY + [LIVE], breaks=[COVER]),
+    Check("notes-lifecycle", "notes-lifecycle", "code", "note/code tickets as written",
+          holds=SAFETY, breaks=[COVER]),
+    Check("ontology-churn", "ontology-churn", "code", "ontology tickets as written",
+          holds=SAFETY + [LIVE], breaks=[COVER]),
+    Check("ontology-lifecycle", "ontology-lifecycle", "code", "ontology tickets as written",
+          holds=SAFETY, breaks=[COVER]),
+    # Regressions. Each must break the rule it guards.
+    Check("no-ticket-check", "notes-churn", "variant",
+          "derived_members.go currentMembers stops calling store.CurrentDerivedWork",
+          holds=[], breaks=["NoStalePublication"], overrides={"CheckTicket": "FALSE"}),
+    Check("own-path-witness", "ontology-churn", "variant",
+          "derived_members.go captureWitness records only member.Path, not the RECORD source set",
+          holds=[], breaks=["NoStalePublication"], overrides={"RecordWitness": "FALSE"}),
+    Check("no-record-expansion", "ontology-churn", "variant",
+          "derived_execute.go sets inputs[member.Path] to the member alone instead of ontology.RecordSourceSetPaths",
+          holds=[], breaks=["QuietMeansCurrent"], overrides={"RecordExpand": "FALSE"}),
+    Check("ack-without-filter", "notes-lifecycle", "variant",
+          "derived_work.go AckDerivedWorkMatched deletes by kind and path only; safe while "
+          "currentMembers checks the ticket in the same lane job",
+          holds=["NoStalePublication", "QuietMeansCurrent", "AckNeverCoversNewerChange"],
+          overrides={"AckFilter": "FALSE"}),
+    Check("no-ticket-check-or-ack-filter", "notes-churn", "variant",
+          "both of the above: an old run deletes a newer ticket. Its change is no longer lost: "
+          "that path went through F1, and the run now acknowledges only fully published members",
+          holds=[], breaks=["AckNeverCoversNewerChange"],
+          overrides={"CheckTicket": "FALSE", "AckFilter": "FALSE"}),
+    Check("publish-dropped-notes", "notes-churn", "variant",
+          "derived_publication.go computeAndPublish publishes every result in a batch, live or not",
+          holds=[], breaks=["GroupPublishesOnlyCurrentMembers", "NoStalePublication"],
+          overrides={"PublishOnlyLive": "FALSE"}),
+    Check("publish-dropped-ontology", "ontology-churn", "variant",
+          "derived_execute.go publishes the ontology result without the len(live) != len(members) replan",
+          holds=[], breaks=["GroupPublishesOnlyCurrentMembers", "NoStalePublication"],
+          overrides={"PublishOnlyLive": "FALSE"}),
+    Check("drop-whole-group-notes", "notes-churn", "variant",
+          "withLease treats any dropped member as superseding the whole group",
+          holds=[COVER], overrides={"PublishSurvivors": "FALSE"}),
+    Check("drop-whole-group-ontology", "ontology-churn", "variant",
+          "the ontology publication abandons the group instead of replanning survivors",
+          holds=[COVER], overrides={"PublishSurvivors": "FALSE"}),
+    Check("ack-prepared-members", "notes-churn", "variant",
+          "derived_execute.go acknowledges the members that survived preparation, not the ones "
+          "computeAndPublish returns (finding F1, fixed)",
+          holds=[], breaks=["NoAckWithoutPublication"], overrides={"AckOnlyPublished": "FALSE"}),
+    # Assumptions: what a lost file event costs.
+    Check("lost-event", "notes-churn", "assumption",
+          "a file event never arrives and no restart follows (indexing.md: saves rely on watch or restart)",
+          holds=[], breaks=["QuietMeansCurrent", LIVE], overrides={"MaxLostEvents": "1"}),
+    Check("lost-event-no-saves", "notes-churn", "assumption",
+          "with no direct save, a lost file event leaves no stale output",
+          holds=["QuietMeansCurrent"], overrides={"MaxSaves": "0", "MaxLostEvents": "1"}),
+    # --deep: larger bounds, and liveness across explicit indexing and restart.
+    Check("notes-deep", "notes-lifecycle", "code", "note/code tickets, every budget at once",
+          holds=SAFETY, overrides={"MaxEdits": "2"}, deep=True),
+    Check("ontology-deep", "ontology-lifecycle", "code", "ontology tickets, every budget at once",
+          holds=SAFETY, overrides={"MaxEdits": "2"}, deep=True),
+    Check("notes-lifecycle-liveness", "notes-lifecycle", "code", "progress across restarts",
+          holds=[LIVE], deep=True),
+    Check("ontology-lifecycle-liveness", "ontology-lifecycle", "code", "progress across restarts",
+          holds=[LIVE], deep=True),
+]
+
+
+def die(message):
+    print(f"derived-work-verification: {message}", file=sys.stderr)
+    sys.exit(2)
+
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def tla_jar():
+    """The pinned tla2tools.jar, downloaded once into the user cache."""
+    jar = os.environ.get("RZM_TLA2TOOLS_JAR")
+    if not jar:
+        cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+        jar = cache / "rhizome" / "tla2tools" / TLA_VERSION / "tla2tools.jar"
+        if not jar.exists():
+            jar.parent.mkdir(parents=True, exist_ok=True)
+            print(f"downloading TLA+ tools {TLA_VERSION} to {jar}")
+            # A private temporary file lets concurrent first runs share the cache.
+            fd, partial = tempfile.mkstemp(dir=jar.parent, suffix=".partial")
+            os.close(fd)
+            try:
+                urllib.request.urlretrieve(TLA_URL, partial)
+            except OSError as err:
+                os.unlink(partial)
+                die(f"cannot download {TLA_URL}: {err}")
+            if sha256(partial) != TLA_SHA256:
+                os.unlink(partial)
+                die(f"{TLA_URL} is not TLA+ tools {TLA_VERSION} (SHA-256 mismatch)")
+            os.replace(partial, jar)
+    jar = Path(jar).resolve()
+    if not jar.exists():
+        die(f"{jar} does not exist")
+    if sha256(jar) != TLA_SHA256:
+        die(f"{jar} is not TLA+ tools {TLA_VERSION} (SHA-256 mismatch); delete it and rerun")
+    return jar
+
+
+def java():
+    """A Java 11+ command: RZM_TLC_JAVA, else java on PATH, else mise's pinned Temurin."""
+    candidates = []
+    if os.environ.get("RZM_TLC_JAVA"):
+        candidates.append([os.environ["RZM_TLC_JAVA"]])
+    if shutil.which("java"):
+        candidates.append(["java"])
+    if shutil.which("mise"):
+        candidates.append(["mise", "exec", MISE_JAVA, "--", "java"])
+    for command in candidates:
+        try:
+            probe = subprocess.run(command + ["-version"], capture_output=True, text=True, timeout=600)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        version = re.search(r'version "(\d+)', probe.stdout + probe.stderr)
+        if probe.returncode == 0 and version and int(version.group(1)) >= 11:
+            return command
+    die(f"Java 11 or later is required: put java on PATH, set RZM_TLC_JAVA, or install mise ({MISE_JAVA})")
+
+
+def git(*args):
+    proc = subprocess.run(["git", *args], capture_output=True, text=True, cwd=SKILL)
+    if proc.returncode != 0:
+        die(f"git {' '.join(args)}: {proc.stderr.strip()}")
+    return proc.stdout.strip()
+
+
+def read_sync():
+    """The sync commit and the verified blob of each covered file (model/sync.txt)."""
+    commit, files = None, []
+    for line in SYNC.read_text().splitlines():
+        if line.startswith("commit "):
+            commit = line.split()[1]
+        elif line and not line.startswith("#"):
+            blob, role, path = line.split(maxsplit=2)
+            files.append((blob, role, path))
+    return commit, files
+
+
+def coverage():
+    """Covered files whose content differs from the verified version."""
+    commit, files = read_sync()
+    root = Path(git("rev-parse", "--show-toplevel"))
+    changed = []
+    for blob, role, path in files:
+        current = git("hash-object", str(root / path)) if (root / path).exists() else "deleted"
+        state = "same" if current == blob else "CHANGED"
+        if current != blob:
+            changed.append(path)
+        print(f"{state:8} {role:9} {path}")
+    print(f"\nsync commit {commit[:9]}; {len(changed)} covered file(s) changed since then.")
+    return changed
+
+
+def resync():
+    """Record HEAD as the sync commit. Call only after confirming the model."""
+    commit, files = read_sync()
+    paths = [path for _, _, path in files]
+    if git("status", "--porcelain", "--", *paths):
+        die("covered files have uncommitted changes; commit them so HEAD describes the verified code")
+    head = git("rev-parse", "HEAD")
+    lines = [SYNC.read_text().splitlines()[0], f"commit {head}"]
+    lines += [f"{git('rev-parse', f'{head}:{path}')} {role} {path}" for _, role, path in files]
+    SYNC.write_text("\n".join(lines) + "\n")
+    skill = SKILL / "SKILL.md"
+    text, count = re.subn(r"(Sync commit: `)[0-9a-f]+(`)", rf"\g<1>{head[:9]}\g<2>", skill.read_text())
+    if count != 1:
+        die("SKILL.md has no single 'Sync commit: `...`' line to update")
+    skill.write_text(text)
+    print(f"sync commit moved from {commit[:9]} to {head[:9]} in model/sync.txt and SKILL.md")
+
+
+def config_text(check, rules):
+    """The base config with this check's overrides and only the given rules."""
+    base = (MODEL / f"{check.base}.cfg").read_text().splitlines()
+    lines, seen = [], set()
+    for line in base:
+        if re.match(r"\s*(SPECIFICATION|INVARIANT|PROPERTY)\b", line):
+            continue
+        match = re.match(r"(\s+)(\w+)\s*=", line)
+        if match and match.group(2) in check.overrides:
+            line = f"{match.group(1)}{match.group(2)} = {check.overrides[match.group(2)]}"
+            seen.add(match.group(2))
+        lines.append(line)
+    missing = set(check.overrides) - seen
+    if missing:
+        die(f"{check.name}: {check.base}.cfg has no constant {', '.join(sorted(missing))}")
+    invariants = [r for r in rules if r != LIVE]
+    lines.append(f"SPECIFICATION {'FairSpec' if LIVE in rules else 'Spec'}")
+    if invariants:
+        lines.append("INVARIANT " + " ".join(invariants))
+    if LIVE in rules:
+        lines.append(f"PROPERTY {LIVE}")
+    return "\n".join(lines) + "\n"
+
+
+def outcome(log, rule=None):
+    """What TLC reported: 'hold', 'break', or a short reason."""
+    if "Model checking completed. No error has been found." in log:
+        return "hold"
+    if "Deadlock reached" in log:
+        return "deadlock (stuck work)"
+    violated = re.findall(r"Invariant (\w+) is violated", log)
+    if "Temporal properties were violated" in log:
+        violated.append(LIVE)
+    if violated:
+        return "break" if rule in violated else f"broke {violated[0]}"
+    return "TLC error"
+
+
+@dataclass
+class Run:
+    check: Check
+    rules: list
+    expect: str  # hold | break
+    label: str
+    result: str = ""
+    seconds: float = 0.0
+    cfg: Path = None
+    log: Path = None
+
+
+def execute(run, command, jar, out):
+    # TLC 1.7.4 finds the config only beside the spec, and concurrent runs that
+    # share a working or temp directory collide, so each run gets its own.
+    work = out / run.check.name / run.label
+    tmp = work / "tmp"
+    tmp.mkdir(parents=True, exist_ok=True)
+    shutil.copy(SPEC, work / SPEC.name)
+    run.cfg, run.log = work / "run.cfg", work / "tlc.out"
+    run.cfg.write_text(config_text(run.check, run.rules))
+    workers = "auto" if run.expect == "hold" else "1"  # one worker gives the shortest trace
+    started = time.monotonic()
+    proc = subprocess.run(command + [f"-Djava.io.tmpdir={tmp}", "-XX:+UseParallelGC", "-cp", str(jar),
+                                     "tlc2.TLC", "-workers", workers, "-fp", "1", "-cleanup",
+                                     "-metadir", str(tmp / "states"), "-config", run.cfg.name, SPEC.name],
+                          capture_output=True, text=True, cwd=work)
+    run.seconds = time.monotonic() - started
+    run.log.write_text(proc.stdout + proc.stderr)
+    run.result = outcome(proc.stdout + proc.stderr, run.rules[0] if run.expect == "break" else None)
+    shutil.rmtree(tmp, ignore_errors=True)
+    return run
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--deep", action="store_true", help="also run the larger bounds and lifecycle liveness")
+    parser.add_argument("--only", nargs="+", metavar="NAME", help="run only these checks")
+    parser.add_argument("--list", action="store_true", help="list the checks and exit")
+    parser.add_argument("--out", type=Path, help="directory for generated configs and TLC output")
+    parser.add_argument("--coverage", action="store_true", help="list covered files changed since the sync commit")
+    parser.add_argument("--resync", action="store_true", help="after the default checks pass, record HEAD as the sync commit")
+    args = parser.parse_args()
+    if args.coverage:
+        return 1 if coverage() else 0
+
+    checks = [c for c in CHECKS if args.deep or not c.deep]
+    if args.resync and (args.only or args.deep):
+        die("--resync runs the default checks; drop --only and --deep")
+    if args.only:
+        unknown = set(args.only) - {c.name for c in CHECKS}
+        if unknown:
+            die(f"unknown check {', '.join(sorted(unknown))}; see --list")
+        checks = [c for c in CHECKS if c.name in args.only]
+    if args.list:
+        for c in CHECKS:
+            print(f"{c.name:30} {c.kind:10} {'(deep) ' if c.deep else ''}{c.why}")
+        return 0
+
+    jar, command = tla_jar(), java()
+    out = args.out or Path(tempfile.mkdtemp(prefix="derived-work-verification-"))
+    out.mkdir(parents=True, exist_ok=True)
+    runs = []
+    for c in checks:
+        if c.holds:
+            runs.append(Run(c, c.holds, "hold", "holds"))
+        runs += [Run(c, [rule], "break", rule) for rule in c.breaks]
+    print(f"TLC {TLA_VERSION} via {' '.join(command)}; output in {out}")
+
+    started = time.monotonic()
+    # Hold runs use every core; break runs stop at the first violation, so they share the machine.
+    for run in [r for r in runs if r.expect == "hold"]:
+        execute(run, command, jar, out)
+    with ThreadPoolExecutor(max_workers=max(1, (os.cpu_count() or 2) // 2)) as pool:
+        list(pool.map(lambda r: execute(r, command, jar, out), [r for r in runs if r.expect == "break"]))
+
+    unexpected = 0
+    print(f"\n{'check':30} {'rules':45} {'expected':9} {'got':24} time")
+    for run in runs:
+        ok = run.result == run.expect
+        unexpected += not ok
+        rules = run.label if run.expect == "break" else f"holds ({len(run.rules)} rules)"
+        mark = "" if ok else "  <-- UNEXPECTED"
+        print(f"{run.check.name:30} {rules:45} {run.expect:9} {run.result:24} {run.seconds:5.1f}s{mark}")
+        if not ok:
+            print(f"    config {run.cfg}\n    TLC output {run.log}")
+    total = time.monotonic() - started
+    if unexpected:
+        print(f"\n{unexpected} of {len(runs)} runs did not give their expected result ({total:.0f}s). "
+              "Read each with /statechart (model/DerivedWork.tla, the config above, model/view.mjs).")
+        return 1
+    print(f"\nAll {len(runs)} runs gave their expected result in {total:.0f}s.")
+    if not args.out:
+        shutil.rmtree(out, ignore_errors=True)
+    if args.resync:
+        resync()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
