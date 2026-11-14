@@ -190,93 +190,113 @@ async fn refresh_at(
     .expect("updater must settle and release its lock after the request timeout")
 }
 
-async fn timed_server(
+async fn timed_download(
     byte_delay: Duration,
 ) -> (
-    url::Url,
-    tokio::sync::oneshot::Receiver<tokio::time::Instant>,
+    tauri_plugin_updater::Result<Vec<u8>>,
+    Duration,
     tokio::task::JoinHandle<()>,
 ) {
-    // Blocking socket phases inhibit paused-clock auto-advance until real I/O catches up.
+    let app = app();
+    let seed = Server::new(vec![Reply::Feed("1.0.0"), Reply::Package(b"test")]);
+    assert_eq!(refresh(&app, &seed).await, ready("1.0.0"));
+    let (mut update, _) = app.state::<Updates>().ready.lock().unwrap().take().unwrap();
+
     use std::io::Read;
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     listener.set_nonblocking(true).unwrap();
-    let url: url::Url = format!("http://{}/feed", listener.local_addr().unwrap())
+    update.download_url = format!("http://{}/package", listener.local_addr().unwrap())
         .parse()
         .unwrap();
-    let package_url = url.join("/package").unwrap();
-    let (started, first_byte) = tokio::sync::oneshot::channel();
+    let (observed, received) = mpsc::channel();
+    let connected = tokio::task::spawn_blocking(move || {
+        let began = std::time::Instant::now();
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(
+                        began.elapsed() < Duration::from_secs(2),
+                        "timed fixture accept stalled"
+                    );
+                    thread::sleep(Duration::from_millis(5));
+                }
+                Err(error) => panic!("timed fixture accept: {error}"),
+            }
+        };
+        stream.set_nonblocking(false).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        stream
+            .set_write_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        stream.set_nodelay(true).unwrap();
+        let mut request = BufReader::new(&stream);
+        loop {
+            let mut line = String::new();
+            assert!(request.read_line(&mut line).unwrap() > 0);
+            if line == "\r\n" {
+                break;
+            }
+        }
+        stream
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\nt")
+            .unwrap();
+        // Hold virtual time until the client consumes each real socket write.
+        received.recv_timeout(Duration::from_secs(2)).unwrap();
+        (stream, received)
+    });
+    tokio::time::pause();
     let server = tokio::spawn(async move {
-        let mut started = Some(started);
-        for package in [false, true] {
-            let listener = listener.try_clone().unwrap();
-            let package_url = package_url.clone();
-            let started = if package { started.take() } else { None };
-            let stream = tokio::task::spawn_blocking(move || {
-                let began = std::time::Instant::now();
-                let mut stream = loop {
-                    match listener.accept() {
-                        Ok((stream, _)) => break stream,
-                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            assert!(began.elapsed() < Duration::from_secs(2), "timed fixture accept stalled");
-                            thread::sleep(Duration::from_millis(5));
-                        }
-                        Err(error) => panic!("timed fixture accept: {error}"),
-                    }
-                };
-                stream.set_nonblocking(false).unwrap();
-                stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
-                stream.set_write_timeout(Some(Duration::from_secs(2))).unwrap();
-                stream.set_nodelay(true).unwrap();
-                let mut request = BufReader::new(&stream);
-                loop {
-                    let mut line = String::new();
-                    assert!(request.read_line(&mut line).unwrap() > 0);
-                    if line == "\r\n" { break }
+        let (mut stream, mut received) = connected.await.unwrap();
+        for (index, byte) in b"est".iter().enumerate() {
+            tokio::time::sleep(byte_delay).await;
+            let (next, receiver, written) = tokio::task::spawn_blocking(move || {
+                let written = stream.write_all(&[*byte]).is_ok();
+                if written {
+                    received.recv_timeout(Duration::from_secs(2)).unwrap();
                 }
-                if package {
-                    stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\nt").unwrap();
-                    started.unwrap().send(tokio::time::Instant::now()).unwrap();
-                    Some(stream)
-                } else {
-                    let feed = json!({"version": "1.0.0", "platforms": {"test-target": {"url": package_url, "signature": SIGNATURE}}}).to_string();
-                    respond(&mut stream, feed.as_bytes());
-                    None
-                }
-            }).await.unwrap();
-            if let Some(mut stream) = stream {
-                for (index, byte) in b"est".iter().enumerate() {
-                    tokio::time::sleep(byte_delay).await;
-                    let (next, written) = tokio::task::spawn_blocking(move || {
-                        let written = stream.write_all(&[*byte]).is_ok();
-                        if index == 2 && written {
-                            // Keep the clock paused until the client closes after the final body.
-                            stream.shutdown(std::net::Shutdown::Write).unwrap();
-                            let mut end = [0];
-                            match stream.read(&mut end) {
-                                Ok(0) => {}
-                                Err(error)
-                                    if matches!(
-                                        error.kind(),
-                                        std::io::ErrorKind::ConnectionReset
-                                            | std::io::ErrorKind::ConnectionAborted
-                                    ) => {}
-                                other => panic!("timed fixture peer did not close: {other:?}"),
-                            }
-                        }
-                        (stream, written)
-                    })
-                    .await
-                    .unwrap();
-                    stream = next;
-                    if !written {
-                        return;
+                if index == 2 && written {
+                    stream.shutdown(std::net::Shutdown::Write).unwrap();
+                    let mut end = [0];
+                    match stream.read(&mut end) {
+                        Ok(0) => {}
+                        Err(error)
+                            if matches!(
+                                error.kind(),
+                                std::io::ErrorKind::ConnectionReset
+                                    | std::io::ErrorKind::ConnectionAborted
+                            ) => {}
+                        other => panic!("timed fixture peer did not close: {other:?}"),
                     }
                 }
+                (stream, received, written)
+            })
+            .await
+            .unwrap();
+            stream = next;
+            received = receiver;
+            if !written {
+                return;
             }
         }
     });
-    (url, first_byte, server)
+    let mut began = None;
+    let result = tokio::time::timeout(
+        Duration::from_secs(2),
+        update.download(
+            |_, _| {
+                began.get_or_insert_with(tokio::time::Instant::now);
+                observed.send(()).unwrap();
+            },
+            || {},
+        ),
+    )
+    .await
+    .expect("timed download must settle");
+    let elapsed = began.expect("package body never started").elapsed();
+    (result, elapsed, server)
 }
 
 fn ready(version: &str) -> Status {
@@ -340,20 +360,13 @@ fn stalled_package_times_out_and_retry_downloads_verified_update() {
 fn progressing_download_can_exceed_the_read_timeout() {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
-        .start_paused(true)
         .build()
         .unwrap()
         .block_on(async {
-            let app = app();
-            let (url, mut first_byte, server) = timed_server(Duration::from_millis(100)).await;
-            assert_eq!(
-                refresh_at(&app, &url, Duration::from_secs(5)).await,
-                ready("1.0.0")
-            );
-            let began = first_byte.try_recv().expect("package body never started");
-            assert!(began.elapsed() >= Duration::from_millis(300));
-            assert!(began.elapsed() > LIMIT);
-            assert_cached(&app, "1.0.0");
+            let (result, elapsed, server) = timed_download(Duration::from_millis(100)).await;
+            assert_eq!(result.unwrap(), b"test");
+            assert!(elapsed >= Duration::from_millis(300));
+            assert!(elapsed > LIMIT);
             server.await.unwrap();
         });
 }
@@ -362,25 +375,16 @@ fn progressing_download_can_exceed_the_read_timeout() {
 fn a_paused_clock_read_stall_still_times_out() {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
-        .start_paused(true)
         .build()
         .unwrap()
         .block_on(async {
-            let app = app();
-            let (url, mut first_byte, server) = timed_server(Duration::from_millis(400)).await;
-            let status = refresh_at(&app, &url, Duration::from_secs(5)).await;
+            let (result, elapsed, server) = timed_download(Duration::from_millis(400)).await;
             assert_eq!(
-                status,
-                Status::Failed {
-                    message: "error decoding response body".into()
-                }
+                result.unwrap_err().to_string(),
+                "error decoding response body"
             );
-            // Feed and connection setup do not count toward the body read timeout.
-            let began = first_byte.try_recv().expect("package body never started");
-            assert!(began.elapsed() >= LIMIT);
-            assert!(began.elapsed() < Duration::from_millis(400));
-            assert!(app.state::<Updates>().ready.lock().unwrap().is_none());
-            assert!(app.state::<Updates>().running.try_lock().is_ok());
+            assert!(elapsed >= LIMIT);
+            assert!(elapsed < Duration::from_millis(400));
             server.abort();
             assert!(server.await.unwrap_err().is_cancelled());
         });
@@ -467,5 +471,23 @@ fn unchanged_release_reuses_cache_and_withdrawn_release_clears_it() {
             }
         );
         assert!(app.state::<Updates>().ready.lock().unwrap().is_none());
+    });
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn install_boundary_rechecks_signature_before_staging() {
+    tauri::async_runtime::block_on(async {
+        let app = app();
+        let server = Server::new(vec![Reply::Feed("1.0.0"), Reply::Package(b"test")]);
+        assert_eq!(refresh(&app, &server).await, ready("1.0.0"));
+        let updates = app.state::<Updates>();
+        let cached = updates.ready.lock().unwrap();
+        let (update, _) = cached.as_ref().unwrap();
+        let expected = update.verify(b"tampered").unwrap_err().to_string();
+        assert_eq!(
+            install_update(update, b"tampered", "test.app").unwrap_err(),
+            expected
+        );
     });
 }

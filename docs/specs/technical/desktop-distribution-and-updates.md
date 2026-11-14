@@ -3,7 +3,7 @@ type: TechnicalSpec
 id: SPEC-0122
 summary: "Every public Rhizome release ships a macOS desktop app that updates itself, carries the matching rzm, offers that rzm on the system PATH while the app is installed, and offers to advance a repository's older pin."
 spec-status: active
-last-updated: 2026-11-12
+last-updated: 2026-11-13
 aliases:
   - SPEC-0122
 ---
@@ -137,6 +137,12 @@ The contracts this builds on are [[version-pinned-install-and-update|SPEC-0033]]
 - The app MUST check at launch and then every 24 hours, download in the background, and install only on the user's restart action. It MUST NOT interrupt or restart on its own.
 - Rhizome Dev and local development builds (version `0.0.0`) MUST NOT check for updates.
 - Feed checks MUST settle within 30 seconds. Archive downloads MUST reject a 30-second connection or read stall and have a 30-minute overall limit, so progressing slow downloads can finish. Failure MUST release the update lock, permit retry, and preserve an already verified download.
+- On macOS, an existing installation MUST upgrade in place at the same app and CLI-link paths with at most one further administrator authorization. Once the app bundle belongs to the user, later updates MUST atomically exchange only `Contents` without requiring write access to the enclosing `/Applications` directory. No migration may change ownership or permissions of `/Applications`.
+- Before any installer fallback or installed mutation, the app MUST verify the updater signature, reject unsafe archive paths, escaping links, hardlinks, special files, and unsupported bundle-root entries, and verify the staged bundle's identifier, announced version, strict code signature, and Apple-anchored signing team requirement. Framework symlinks contained within `Contents` MUST remain supported.
+- The macOS app-owned path MUST require a real, user-owned, writable app root and `Contents`, staging on the same filesystem outside the installed bundle, no root entries other than `Contents`, and a valid current strict signature. Ineligible installations, including root-owned bundles and damaged current resource seals, MUST use the existing full-bundle installer only after validating the replacement.
+- A successful `Contents` swap MUST be followed by strict verification. Failure MUST atomically restore the old `Contents`; if restoration fails, the old copy MUST be retained with its recovery path reported. No privileged fallback may run after a successful swap. Unsupported operations and EACCES or EPERM may use the fallback only before mutation; EPERM MUST be logged distinctly for App Management diagnosis. Touching the bundle and cleanup after a verified commit MUST be best effort. App-root extended attributes MUST be preserved.
+- Release readiness for this path MUST include a signed, packaged old-updater A to new-updater B to C sequence under a genuine standard GUI account, through the app and `rzm update`. The A to B transition permits one administrator authorization; B to C permits none. Evidence MUST cover cancellation, restored windows, unchanged CLI links, quarantine, signatures, notarization, and Gatekeeper. A protected-directory test under an administrator account does not satisfy this gate.
+
 
 ### Bundled rzm and the command-line link
 
