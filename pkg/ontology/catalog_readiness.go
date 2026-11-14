@@ -205,6 +205,12 @@ func ontologyNodeRequiredFieldRowsMaterialized(schema *ontoschema.Schema, node r
 		if _, ok := rows[strings.ToLower(strings.TrimSpace(field.Name))]; ok {
 			continue
 		}
+		// Empty link lists emit no rows; only the matching root assessment witnesses their presence.
+		if field.Kind == ontoschema.FieldKindLink && field.List && node.NodeKind == string(NodeKindNote) && assessment != nil && assessment.ResolvedType == node.TypeName {
+			if assessed, ok := assessment.Field(field.Name); ok && assessed.Present && len(assessed.Values) == 0 && len(assessed.Issues) == 0 {
+				continue
+			}
+		}
 		missing := false
 		if assessment != nil {
 			for _, issue := range assessment.Issues {
