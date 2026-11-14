@@ -31,7 +31,7 @@ import { NOTES_ROOT_PATH, parseNotesLocation } from "./notesRoute";
 import { OntologyAtlasWorkspace } from "./OntologyAtlasWorkspace";
 import { isOntologyPath, ONTOLOGY_ROOT_PATH } from "./ontologyRoute";
 import { ChatDrawer, PaneToggle, toggleChatPane, togglePane, useChatShortcut } from "./ChatDrawer";
-import { useShellPanes } from "./shellPanes";
+import { setPaneOwnContent, useShellPanes } from "./shellPanes";
 import { OntologyEditSessionProvider } from "./useOntologyEditSession";
 import { isTasksPath, navigateTasks, TASKS_ROOT_PATH } from "./tasks/tasksRoute";
 import { TasksWorkspace } from "./tasks/TasksWorkspace";
@@ -304,6 +304,9 @@ export function AppShell() {
 
   useEffect(() => {
     if (route === "notes") setNotesVisited(true);
+    // Other sections have nothing of their own for the right pane; Notes
+    // says what it has while it shows.
+    else setPaneOwnContent(false);
   }, [route]);
 
   // WHY: one status owner at AppShell scope per SPEC-0071.US2.AC3 — do not

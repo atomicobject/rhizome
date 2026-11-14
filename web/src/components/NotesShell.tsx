@@ -38,7 +38,7 @@ import { RecordRailProvider, useRecordRailState } from "./recordRail";
 import { inDesktop } from "./desktopHost";
 import { togglePane } from "./ChatDrawer";
 import { publishNotesTitle } from "./chat/viewContext";
-import { PANE_RANGE, setPaneChat, useShellPanes } from "./shellPanes";
+import { PANE_RANGE, setPaneChat, setPaneOwnContent, useShellPanes } from "./shellPanes";
 import { isSidebarShortcut, WorkbenchSidebar } from "./WorkbenchSidebar";
 import { useWorkbenchSidebar } from "./sidebarState";
 import {
@@ -691,12 +691,20 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     RECORD_PANE_DELAY_MS,
   );
 
-  // PROTOTYPE: selecting a row shows its record, even over Chat.
+  // Selecting a row shows its record, even over Chat.
   useEffect(() => {
     if (record) setPaneChat(false);
   }, [record]);
 
-  // PROTOTYPE: Chat's context chip names the shown note or view by its title.
+  // The pane has something of Notes' own for a note or a selected record;
+  // elsewhere, such as Home, it shows only once the person chooses Chat.
+  const paneOwnContent = !searchActive && (tabs.activeTab.kind === "note" || record);
+
+  useEffect(() => {
+    if (active) setPaneOwnContent(paneOwnContent);
+  }, [active, paneOwnContent]);
+
+  // Chat's context chip names the shown note or view by its title.
   const shownTitle =
     tabs.activeTab.kind === "note" || tabs.activeTab.kind === "view"
       ? tabTitle(tabs.activeTab)

@@ -430,7 +430,8 @@ describe("AppShell", () => {
           search: "meetings",
           issues: 37,
           health: "current_issues",
-          paneCollapsed: false,
+          // Search has nothing for the pane until the person chooses Chat.
+          paneCollapsed: true,
         }),
       );
       // The vault title never replaces the report.
@@ -516,16 +517,20 @@ describe("AppShell", () => {
       http.json("GET", "/api/agent/sessions", { sessions: [] });
       render(<AppShell />);
       await send({ command: "section", section: "ontology" });
+      // Ontology has nothing of its own for the pane, so it starts hidden.
+      await waitFor(() => expect(report().paneCollapsed).toBe(true));
+      expect(screen.queryByRole("complementary", { name: "Chat" })).toBeNull();
+
+      await send({ command: "pane" });
       await waitFor(() => expect(report().paneCollapsed).toBe(false));
       expect(screen.getByRole("complementary", { name: "Chat" })).toBeVisible();
 
-      await send({ command: "pane" });
+      await send({ command: "chat" });
       await waitFor(() => expect(report().paneCollapsed).toBe(true));
       expect(screen.queryByRole("complementary", { name: "Chat" })).toBeNull();
 
       await send({ command: "chat" });
       await waitFor(() => expect(report().paneCollapsed).toBe(false));
-      expect(screen.getByRole("complementary", { name: "Chat" })).toBeVisible();
 
       // The Agent page is the full chat, so it has no right pane to report.
       await send({ command: "section", section: "agent" });
@@ -540,7 +545,7 @@ describe("AppShell", () => {
       await send({ command: "section", section: "ontology" });
       expect(window.location.pathname).toBe("/ontology");
       await waitFor(() =>
-        expect(report()).toEqual({ v: 1, section: "ontology", search: "", paneCollapsed: false }),
+        expect(report()).toEqual({ v: 1, section: "ontology", search: "", paneCollapsed: true }),
       );
 
       // The report follows history the page moves through on its own.

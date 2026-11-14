@@ -317,7 +317,7 @@ test("keeps note context tabs fixed while removing redundant outline identity", 
     "aria-selected",
     "true",
   );
-  const contextTabs = page.getByRole("tablist", { name: "Note context" });
+  const contextTabs = page.getByRole("tablist", { name: "Right pane" });
   const expand = page.getByRole("button", { name: "Show right pane" });
 
   if (!(await contextTabs.isVisible())) {

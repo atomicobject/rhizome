@@ -1,11 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PanelResizeHandle } from "./PanelResizeHandle";
 import {
   PANE_RANGE,
   resetPanesForTests,
+  setPaneOwnContent,
   SIDEBAR_RANGE,
   togglePaneOpen,
   useShellPanes,
@@ -18,6 +19,9 @@ function Shell() {
   const ref = useRef<HTMLDivElement>(null);
   const panes = useShellPanes();
   const sidebarState = useWorkbenchSidebar();
+
+  // A section with something of its own for the pane, such as a note.
+  useEffect(() => setPaneOwnContent(true), []);
 
   return (
     <div ref={ref} data-testid="shell" data-pane-collapsed={panes.paneCollapsed}>

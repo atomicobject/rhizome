@@ -7,6 +7,7 @@ import { withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { readyStatus, session, settingsWith } from "./AgentWorkspace.test-support";
 import { ChatDrawer } from "./ChatDrawer";
+import { setPaneChat } from "./shellPanes";
 
 const SESSION_KEY = "rhizome:chat:session:v1";
 
@@ -51,6 +52,7 @@ describe("Chat in the right pane", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/ontology");
     window.localStorage.clear();
+    setPaneChat(true);
     http.json("GET", "/api/agent/settings", {
       ...settingsWith(readyStatus),
       settings: {

@@ -263,21 +263,30 @@ describe("NotesShell", () => {
     });
   });
 
-  it("shows Chat on Home and the active note's context in one right pane that ] and the toggle control", async () => {
+  it("opens Chat on Home only when asked, and the active note's context in one right pane that ] and the toggle control", async () => {
     render(<NotesWithPane />);
     await screen.findByRole("button", { name: "All notes (2)" });
 
-    // Home has nothing of its own for the pane, so the pane holds Chat alone.
+    // Home has nothing of its own for the pane, so it keeps its width until
+    // the person asks; then the pane holds Chat alone.
     expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
     expect(screen.queryByRole("tablist", { name: "Open notes" })).toBeNull();
-    const home = screen.getByRole("complementary", { name: "Chat" });
+    expect(screen.queryByRole("complementary", { name: "Chat" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show right pane" }));
+    const home = await screen.findByRole("complementary", { name: "Chat" });
     expect(
       within(home)
         .getAllByRole("tab")
         .map((tab) => tab.textContent),
     ).toEqual(["Chat"]);
+    fireEvent.click(within(home).getByRole("button", { name: "Hide right pane" }));
 
+    // A note stays as the person left the pane: hidden, then on its last tab.
     openNote(planNote.path);
+    expect(await screen.findByRole("button", { name: "Edit" })).toBeVisible();
+    expect(screen.queryByRole("complementary", { name: "Chat" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show right pane" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Info" }));
     expect(await screen.findByRole("complementary", { name: "Note context" })).toBeVisible();
     expect(screen.getByRole("tablist", { name: "Open notes" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Edit" })).toBeVisible();

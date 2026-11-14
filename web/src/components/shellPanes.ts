@@ -70,14 +70,17 @@ function useMediaQuery(query: string): boolean {
 
 // One pane for the whole app, so every section and the top bar's toggle share
 // this state. The narrow overlay's open flag is shared too.
-type PaneState = PaneLayout & { overlayOpen: boolean };
+// `own` says whether the shown section has something of its own for the pane,
+// a note's context or a selected record. Without it the pane shows only once
+// the person chooses Chat, so Home and other sections keep their width.
+type PaneState = PaneLayout & { overlayOpen: boolean; own: boolean };
 
 let state: PaneState | null = null;
 
 const listeners = new Set<() => void>();
 
 function current(): PaneState {
-  state ??= { ...readLayout(), overlayOpen: false };
+  state ??= { ...readLayout(), overlayOpen: false, own: false };
 
   return state;
 }
@@ -104,9 +107,19 @@ function subscribe(listener: () => void) {
 
 /** Opens or closes the pane, honoring the narrow overlay. */
 export function togglePaneOpen(narrow = window.matchMedia?.(NARROW_QUERY).matches ?? false) {
-  update((value) =>
-    narrow ? { overlayOpen: !value.overlayOpen } : { paneCollapsed: !value.paneCollapsed },
-  );
+  update((value) => {
+    const open = narrow ? value.overlayOpen : !value.paneCollapsed;
+
+    if ((value.own || value.chat) && open)
+      return narrow ? { overlayOpen: false } : { paneCollapsed: true };
+
+    // Opening where the section has nothing of its own opens Chat.
+    const change: Partial<PaneState> = narrow ? { overlayOpen: true } : { paneCollapsed: false };
+
+    if (!value.own) change.chat = true;
+
+    return change;
+  });
 }
 
 /** Shows the pane on its Chat tab, or closes it when Chat is already showing. */
@@ -119,6 +132,11 @@ export function toggleChat(
 
     return { chat: true, ...(narrow ? { overlayOpen: true } : { paneCollapsed: false }) };
   });
+}
+
+/** The shown section says whether it has a note's context or a record for the pane. */
+export function setPaneOwnContent(own: boolean) {
+  if (current().own !== own) update(() => ({ own }));
 }
 
 export function setPaneChat(chat: boolean) {
@@ -146,7 +164,8 @@ export function useShellPanes() {
 
   return {
     paneWidth: layout.pane,
-    paneCollapsed: narrow ? !layout.overlayOpen : layout.paneCollapsed,
+    paneCollapsed:
+      !(layout.own || layout.chat) || (narrow ? !layout.overlayOpen : layout.paneCollapsed),
     /** The pane, when open, covers the content instead of narrowing it. */
     paneOverlay: narrow,
     chat: layout.chat,
