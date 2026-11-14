@@ -110,6 +110,12 @@ pub struct Report {
         skip_serializing_if = "Option::is_none"
     )]
     sidebar_toggles: Option<u32>,
+    #[serde(
+        default,
+        rename = "paneCollapsed",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pane_collapsed: Option<bool>,
     /// The page's latest Tasks request, numbered by the page. Rust acts on
     /// each new number once and validates what it names (tasks.rs).
     #[serde(default, skip_serializing)]
@@ -165,6 +171,7 @@ pub fn loading(pane: &mut Pane, url: &Url) {
     pane.reported = false;
     pane.sidebar = None;
     pane.sidebar_toggles = None;
+    pane.right_pane_collapsed = None;
     pane.graphql = false;
     pane.requests = None;
     pane.tasks = None;
@@ -188,6 +195,7 @@ pub fn titled(pane: &mut Pane, title: &str) -> (bool, Option<bool>) {
     let previous_toggles = pane.sidebar_toggles;
     pane.sidebar = report.as_ref().and_then(|r| r.sidebar_collapsed);
     pane.sidebar_toggles = report.as_ref().and_then(|r| r.sidebar_toggles);
+    pane.right_pane_collapsed = report.as_ref().and_then(|r| r.pane_collapsed);
     pane.graphql = report
         .as_ref()
         .is_some_and(|r| r.section == Section::Graphql);
@@ -222,6 +230,10 @@ fn asked(pane: &mut Pane, request: Option<&Request>) {
 /// the app's sidebar command, in a section other than GraphQL.
 pub fn toggles_sidebar(pane: &mut Pane) -> bool {
     on_runtime(pane) && pane.sidebar.is_some() && !pane.graphql
+}
+
+pub fn toggles_pane(pane: &mut Pane) -> bool {
+    on_runtime(pane) && pane.right_pane_collapsed.is_some()
 }
 
 /// Hands a runtime document an app setting (theme, sidebar). A page that is
@@ -262,7 +274,7 @@ pub fn set_sidebar(app: &AppHandle, collapsed: bool) -> Result<(), String> {
         for window in handle.windows().values() {
             send_setting(window, &Command::Sidebar { collapsed });
         }
-        crate::menu::refresh_sidebar(&handle);
+        crate::menu::refresh_panels(&handle);
     })
     .map_err(|error| error.to_string())
 }
@@ -309,6 +321,8 @@ pub enum Command {
     Shortcuts,
     /// Opens the page's note and file finder (⌘P).
     Find,
+    Pane {},
+    Chat {},
     /// The chrome theme, sent by the app rather than a toolbar control.
     #[serde(skip_deserializing)]
     Theme {
@@ -526,6 +540,51 @@ mod tests {
     }
 
     #[test]
+    fn right_pane_controls_require_a_report_from_the_visible_runtime_including_graphql() {
+        let (mut pane, received) = shown_pane();
+        loading(&mut pane, &page("/graphql"));
+        assert!(!toggles_pane(&mut pane));
+        for collapsed in [true, false] {
+            let title = format!(
+                r#"rhizome-desktop:{{"v":1,"section":"graphql","search":"","paneCollapsed":{collapsed}}}"#
+            );
+            let report = decode(&title, &page("/graphql"), Some(&runtime())).unwrap();
+            assert_eq!(report.pane_collapsed, Some(collapsed));
+            titled(&mut pane, &title);
+            assert_eq!(pane.right_pane_collapsed, Some(collapsed));
+            assert!(toggles_pane(&mut pane));
+            assert!(!toggles_sidebar(&mut pane));
+            assert_eq!(
+                received.try_iter().last().unwrap()["state"],
+                json!({"section": "graphql", "search": "", "paneCollapsed": collapsed})
+            );
+        }
+        pane.cover(true);
+        assert!(!toggles_pane(&mut pane));
+        pane.cover(false);
+        assert!(toggles_pane(&mut pane));
+        loading(&mut pane, &page("/notes"));
+        assert_eq!(pane.right_pane_collapsed, None);
+        assert!(!toggles_pane(&mut pane));
+        let legacy = r#"rhizome-desktop:{"v":1,"section":"notes","search":""}"#;
+        titled(&mut pane, legacy);
+        assert!(!toggles_pane(&mut pane));
+        let malformed =
+            r#"rhizome-desktop:{"v":1,"section":"notes","search":"","paneCollapsed":"yes"}"#;
+        assert!(decode(malformed, &page("/notes"), Some(&runtime())).is_none());
+        titled(&mut pane, malformed);
+        assert!(!toggles_pane(&mut pane));
+        let viewer: Url = "http://0123456789abcdef0123456789abcdef.localhost:4100/"
+            .parse()
+            .unwrap();
+        loading(&mut pane, &viewer);
+        let title =
+            r#"rhizome-desktop:{"v":1,"section":"notes","search":"","paneCollapsed":false}"#;
+        titled(&mut pane, title);
+        assert!(!toggles_pane(&mut pane));
+    }
+
+    #[test]
     fn keeps_the_documents_task_items_and_relays_only_their_count() {
         let (mut pane, received) = shown_pane();
         let title = r#"rhizome-desktop:{"v":1,"section":"notes","search":"","tasks":{"needs":2,"items":[{"id":"8","task":"flaky","state":"ready","text":"x"}]}}"#;
@@ -679,6 +738,20 @@ mod tests {
         let sidebar: Command =
             serde_json::from_value(json!({"command": "sidebar", "collapsed": true})).unwrap();
         assert_eq!(sidebar, Command::Sidebar { collapsed: true });
+        for (command, expected) in [("pane", Command::Pane {}), ("chat", Command::Chat {})] {
+            let decoded: Command = serde_json::from_value(json!({"command": command})).unwrap();
+            assert_eq!(decoded, expected);
+            assert_eq!(
+                serde_json::to_value(&decoded).unwrap(),
+                json!({"command": command})
+            );
+            assert_eq!(
+                decoded.script().unwrap(),
+                format!(
+                    "window.dispatchEvent(new CustomEvent('rhizome:desktop', {{ detail: {{\"command\":\"{command}\"}} }}))"
+                )
+            );
+        }
         assert_eq!(
             sidebar.script().unwrap(),
             r#"window.dispatchEvent(new CustomEvent('rhizome:desktop', { detail: {"command":"sidebar","collapsed":true} }))"#
@@ -692,6 +765,8 @@ mod tests {
             r#"window.dispatchEvent(new CustomEvent('rhizome:desktop', { detail: {"command":"task","task":"docs-drift"} }))"#
         );
         for invalid in [
+            json!({"command": "pane", "collapsed": true}),
+            json!({"command": "chat", "tab": "chat"}),
             json!({"command": "sidebar"}),
             json!({"command": "sidebar", "collapsed": "yes"}),
             json!({"command": "sidebar", "collapsed": true, "width": 300}),

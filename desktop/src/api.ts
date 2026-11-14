@@ -281,6 +281,8 @@ export interface PageState {
   sidebarCollapsed?: boolean;
   /** How many times the page itself toggled it; the app reads it, not the shell. */
   sidebarToggles?: number;
+  /** The right pane's state, owned by the page. */
+  paneCollapsed?: boolean;
   /** The repository's open task items that need the person; the app keeps the items. */
   tasks?: { needs: number };
 }
@@ -290,6 +292,8 @@ export type PageCommand =
   | { command: "issues" }
   | { command: "shortcuts" }
   | { command: "find" }
+  | { command: "pane" }
+  | { command: "chat" }
   /** Asks the app to store the sidebar state and send it to every window's page. */
   | { command: "sidebar"; collapsed: boolean };
 /** Choices a setup sheet passes to `rzm init`; see SPEC-0118. */
