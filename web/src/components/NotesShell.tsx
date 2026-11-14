@@ -29,16 +29,16 @@ import { activePanel } from "./activePanel";
 import { sameNoteTabContext, type NoteTabContext } from "./noteTabContext";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { NoteTab } from "./NoteTab";
-import { NoteTabStrip } from "./NoteTabStrip";
+import { NoteTabStrip, tabTitle } from "./NoteTabStrip";
 import { SearchWorkspace } from "./SearchWorkspace";
 import { ViewTab } from "./ViewTab";
 import { NotesRightRail } from "./NotesRightRail";
 import { PanelResizeHandle } from "./PanelResizeHandle";
 import { RecordRailProvider, useRecordRailState } from "./recordRail";
 import { inDesktop } from "./desktopHost";
-import { readSingleKey, typingIn } from "./KeyboardShortcuts";
-import { PANE_RANGE, useShellPanes } from "./shellPanes";
-import { isSidebarShortcut, PanelIcon, WorkbenchSidebar } from "./WorkbenchSidebar";
+import { publishNotesTitle, togglePane } from "./ChatDrawer";
+import { PANE_RANGE, setPaneChat, useShellPanes } from "./shellPanes";
+import { isSidebarShortcut, WorkbenchSidebar } from "./WorkbenchSidebar";
 import { useWorkbenchSidebar } from "./sidebarState";
 import {
   buildNotesLocation,
@@ -690,47 +690,23 @@ export function NotesShell({ active = true }: { active?: boolean }) {
     RECORD_PANE_DELAY_MS,
   );
 
-  const paneHasContent = !searchActive && (tabs.activeTab.kind === "note" || record);
-  const paneOpen = paneHasContent && !panes.paneCollapsed;
-  const sidebarHidden = useWorkbenchSidebar().collapsed;
-  const { togglePane: togglePaneState } = panes;
+  // PROTOTYPE: selecting a row shows its record, even over Chat.
+  useEffect(() => {
+    if (record) setPaneChat(false);
+  }, [record]);
 
-  const paneToggleRef = useRef<HTMLButtonElement>(null);
-
-  // Closing the pane from a control inside it would drop focus to the page;
-  // hand it to the pane toggle in the tab row instead.
-  const togglePane = useCallback(() => {
-    const fromInside = document
-      .getElementById("notes-right-pane")
-      ?.contains(document.activeElement);
-
-    togglePaneState();
-
-    if (fromInside) requestAnimationFrame(() => paneToggleRef.current?.focus());
-  }, [togglePaneState]);
+  // PROTOTYPE: Chat's context chip names the shown note or view by its title.
+  const shownTitle =
+    tabs.activeTab.kind === "note" || tabs.activeTab.kind === "view"
+      ? tabTitle(tabs.activeTab)
+      : null;
 
   useEffect(() => {
-    if (!active || !paneHasContent) return;
+    if (active) publishNotesTitle(shownTitle);
+  }, [active, shownTitle]);
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key !== "]" ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey ||
-        event.defaultPrevented ||
-        typingIn(event.target) ||
-        !readSingleKey()
-      )
-        return;
-      event.preventDefault();
-      togglePane();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [active, paneHasContent, togglePane]);
+  const paneOpen = !panes.paneCollapsed;
+  const sidebarHidden = useWorkbenchSidebar().collapsed;
 
   const shellStyle: ShellStyle = {
     "--pane-width": `${panes.paneWidth}px`,
@@ -844,7 +820,6 @@ export function NotesShell({ active = true }: { active?: boolean }) {
       editSession.editing ||
       Boolean(editSession.session));
 
-  const paneApplies = !searchActive && (noteActive || recordRail.showing);
   // The strip holds note tabs. With none open it has nothing to switch between:
   // it hides, and its controls sit in the page header's title row, so every
   // page (Home, a view, Problems, a search) puts its title at the same height.
@@ -927,21 +902,6 @@ export function NotesShell({ active = true }: { active?: boolean }) {
               />
             </div>
           ) : null}
-          {paneApplies && (
-            <button
-              ref={paneToggleRef}
-              type="button"
-              className="notes-shell__pane-toggle"
-              aria-label={paneOpen ? "Hide right pane" : "Show right pane"}
-              aria-expanded={paneOpen}
-              aria-keyshortcuts="]"
-              title={paneOpen ? "Hide right pane (])" : "Show right pane (])"}
-              disabled={!paneHasContent}
-              onClick={togglePane}
-            >
-              <PanelIcon side="right" />
-            </button>
-          )}
         </div>
         <div className={`notes-shell__body${searchActive ? " notes-shell__body--search" : ""}`}>
           {tabs.tabs.flatMap((tab) =>
@@ -1117,6 +1077,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
                 validationIssueCount={activeValidationIssueCount}
                 validationHealth={activeValidationHealth}
                 record={record}
+                chat={panes.chat}
                 onRecordSlot={recordRail.setSlot}
                 resizeHandle={
                   panes.paneOverlay ? null : (

@@ -4,7 +4,7 @@ import type { NoteTab, Tab } from "./useNoteTabs";
 import { displayTitle } from "../lib/labels";
 import { searchTabLabel } from "./searchState";
 
-function tabTitle(tab: Tab): string {
+export function tabTitle(tab: Tab): string {
   if (tab.kind === "home") return "Home";
 
   if (tab.kind === "collection") return tab.collection === "issues" ? "Problems" : "Changes";

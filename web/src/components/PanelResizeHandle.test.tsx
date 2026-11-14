@@ -3,7 +3,13 @@ import { useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PanelResizeHandle } from "./PanelResizeHandle";
-import { PANE_RANGE, SIDEBAR_RANGE, useShellPanes } from "./shellPanes";
+import {
+  PANE_RANGE,
+  resetPanesForTests,
+  SIDEBAR_RANGE,
+  togglePaneOpen,
+  useShellPanes,
+} from "./shellPanes";
 import { resetSidebarForTests, setSidebarWidth, useWorkbenchSidebar } from "./sidebarState";
 
 const STORAGE_KEY = "rhizome:notes:panes:v1";
@@ -33,7 +39,7 @@ function Shell() {
         target={ref}
         onResize={panes.setPaneWidth}
       />
-      <button type="button" onClick={panes.togglePane}>
+      <button type="button" onClick={() => togglePaneOpen()}>
         Toggle pane
       </button>
     </div>
@@ -58,6 +64,7 @@ function mockViewport(narrow: boolean) {
 beforeEach(() => {
   window.localStorage.clear();
   resetSidebarForTests();
+  resetPanesForTests();
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -71,9 +78,9 @@ describe("panel resizing", () => {
     expect(sidebar()).toHaveAttribute("aria-valuemin", "200");
     expect(sidebar()).toHaveAttribute("aria-valuemax", "400");
     expect(sidebar()).toHaveAttribute("tabindex", "0");
-    expect(pane()).toHaveAttribute("aria-valuenow", "340");
+    expect(pane()).toHaveAttribute("aria-valuenow", "380");
     expect(pane()).toHaveAttribute("aria-valuemin", "280");
-    expect(pane()).toHaveAttribute("aria-valuemax", "560");
+    expect(pane()).toHaveAttribute("aria-valuemax", "720");
   });
 
   it("moves 16px per arrow toward the panel's inner edge, and Home and End jump to the limits", () => {
@@ -91,9 +98,9 @@ describe("panel resizing", () => {
 
     // The right pane's handle sits on its left edge, so Left widens it.
     fireEvent.keyDown(pane(), { key: "ArrowLeft" });
-    expect(pane()).toHaveAttribute("aria-valuenow", "356");
+    expect(pane()).toHaveAttribute("aria-valuenow", "396");
     fireEvent.keyDown(pane(), { key: "End" });
-    expect(pane()).toHaveAttribute("aria-valuenow", "560");
+    expect(pane()).toHaveAttribute("aria-valuenow", "720");
   });
 
   it("drags without re-rendering, clamps to the range, and commits on release", () => {
@@ -121,6 +128,7 @@ describe("panel resizing", () => {
     fireEvent.click(screen.getByRole("button", { name: "Toggle pane" }));
     first.unmount();
     resetSidebarForTests();
+    resetPanesForTests();
 
     render(<Shell />);
     expect(sidebar()).toHaveAttribute("aria-valuenow", "400");

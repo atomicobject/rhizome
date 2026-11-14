@@ -30,6 +30,7 @@ import { TypeLabelsProvider } from "./typeLabels";
 import { NOTES_ROOT_PATH, parseNotesLocation } from "./notesRoute";
 import { OntologyAtlasWorkspace } from "./OntologyAtlasWorkspace";
 import { isOntologyPath, ONTOLOGY_ROOT_PATH } from "./ontologyRoute";
+import { ChatDrawer, PaneToggle, useChatShortcut } from "./ChatDrawer";
 import { OntologyEditSessionProvider } from "./useOntologyEditSession";
 import { isTasksPath, navigateTasks, TASKS_ROOT_PATH } from "./tasks/tasksRoute";
 import { TasksWorkspace } from "./tasks/TasksWorkspace";
@@ -280,6 +281,7 @@ export function AppShell() {
   });
 
   useSidebarShortcut({ desktop, disabled: false });
+  useChatShortcut();
 
   useEffect(() => {
     if (route === "notes") setNotesVisited(true);
@@ -403,6 +405,7 @@ export function AppShell() {
             <VaultTools />
             <AppearanceMenu />
             <KeyboardShortcuts />
+            <PaneToggle />
           </div>
         </header>
       )}
@@ -423,51 +426,56 @@ export function AppShell() {
         onStatusChange={setStatus}
         rebuilding={summaryQuery.data?.rebuilding}
       />
-      <OntologyEditSessionProvider vaultKey={status?.vaultPath || null}>
-        <ErrorBoundary resetKey={route} label="Rhizome could not render this view">
-          {notesVisited || route === "notes" ? (
-            <div
-              className="app-shell__route-surface"
-              hidden={route !== "notes"}
-              inert={route === "notes" ? undefined : true}
-            >
-              <TypeLabelsProvider>
-                <NotesShell active={route === "notes"} />
-              </TypeLabelsProvider>
-            </div>
-          ) : null}
-          {route === "notes" ? null : route === "ontology" ? (
-            <OntologyAtlasWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
-          ) : route === "agent" ? (
-            <AgentWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
-          ) : route === "tasks" ? (
-            <TasksWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
-          ) : route === "graphql" ? (
-            <Suspense
-              fallback={
-                <div className="workspace workbench graphql-workspace">
-                  <WorkbenchSidebar title={sidebarTitle} titleHint={sidebarHint}>
-                    {null}
-                  </WorkbenchSidebar>
-                  <main className="workbench__panel graphql-explorer" />
+      <div className="app-shell__body">
+        <div className="app-shell__main">
+          <OntologyEditSessionProvider vaultKey={status?.vaultPath || null}>
+            <ErrorBoundary resetKey={route} label="Rhizome could not render this view">
+              {notesVisited || route === "notes" ? (
+                <div
+                  className="app-shell__route-surface"
+                  hidden={route !== "notes"}
+                  inert={route === "notes" ? undefined : true}
+                >
+                  <TypeLabelsProvider>
+                    <NotesShell active={route === "notes"} />
+                  </TypeLabelsProvider>
                 </div>
-              }
-            >
-              <GraphQLExplorer
-                vaultName={vaultName}
-                sidebarTitle={sidebarTitle}
-                sidebarHint={sidebarHint}
-              />
-            </Suspense>
-          ) : (
-            <ExplorerWorkspace
-              vaultName={vaultName ?? ""}
-              sidebarTitle={sidebarTitle}
-              sidebarHint={sidebarHint}
-            />
-          )}
-        </ErrorBoundary>
-      </OntologyEditSessionProvider>
+              ) : null}
+              {route === "notes" ? null : route === "ontology" ? (
+                <OntologyAtlasWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
+              ) : route === "agent" ? (
+                <AgentWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
+              ) : route === "tasks" ? (
+                <TasksWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
+              ) : route === "graphql" ? (
+                <Suspense
+                  fallback={
+                    <div className="workspace workbench graphql-workspace">
+                      <WorkbenchSidebar title={sidebarTitle} titleHint={sidebarHint}>
+                        {null}
+                      </WorkbenchSidebar>
+                      <main className="workbench__panel graphql-explorer" />
+                    </div>
+                  }
+                >
+                  <GraphQLExplorer
+                    vaultName={vaultName}
+                    sidebarTitle={sidebarTitle}
+                    sidebarHint={sidebarHint}
+                  />
+                </Suspense>
+              ) : (
+                <ExplorerWorkspace
+                  vaultName={vaultName ?? ""}
+                  sidebarTitle={sidebarTitle}
+                  sidebarHint={sidebarHint}
+                />
+              )}
+            </ErrorBoundary>
+          </OntologyEditSessionProvider>
+        </div>
+        {route === "notes" ? null : <ChatDrawer />}
+      </div>
       <FinderQuickOpen />
     </div>
   );

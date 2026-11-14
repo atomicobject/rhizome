@@ -6,6 +6,7 @@ import { queryKeys } from "../api/queryKeys";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { AppShell } from "./AppShell";
 import type { DesktopCommand } from "./desktopHost";
+import { resetPanesForTests } from "./shellPanes";
 import { resetSidebarForTests, SIDEBAR_KEY } from "./sidebarState";
 import { reportFixture, stateFixture } from "./tasks/taskFixtures";
 
@@ -22,6 +23,7 @@ describe("AppShell", () => {
     localStorage.clear();
     sessionStorage.clear();
     resetSidebarForTests();
+    resetPanesForTests();
     // Workspaces render for real; they only need empty, well-formed reads.
     http
       .json("GET", "/api/v1/starter-readiness", [])

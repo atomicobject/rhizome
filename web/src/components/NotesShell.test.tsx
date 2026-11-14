@@ -23,11 +23,25 @@ import {
 } from "../test/fakeFetch";
 import { withFakeEventSource } from "../test/fakeEventSource";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
+import { PaneToggle, useChatShortcut } from "./ChatDrawer";
 import { NotesShell } from "./NotesShell";
+import { resetPanesForTests } from "./shellPanes";
 import { viewSegment } from "../test/workspaceView";
 import { nativeRecordNode } from "../test/nativeRecordFixture";
 
 const emptyGraph = { nodes: [], edges: [], truncated: false };
+
+/** Notes with the app shell's pane toggle and shortcuts. */
+function NotesWithPane() {
+  useChatShortcut();
+
+  return (
+    <>
+      <PaneToggle />
+      <NotesShell />
+    </>
+  );
+}
 
 const summary: OntologySummaryResponse = {
   schemaPresent: true,
@@ -165,6 +179,7 @@ describe("NotesShell", () => {
     window.history.replaceState({}, "", "/notes");
     window.localStorage.clear();
     window.sessionStorage.clear();
+    resetPanesForTests();
 
     http
       .json("GET", "/api/v1/ontology/summary", summary)
@@ -247,15 +262,19 @@ describe("NotesShell", () => {
     });
   });
 
-  it("shows the active note's context in one right pane that ] and the toggles control", async () => {
-    render(<NotesShell />);
+  it("shows Chat on Home and the active note's context in one right pane that ] and the toggle control", async () => {
+    render(<NotesWithPane />);
     await screen.findByRole("button", { name: "All notes (2)" });
 
-    // Home alone has no pane and nothing to edit, so the tab row offers neither.
-    expect(screen.queryByRole("button", { name: "Show right pane" })).toBeNull();
+    // Home has nothing of its own for the pane, so the pane holds Chat alone.
     expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
     expect(screen.queryByRole("tablist", { name: "Open notes" })).toBeNull();
-    expect(screen.queryByRole("complementary", { name: "Note context" })).toBeNull();
+    const home = screen.getByRole("complementary", { name: "Chat" });
+    expect(
+      within(home)
+        .getAllByRole("tab")
+        .map((tab) => tab.textContent),
+    ).toEqual(["Chat"]);
 
     openNote(planNote.path);
     expect(await screen.findByRole("complementary", { name: "Note context" })).toBeVisible();
@@ -283,8 +302,37 @@ describe("NotesShell", () => {
     }
   });
 
+  it("shows the pane on Chat with ⌥⌘B, and hides it when Chat is showing", async () => {
+    render(<NotesWithPane />);
+    await screen.findByRole("button", { name: "All notes (2)" });
+    openNote(planNote.path);
+    await screen.findByRole("complementary", { name: "Note context" });
+
+    const chord = { code: "KeyB", key: "∫", altKey: true, metaKey: true, ctrlKey: true };
+
+    const shortcut = navigator.platform.includes("Mac")
+      ? { ...chord, ctrlKey: false }
+      : { ...chord, metaKey: false };
+
+    fireEvent.keyDown(window, shortcut);
+    const pane = await screen.findByRole("complementary", { name: "Chat" });
+    expect(within(pane).getByRole("tab", { name: "Chat" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await waitFor(() =>
+      expect(within(pane).getByRole("textbox", { name: "Message" })).toHaveFocus(),
+    );
+
+    fireEvent.keyDown(window, shortcut);
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Chat" })).toBeNull());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Show right pane" })).toHaveFocus(),
+    );
+  });
+
   it("returns focus to the pane toggle when the pane closes from inside", async () => {
-    render(<NotesShell />);
+    render(<NotesWithPane />);
     await screen.findByRole("button", { name: "All notes (2)" });
 
     openNote(planNote.path);
