@@ -37,7 +37,12 @@ func (s *Service) drainEvents(sessionID string, kind harness.Kind, live *liveSes
 		if incoming.Kind == harness.EventAssistantTextDelta {
 			s.mu.Lock()
 			if live.turn != nil {
-				live.turn.assistant.WriteString(incoming.Text)
+				turn := live.turn
+				if incoming.ItemID != turn.assistantItem && turn.assistant.Len() > 0 {
+					turn.assistant.WriteString("\n\n")
+				}
+				turn.assistantItem = incoming.ItemID
+				turn.assistant.WriteString(incoming.Text)
 			}
 			s.mu.Unlock()
 		}

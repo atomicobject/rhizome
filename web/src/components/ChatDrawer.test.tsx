@@ -94,6 +94,12 @@ describe("Chat in the right pane", () => {
     expect(window.localStorage.getItem(SESSION_KEY)).toBe("agt-1");
     expect(await within(pane).findByText("Explain this graph")).toBeVisible();
     expect(within(pane).getByRole("button", { name: "Stop" })).toBeVisible();
+
+    // The turn ends over the stream, and the composer offers Send again.
+    sources.latest().emitJSON(event(1, "turn-started", { turnId: "t1" }), "agent_event");
+    sources.latest().emitJSON(event(2, "turn-completed", { turnId: "t1" }), "agent_event");
+    expect(await within(pane).findByRole("button", { name: "Send" })).toBeVisible();
+    expect(within(pane).queryByRole("button", { name: "Stop" })).toBeNull();
   });
 
   it("shows each agent action as one line and asks only for escalations", async () => {
@@ -194,5 +200,25 @@ describe("a view context", () => {
     expect(bounded.route).toHaveLength(2048);
     expect(bounded).not.toHaveProperty("path");
     expect(bounded.detail).toHaveLength(2000);
+  });
+});
+
+describe("streamed assistant text", () => {
+  it("makes each message item its own paragraph", async () => {
+    const { joinDeltas } = await import("./agent/AgentTimeline");
+
+    const delta = (id: number, itemId: string, content: string): AgentEvent => ({
+      ...event(id, "assistant-text-delta", { turnId: "t1", itemId }),
+      content,
+    });
+
+    expect(
+      joinDeltas([
+        delta(1, "note", "Checking."),
+        event(2, "tool-call", { itemId: "tool" }),
+        delta(3, "answer", "po"),
+        delta(4, "answer", "ng"),
+      ]),
+    ).toBe("Checking.\n\npong");
   });
 });

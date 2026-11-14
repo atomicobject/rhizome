@@ -149,16 +149,35 @@ export function approvalOutcomes(events: AgentEvent[]): Map<string, ApprovalOutc
   return mapped;
 }
 
+const isTextDelta = (event: AgentEvent) =>
+  event.type === "assistant-text-delta" || event.type === "message_delta";
+
+/**
+ * Streamed assistant text, with each message item as its own paragraph, so a
+ * progress note and the answer after it do not run together. The server
+ * stores the finished message the same way.
+ */
+export function joinDeltas(events: AgentEvent[]): string {
+  let text = "";
+  let item: string | undefined;
+
+  for (const event of events) {
+    if (!isTextDelta(event)) continue;
+    const next = event.result?.itemId;
+
+    if (text && next !== item) text += "\n\n";
+    item = next;
+    text += event.content || "";
+  }
+
+  return text;
+}
+
 /** The text an assistant has streamed so far in one turn group. */
 export function streamedText(group: TurnGroup): string {
-  return group.entries
-    .map((entry) =>
-      entry.kind === "event" &&
-      (entry.event.type === "assistant-text-delta" || entry.event.type === "message_delta")
-        ? entry.event.content || ""
-        : "",
-    )
-    .join("");
+  return joinDeltas(
+    group.entries.flatMap((entry) => (entry.kind === "event" ? [entry.event] : [])),
+  );
 }
 
 function DetailItem({ event, label }: { event: AgentEvent; label: string }) {

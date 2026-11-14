@@ -30,6 +30,9 @@ type statusCacheEntry struct {
 
 type turnState struct {
 	assistant strings.Builder
+	// The message item the last delta belonged to; a turn's separate
+	// messages, such as a progress note and its answer, become paragraphs.
+	assistantItem string
 }
 
 type liveSession struct {

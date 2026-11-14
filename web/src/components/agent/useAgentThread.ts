@@ -23,6 +23,7 @@ import type {
   AgentSessionsResponse,
   AgentViewContext,
 } from "../../api/types";
+import { joinDeltas } from "./AgentTimeline";
 import { answerPageRequest, type PageIdentity } from "./pageText";
 
 function mergeEvents(current: AgentEvent[], incoming: AgentEvent[]) {
@@ -79,14 +80,7 @@ function completedAssistant(events: AgentEvent[], completed: AgentEvent): AgentM
   if (completed.type !== "turn-completed") return undefined;
   const turnID = completed.result?.turnId;
 
-  const content = events
-    .flatMap((event) =>
-      (event.type === "message_delta" || event.type === "assistant-text-delta") &&
-      (!turnID || event.result?.turnId === turnID)
-        ? [event.content || ""]
-        : [],
-    )
-    .join("");
+  const content = joinDeltas(events.filter((event) => !turnID || event.result?.turnId === turnID));
 
   if (!content.trim()) return undefined;
 
@@ -228,6 +222,7 @@ export function useAgentThread(sessionID: string, describePage: () => PageIdenti
           sessionID,
           (terminalEventsRef.current.get(sessionID) ?? 0) + 1,
         );
+        setStartedID((current) => (current === sessionID ? "" : current));
         updateSession(sessionID, { turnRunning: false });
         queryClient.invalidateQueries({ queryKey: queryKeys.agent.session(sessionID) });
       }

@@ -216,6 +216,8 @@ export function ChatPanel() {
   const settingsQuery = useQuery({
     queryKey: queryKeys.agent.settings(),
     queryFn: ({ signal }) => getAgentSettings({ signal }),
+    // A harness that was busy or slow to answer its probe may answer later.
+    refetchInterval: (query) => (query.state.data?.resolved.harness ? false : 15_000),
   });
 
   const thread = useAgentThread(sessionID, () => ({
