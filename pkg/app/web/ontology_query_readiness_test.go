@@ -13,6 +13,7 @@ import (
 
 	"github.com/atomicobject/rhizome/internal/testkit"
 	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
+	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 )
@@ -24,8 +25,9 @@ func TestPublicGraphQLRejectsUnpublishedSchema(t *testing.T) {
 	require.Contains(t, string(before.body), "specs/100-demo/plan.md")
 
 	renameQueryFixturePlan(t, fixture)
-	query := map[string]any{"query": `{ updatedPlan(first: 2) { path } }`}
-	pending := postGraphQL(t, srv, query)
+	const query = `{ updatedPlan(first: 2) { path } }`
+	payload := map[string]any{"query": query}
+	pending := postGraphQL(t, srv, payload)
 	require.Equal(t, http.StatusServiceUnavailable, pending.status, string(pending.body))
 	require.Contains(t, string(pending.body), PublicErrorIndexInitializing)
 
@@ -35,13 +37,27 @@ func TestPublicGraphQLRejectsUnpublishedSchema(t *testing.T) {
 
 	_, err := ontologytest.Publish(t.Context(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
 	require.NoError(t, err)
-	after := postGraphQL(t, srv, query)
+	after := postGraphQL(t, srv, payload)
 	require.Equal(t, http.StatusOK, after.status, string(after.body))
 	require.NotContains(t, after.decoded, "errors")
 	require.Contains(t, string(after.body), "specs/100-demo/plan.md")
-	repeated := postGraphQL(t, srv, query)
+	repeated := postGraphQL(t, srv, payload)
 	require.Equal(t, after.body, repeated.body)
-	require.EqualValues(t, 1, srv.reads.Metrics().Queries[readQueryHash("graphql", query["query"].(string), "")].Hits)
+	require.EqualValues(t, 1, srv.reads.Metrics().Queries[readQueryHash("graphql", query, "")].Hits)
+}
+
+func TestPreparedGraphQLRejectsSchemaChangedBeforeAdmission(t *testing.T) {
+	srv, fixture := newGraphQLReadCacheServer(t)
+	defs, err := srv.ontologyDefinitions()
+	require.NoError(t, err)
+	prepared, errs := ontologyquery.Prepare(defs.exec, `{ plan(first: 2) { path } }`)
+	require.Empty(t, errs)
+
+	renameQueryFixturePlan(t, fixture)
+	_, err = ontologytest.Publish(t.Context(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	require.NoError(t, err)
+	_, err = srv.ontologyQueryDepsForPrepared(t.Context(), defs, prepared)
+	require.ErrorIs(t, err, errIndexInitializing)
 }
 
 func TestPublicGraphQLRejectsSchemaChangedDuringSelectedPathPolling(t *testing.T) {

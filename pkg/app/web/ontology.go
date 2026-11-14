@@ -810,7 +810,7 @@ func (s *Server) executeOntologyQueryOperation(ctx context.Context, rawQuery str
 }
 
 func (s *Server) ontologyQueryDepsForPrepared(ctx context.Context, defs *ontologyDefinitions, prepared *ontologyquery.PreparedQuery) (ontologyquery.Deps, error) {
-	store, exactSnapshot, err := s.waitForPreparedQuery(ctx, prepared)
+	store, exactSnapshot, err := s.waitForPreparedQuery(ctx, defs, prepared)
 	if err != nil {
 		return ontologyquery.Deps{}, err
 	}
@@ -821,7 +821,7 @@ func (s *Server) ontologyQueryDepsForPrepared(ctx context.Context, defs *ontolog
 	return s.ontologyQueryDepsForExactPaths(service, nil, exactSnapshot)
 }
 
-func (s *Server) waitForPreparedQuery(ctx context.Context, prepared *ontologyquery.PreparedQuery) (*semdb.Store, *exactNoteReadSnapshot, error) {
+func (s *Server) waitForPreparedQuery(ctx context.Context, defs *ontologyDefinitions, prepared *ontologyquery.PreparedQuery) (*semdb.Store, *exactNoteReadSnapshot, error) {
 	if s == nil || s.runtime == nil {
 		return nil, nil, nil
 	}
@@ -884,10 +884,6 @@ func (s *Server) waitForPreparedQuery(ctx context.Context, prepared *ontologyque
 				}
 			}
 			if allAccountedFor && !rawOnly {
-				defs, err := s.ontologyDefinitions()
-				if err != nil || defs == nil || defs.schema == nil {
-					return nil, nil, fmt.Errorf("%w: selected node schema is unavailable", errIndexInitializing)
-				}
 				catalogPaths, err := ontology.PublishedCatalogPaths(gateCtx, store, facts.MetadataRows, defs.schema.Hash)
 				if err != nil {
 					return nil, nil, fmt.Errorf("%w: load selected nodes: %v", errIndexInitializing, err)
@@ -899,7 +895,7 @@ func (s *Server) waitForPreparedQuery(ctx context.Context, prepared *ontologyque
 					}
 				}
 				if allAccountedFor {
-					return store, nil, nil
+					return store, nil, s.requirePublishedQuerySchema(gateCtx, store, defs.schema)
 				}
 			}
 			if allAccountedFor {
@@ -920,7 +916,22 @@ func (s *Server) waitForPreparedQuery(ctx context.Context, prepared *ontologyque
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %v", errIndexInitializing, err)
 	}
-	return s.runtime.Intel(), nil, nil
+	store := s.runtime.Intel()
+	return store, nil, s.requirePublishedQuerySchema(gateCtx, store, defs.schema)
+}
+
+func (s *Server) requirePublishedQuerySchema(ctx context.Context, store *semdb.Store, schema *ontoschema.Schema) error {
+	published, err := ontology.PublishedRuntimeWithStore(ctx, s.noteMetadata, s.cfg.VaultDef, store)
+	if err != nil {
+		return fmt.Errorf("%w: load ontology publication: %v", errIndexInitializing, err)
+	}
+	if !published.Ready {
+		return fmt.Errorf("%w: ontology publication is not ready", errIndexInitializing)
+	}
+	if published.Schema.Hash != schema.Hash {
+		return fmt.Errorf("%w: ontology schema changed during query preparation", errIndexInitializing)
+	}
+	return nil
 }
 
 const exactNoteAvailabilityPollInterval = 250 * time.Millisecond
