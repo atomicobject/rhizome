@@ -372,7 +372,6 @@ export function ScalarEditableCell({
         // The label names the action; the value is read after it.
         aria-description={onOpenRow ? undefined : displayValue || "Empty"}
         title={onOpenRow ? `F2 to edit ${capabilityLabel(capability)}` : undefined}
-        // A title's double-click falls through to its row, which opens it.
         data-row-title={onOpenRow ? true : undefined}
         onDoubleClick={() => {
           if (onOpenRow) return;

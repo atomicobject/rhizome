@@ -142,11 +142,8 @@ describe("ViewTab", () => {
       fireEvent.click(previewLink, { ctrlKey: true });
       expect(onOpenNote).toHaveBeenLastCalledWith(target, "beside");
 
-      // A card title opens on click; a table title selects its row and opens on double-click.
+      // A card or table title opens on click.
       fireEvent.click(title);
-
-      if (presentation !== "card") fireEvent.doubleClick(title);
-
       expect(onOpenNote).toHaveBeenLastCalledWith(target, "activate");
     },
   );
@@ -196,7 +193,6 @@ describe("ViewTab", () => {
     );
     const title = await screen.findByText("Next planning item");
     fireEvent.click(title);
-    fireEvent.doubleClick(title);
     expect(onOpenNode).toHaveBeenCalledWith(ref, { beside: false });
   });
 

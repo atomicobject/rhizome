@@ -204,7 +204,6 @@ describe("ConfiguredView shell interactions", () => {
     expect(screen.queryByRole("button", { name: "Open WORK-1" })).toBeNull();
     const title = screen.getByRole("button", { name: "Open Alpha work" });
     fireEvent.click(title);
-    fireEvent.doubleClick(title);
     expect(onOpenRow).toHaveBeenCalledWith(titledRows[0], "activate");
   });
 

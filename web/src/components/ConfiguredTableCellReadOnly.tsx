@@ -1,7 +1,7 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 
 import type { ViewFieldCapability, ViewTableRow } from "../api/types";
-import type { OpenMode } from "./useNoteTabs";
+import { openModeFor, type OpenMode } from "./useNoteTabs";
 import { publicWorkspaceRef } from "../api/client";
 import { displayTitle, enumLabel } from "../lib/labels";
 import {
@@ -206,14 +206,14 @@ function PrimaryReadOnlyCell({
 }
 
 /**
- * A table row title's gestures (SPEC-0112): a plain click falls through to
- * the row, which selects it, and so does a double-click, which the row opens.
- * Cmd/Ctrl-click and Enter open the note from the title itself.
+ * A table row title's gestures (SPEC-0112): it is a link, so a click or Enter
+ * opens the note, Cmd/Ctrl-click beside. A shift-click falls through to the
+ * row, which extends the checked range; the rest of the row selects.
  */
 export function rowTitleGestures(open: (mode: OpenMode) => void) {
   return {
     onClick: (event: MouseEvent) => {
-      if (event.metaKey || event.ctrlKey) open("beside");
+      if (!event.shiftKey) open(openModeFor(event));
     },
     onKeyDown: (event: KeyboardEvent) => {
       if (event.key !== "Enter") return;
