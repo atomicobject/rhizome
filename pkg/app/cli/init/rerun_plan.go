@@ -40,7 +40,7 @@ type rerunPlan struct {
 
 // pending reports whether a run without a terminal would write anything.
 func (p rerunPlan) pending() bool {
-	return len(p.settings)+len(p.files) > 0 || p.accepted && len(p.suggestions) > 0
+	return len(p.res.files.choices) > 0 || len(p.settings)+len(p.files) > 0 || p.accepted && len(p.suggestions) > 0
 }
 
 // proposal is a change detection suggests on a rerun.
@@ -91,6 +91,12 @@ func (r *initRun) planRerun(before, s setup, acceptOptIn bool) (rerunPlan, error
 		return plan, err
 	}
 	plan.res = res
+	if r.opts.DecisionSnapshot != "" && r.opts.DecisionSnapshot != res.files.decisionSnapshot() {
+		return plan, ErrDecisionsChanged
+	}
+	if err := res.files.setChoices(r.opts.Take, r.opts.Keep); err != nil {
+		return plan, err
+	}
 	if strings.TrimSpace(before.cfg.Rhizome.Version) == "" && res.cfg.Rhizome.Version != "" {
 		plan.settings = append(plan.settings, planLine{mark: "+", text: "Pin this repository to Rhizome " + res.cfg.Rhizome.Version, done: "Pinned Rhizome " + res.cfg.Rhizome.Version})
 	}

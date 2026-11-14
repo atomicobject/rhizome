@@ -38,7 +38,7 @@ func TestNormalizeLegacyAgenticEngineeringStateMigratesCoupledState(t *testing.T
 	require.Equal(t, []string{templateAgenticEngineering}, cfg.WorkflowTemplates)
 	require.Equal(t, []string{templateAgenticEngineering}, cfg.WorkflowTemplateAddons.Enabled)
 	require.Equal(t, []string{templateAgenticEngineering}, cfg.WorkflowTemplateManagement.Ejected)
-	require.True(t, clearRetiredWorkflowManagement(&cfg), "retired fingerprints are removed, not migrated")
+	require.True(t, clearRetiredWorkflowManagement(&cfg), "retired fields are cleared after file planning")
 	require.Nil(t, cfg.WorkflowTemplateManagement.SourceFingerprints)
 
 	changed, err = normalizeLegacyAgenticEngineeringState(&cfg)

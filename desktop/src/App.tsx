@@ -1106,7 +1106,10 @@ export function App() {
               worktree.pinOffer?.state !== "advance" &&
               open?.step === "ready" &&
               !upgrade &&
-              !!filePlans[worktree.path]?.writes.files.length && (
+              !!(
+                filePlans[worktree.path]?.writes.files.length ||
+                filePlans[worktree.path]?.writes.decisions?.length
+              ) && (
                 <button
                   className="toolbar-pill"
                   onClick={() => {
