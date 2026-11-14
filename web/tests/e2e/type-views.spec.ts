@@ -141,9 +141,9 @@ test("a selected row shows as a record in the right rail and opens in a tab", as
   await page.goto("/notes/tv-work-item");
   await chooseView(page, "Table");
 
-  // A click on the title selects the row; it does not open the note.
+  // A click beside the title selects the row; it does not open the note.
   const row = rows(page).filter({ hasText: "Anchor chain inspection" });
-  await row.getByRole("button", { name: "Open Anchor chain inspection" }).click();
+  await row.locator("td").last().click();
 
   const record = page.getByRole("article", { name: "Selected record Anchor chain inspection" });
   await expect(record).toBeVisible();
@@ -253,10 +253,7 @@ for (const width of [1100, 1440]) {
 
     await expand.click();
     await expect.poll(() => rows(page).count()).toBeGreaterThan(before);
-    await rows(page)
-      .filter({ hasText: "Anchor chain inspection" })
-      .getByRole("button", { name: "Open Anchor chain inspection" })
-      .click();
+    await rows(page).filter({ hasText: "Anchor chain inspection" }).locator("td").last().click();
 
     const pane = page.locator("#notes-right-pane");
 
