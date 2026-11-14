@@ -22,7 +22,7 @@ import { harnessBlocked } from "./agent/AgentStatusHeader";
 import { useAgentThread } from "./agent/useAgentThread";
 import { setChatDraft, setChatSession, startNewChat, useChatPane } from "./chat/chatSession";
 import { ChatTimeline, ContextChip, Icon } from "./chat/ChatTimeline";
-import { CONTEXT_KIND_LABELS, useViewContext } from "./chat/viewContext";
+import { boundedContext, CONTEXT_KIND_LABELS, useViewContext } from "./chat/viewContext";
 import { readSingleKey, typingIn } from "./KeyboardShortcuts";
 import { notifyLocationChange, useLocationSnapshot } from "./locationStore";
 import { PanelResizeHandle } from "./PanelResizeHandle";
@@ -272,7 +272,7 @@ export function ChatPanel() {
 
     if (!message || running || blocked) return;
     setError("");
-    const sent = attachContext ? context : undefined;
+    const sent = attachContext ? boundedContext(context) : undefined;
 
     try {
       let target = sessionID;

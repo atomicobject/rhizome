@@ -177,3 +177,22 @@ describe("Chat in the right pane", () => {
     expect(screen.getByRole("textbox", { name: "Message" })).toBeDisabled();
   });
 });
+
+describe("a view context", () => {
+  it("fits the server's bounds, dropping identifiers too long to keep whole", async () => {
+    const { boundedContext } = await import("./chat/viewContext");
+
+    const bounded = boundedContext({
+      kind: "note",
+      title: "é".repeat(300),
+      path: `notes/${"é".repeat(600)}.md`,
+      route: `/notes?note=${"a".repeat(3000)}`,
+      detail: "d".repeat(2500),
+    });
+
+    expect(Array.from(bounded.title)).toHaveLength(200);
+    expect(bounded.route).toHaveLength(2048);
+    expect(bounded).not.toHaveProperty("path");
+    expect(bounded.detail).toHaveLength(2000);
+  });
+});

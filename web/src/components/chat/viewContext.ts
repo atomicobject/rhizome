@@ -17,6 +17,31 @@ export const CONTEXT_KIND_LABELS: Record<AgentViewContext["kind"], string> = {
   section: "Section",
 };
 
+const byteLength = (value: string) => new TextEncoder().encode(value).length;
+
+const runes = (value: string, max: number) => Array.from(value).slice(0, max).join("");
+
+/**
+ * Fits a context to the server's bounds (SPEC-0140), so a long title or a
+ * view with many params never fails a send. An identifier too long to keep
+ * whole is left out rather than cut.
+ */
+export function boundedContext(context: AgentViewContext): AgentViewContext {
+  const bounded: AgentViewContext = {
+    kind: context.kind,
+    title: runes(context.title, 200),
+    route: context.route.slice(0, 2048),
+  };
+
+  if (context.path && byteLength(context.path) <= 1024) bounded.path = context.path;
+
+  if (context.viewId && byteLength(context.viewId) <= 1024) bounded.viewId = context.viewId;
+
+  if (context.detail) bounded.detail = runes(context.detail, 2000);
+
+  return bounded;
+}
+
 export function sameContext(a?: AgentViewContext | null, b?: AgentViewContext | null) {
   return a?.kind === b?.kind && a?.title === b?.title;
 }
