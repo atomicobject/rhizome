@@ -415,7 +415,7 @@ describe("ExplorerWorkspace", () => {
     expect(document.querySelector(".explorer-pane")).toBeNull();
   });
 
-  it("opens on the folder a ?folder= link names, as the Notes Folder panel links it", async () => {
+  it("opens on the folder a ?folder= link names", async () => {
     http
       .json(
         "GET",

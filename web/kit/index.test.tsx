@@ -354,7 +354,7 @@ it("asks the hosting workspace to open issues, collections, and folder searches"
   ]);
 });
 
-it("opens a folder search as its own page when standalone", async () => {
+it("opens a folder search or a collection as its own page when standalone", async () => {
   vi.resetModules();
   const kit = await import("./index");
   const assign = vi.fn();
@@ -371,11 +371,16 @@ it("opens a folder search as its own page when standalone", async () => {
   kit.openSearch({ folder: "Notes" });
   kit.openSearch({ folder: "/" });
   kit.openSearch({ folder: "Notes", query: "plan" });
+  kit.openCollection("Spec");
+  kit.openCollection("__untyped__");
 
   expect(assign.mock.calls).toEqual([
     ["/notes?search=&folder=Notes"],
     ["/notes?search=&folder=%2F"],
     ["/notes?search=plan&folder=Notes"],
+    ["/notes/spec"],
+    // Untyped notes are listed by a search tab filtered to them.
+    ["/notes?search=&scope=notes&noteType=__untyped__"],
   ]);
 });
 

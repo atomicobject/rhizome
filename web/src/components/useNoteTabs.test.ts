@@ -88,7 +88,7 @@ describe("parseStoredTabs", () => {
     ]);
   });
 
-  it("restores a folder listing but drops an empty search without a folder", () => {
+  it("restores folder and untyped listings but drops an empty search without either", () => {
     expect(
       parseStoredTabs(
         JSON.stringify({
@@ -96,10 +96,14 @@ describe("parseStoredTabs", () => {
           tabs: [
             { kind: "search", id: "search-tab:1", query: "", folder: "Notes" },
             { kind: "search", id: "search-tab:2", query: "" },
+            { kind: "search", id: "search-tab:3", query: "", noteType: "__untyped__" },
           ],
         }),
       ),
-    ).toMatchObject([{ id: "search-tab:1", query: "", filters: { folder: "Notes" } }]);
+    ).toMatchObject([
+      { id: "search-tab:1", query: "", filters: { folder: "Notes" } },
+      { id: "search-tab:3", query: "", filters: { noteType: "__untyped__", folder: null } },
+    ]);
   });
 
   it("writes search and view tabs with the version 3 payload", () => {
@@ -437,6 +441,14 @@ describe("useNoteTabs", () => {
 
     act(() => result.current.openSearch("", { folder: "" }));
     expect(result.current.tabs.some((tab) => tab.kind === "search")).toBe(false);
+
+    // The untyped notes listing needs no folder.
+    act(() => result.current.openSearch("", { noteType: "__untyped__" }));
+    expect(result.current.activeTab).toMatchObject({
+      kind: "search",
+      query: "",
+      filters: { noteType: "__untyped__", folder: null },
+    });
 
     act(() => result.current.openSearch("", { folder: "Notes" }));
     const id = result.current.activeId;

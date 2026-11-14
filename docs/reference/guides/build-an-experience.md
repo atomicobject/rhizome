@@ -210,10 +210,10 @@ The server gives every view target one panel, most specific first ([[experiences
 2. an experience with a panel whose views mount on the subject's concrete type, or that lists it in `types`;
 3. one that presents an interface of that type;
 4. one that presents the subject through a group: its `group`, or a group one of its views mounts on, covering the group page, the group's type collections, and their records;
-5. the built-in Folder panel, for any other subject backed by a note;
+5. no custom panel (`folder`), for any other subject backed by a note;
 6. none, for search, Problems, Explorer, and subjects without a note.
 
-Within a level, the flat `.rhizome/views` folder comes first, then modules by name, then bundled views, and then folder path decides; validation warns when two experiences with panels tie. An embedded or section node whose type is in no group and that no experience presents at levels 1 to 3 takes its owning note's panel. The panel depends only on the subject, never on which view the switcher shows.
+Within a level, the flat `.rhizome/views` folder comes first, then modules by name, then bundled views, and then folder path decides; validation warns when two experiences with panels tie. An embedded or section node whose type is in no group and that no experience presents at levels 1 to 3 takes its owning note's panel. The panel depends only on the subject, never on which view the switcher shows. Whatever the subject, the built-in Files panel, the vault's file tree, stays docked below it at the bottom of the sidebar.
 
 Display groups are shared: no module owns a group name, so an experience that presents a group also shows its panel for other modules' types in that group. A module that wants its own panel for its types declares an experience that lists them in `types`, which outranks the group.
 

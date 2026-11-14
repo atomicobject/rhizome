@@ -4,9 +4,9 @@ id: SPEC-0136
 aliases:
   - SPEC-0136
   - Experiences
-summary: "Any module, whether a bundled starter, a team's own module, or an ejected starter, can ship an experience: a folder of views with an experience.yml that Rhizome runs as one site, with one long-lived frame per experience in a host frame layer, a sidebar panel at the bottom of the Notes sidebar, a shared record-page shell, reads cached on a composite index generation, cacheable kit assets, and query-layer fixes that make whole-scope and record reads fast for any starter. Rhizome ships one built-in panel, Folder."
+summary: "Any module, whether a bundled starter, a team's own module, or an ejected starter, can ship an experience: a folder of views with an experience.yml that Rhizome runs as one site, with one long-lived frame per experience in a host frame layer, a sidebar panel at the bottom of the Notes sidebar, a shared record-page shell, reads cached on a composite index generation, cacheable kit assets, and query-layer fixes that make whole-scope and record reads fast for any starter. Rhizome ships one built-in panel, Files, docked below any experience panel."
 spec-status: active
-last-updated: 2026-11-09
+last-updated: 2026-11-14
 ---
 
 # Experiences
@@ -20,7 +20,7 @@ Starters and teams can already ship custom views ([[custom-view-apps|SPEC-0105]]
 - The query layer pays for work it does not return: relation lists that stop seeking their index above about 150 parents, whole-workspace builds for capability fields, and symlink resolution for every path prefix (R8). On the largest real KB, the AO KB views' whole-KB read takes 1,415 ms; an equivalent read without those costs takes 278 ms.
 - A view cannot contribute to the sidebar, and a site's pages share structure only by copying code.
 
-This spec adds the **experience**: a folder of views inside any views root, declared by an `experience.yml`. Rhizome renders an experience's pages in one long-lived frame per window, held in a frame layer that never moves while tabs come and go, and keeps each tab's page alive inside that frame. It shows the experience's panel at the bottom of the Notes sidebar; caches reads on a composite index generation; serves the kit as immutable, precompiled assets; and fixes the query-layer costs above. Every capability works the same for a bundled starter, a team's module or flat views folder, and an ejected starter. Rhizome ships one built-in panel, Folder, for notes no experience presents.
+This spec adds the **experience**: a folder of views inside any views root, declared by an `experience.yml`. Rhizome renders an experience's pages in one long-lived frame per window, held in a frame layer that never moves while tabs come and go, and keeps each tab's page alive inside that frame. It shows the experience's panel at the bottom of the Notes sidebar; caches reads on a composite index generation; serves the kit as immutable, precompiled assets; and fixes the query-layer costs above. Every capability works the same for a bundled starter, a team's module or flat views folder, and an ejected starter. Rhizome ships one built-in panel, Files: the vault's file tree, docked at the bottom of the sidebar for every subject.
 
 ## Terms
 
@@ -89,13 +89,13 @@ This spec adds the **experience**: a folder of views inside any views root, decl
 ### US4 - See a panel for whatever you are in
 
 - id:: ^SPEC-0136-US4
-- summary:: The bottom of the Notes sidebar shows the panel that fits the active subject: the experience's panel inside an experience, Folder for other notes, and nothing for search or Problems.
+- summary:: The bottom of the Notes sidebar always shows Files, and above it the experience's panel while inside an experience.
 - status:: draft
 
 #### Acceptance Criteria
 
 - Inside an experience that declares a panel, the panel shows for every subject the experience presents (R6) and stays the same frame and the same component as the subject changes.
-- For a note that no experience with a panel presents, the Folder panel shows the note's folder, its ancestors, and its siblings, opens a note on activation, and starts minimised in each vault until someone opens it.
+- The Files panel is always docked at the bottom of the sidebar, below any experience panel. It shows the vault's folders and note files as a tree, opens a note on activation, selects the active note and opens the folders above it, and starts open.
 - The panel has split, minimised, and cover states, a keyboard-operable divider, and a remembered height, and never changes the outer sidebar's visibility, width, or toggle.
 
 ### US5 - Read once per index change
@@ -206,10 +206,10 @@ This spec adds the **experience**: a folder of views inside any views root, decl
   - the subject's concrete type, or one of its interfaces, is a mount target of E's views or is listed in E's `types`; or
   - the subject is a group view of a group G, a type or interface collection in `viewconfig.NavigationTree.Members(G)`, or a node whose concrete type is in that tree, where G is E's `group` or a group one of E's views mounts on; or
   - the subject is an embedded or section node whose type is in no group's tree, and the type of its owning note (at its reference's `notePath`) qualifies under the rules above.
-- The server MUST resolve one panel for every `ViewTarget`, most specific first: (1) the experience that owns a standalone view; (2) an experience with a panel presenting the subject's concrete type by mount or `types`; (3) one presenting an interface of that type; (4) one presenting the subject through a group; (5) the built-in Folder panel, for any subject backed by a note; (6) none, for search, Problems, Explorer, and subjects without a note. A type collection's concrete type is the collection's type; an interface collection resolves at level (3). An experience at level (1) without a panel gives no panel. Within a level, views-root order, then folder path, wins, and validation warns when two experiences that both declare a panel tie. The panel depends only on the target, never on which view the switcher shows. Hidden views take part in resolution and in the invocation route while staying out of view choices and navigation.
-- `ViewTarget`s are per kind and name. A `node` target whose type is in no group's tree and that resolves at none of levels (1) to (3) carries the descriptor `{ kind: owner }`: for an embedded or section node, the host uses the descriptor of the Note target it already resolved for the node's `notePath`; for a note, the host uses Folder.
-- The Notes sidebar MUST hold one panel slot at its bottom, below the type tree. A panel view runs in its own frame in the slot, created on first use. Its invocation's context is the active target's context; the invocation route's mount check MUST pass for a `panel` mount exactly when R6 resolves that target to this panel; for a target whose descriptor is `{ kind: owner }`, the route follows the context's `ref.notePath` to the owning note's type and checks that note's target. The panel frame holds one page with tab ID `panel`, keyed by view ID only, and a new subject updates that page's binding in place, so its component stays mounted and its own state (find text, lists, scroll) survives navigation. `useViewPreference` in a panel page MUST be scoped to the vault and the panel's experience, not to the subject, so what a panel stores survives subject changes and eviction.
-- **Folder** is native host UI, not a frame: the active note's folder with its ancestors and siblings, built on `web/src/components/folderTree.ts`, `useFolderExplorer.ts`, and `RailTree`. Activating an entry opens the note; the folder name opens Explorer at that folder. It starts minimised in each vault until someone opens it, and remembers that (Drew, 2026-11-09).
+- The server MUST resolve one panel for every `ViewTarget`, most specific first: (1) the experience that owns a standalone view; (2) an experience with a panel presenting the subject's concrete type by mount or `types`; (3) one presenting an interface of that type; (4) one presenting the subject through a group; (5) `folder`, for any other subject backed by a note, which shows no custom panel; (6) none, for search, Problems, Explorer, and subjects without a note. A type collection's concrete type is the collection's type; an interface collection resolves at level (3). An experience at level (1) without a panel gives no panel. Within a level, views-root order, then folder path, wins, and validation warns when two experiences that both declare a panel tie. The panel depends only on the target, never on which view the switcher shows. Hidden views take part in resolution and in the invocation route while staying out of view choices and navigation.
+- `ViewTarget`s are per kind and name. A `node` target whose type is in no group's tree and that resolves at none of levels (1) to (3) carries the descriptor `{ kind: owner }`: for an embedded or section node, the host uses the descriptor of the Note target it already resolved for the node's `notePath`; for a note, the host uses `folder`.
+- The Notes sidebar MUST hold the Files panel docked at its bottom and one custom panel slot above Files, below the type tree. A panel view runs in its own frame in the slot, created on first use. Its invocation's context is the active target's context; the invocation route's mount check MUST pass for a `panel` mount exactly when R6 resolves that target to this panel; for a target whose descriptor is `{ kind: owner }`, the route follows the context's `ref.notePath` to the owning note's type and checks that note's target. The panel frame holds one page with tab ID `panel`, keyed by view ID only, and a new subject updates that page's binding in place, so its component stays mounted and its own state (find text, lists, scroll) survives navigation. `useViewPreference` in a panel page MUST be scoped to the vault and the panel's experience, not to the subject, so what a panel stores survives subject changes and eviction.
+- **Files** is native host UI, not a frame, shown for every subject: the vault's folders that hold notes and its note files (Markdown and other indexed notes, such as HTML effort pages) as a tree, built on `web/src/components/folderTree.ts` and `RailTree`. A folder row expands and collapses, and the expansion is remembered; activating a note opens it. The active note is selected, and the folders above it open when it changes. Files starts open and remembers its height and minimised state per vault under `builtin:files` (Drew, 2026-11-14, replacing the 2026-11-09 Folder panel, which showed only the active note's folder and started minimised).
 - Every panel, built-in or custom, MUST share these rules:
   - States: split, with a divider; minimised to its title bar; and cover, filling the sidebar's contents. Cover hides the normal navigation and makes it inert; minimised hides the panel body and makes it inert; the title bar and its controls stay reachable. Before hiding a region that holds focus, the host moves focus to the panel's surviving control. Escape returns from cover to split after a child menu has had the chance to consume it. Cover is not modal.
   - Divider: a focusable separator with an accessible name, value attributes, Up and Down in 16 px steps, Home and End; `PanelResizeHandle.tsx` is generalised with an axis so one implementation serves width and height.
@@ -268,7 +268,7 @@ Measured on 2026-11-09 through `/api/v1/graphql` with this checkout's binary, wa
 
 ## Open Questions
 
-None. Drew decided on 2026-11-09 that Folder starts minimised. P and K are set by measurement under R3's memory budget.
+None. On 2026-11-14 Drew replaced the minimised Folder panel with an always-docked Files tree. P and K are set by measurement under R3's memory budget.
 
 ## Documentation plan
 

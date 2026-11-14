@@ -165,6 +165,13 @@ describe("NotesShell", () => {
     window.history.replaceState({}, "", "/notes");
     window.localStorage.clear();
     window.sessionStorage.clear();
+    // The sidebar's Files panel reads the folder graph.
+    http.json("GET", "/api/v1/graphs/folders", {
+      files: [],
+      links: [],
+      nestedTypes: [],
+      truncated: false,
+    });
 
     http
       .json("GET", "/api/v1/ontology/summary", summary)

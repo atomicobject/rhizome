@@ -111,7 +111,8 @@ describe("ConfiguredViewTable render boundaries", () => {
     expect(document.querySelector('tr[data-row-key="notes/n7.md:"]')).toHaveClass("is-dirty");
 
     resetRenderCounts();
-    fireEvent.click(screen.getByText("Note 5"));
+    const row5 = screen.getByText("Note 5").closest("tr")!;
+    fireEvent.click(row5.cells[row5.cells.length - 1]);
     const selectRenders = cellRenders();
 
     resetRenderCounts();

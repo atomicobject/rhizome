@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- The Notes sidebar has a Files panel docked at its bottom: the vault's folders and note files as an expandable tree, with the open note selected and its folders opened. Clicking a note opens it, and the panel's height and collapsed state are remembered. It replaces the Folder panel and stays below an experience's panel.
+
 - Init recovers verified legacy ownership from Git history and exposes unresolved file upgrades with diffs and explicit `--take` and `--keep` choices. Deferred upgrades remain visible after automatic updates, and desktop choices are rejected if the reviewed files change before applying.
 
 - Starter upgrades preserve verified ownership from legacy workflow fingerprints, so unchanged flat schemas move into modules and receive current features while retaining adopted identifier allocation. Modified or unrecorded schemas remain untouched.

@@ -70,11 +70,11 @@ test("the server gives Knowledge records and the group the Knowledge panel, and 
   expect(catalog.issues ?? []).toEqual([]);
 });
 
-test("an untyped note outside the experience shows Folder, not the Knowledge panel", async ({
+test("an untyped note outside the experience shows Files only, not the Knowledge panel", async ({
   page,
 }) => {
   await page.goto(record("notes/untyped.md"));
-  await expect(rail(page).getByRole("region", { name: "Folder panel" })).toBeVisible();
+  await expect(rail(page).getByRole("region", { name: "Files panel" })).toBeVisible();
   await expect(knowledgePanel(page)).toHaveCount(0);
 });
 
@@ -152,7 +152,7 @@ test("Recent survives the panel frame being evicted and recreated", async ({ pag
 
   // Leave the experience for an untyped note, and reload: every frame is created anew.
   await page.goto(record("notes/untyped.md"));
-  await expect(rail(page).getByRole("region", { name: "Folder panel" })).toBeVisible();
+  await expect(rail(page).getByRole("region", { name: "Files panel" })).toBeVisible();
   await page.reload();
   await openRecord(page, "concepts/accessibility.md", "Accessibility");
 

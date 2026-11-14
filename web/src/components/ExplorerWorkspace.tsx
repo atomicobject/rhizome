@@ -52,7 +52,7 @@ export function ExplorerWorkspace({
   const browserLocation = useLocationSnapshot();
   const deepLink = explorerFileFromLocation(browserLocation.search);
 
-  // `?folder=` opens Explorer on a folder, as the Notes sidebar's Folder panel links it.
+  // `?folder=` opens Explorer on a folder.
   const [folderLink] = useState(() =>
     deepLink ? null : new URLSearchParams(browserLocation.search).get("folder")?.trim() || null,
   );

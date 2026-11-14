@@ -4,7 +4,7 @@ id: SPEC-0112
 aliases: [SPEC-0112, Type collection views]
 summary: "Every type and interface collection gets Table, Board, and Cards views whose defaults come from a schema-derived profile, enum values declare lifecycle stages that drive behavior while tone stays presentation, and a type Briefing replaces Overview."
 spec-status: active
-last-updated: 2026-11-04
+last-updated: 2026-11-14
 last-verified: 2026-11-04 # Round 7
 ---
 
@@ -101,7 +101,7 @@ Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US3):
 - Columns whose field is empty on every matching row MUST be hidden, except title and lifecycle, and listed as hidden-empty in the Columns menu, from which the reader can show them.
 - Reverse fields MUST render as counts under a header named by the target's plural label. Changed MUST render as a relative age with the absolute time on hover.
 - Amended by [[workbench-redesign|SPEC-0126]] on 2026-10-25 (US6): the record shows in the workspace's one right pane, which opens when a row is selected (unless the reader closed it) and stays closed while none is.
-- Activating a row MUST show that record in the workspace's right rail: title, summary, editable lifecycle, ordered, category, and relation fields, Relations and Linked notes using the note Info rail's blocks below the fields without repeating note identity, its reverse relations with status marks, and an Open action. Enter or double-click MUST open the note in a tab.
+- Activating a row MUST show that record in the workspace's right rail: title, summary, editable lifecycle, ordered, category, and relation fields, Relations and Linked notes using the note Info rail's blocks below the fields without repeating note identity, its reverse relations with status marks, and an Open action. Clicking anywhere in a row except its title or other controls MUST select it. Clicking the row's title MUST open the note in a tab, beside the current one with Cmd/Ctrl. Enter or double-click on the row MUST also open the note in a tab.
 - The reader MUST be able to select several rows (checkbox, shift-range, `x`) and set an enum field or add a link value on all of them. Bulk edits MUST stage through the edit session exactly like single-cell edits. Escape clears the selection.
 - The Table MUST load further pages as the reader scrolls instead of showing a pager. Grouped tables keep group headers and counts across loaded pages.
 - The Table SHOULD support column resizing and multi-key sort with shift-activation, persisted with the view state.

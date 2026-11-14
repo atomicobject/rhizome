@@ -336,7 +336,7 @@ test("returns to the configured view page after opening, reloading, and closing 
     .locator(".configured-view__table")
     .getByRole("button", { name: /^Open / })
     .first()
-    .dblclick();
+    .click();
   // The view holds Home's place as the first tab, ahead of the note.
   await expect(tabs.getByRole("tab")).toHaveCount(2);
   await expect(tabs.getByRole("tab").nth(0)).toHaveText(/Action Items/);

@@ -4,7 +4,7 @@ id: SPEC-0137
 aliases: [SPEC-0137]
 summary: "A complete source-grounded Delivery experience for shaping specifications, selecting work, resuming efforts, and inspecting delivery evidence."
 spec-status: active
-last-updated: 2026-11-12
+last-updated: 2026-11-14
 ---
 
 # Agentic Engineering delivery experience
@@ -13,7 +13,7 @@ last-updated: 2026-11-12
 
 Give designers and leads a clear view of intended behavior, selectable work, and delivery evidence. Give developers and agents an exact brief they can resume without reconstructing intent. The Agentic Engineering starter installs a Delivery experience comparable in completeness to Knowledge, using the existing experience host, node workspaces, view kit, and contextual panel.
 
-The workflow map is the organizing picture: home and the panel show it in full, stage lists show it as a tab strip, and spec and effort pages name the groups a record belongs to. Shape, Build, and Settle explain activities. Lists show recorded facts and may overlap. The experience copies prompts for the installed skills. It does not start agents, grant approval, change lifecycle states, or decide that delivery is accepted.
+The workflow map is the organizing picture: home and the panel show it in full, the five stage lists are tabs on the Delivery group page beside home, supporting lists show it as a tab strip, and spec and effort pages name the groups a record belongs to. Shape, Build, and Settle explain activities. Lists show recorded facts and may overlap. The experience copies prompts for the installed skills. It does not start agents, grant approval, change lifecycle states, or decide that delivery is accepted.
 
 ## Goals
 
@@ -158,7 +158,7 @@ MUST read frozen scope from focused section workspace.sourceLinks and resolved r
 
 MUST retain authored occurrence order before producing any deduplicated display summary. MUST label the provenance of every relation and the unit and scope of every count. Missing approval metadata means no approver recorded. It does not mean unapproved. Missing dates never become filesystem modification dates.
 
-MUST keep the workflow map reachable on all five page families: in full on home and the panel, as a tab strip on lists, and as membership links on records. It is an activity map with independently selectable factual groups, not a state machine for the portfolio. Approval and acceptance remain decisions owned by the user's workflow and policy.
+MUST keep the workflow map reachable on all five page families: in full on home and the panel, as Delivery group tabs on stage lists and a tab strip on supporting lists, and as membership links on records. It is an activity map with independently selectable factual groups, not a state machine for the portfolio. Approval and acceptance remain decisions owned by the user's workflow and policy.
 
 ## Open Questions
 

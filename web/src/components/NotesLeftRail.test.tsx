@@ -212,6 +212,12 @@ describe("NotesLeftRail", () => {
   beforeEach(() => {
     window.localStorage.clear();
     registerRailData("__all__", allNotes, [coverageView, planView]);
+    http.json("GET", "/api/v1/graphs/folders", {
+      files: [],
+      links: [],
+      nestedTypes: [],
+      truncated: false,
+    });
   });
 
   it("lists no notes and never loads a type's note list", async () => {

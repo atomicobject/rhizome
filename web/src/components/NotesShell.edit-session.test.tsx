@@ -246,6 +246,13 @@ beforeEach(() => {
   window.history.replaceState({}, "", `/notes?note=${encodeURIComponent(path)}`);
   window.localStorage.clear();
   window.sessionStorage.clear();
+  // The sidebar's Files panel reads the folder graph.
+  http.json("GET", "/api/v1/graphs/folders", {
+    files: [],
+    links: [],
+    nestedTypes: [],
+    truncated: false,
+  });
   window.sessionStorage.setItem("rhizome:ontology-edit-session:tab-id", "shell-test");
   window.localStorage.setItem(
     "rhizome:ontology-edit-session:%2Ftest-vault:shell-test",

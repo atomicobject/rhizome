@@ -22,6 +22,7 @@ import {
   DEFAULT_SEARCH_FILTERS,
   normalizeSearchFilters,
   normalizeSearchQuery,
+  listsNotes,
   searchTabIdentity,
   type SearchFilters,
 } from "./searchState";
@@ -1343,8 +1344,7 @@ export function useNoteTabs(
       const normalizedQuery = normalizeSearchQuery(query);
       const effectiveFilters = normalizeSearchFilters(filters);
 
-      // An empty query lists a folder's notes, so it needs a folder.
-      if (!normalizedQuery && !effectiveFilters.folder) return;
+      if (!normalizedQuery && !listsNotes(effectiveFilters)) return;
       const result = openSearchInto(tabsRef.current, normalizedQuery, effectiveFilters);
       commitTabs(result.tabs, true);
       writeLocation(
@@ -1402,7 +1402,7 @@ export function useNoteTabs(
       const effectiveFilters = normalizeSearchFilters(filters);
       const nextQuery = query === undefined ? current.query : normalizeSearchQuery(query);
 
-      if (!nextQuery && !effectiveFilters.folder) return;
+      if (!nextQuery && !listsNotes(effectiveFilters)) return;
       const identity = searchTabIdentity(nextQuery, effectiveFilters);
 
       if (identity === searchTabIdentity(current.query, current.filters)) return;

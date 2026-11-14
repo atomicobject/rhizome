@@ -66,6 +66,27 @@ func (s *Scope) listIssues() ontology.TypeListResult {
 	}
 }
 
+// untypedResult keeps the notes the ontology shape counts as untyped: those
+// without a note-role type, and those whose type the assessment found ambiguous.
+func (s *Scope) untypedResult(all []ontology.NodeListItem) ontology.TypeListResult {
+	var types map[string]*ontoschema.NoteType
+	if s.service.Schema != nil {
+		types = s.service.Schema.Types
+	}
+	items := make([]ontology.NodeListItem, 0)
+	for _, item := range all {
+		if s.flagsByPath[item.NotePath].TypeAmbiguous || !shapeNoteType(types[item.ResolvedType]) {
+			items = append(items, item)
+		}
+	}
+	return ontology.TypeListResult{
+		TypeDoc:    &schemadoc.TypeDoc{Name: ontology.TypeScopeUntyped, Label: "Untyped notes", Description: "Every note without a note type, or whose type is ambiguous."},
+		Count:      len(items),
+		IssueCount: s.issueCountForItems(items),
+		Items:      items,
+	}
+}
+
 func (s *Scope) noteRootItem(path string, resolvedType string) ontology.NodeListItem {
 	row := s.noteRowByPath[path]
 	return ontology.NodeListItem{
