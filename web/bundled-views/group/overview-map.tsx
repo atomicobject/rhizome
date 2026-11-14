@@ -166,7 +166,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
 
   const activate = (node: ScopeNode) => {
     if (node.kind === "group") onExpand(node.name, true);
-    else if (node.kind !== "untyped") openCollection(node.name);
+    else openCollection(node.name);
   };
 
   const looseIds = new Set(layout.loose);
@@ -312,7 +312,7 @@ export function ScopeMap({ model, links, relations, summaries, expanded, onExpan
                 data-kind={node.kind}
                 data-hot={on(node.id)}
                 tabIndex={0}
-                role={node.kind === "untyped" ? "img" : "button"}
+                role="button"
                 aria-label={nodeName(model, links, node)}
                 onMouseEnter={() => setHot({ kind: "node", id: node.id })}
                 onMouseLeave={() => setHot(null)}

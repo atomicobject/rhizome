@@ -33,7 +33,7 @@ func (s *Scope) TypeInstances(ctx context.Context, req TypeInstancesRequest) (on
 	defer s.mu.Unlock()
 
 	typeName := strings.TrimSpace(req.TypeName)
-	if typeName == ontology.TypeScopeAll || typeName == ontology.TypeScopeIssues {
+	if typeName == ontology.TypeScopeAll || typeName == ontology.TypeScopeIssues || typeName == ontology.TypeScopeUntyped {
 		if err := s.ensureNoteState(ctx); err != nil {
 			return ontology.TypeListResult{}, err
 		}
@@ -49,7 +49,7 @@ func (s *Scope) TypeInstances(ctx context.Context, req TypeInstancesRequest) (on
 	switch typeName {
 	case "":
 		return ontology.TypeListResult{}, nil
-	case ontology.TypeScopeAll:
+	case ontology.TypeScopeAll, ontology.TypeScopeUntyped:
 		result := s.listAll()
 		if useOverlay {
 			items, err := s.overlayListItemsLocked(ctx, result.Items, true)
@@ -58,6 +58,12 @@ func (s *Scope) TypeInstances(ctx context.Context, req TypeInstancesRequest) (on
 			}
 			result.Items = items
 			result.Count = len(items)
+		}
+		// Untyped is filtered after the overlay merge, so staged type edits count.
+		if typeName == ontology.TypeScopeUntyped {
+			result = s.untypedResult(result.Items)
+		}
+		if useOverlay {
 			return result, nil
 		}
 		if !usePlan {

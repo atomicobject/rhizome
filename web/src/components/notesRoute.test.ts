@@ -194,6 +194,20 @@ describe("parseNotesLocation", () => {
     });
   });
 
+  it("round-trips the untyped notes listing, which needs no folder", () => {
+    const url = buildNotesLocation({
+      selection: { kind: "all" },
+      search: "",
+      noteType: "__untyped__",
+    });
+
+    expect(url).toBe("/notes?search=&scope=notes&noteType=__untyped__");
+    expect(parseNotesLocation("/notes", url.slice("/notes".length), "")).toMatchObject({
+      search: "",
+      searchFilters: { scope: "notes", noteType: "__untyped__", folder: null },
+    });
+  });
+
   it("ignores an empty search without a folder", () => {
     expect(buildNotesLocation({ selection: { kind: "all" }, search: " " })).toBe("/notes");
     expect(parseNotesLocation("/notes", "?search=", "").search).toBeUndefined();

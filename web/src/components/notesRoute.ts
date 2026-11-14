@@ -7,6 +7,7 @@ import type {
 import { formatTypeName } from "../lib/typeNames";
 import { decodeURLFragment, encodeURLFragment } from "../lib/noteDeepLink";
 import {
+  listsNotes,
   normalizeSearchFilters,
   normalizeSearchQuery,
   type SearchFilters,
@@ -214,8 +215,7 @@ export function parseNotesLocation(pathname: string, search: string, hash: strin
     folder: params.get("folder"),
   });
 
-  // An empty query is a folder listing, so it needs a folder.
-  if (searchQuery !== null && (searchQuery || searchFilters.folder)) {
+  if (searchQuery !== null && (searchQuery || listsNotes(searchFilters))) {
     location.search = searchQuery;
     location.searchFilters = searchFilters;
     const stableSearchTabID = normalizeSearchTabID(params.get("searchTab"));
@@ -279,7 +279,7 @@ export function buildNotesLocation({
 
   const filters = normalizeSearchFilters({ scope: scope ?? undefined, noteType, folder });
 
-  if (!note && search != null && (normalizeSearchQuery(search) || filters.folder)) {
+  if (!note && search != null && (normalizeSearchQuery(search) || listsNotes(filters))) {
     params.set("search", normalizeSearchQuery(search));
 
     if (filters.scope !== "all") params.set("scope", filters.scope);

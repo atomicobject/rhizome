@@ -270,6 +270,19 @@ it("states All notes' facts and draws named groups collapsed beside ungrouped ty
 
   fireEvent.click(screen.getByRole("button", { name: "Typing: 3 ambiguous notes" }));
   expect(opened(posted)).toEqual([{ type: OPEN_ISSUES_MESSAGE }]);
+
+  // Untyped notes open their listing from the map and the table, like every other member.
+  const untyped = map().querySelector<SVGGElement>("[data-node='__untyped__']");
+
+  if (!untyped) throw new Error("no untyped node");
+  expect(untyped).toHaveAttribute("role", "button");
+  fireEvent.keyDown(untyped, { key: "Enter" });
+  const table = within(region("Members")).getByRole("table");
+  fireEvent.click(within(rowNamed(table, "Untyped + ambiguous")).getByRole("button"));
+  expect(opened(posted).slice(1)).toEqual([
+    { type: OPEN_COLLECTION_MESSAGE, name: "__untyped__" },
+    { type: OPEN_COLLECTION_MESSAGE, name: "__untyped__" },
+  ]);
 });
 
 it("expands a group in place on the map and in the table, and collapses it from the legend", async () => {

@@ -39,7 +39,7 @@ describe("search tab scroll restoration", () => {
 
     const { rerender } = render(workspace(80, true, false));
     const container = screen.getByRole("main");
-    await screen.findByText(kind === "folder" ? "No notes in /" : "No matches");
+    await screen.findByText(kind === "folder" ? "No notes" : "No matches");
     expect(container.scrollTop).toBe(0);
     rerender(workspace(80));
     await waitFor(() => expect(container.scrollTop).toBe(80));
@@ -558,6 +558,59 @@ describe("SearchWorkspace folder listing", () => {
     expect(screen.getByRole("button", { name: "Top note" })).toBeVisible();
     expect(screen.queryByText("Old note")).toBeNull();
     expect(screen.queryByRole("textbox", { name: "Search this folder" })).toBeNull();
+  });
+
+  it("lists the untyped notes across the vault, or in a folder, without a ranked search field", async () => {
+    http.json("GET", "/api/v1/ontology/types/__untyped__", {
+      count: 2,
+      notes: [note("Top.md", "Top note", 3), note("Notes/plain.md", "Plain note", 1)],
+    });
+    const onRefineSearch = vi.fn();
+
+    const untypedTab: SearchTab = {
+      ...tab,
+      query: "",
+      filters: { scope: "notes", noteType: "__untyped__", folder: null },
+    };
+
+    const { rerender } = render(
+      <SearchWorkspace
+        tab={untypedTab}
+        active
+        types={[]}
+        onRefineSearch={onRefineSearch}
+        onOpenNote={vi.fn()}
+        onScrollPosition={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Untyped notes" })).toBeVisible();
+    expect(await screen.findByText("2 notes")).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: "Search this folder" })).toBeNull();
+    expect(http.count("GET", "/api/v1/ontology/types/__all__")).toBe(0);
+
+    rerender(
+      <SearchWorkspace
+        tab={{ ...untypedTab, filters: { ...untypedTab.filters, folder: "Notes" } }}
+        active
+        types={[]}
+        onRefineSearch={onRefineSearch}
+        onOpenNote={vi.fn()}
+        onScrollPosition={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Untyped notes in Notes/" })).toBeVisible();
+    expect(screen.getByText("1 note")).toBeVisible();
+
+    // Clearing the folder still lists something: every untyped note.
+    const folder = screen.getByRole("textbox", { name: "Search folder" });
+    fireEvent.change(folder, { target: { value: "" } });
+    fireEvent.blur(folder);
+    expect(onRefineSearch).toHaveBeenCalledWith(untypedTab.id, {
+      scope: "notes",
+      noteType: "__untyped__",
+      folder: "",
+    });
   });
 
   it("offers retry when the note list fails", async () => {

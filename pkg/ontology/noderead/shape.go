@@ -12,7 +12,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/vault/identity"
 )
 
-const UntypedShapeMember = "__untyped__"
+const UntypedShapeMember = ontology.TypeScopeUntyped
 
 type ShapeParts struct{ Members, Links, Folders bool }
 type ShapeResponse struct {

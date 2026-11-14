@@ -9,7 +9,7 @@ function tabTitle(tab: Tab): string {
 
   if (tab.kind === "collection") return tab.collection === "issues" ? "Problems" : "Changes";
 
-  if (tab.kind === "search") return searchTabLabel(tab.query, tab.filters.folder);
+  if (tab.kind === "search") return searchTabLabel(tab.query, tab.filters);
 
   if (tab.kind === "view") return tab.title;
 

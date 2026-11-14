@@ -197,7 +197,7 @@ function Dot({
 }
 
 function openNode(node: ScopeNode) {
-  if (node.kind === "type" || node.kind === "interface") openCollection(node.name);
+  if (node.kind !== "group") openCollection(node.name);
 }
 
 function NameCell({
@@ -234,9 +234,6 @@ function NameCell({
       {node.label}
     </>
   );
-
-  if (node.kind === "untyped")
-    return <span className="gv-ov-name gv-ov-no-disclosure">{name}</span>;
 
   const open = (
     <button type="button" className="gv-record" onClick={() => openNode(node)}>

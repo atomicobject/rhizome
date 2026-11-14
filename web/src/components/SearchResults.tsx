@@ -12,8 +12,10 @@ import { notifyLocationChange } from "./locationStore";
 import { useNotePreviewTrigger } from "./notePreview/NoteLinkPreview";
 import {
   ROOT_FOLDER,
+  UNTYPED_NOTES,
   folderLabel,
   inFolder,
+  listsNotes,
   normalizeSearchFilters,
   normalizeSearchQuery,
   useSearchScrollRestoration,
@@ -191,9 +193,21 @@ export function FolderNotesWorkspace({
   onScrollPosition,
 }: SearchWorkspaceProps) {
   const folder = tab.filters.folder || "";
+  const untyped = tab.filters.noteType === UNTYPED_NOTES;
   const [folderDraft, setFolderDraft] = useState(folder);
   const [queryDraft, setQueryDraft] = useState("");
-  const notesQuery = useOntologyTypeQuery(PSEUDO_TYPE_ALL, editSession, active);
+
+  const notesQuery = useOntologyTypeQuery(
+    untyped ? UNTYPED_NOTES : PSEUDO_TYPE_ALL,
+    editSession,
+    active,
+  );
+
+  const title = untyped
+    ? folder
+      ? `Untyped notes in ${folderLabel(folder)}`
+      : "Untyped notes"
+    : `Notes in ${folderLabel(folder)}`;
 
   const scrollRef = useSearchScrollRestoration(
     tab,
@@ -208,14 +222,15 @@ export function FolderNotesWorkspace({
   const notes = useMemo(
     () =>
       (notesQuery.data?.notes ?? [])
-        .filter((note) => inFolder(note.path, folder))
+        .filter((note) => !folder || inFolder(note.path, folder))
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)),
     [folder, notesQuery.data?.notes],
   );
 
   const applyFolder = () => {
-    // Clearing the folder would leave nothing to list, so the field reverts instead.
-    if (!normalizeSearchFilters({ folder: folderDraft }).folder) setFolderDraft(folder);
+    // A change that would leave nothing to list reverts the field instead.
+    if (!listsNotes(normalizeSearchFilters({ ...tab.filters, folder: folderDraft })))
+      setFolderDraft(folder);
     else onRefineSearch(tab.id, { ...tab.filters, folder: folderDraft });
   };
 
@@ -227,14 +242,14 @@ export function FolderNotesWorkspace({
     <main
       ref={scrollRef}
       className="search-workspace"
-      aria-label={`Notes in ${folderLabel(folder)}`}
+      aria-label={title}
       onScroll={(event) => {
         if (active) onScrollPosition(tab.id, event.currentTarget.scrollTop);
       }}
     >
       <header className="search-workspace__header">
         <div className="search-workspace__title-row">
-          <h1>Notes in {folderLabel(folder)}</h1>
+          <h1>{title}</h1>
           {notesQuery.data ? (
             <span className="search-workspace__count">
               {notes.length} {notes.length === 1 ? "note" : "notes"}
@@ -242,8 +257,9 @@ export function FolderNotesWorkspace({
           ) : null}
         </div>
         <div className="search-workspace__filters" aria-label="Search filters">
-          {/* Ranked search filters by path prefix, which cannot hold to the root's own notes. */}
-          {folder !== ROOT_FOLDER && (
+          {/* Ranked search filters by path prefix, which cannot hold to the root's own
+              notes, and by note type, which has no untyped filter. */}
+          {folder !== ROOT_FOLDER && !untyped && (
             <label>
               <span>Search</span>
               <input
@@ -274,7 +290,7 @@ export function FolderNotesWorkspace({
       {notesQuery.isError && !notesQuery.data ? (
         <div className="search-workspace__state" role="alert">
           <strong>Notes unavailable</strong>
-          <span>The workspace could not list this folder's notes.</span>
+          <span>The workspace could not list these notes.</span>
           <button type="button" onClick={() => void notesQuery.refetch()}>
             Retry
           </button>
@@ -285,7 +301,10 @@ export function FolderNotesWorkspace({
         </div>
       ) : notes.length === 0 ? (
         <div className="search-workspace__state" role="status">
-          <strong>No notes in {folderLabel(folder)}</strong>
+          <strong>
+            No {untyped ? "untyped notes" : "notes"}
+            {folder ? ` in ${folderLabel(folder)}` : ""}
+          </strong>
         </div>
       ) : (
         <ol className="search-workspace__results">

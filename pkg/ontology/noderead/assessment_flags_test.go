@@ -146,3 +146,44 @@ type: ProductSpec
 	require.Equal(t, 1, counting.ontologyAssessmentFlags)
 	require.Zero(t, counting.ontologyAssessmentsByPaths, "a current materialization never decodes on the inventory path")
 }
+
+// TestScopeUntypedListsWhatTheShapeCountsAsUntyped pins __untyped__ to the
+// shape's rule: notes without a note type, plus ambiguous notes even when a
+// declared type resolves them.
+func TestScopeUntypedListsWhatTheShapeCountsAsUntyped(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	vaultDef, store, _ := buildFixture(t, `
+type ProductSpec @node(paths: ["specs/product.md"]) {
+  summary: String
+}
+
+type Alpha @node(paths: ["shared/*.md"]) {
+  name: String
+}
+
+type Beta @node(paths: ["shared/*.md"]) {
+  name: String
+}
+`, "---\ntype: ProductSpec\nsummary: Product\n---\n# Product\n")
+	writeFixtureNote(t, vaultDef.Path, "shared/ambiguous.md", "---\nname: Ambiguous\n---\n")
+	writeFixtureNote(t, vaultDef.Path, "shared/declared.md", "---\ntype: Alpha\nname: Declared\n---\n")
+	writeFixtureNote(t, vaultDef.Path, "notes/plain.md", "# Plain\n")
+	_, err := ontologytest.Sync(ctx, testkit.NoteMetadataIndexer(t), vaultDef, &obsidian.Note{}, store, nil, nil)
+	require.NoError(t, err)
+	schema, err := ontoschema.LoadSchema(vaultDef.Path)
+	require.NoError(t, err)
+
+	scope := NewService(vaultDef, &obsidian.Note{}, store, schema).NewScope(ScopeOptions{})
+	untyped, err := scope.TypeInstances(ctx, TypeInstancesRequest{TypeName: ontology.TypeScopeUntyped})
+	require.NoError(t, err)
+	require.Equal(t, ontology.TypeScopeUntyped, untyped.TypeDoc.Name)
+	paths := make([]string, 0, len(untyped.Items))
+	for _, item := range untyped.Items {
+		paths = append(paths, item.NotePath)
+	}
+	require.ElementsMatch(t, []string{"notes/plain.md", "shared/ambiguous.md", "shared/declared.md"}, paths)
+	require.Equal(t, 3, untyped.Count)
+	require.Equal(t, 1, untyped.IssueCount, "only the unresolved ambiguous note has an issue")
+}

@@ -1,7 +1,7 @@
 import { noteTabID } from "./noteTabIdentity";
 import { isNodeRef, isFiniteNumber, isJsonObject, isString } from "../api/parse";
 import { boundedViewParams, normalizeNotePath } from "./notesRoute";
-import { normalizeSearchFilters, searchTabIdentity } from "./searchState";
+import { listsNotes, normalizeSearchFilters, searchTabIdentity } from "./searchState";
 import type { NodeRef } from "../api/types";
 import type { NoteTab, SearchTab, Tab, ViewTab } from "./useNoteTabs";
 
@@ -167,8 +167,7 @@ export function parseStoredTabs(raw: string | null): Array<NoteTab | SearchTab |
         folder: isString(value.folder) ? value.folder : null,
       });
 
-      // An empty query lists a folder's notes, so it needs a folder.
-      if (!value.query.trim() && !filters.folder) continue;
+      if (!value.query.trim() && !listsNotes(filters)) continue;
       const identity = searchTabIdentity(value.query, filters);
 
       if (searchIdentities.has(identity)) continue;
