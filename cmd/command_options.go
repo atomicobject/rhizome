@@ -162,25 +162,28 @@ type vaultInvocationOptions struct {
 
 type initInvocationOptions struct {
 	*indexInvocationOptions
-	initPath           string
-	initWorkflow       string
-	initAgents         string
-	initHooks          string
-	initSearch         string
-	initRefreshDocs    bool
-	initIncludeIgnored []string
-	initBinaryManager  string
-	initEject          string
-	initRestore        string
-	initAddAddon       string
-	initRemoveAddon    string
-	initCheck          bool
-	initAccept         bool
-	initJSON           bool
-	initAddons         string
-	initSkip           []string
-	initKeepIndexed    []string
-	initSearchKeyStdin bool
+	initPath             string
+	initWorkflow         string
+	initAgents           string
+	initHooks            string
+	initSearch           string
+	initRefreshDocs      bool
+	initIncludeIgnored   []string
+	initBinaryManager    string
+	initEject            string
+	initRestore          string
+	initAddAddon         string
+	initRemoveAddon      string
+	initCheck            bool
+	initAccept           bool
+	initJSON             bool
+	initAddons           string
+	initSkip             []string
+	initKeepIndexed      []string
+	initDecisionSnapshot string
+	initTake             []string
+	initKeep             []string
+	initSearchKeyStdin   bool
 }
 
 type promptInvocationOptions struct {

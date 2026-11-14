@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OntologySummaryResponse } from "../api/types";
@@ -55,41 +55,38 @@ describe("the sidebar panel", () => {
     });
   });
 
-  it("holds Folder below the type tree for a note, minimised until opened", async () => {
+  it("docks Files below the type tree, open, revealing the active note", async () => {
     render(<NotesLeftRail {...props()} vaultKey="/vault" activePanel={notePanel} />);
 
     const rail = await screen.findByRole("complementary", { name: "Notes navigation" });
-    const panel = within(rail).getByRole("region", { name: "Folder panel" });
+    const panel = within(rail).getByRole("region", { name: "Files panel" });
     const collections = within(rail).getByRole("region", { name: "Collections" });
 
     // The panel follows the navigation in the sidebar.
     expect(
       collections.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    const title = within(panel).getByRole("button", { name: "Folder" });
-    await waitFor(() => expect(title).toHaveAttribute("aria-expanded", "false"));
-    // Minimised, Folder reads nothing.
-    expect(http.count("GET", "/api/v1/graphs/folders")).toBe(0);
-
-    fireEvent.click(title);
-    await waitFor(() => expect(title).toHaveAttribute("aria-expanded", "true"));
-    expect(await within(panel).findByRole("button", { name: "Second plan" })).toBeVisible();
-    expect(within(panel).getByRole("button", { name: "Demo plan" })).toHaveAttribute(
+    expect(within(panel).getByRole("button", { name: "Files" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(await within(panel).findByRole("button", { name: "second-plan.md" })).toBeVisible();
+    expect(within(panel).getByRole("button", { name: "demo-plan.md" })).toHaveAttribute(
       "aria-current",
       "page",
     );
   });
 
-  it("keeps the panel mounted while the next subject's panel is still unknown", async () => {
+  it("keeps Files mounted while the next subject's panel is still unknown", async () => {
     const view = render(<NotesLeftRail {...props()} vaultKey="/vault" activePanel={notePanel} />);
-    const panel = await screen.findByRole("region", { name: "Folder panel" });
+    const panel = await screen.findByRole("region", { name: "Files panel" });
 
     // A note tab whose node is still loading reports null.
     view.rerender(<NotesLeftRail {...props()} vaultKey="/vault" activePanel={null} />);
-    expect(screen.getByRole("region", { name: "Folder panel" })).toBe(panel);
+    expect(screen.getByRole("region", { name: "Files panel" })).toBe(panel);
   });
 
-  it("holds no panel for a target that resolves to none", async () => {
+  it("holds only Files for a target that resolves to none", async () => {
     render(
       <NotesLeftRail
         {...props()}
@@ -99,6 +96,10 @@ describe("the sidebar panel", () => {
     );
 
     await screen.findByRole("region", { name: "Collections" });
-    expect(screen.queryByRole("region", { name: "Folder panel" })).toBeNull();
+    expect(
+      screen
+        .getAllByRole("region", { name: /panel$/ })
+        .map((region) => region.getAttribute("aria-label")),
+    ).toEqual(["Files panel"]);
   });
 });

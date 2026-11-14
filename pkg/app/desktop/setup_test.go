@@ -243,7 +243,13 @@ func TestSettingsRunTheSelectedExecutableWithRerunOptions(t *testing.T) {
 		want      []string
 	}{
 		{"settings-report", nil, []string{"--check"}},
+		{"settings-apply", &SettingsChoices{
+			DecisionSnapshot: "reviewed-snapshot",
+			Take:             []string{".rhizome/modules/agentic-engineering/ontology/spec-driven.graphql", "path with spaces.md"},
+			Keep:             []string{".agents/skills/rhizome/SKILL.md"},
+		}, []string{"--decision-snapshot=reviewed-snapshot", "--take", ".rhizome/modules/agentic-engineering/ontology/spec-driven.graphql", "--take", "path with spaces.md", "--keep", ".agents/skills/rhizome/SKILL.md"}},
 		{"settings-report", &SettingsChoices{}, []string{"--check"}},
+		{"settings-apply", &SettingsChoices{DecisionSnapshot: "empty-decisions"}, []string{"--decision-snapshot=empty-decisions"}},
 		{"settings-report", &SettingsChoices{Agents: []string{}}, []string{"--check", "--agents", "shared"}},
 		{"settings-apply", &SettingsChoices{
 			Workflow: "none", Agents: []string{"claude", "cursor"}, Search: "off",

@@ -197,7 +197,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, members ...codea
 	switch members[0].Kind {
 	case codeanchor.DerivedNotes:
 		if w.noteSyncer != nil {
-			err = computeAndPublish(s, ctx, members, func(ctx context.Context, sink func(context.Context, embedindex.NoteDerivedResult) error) error {
+			members, err = computeAndPublish(s, ctx, members, func(ctx context.Context, sink func(context.Context, embedindex.NoteDerivedResult) error) error {
 				return s.compute(ctx, "embed_notes", func(ctx context.Context) error { return w.noteSyncer.ComputeDerived(ctx, notePlan, sink) })
 			}, w.noteSyncer.PublishDerived, w.noteSyncer.CacheDerived)
 			if err != nil {
@@ -216,7 +216,7 @@ func (s *derivedScheduler) executeObserved(ctx context.Context, members ...codea
 		})
 	case codeanchor.DerivedCode:
 		if w.codeSyncer != nil {
-			err = computeAndPublish(s, ctx, members, func(ctx context.Context, sink func(context.Context, embedindex.CodeDerivedResult) error) error {
+			members, err = computeAndPublish(s, ctx, members, func(ctx context.Context, sink func(context.Context, embedindex.CodeDerivedResult) error) error {
 				return s.compute(ctx, "embed_code", func(ctx context.Context) error { return w.codeSyncer.ComputeDerived(ctx, codePlan, sink) })
 			}, w.codeSyncer.PublishDerived, w.codeSyncer.CacheDerived)
 			if err != nil {

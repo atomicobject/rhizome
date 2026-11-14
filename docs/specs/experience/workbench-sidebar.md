@@ -4,8 +4,8 @@ id: SPEC-0128
 aliases: [SPEC-0128, Workbench sidebar]
 summary: "One persistent, user-toggled sidebar across Notes, Ontology, Explorer, Agent, and GraphQL: the same themed frame with section-specific contents, one remembered collapsed state and width, a toggle in the browser top bar and in Rhizome Desktop's toolbar, and ⌃⌘S or ⌘\\ to toggle it."
 spec-status: active
-last-updated: 2026-11-09
-last-verified: 2026-11-04 # Round 7
+last-updated: 2026-11-14
+last-verified: 2026-11-14
 ---
 
 # Workbench sidebar
@@ -27,7 +27,7 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 - Per-section collapsed state or per-section widths.
 - New narrow-window behaviour for the sidebar. The existing cap of 45% of the window stays.
 - Changes to the right pane (SPEC-0126 US6) and its `]` shortcut.
-- Changing what the Notes sidebar holds (SPEC-0126 US8), except that it holds one resolved panel at its bottom ([[experiences|SPEC-0136]] R6). The panel never changes the sidebar's visibility, width, or toggle.
+- Changing what the Notes sidebar holds (SPEC-0126 US8), except that it holds the Files tree docked at its bottom and one resolved experience panel above it ([[experiences|SPEC-0136]] R6). Neither panel changes the sidebar's visibility, width, or toggle.
 
 ## User Stories
 
@@ -66,7 +66,7 @@ This spec governs the left sidebar of the workbench in the browser and in Rhizom
 #### Acceptance Criteria
 
 - Every section's sidebar sits on the theme's chrome colour beside the inset content panel, with the same header row naming the vault or repository, the same width range (200–400px, 264px default), and the same drag handle.
-- Notes holds Views, the scopes, and the type tree. A group containing both saved views and types gives them separate Views and Types subheadings at 13px/500. Saved-view icons, type dots, and group chevrons occupy one 16px leading slot so sibling labels align. A zero-record type is hidden only when a saved view with the same display name exists in that group; nested children retain their navigation.
+- Notes holds Views, the scopes, and the type tree, with the Files panel docked at the bottom: the vault's folders and note files as a tree whose folders expand and collapse, where a note opens on click and the open note is selected. Its divider resizes it, and its height and minimised state are remembered per vault. A group containing both saved views and types gives them separate Views and Types subheadings at 13px/500. Saved-view icons, type dots, and group chevrons occupy one 16px leading slot so sibling labels align. A zero-record type is hidden only when a saved view with the same display name exists in that group; nested children retain their navigation.
 - Ontology holds an Atlas row followed by the display groups with their types and interfaces, like the Notes type tree. Choosing a type or interface opens its Ontology detail, and the current one is selected.
 - Explorer holds the vault tree, with the current folder or note selected.
 - Agent holds the session list. Its narrow-window drawer and hamburger button are replaced by the shared toggle.
@@ -106,3 +106,5 @@ None. Drew settled the shared state, Ontology type tree, shortcuts, and original
 2026-11-04: Recorded Drew's approved reversal of the 2026-10-26 GraphQL exclusion and the Views/Types grouping. Evidence: `1f1d0c9b..d91cd828` and `DESIGN.md` in [[docs/efforts/2026-11-04-15-30-workbench-design-hill-climb|Workbench design hill-climb]], opened retroactively at closure.
 
 2026-11-09: The Notes sidebar holds one resolved panel at its bottom ([[experiences|SPEC-0136]] R6), an exception to the non-goal on its contents.
+
+2026-11-14: Drew asked for a file tree navigator at the bottom of the Notes sidebar. Files is now always docked there, below any experience panel, and replaces the Folder panel.

@@ -7,6 +7,8 @@ import (
 const (
 	TypeScopeAll    = "__all__"
 	TypeScopeIssues = "__issues__"
+	// TypeScopeUntyped lists notes without a note type or with an ambiguous one.
+	TypeScopeUntyped = "__untyped__"
 )
 
 // NodeListItem is a lightweight ontology instance row keyed by canonical NodeRef.

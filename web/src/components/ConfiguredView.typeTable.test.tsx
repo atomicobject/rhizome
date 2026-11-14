@@ -80,7 +80,7 @@ describe("type collection table columns", () => {
 });
 
 describe("type collection table rows", () => {
-  it("opens a row on a double-click of its title or a plain cell, not of its controls", () => {
+  it("opens a row on a double-click of a plain cell, not of its controls", () => {
     const onOpenRow = vi.fn();
     render(view({ onOpenRow, onStageOps: vi.fn(), execution: typeExecution({ groups: [] }) }));
     const alphaRow = screen.getByRole("button", { name: "Open Alpha Spec" }).closest("tr")!;
@@ -112,23 +112,31 @@ describe("type collection table rows", () => {
     ]);
   });
 
-  it("selects a row from its title and opens it on Enter, double-click, or Cmd-click", () => {
+  it("opens a row from a click on its title and selects it from a click elsewhere in the row", () => {
     const onOpenRow = vi.fn();
     render(<RailHarness>{view({ onOpenRow })}</RailHarness>);
     const rail = screen.getByRole("complementary", { name: "Rail" });
     const title = screen.getByRole("button", { name: "Open Alpha Spec" });
+    const alpha = expect.objectContaining({ title: "Alpha Spec" });
 
+    // The title is a link: a click opens the note without selecting the row.
+    fireEvent.mouseDown(title);
     fireEvent.click(title);
-    expect(onOpenRow).not.toHaveBeenCalled();
+    expect(onOpenRow).toHaveBeenLastCalledWith(alpha, "activate");
+    expect(within(rail).queryByRole("article", { name: "Selected record Alpha Spec" })).toBeNull();
+
+    // The rest of the row selects it into the rail without opening it.
+    fireEvent.click(title.closest("tr")!.cells[3]);
+    expect(onOpenRow).toHaveBeenCalledTimes(1);
     expect(within(rail).getByRole("article", { name: "Selected record Alpha Spec" })).toBeVisible();
 
-    const alpha = expect.objectContaining({ title: "Alpha Spec" });
-    fireEvent.keyDown(title, { key: "Enter" });
-    expect(onOpenRow).toHaveBeenLastCalledWith(alpha, "activate");
-    fireEvent.doubleClick(title);
-    expect(onOpenRow).toHaveBeenCalledTimes(2);
+    // Cmd-click opens beside, and Enter opens too.
     fireEvent.click(title, { metaKey: true });
     expect(onOpenRow).toHaveBeenLastCalledWith(alpha, "beside");
+    fireEvent.keyDown(title, { key: "Enter" });
+    expect(onOpenRow).toHaveBeenLastCalledWith(alpha, "activate");
+    // A double-click on the title opens once per click, not again from the row.
+    fireEvent.doubleClick(title);
     expect(onOpenRow).toHaveBeenCalledTimes(3);
   });
 });

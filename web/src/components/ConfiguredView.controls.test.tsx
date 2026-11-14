@@ -201,10 +201,7 @@ describe("ConfiguredView states and controls", () => {
     expect(firstTableRow).toHaveTextContent("SPEC-0001");
     expect(firstTableRow).not.toHaveTextContent("docs/specs/alpha.md");
 
-    // A click selects the row; Enter opens it.
     fireEvent.click(first);
-    expect(onOpenRow).not.toHaveBeenCalled();
-    fireEvent.keyDown(first, { key: "Enter" });
     expect(onOpenRow).toHaveBeenCalledWith(firstRow, "activate");
   });
   it("does not expose a sort action for an explicitly unsortable column", () => {

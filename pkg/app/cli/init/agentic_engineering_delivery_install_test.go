@@ -278,6 +278,20 @@ func requireDeliveryRegistry(t *testing.T, root string) {
 		defaultFound = defaultFound || choice.ID == group.DefaultChoiceID && choice.ViewID == home.ID
 	}
 	require.True(t, defaultFound, "Delivery opens home")
+	var tabs []string
+	for _, choice := range group.Choices {
+		if choice.ViewID == home.ID || strings.HasPrefix(choice.ViewID, "agentic-engineering.stage.") {
+			tabs = append(tabs, choice.ViewID)
+		}
+	}
+	require.Equal(t, []string{home.ID, "agentic-engineering.stage.shaping", "agentic-engineering.stage.ready",
+		"agentic-engineering.stage.planned", "agentic-engineering.stage.active", "agentic-engineering.stage.history"}, tabs,
+		"stage lists are Delivery group tabs, in workflow order after home")
+	for _, stage := range []string{"shaping", "ready", "planned", "active", "history"} {
+		def := deliveryDefinition(t, defs, "agentic-engineering.stage."+stage)
+		require.Equal(t, "stage.tsx", def.SourceSpec.Entry)
+		require.Equal(t, map[string]any{"stage": stage}, def.Configuration)
+	}
 	page := getInvocationJSON(t, srv, home.ID, `{"kind":"group","group":"Delivery"}`)
 	resp := get(t, srv, page.Entry)
 	require.Equal(t, http.StatusOK, resp.StatusCode, readBody(t, resp))

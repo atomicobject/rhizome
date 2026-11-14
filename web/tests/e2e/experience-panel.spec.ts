@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "./fixtures";
 import { feedbackScreenshot } from "./groupViewHelpers";
 
-// The Notes sidebar's panel slot, the built-in Folder panel, and a custom
-// panel view on the synthetic experience in fixtures/experience (SPEC-0136 R6).
+// The Notes sidebar's panel slots: the built-in Files panel docked at the
+// bottom and a custom panel view above it, on the synthetic experience in
+// fixtures/experience (SPEC-0136 R6, SPEC-0128).
 
 const NOTE = "notes/decisions/backlink-decision.md";
 
@@ -12,50 +13,44 @@ async function openNote(page: Page, notePath = NOTE) {
 
   return page
     .getByRole("complementary", { name: "Notes navigation" })
-    .getByRole("region", { name: "Folder panel" });
+    .getByRole("region", { name: "Files panel" });
 }
 
-test("Folder starts minimised, remembers being opened, opens notes, and links its folder to Explorer", async ({
+test("Files reveals the open note, opens notes, and remembers its folders and minimised state", async ({
   page,
 }) => {
   const panel = await openNote(page);
-  const title = panel.getByRole("button", { name: "Folder", exact: true });
-  const contents = panel.getByRole("navigation", { name: "Folder contents" });
+  const title = panel.getByRole("button", { name: "Files", exact: true });
+  const tree = panel.getByRole("navigation", { name: "Files" });
 
-  await expect(title).toHaveAttribute("aria-expanded", "false");
-  await expect(contents).toBeHidden();
-
-  await title.click();
   await expect(title).toHaveAttribute("aria-expanded", "true");
-  await expect(contents.getByRole("button", { name: "notes", exact: true })).toBeVisible();
-  await expect(contents.getByRole("button", { name: "decisions", exact: true })).toBeVisible();
-  const current = contents.locator('[aria-current="page"]');
-  await expect(current).toHaveCount(1);
-  const siblings = contents.locator(".folder-panel__row--note");
+  const decisions = tree.getByRole("button", { name: "decisions", exact: true });
+  await expect(decisions).toHaveAttribute("aria-expanded", "true");
+  await expect(tree.locator('[aria-current="page"]')).toHaveText("backlink-decision.md");
+  const siblings = tree.locator(".files-panel__row--note[title^='notes/decisions/']");
   await expect(siblings).toHaveCount(3);
 
-  // Opened once, it stays open in this vault.
-  await page.reload();
-  await expect(title).toHaveAttribute("aria-expanded", "true");
-
-  // A sibling opens in Notes, and the panel follows it without remounting.
-  const marker = await contents.evaluate((element) => {
-    element.setAttribute("data-e2e-mounted", "yes");
-
-    return element.getAttribute("data-e2e-mounted");
-  });
-
-  expect(marker).toBe("yes");
+  // A sibling opens in Notes, and the tree follows it without remounting.
+  await tree.evaluate((element) => element.setAttribute("data-e2e-mounted", "yes"));
   const sibling = siblings.filter({ hasNot: page.locator('[aria-current="page"]') }).first();
   const siblingName = (await sibling.textContent()) ?? "";
-  await siblings.filter({ hasText: siblingName }).click();
+  await sibling.click();
   await expect(page).toHaveURL(/note=notes%2Fdecisions%2F(?!backlink)/);
-  await expect(contents.locator('[aria-current="page"]')).toHaveText(siblingName);
-  await expect(contents).toHaveAttribute("data-e2e-mounted", "yes");
+  await expect(tree.locator('[aria-current="page"]')).toHaveText(siblingName);
+  await expect(tree).toHaveAttribute("data-e2e-mounted", "yes");
 
-  // The folder's name opens Explorer there.
-  await contents.getByRole("button", { name: "decisions", exact: true }).click();
-  await expect(page).toHaveURL(/\/explorer\?folder=notes%2Fdecisions$/);
+  // Folders collapse; the panel stays minimised across a reload, and the
+  // open note's folders open again to reveal it.
+  await decisions.click();
+  await expect(decisions).toHaveAttribute("aria-expanded", "false");
+  await expect(siblings).toHaveCount(0);
+  await title.click();
+  await expect(title).toHaveAttribute("aria-expanded", "false");
+  await page.reload();
+  await expect(title).toHaveAttribute("aria-expanded", "false");
+  await title.click();
+  await expect(decisions).toHaveAttribute("aria-expanded", "true");
+  await expect(tree.locator('[aria-current="page"]')).toHaveText(siblingName);
 });
 
 test("the panel splits, covers, and minimises with keyboard-reachable controls", async ({
@@ -64,12 +59,11 @@ test("the panel splits, covers, and minimises with keyboard-reachable controls",
   const panel = await openNote(page);
   const rail = page.getByRole("complementary", { name: "Notes navigation" });
   const collections = rail.getByRole("region", { name: "Collections" });
-  const title = panel.getByRole("button", { name: "Folder", exact: true });
-  await title.click();
+  const title = panel.getByRole("button", { name: "Files", exact: true });
   await expect(title).toHaveAttribute("aria-expanded", "true");
 
   // The divider resizes the split in 16px steps from the keyboard.
-  const divider = panel.getByRole("separator", { name: "Resize Folder panel" });
+  const divider = panel.getByRole("separator", { name: "Resize Files panel" });
   const before = Number(await divider.getAttribute("aria-valuenow"));
   await divider.focus();
   await page.keyboard.press("ArrowUp");
@@ -79,7 +73,7 @@ test("the panel splits, covers, and minimises with keyboard-reachable controls",
     .toBe(before + 16);
 
   // Cover hides the navigation; Escape gives it back.
-  const cover = panel.getByRole("button", { name: "Fill the sidebar with Folder" });
+  const cover = panel.getByRole("button", { name: "Fill the sidebar with Files" });
   await cover.click();
   await expect(cover).toHaveAttribute("aria-pressed", "true");
   await expect(collections).toBeHidden();
@@ -105,10 +99,9 @@ test("the divider lies along the panel's top edge and resizes it with the pointe
   page,
 }) => {
   const panel = await openNote(page);
-  const title = panel.getByRole("button", { name: "Folder", exact: true });
-  await title.click();
+  const title = panel.getByRole("button", { name: "Files", exact: true });
   await expect(title).toHaveAttribute("aria-expanded", "true");
-  const divider = panel.getByRole("separator", { name: "Resize Folder panel" });
+  const divider = panel.getByRole("separator", { name: "Resize Files panel" });
   const before = Number(await divider.getAttribute("aria-valuenow"));
   const box = (await panel.boundingBox())!;
 
@@ -129,16 +122,17 @@ test("the divider lies along the panel's top edge and resizes it with the pointe
     .toBe(before + 48);
 });
 
-test("a page without a note holds no panel", async ({ page }) => {
+test("a page without a note holds only Files", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/notes");
   const rail = page.getByRole("complementary", { name: "Notes navigation" });
 
   await expect(rail.getByRole("region", { name: "Collections" })).toBeVisible();
-  await expect(rail.getByRole("region", { name: "Folder panel" })).toHaveCount(0);
+  await expect(rail.getByRole("region", { name: /panel$/ })).toHaveCount(1);
+  await expect(rail.getByRole("region", { name: "Files panel" })).toBeVisible();
 });
 
-test("a custom panel keeps one frame and its state across subjects, covers, minimises, and gives way to Folder", async ({
+test("a custom panel keeps one frame and its state across subjects, covers, minimises, and gives way for a plain note", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -204,12 +198,12 @@ test("a custom panel keeps one frame and its state across subjects, covers, mini
   await expect(subject).toHaveText("E2E Experience");
   await expect(marks).toHaveText("Marked 1");
 
-  // An untyped note gets Folder; the panel's frame waits, suspended.
+  // An untyped note gets no custom panel; its frame waits, suspended.
   await page.evaluate(() => {
     window.history.pushState({}, "", "/notes?note=notes%2Ftask-flow.md");
     window.dispatchEvent(new PopStateEvent("popstate"));
   });
-  await expect(rail.getByRole("region", { name: "Folder panel" })).toBeVisible();
+  await expect(rail.getByRole("region", { name: "Files panel" })).toBeVisible();
   await expect(slot).toHaveCount(0);
   await expect(panelFrames).toHaveCount(1);
   await expect(page.locator("iframe.panel-frame[data-shown]")).toHaveCount(0);

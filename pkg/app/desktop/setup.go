@@ -29,11 +29,14 @@ type SetupChoices struct {
 // search provider it should have, and the add-ons to turn on or off. Empty
 // fields, and absent agents, leave that setting as it is.
 type SettingsChoices struct {
-	Workflow     string   `json:"workflow"`
-	Agents       []string `json:"agents"`
-	Search       string   `json:"search"`
-	AddAddons    []string `json:"addAddons"`
-	RemoveAddons []string `json:"removeAddons"`
+	Workflow         string   `json:"workflow"`
+	Agents           []string `json:"agents"`
+	Search           string   `json:"search"`
+	AddAddons        []string `json:"addAddons"`
+	RemoveAddons     []string `json:"removeAddons"`
+	DecisionSnapshot string   `json:"decisionSnapshot,omitempty"`
+	Take             []string `json:"take"`
+	Keep             []string `json:"keep"`
 }
 
 type ScopeEdits struct {
@@ -102,7 +105,11 @@ func settingsFlags(choices *SettingsChoices) []string {
 	if len(choices.RemoveAddons) > 0 {
 		args = append(args, "--remove-addon", strings.Join(choices.RemoveAddons, ","))
 	}
-	return args
+	if choices.DecisionSnapshot != "" {
+		args = append(args, "--decision-snapshot="+choices.DecisionSnapshot)
+	}
+	args = appendEntries(args, "--take", choices.Take)
+	return appendEntries(args, "--keep", choices.Keep)
 }
 
 func appendEntries(args []string, flag string, entries []string) []string {

@@ -112,6 +112,9 @@ func (s *derivedScheduler) currentMembers(ctx context.Context, members []codeanc
 }
 
 func (s *derivedScheduler) withLease(parent context.Context, members []codeanchor.DerivedWork, ack bool, phase string, run func(context.Context, []codeanchor.DerivedWork) ([]codeanchor.DerivedWork, error)) ([]codeanchor.DerivedWork, error) {
+	if len(members) == 0 {
+		return nil, errDerivedSuperseded // publication held back every member's result
+	}
 	var live []codeanchor.DerivedWork
 	err := s.inLane(parent, phase, func(ctx context.Context) error {
 		var err error

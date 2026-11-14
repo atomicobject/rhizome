@@ -256,7 +256,7 @@ describe("ConfiguredView scalar and boolean editing", () => {
 
     expect(screen.getByRole("button", { name: /^Open / })).toHaveTextContent("0");
   });
-  it("opens an editable primary cell on Enter or double-click and keeps F2 for editing", () => {
+  it("opens an editable primary cell on click or Enter and keeps F2 for editing", () => {
     const onOpenRow = vi.fn();
     const onStageOps = vi.fn(() => Promise.resolve());
     renderView({
@@ -281,11 +281,8 @@ describe("ConfiguredView scalar and boolean editing", () => {
     });
 
     const open = screen.getByRole("button", { name: "Open Old summary" });
-    // A click selects the row.
     fireEvent.click(open);
-    expect(onOpenRow).not.toHaveBeenCalled();
     fireEvent.keyDown(open, { key: "Enter" });
-    fireEvent.doubleClick(open);
     expect(onOpenRow).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole("textbox", { name: "Edit Summary" })).toBeNull();
     fireEvent.keyDown(open, { key: "F2" });

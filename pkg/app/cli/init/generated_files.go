@@ -40,6 +40,8 @@ type generatedFiles struct {
 	// unreadable marks a record that exists but could not be parsed, for
 	// example after a merge conflict.
 	unreadable bool
+	// A declined migration belongs to its missing target while its source remains.
+	declinedSources map[string]string
 }
 
 func generatedFilesPath(projectRoot string) string {
@@ -78,7 +80,7 @@ func (g *generatedFiles) save(projectRoot string) error {
 		}
 	}
 	for key := range g.Declined {
-		if !recordTargetExists(projectRoot, key) {
+		if !recordTargetExists(projectRoot, key) && (g.declinedSources[key] == "" || !recordTargetExists(projectRoot, g.declinedSources[key])) {
 			delete(g.Declined, key)
 		}
 	}

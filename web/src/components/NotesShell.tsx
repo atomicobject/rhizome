@@ -51,6 +51,7 @@ import {
   selectionForType,
   selectionType,
 } from "./notesRoute";
+import { UNTYPED_NOTES } from "./searchState";
 import { OntologyEditSessionPanel } from "./OntologyEditSessionPanel";
 import { type CollectionTab, type OpenMode, useNoteTabs } from "./useNoteTabs";
 import { useRetainedNoteTabs } from "./useRetainedNoteTabs";
@@ -298,9 +299,15 @@ export function NotesShell({ active = true }: { active?: boolean }) {
         return;
       }
 
+      if (typeName === UNTYPED_NOTES) {
+        tabs.openSearch("", { noteType: UNTYPED_NOTES });
+
+        return;
+      }
+
       navigate(buildNotesLocation({ selection: selectionForType(typeName) }));
     },
-    [tabs.openCollection],
+    [tabs.openCollection, tabs.openSearch],
   );
 
   const selectIssues = useCallback((issueScope?: ValidationScope) => {

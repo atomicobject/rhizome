@@ -53,7 +53,7 @@ function show(mode = advance) {
 beforeEach(() => {
   vi.resetAllMocks();
   call.mockImplementation(async (operation) => {
-    if (operation === "upgrade-plan") return plan;
+    if (operation === "upgrade-plan" || operation === "settings-report") return plan;
     if (operation === "pin-advance") return { pinnedVersion: "v0.52.0" };
     if (operation === "settings-apply") return result;
     throw new Error(operation);
@@ -230,4 +230,266 @@ it("copies the changed pin when the new release has no generated file changes", 
   expect(writeText).toHaveBeenCalledWith(
     `git add -- '.rhizome/config.yml' && git commit -m "chore: upgrade Rhizome to v0.52.0"`,
   );
+});
+
+const decisions: NonNullable<SetupPlan["writes"]["decisions"]> = [
+  {
+    path: ".rhizome/modules/agentic-engineering/ontology/spec-driven.graphql",
+    kind: "unknown",
+    from: ".rhizome/ontology/spec-driven.graphql",
+    diff: "--- current\n+++ desired\n- old\n+ new",
+  },
+  {
+    path: ".agents/skills/rhizome/SKILL.md",
+    kind: "edited",
+    copies: [".claude/skills/rhizome/SKILL.md", ".cursor/skills/rhizome/SKILL.md"],
+  },
+  { path: "obsolete.md", kind: "remove" },
+];
+const decisionPlan: SetupPlan = {
+  ...plan,
+  writes: {
+    summary: [],
+    files: [],
+    decisions,
+    decisionSnapshot: "reviewed-snapshot",
+    kept: decisions.map(({ path }) => path),
+  },
+};
+
+it("defers every decision and groups mirrored copies with an expandable diff", async () => {
+  show({ kind: "refresh", plan: decisionPlan });
+  expect(screen.getByRole("button", { name: "Update files" })).toBeDisabled();
+  for (const decision of decisions) {
+    expect(screen.getByRole("combobox", { name: `Choice for ${decision.path}` })).toHaveValue(
+      "later",
+    );
+  }
+  expect(screen.getByText(`From ${decisions[0].from}`)).toBeVisible();
+  expect(screen.getByText(/--- current/)).not.toBeVisible();
+  fireEvent.click(screen.getByText("Show diff"));
+  expect(screen.getByText(/--- current/)).toBeVisible();
+  fireEvent.click(screen.getByText("Copies (2)"));
+  expect(screen.getByText(decisions[1].copies![0])).toBeVisible();
+  expect(screen.getByText("Rhizome's version removes this file.")).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "Kept edited files" })).toBeNull();
+  expect(call).not.toHaveBeenCalled();
+});
+
+it("forwards only chosen target paths and leaves deferred decisions reachable", async () => {
+  call.mockImplementation(async (operation) => {
+    if (operation === "settings-apply") return { ...result, decisions: [decisions[2]] };
+    if (operation === "settings-report")
+      return { ...decisionPlan, writes: { ...decisionPlan.writes, decisions: [decisions[2]] } };
+    throw new Error(operation);
+  });
+  show({ kind: "refresh", plan: decisionPlan });
+  fireEvent.change(screen.getByRole("combobox", { name: `Choice for ${decisions[0].path}` }), {
+    target: { value: "take" },
+  });
+  fireEvent.change(screen.getByRole("combobox", { name: `Choice for ${decisions[1].path}` }), {
+    target: { value: "keep" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Update files" }));
+  await screen.findByRole("heading", { name: "1 decision remaining" });
+  expect(call).toHaveBeenCalledWith("settings-apply", {
+    id: "repo",
+    worktree: plan.root,
+    choices: {
+      decisionSnapshot: "reviewed-snapshot",
+      take: [decisions[0].path],
+      keep: [decisions[1].path],
+    },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Review" }));
+  await screen.findByRole("combobox", { name: `Choice for ${decisions[2].path}` });
+  expect(call).toHaveBeenLastCalledWith("settings-report", { id: "repo", worktree: plan.root });
+  expect(screen.getByRole("button", { name: "Update files" })).toBeDisabled();
+});
+
+it("can choose Rhizome's version for all and return a choice to deferred", async () => {
+  show({ kind: "refresh", plan: decisionPlan });
+  fireEvent.click(screen.getByRole("button", { name: "Use Rhizome's version for all" }));
+  fireEvent.change(screen.getByRole("combobox", { name: `Choice for ${decisions[1].path}` }), {
+    target: { value: "later" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Update files" }));
+  await screen.findByRole("button", { name: "Done" });
+  expect(call).toHaveBeenCalledWith("settings-apply", {
+    id: "repo",
+    worktree: plan.root,
+    choices: {
+      decisionSnapshot: "reviewed-snapshot",
+      take: [decisions[0].path, decisions[2].path],
+      keep: [],
+    },
+  });
+});
+
+it("does not send decision flags to legacy binaries", async () => {
+  show({ kind: "refresh", plan });
+  fireEvent.click(screen.getByRole("button", { name: "Update files" }));
+  await screen.findByRole("button", { name: "Done" });
+  expect(call).toHaveBeenCalledWith("settings-apply", {
+    id: "repo",
+    worktree: plan.root,
+    choices: {},
+  });
+});
+
+it("reviews remaining decisions through settings after advancing the pin", async () => {
+  call.mockImplementation(async (operation) => {
+    if (operation === "upgrade-plan") return decisionPlan;
+    if (operation === "pin-advance") return null;
+    if (operation === "settings-apply") return { ...result, decisions };
+    if (operation === "settings-report") return decisionPlan;
+    throw new Error(operation);
+  });
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: "Upgrade" }));
+  await screen.findByRole("heading", { name: "3 decisions remaining" });
+  fireEvent.click(screen.getByRole("button", { name: "Review" }));
+  await screen.findByRole("combobox", { name: `Choice for ${decisions[0].path}` });
+  expect(call).toHaveBeenLastCalledWith("settings-report", { id: "repo", worktree: plan.root });
+  expect(call.mock.calls.filter(([op]) => op === "upgrade-plan")).toHaveLength(1);
+  expect(screen.getByRole("button", { name: "Upgrade" })).toBeDisabled();
+  fireEvent.change(screen.getByRole("combobox", { name: `Choice for ${decisions[0].path}` }), {
+    target: { value: "take" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Upgrade" }));
+  await screen.findByRole("heading", { name: "3 decisions remaining" });
+  expect(call.mock.calls.filter(([op]) => op === "pin-advance")).toHaveLength(1);
+});
+
+it("keeps the commit paths from earlier updates when reviewing remaining decisions", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+  let applies = 0;
+  call.mockImplementation(async (operation) => {
+    if (operation === "settings-report") return decisionPlan;
+    if (operation === "settings-apply") {
+      applies++;
+      return {
+        ...result,
+        commit: [applies === 1 ? "first.md" : "second.md"],
+        decisions: applies === 1 ? decisions : [],
+      };
+    }
+    throw new Error(operation);
+  });
+  show({
+    kind: "refresh",
+    plan: { ...decisionPlan, writes: { ...decisionPlan.writes, files: ["first.md"] } },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Update files" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Use Rhizome's version for all" }));
+  fireEvent.click(screen.getByRole("button", { name: "Update files" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Copy commit command" }));
+  expect(writeText).toHaveBeenCalledWith(
+    expect.stringContaining("git add -- 'first.md' 'second.md'"),
+  );
+});
+
+it.each([
+  { summary: [], files: [], kept: ["custom.md"], decisions },
+  { summary: [], files: [], kept: ["custom.md"], decisionSnapshot: "token" },
+])("uses the legacy fallback when either snapshot field is absent", (writes) => {
+  show({ kind: "refresh", plan: { ...plan, writes } });
+  expect(screen.queryByRole("combobox")).toBeNull();
+  expect(screen.getByText(/Run/)).toHaveTextContent("rzm init");
+  expect(screen.getByRole("button", { name: "Update files" })).toBeDisabled();
+});
+
+it("sends the reviewed snapshot even when no decisions need a choice", async () => {
+  show({
+    kind: "refresh",
+    plan: {
+      ...plan,
+      writes: { ...plan.writes, decisions: [], decisionSnapshot: "empty-decisions" },
+    },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Update files" }));
+  await screen.findByRole("button", { name: "Done" });
+  expect(call).toHaveBeenCalledWith("settings-apply", {
+    id: "repo",
+    worktree: plan.root,
+    choices: { decisionSnapshot: "empty-decisions", take: [], keep: [] },
+  });
+});
+
+it.each(["advance", "refresh"] as const)(
+  "reviews current files with fresh choices after a snapshot apply fails in %s mode",
+  async (kind) => {
+    let applies = 0;
+    call.mockImplementation(async (operation) => {
+      if (operation === "upgrade-plan") return decisionPlan;
+      if (operation === "pin-advance") return { pinnedVersion: "v0.52.0" };
+      if (operation === "settings-report") {
+        return {
+          ...decisionPlan,
+          writes: { ...decisionPlan.writes, decisionSnapshot: "fresh-snapshot" },
+        };
+      }
+      if (operation === "settings-apply") {
+        if (++applies === 1) throw new Error("File decisions changed since review.");
+        return { ...result, decisions: [] };
+      }
+      throw new Error(operation);
+    });
+    const callbacks = show(kind === "advance" ? advance : { kind: "refresh", plan: decisionPlan });
+    const button = kind === "advance" ? "Upgrade" : "Update files";
+    const firstChoice = await screen.findByRole("combobox", {
+      name: `Choice for ${decisions[0].path}`,
+    });
+    fireEvent.change(firstChoice, { target: { value: "take" } });
+    fireEvent.click(screen.getByRole("button", { name: button }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("File decisions changed");
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Review again" }));
+    expect(
+      await screen.findByRole("combobox", { name: `Choice for ${decisions[0].path}` }),
+    ).toHaveValue("later");
+    expect(call).toHaveBeenLastCalledWith("settings-report", {
+      id: "repo",
+      worktree: plan.root,
+    });
+    expect(screen.getByRole("button", { name: button })).toBeDisabled();
+    fireEvent.change(screen.getByRole("combobox", { name: `Choice for ${decisions[0].path}` }), {
+      target: { value: "keep" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: button }));
+    await screen.findByRole("button", { name: "Done" });
+    expect(call).toHaveBeenLastCalledWith("settings-apply", {
+      id: "repo",
+      worktree: plan.root,
+      choices: { decisionSnapshot: "fresh-snapshot", take: [], keep: [decisions[0].path] },
+    });
+    expect(call.mock.calls.filter(([op]) => op === "pin-advance")).toHaveLength(
+      kind === "advance" ? 1 : 0,
+    );
+    expect(callbacks.onRestart).toHaveBeenCalledTimes(kind === "advance" ? 1 : 0);
+  },
+);
+
+it("offers a fresh review after an automatic update with an empty decision list fails", async () => {
+  const snapshotPlan = {
+    ...plan,
+    writes: { ...plan.writes, decisions: [], decisionSnapshot: "empty-decisions" },
+  };
+  call.mockImplementation(async (operation) => {
+    if (operation === "settings-apply") throw new Error("A new file needs review.");
+    if (operation === "settings-report") return decisionPlan;
+    throw new Error(operation);
+  });
+  show({ kind: "refresh", plan: snapshotPlan });
+  fireEvent.click(screen.getByRole("button", { name: "Update files" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review again" }));
+  expect(
+    await screen.findByRole("combobox", { name: `Choice for ${decisions[0].path}` }),
+  ).toHaveValue("later");
+  expect(call.mock.calls.map(([operation]) => operation)).toEqual([
+    "settings-apply",
+    "settings-report",
+  ]);
 });

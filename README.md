@@ -49,6 +49,8 @@ Then open **Settings** and, under **Command-line tool**, choose **Install Comman
 
 The app updates itself. For Intel Macs, Windows, or a server, see the [command-line installation](docs/reference/guides/command-line.md#install-without-the-desktop-app). You can also ask your coding agent to [install Rhizome for you](#install-with-a-coding-agent).
 
+Repository files update separately. Choose **Update Rhizome files** in the app to review pending changes. From the command line, use `rzm init --check --json` to preview them, then `rzm init --take <path>` or `rzm init --keep <path>` to resolve a file choice. Pass the preview's `writes.decisionSnapshot` as `--decision-snapshot <token>` to reject choices if the reviewed files change. [Updating repository files](docs/reference/guides/command-line.md#change-a-configured-repository)
+
 ### 2. Add your repository
 
 Choose **Add Repository…** and pick your repository's folder. Rhizome inspects it and shows what it found and every file setup would write. Nothing is written until you confirm.

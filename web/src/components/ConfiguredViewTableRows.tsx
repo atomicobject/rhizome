@@ -459,12 +459,11 @@ export const ConfiguredViewTableRow = memo(function ConfiguredViewTableRow({
   );
 });
 
-/** A row's title or plain cells open it on double-click; its other controls act on their own. */
+/** A row's plain cells open it on double-click; its title and other controls act on their own. */
 function rowOpenTarget(target: EventTarget) {
-  const control =
-    target instanceof Element && target.closest("button, input, select, textarea, a, label");
-
-  return !control || control.hasAttribute("data-row-title");
+  return !(
+    target instanceof Element && target.closest("button, input, select, textarea, a, label")
+  );
 }
 
 /**

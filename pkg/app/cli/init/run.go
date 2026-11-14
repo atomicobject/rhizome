@@ -111,7 +111,7 @@ func start(opts RunOptions) (*initRun, setup, bool, error) {
 		r.ui = newTerminalOwnershipUI(reader, opts.Stdout)
 	}
 
-	if !opts.Check {
+	if !opts.Check && len(opts.Take)+len(opts.Keep) == 0 && opts.DecisionSnapshot == "" {
 		root, migrated, err := migrateLegacyWorkflowConfig(opts.Dir)
 		if err != nil {
 			return fail(err)
@@ -137,6 +137,9 @@ func start(opts RunOptions) (*initRun, setup, bool, error) {
 			return fail(fmt.Errorf("%w; use --add-addon or --remove-addon to change add-ons", ErrNotFirstRun))
 		}
 		return fail(fmt.Errorf("%w; use rzm index scope to change what gets indexed", ErrNotFirstRun))
+	}
+	if !r.layout.HasExistingConfig && (len(opts.Take)+len(opts.Keep) > 0 || opts.DecisionSnapshot != "") {
+		return fail(fmt.Errorf("--take, --keep, and --decision-snapshot require an existing Rhizome setup"))
 	}
 	if !r.layout.HasExistingConfig && hasStarterManagementOption(opts) {
 		return fail(fmt.Errorf("--eject, --restore, --add-addon, and --remove-addon need an existing Rhizome setup; run rzm init first, choosing add-ons with --addons"))

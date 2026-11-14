@@ -7,6 +7,15 @@ import {
   type SetupPlan,
   type SetupResult,
 } from "./api";
+import { UpgradeDecisions, type FileChoices } from "./UpgradeDecisions";
+
+function reviewedDecisionSnapshot(plan: SetupPlan): string | undefined {
+  return Array.isArray(plan.writes.decisions) &&
+    typeof plan.writes.decisionSnapshot === "string" &&
+    plan.writes.decisionSnapshot.length > 0
+    ? plan.writes.decisionSnapshot
+    : undefined;
+}
 
 export type UpgradeMode =
   | { kind: "advance"; offer: PinOffer }
@@ -44,6 +53,13 @@ export function UpgradeSheet({
   const [state, setState] = useState<State>(() =>
     mode.kind === "refresh" ? { kind: "review", plan: mode.plan } : { kind: "loading" },
   );
+  const [fileChoices, setFileChoices] = useState<FileChoices>({});
+  const decisionSnapshot = useRef(
+    mode.kind === "refresh" ? reviewedDecisionSnapshot(mode.plan) : undefined,
+  );
+  const reportOperation = useRef<"upgrade-plan" | "settings-report">(
+    mode.kind === "advance" ? "upgrade-plan" : "settings-report",
+  );
   const [copyError, setCopyError] = useState("");
   const [copied, setCopied] = useState(false);
   const pinned = useRef(false);
@@ -65,9 +81,14 @@ export function UpgradeSheet({
 
   async function load() {
     setState({ kind: "loading" });
+    setFileChoices({});
+    decisionSnapshot.current = undefined;
     try {
-      const plan = await request("upgrade-plan", { id: repository, worktree });
-      if (alive.current) setState({ kind: "review", plan });
+      const plan = await request(reportOperation.current, { id: repository, worktree });
+      if (alive.current) {
+        decisionSnapshot.current = reviewedDecisionSnapshot(plan);
+        setState({ kind: "review", plan });
+      }
     } catch (cause) {
       if (alive.current) setState({ kind: "plan-error", problem: failure(cause) });
     }
@@ -102,11 +123,27 @@ export function UpgradeSheet({
           }
           await onPinned();
         } else if (step === "files") {
-          result.current = await request("settings-apply", {
+          const applied = await request("settings-apply", {
             id: repository,
             worktree,
-            choices: {},
+            choices:
+              decisionSnapshot.current !== undefined
+                ? {
+                    decisionSnapshot: decisionSnapshot.current,
+                    take: Object.keys(fileChoices).filter((path) => fileChoices[path] === "take"),
+                    keep: Object.keys(fileChoices).filter((path) => fileChoices[path] === "keep"),
+                  }
+                : {},
           });
+          result.current = result.current
+            ? {
+                ...applied,
+                created: [...new Set([...result.current.created, ...applied.created])],
+                updated: [...new Set([...result.current.updated, ...applied.updated])],
+                commit: [...new Set([...result.current.commit, ...applied.commit])],
+              }
+            : applied;
+          setCopied(false);
           onApplied();
         } else {
           await onRestart();
@@ -141,12 +178,23 @@ export function UpgradeSheet({
     }
   }
 
-  const kept =
+  const decisions =
+    state.kind === "review" && decisionSnapshot.current !== undefined
+      ? (state.plan.writes.decisions ?? [])
+      : [];
+  const remaining = state.kind === "complete" ? (state.result.decisions ?? []) : [];
+  const canApply =
+    (advance && !pinned.current) ||
+    (state.kind === "review" && state.plan.writes.files.length > 0) ||
+    Object.values(fileChoices).some((choice) => choice === "take" || choice === "keep");
+  const pendingPaths = new Set([...decisions, ...remaining].map(({ path }) => path));
+  const kept = (
     state.kind === "review"
       ? (state.plan.writes.kept ?? [])
       : state.kind === "complete"
         ? state.result.kept
-        : [];
+        : []
+  ).filter((path) => !pendingPaths.has(path));
   const changed =
     state.kind === "complete"
       ? [...new Set([...state.result.created, ...state.result.updated])]
@@ -180,6 +228,13 @@ export function UpgradeSheet({
               </p>
               {mode.offer.caution && <p className="hint">{mode.offer.caution}</p>}
             </div>
+          )}
+          {decisions.length > 0 && (
+            <UpgradeDecisions
+              decisions={decisions}
+              choices={fileChoices}
+              onChange={setFileChoices}
+            />
           )}
           {(state.plan.writes.summary.length > 0 || state.plan.writes.files.length > 0) && (
             <div className="upgrade-group writes">
@@ -255,6 +310,21 @@ export function UpgradeSheet({
               ))}
             </ul>
           </div>
+          {remaining.length > 0 && (
+            <div className="upgrade-group">
+              <h2>
+                {remaining.length} {remaining.length === 1 ? "decision" : "decisions"} remaining
+              </h2>
+              <button
+                onClick={() => {
+                  reportOperation.current = "settings-report";
+                  void load();
+                }}
+              >
+                Review
+              </button>
+            </div>
+          )}
           {state.result.warnings.length > 0 && (
             <div className="upgrade-group">
               <h2>Warnings</h2>
@@ -275,9 +345,11 @@ export function UpgradeSheet({
               <li key={file}>{file}</li>
             ))}
           </ul>
-          <p className="hint">
-            Run <code>rzm init</code> in a terminal to compare and choose their updates.
-          </p>
+          {decisionSnapshot.current === undefined && (
+            <p className="hint">
+              Run <code>rzm init</code> in a terminal to compare and choose their updates.
+            </p>
+          )}
         </div>
       )}
       {copyError && (
@@ -304,13 +376,29 @@ export function UpgradeSheet({
             <>
               {state.kind !== "running" && <button onClick={onClose}>Cancel</button>}
               {state.kind === "review" && (
-                <button className="primary" onClick={() => void run(advance ? "install" : "files")}>
+                <button
+                  className="primary"
+                  disabled={!canApply}
+                  onClick={() => void run(advance && !pinned.current ? "install" : "files")}
+                >
                   {advance ? "Upgrade" : "Update files"}
                 </button>
               )}
               {state.kind === "failed" && (
-                <button className="primary" onClick={() => void run(state.step)}>
-                  Retry
+                <button
+                  className="primary"
+                  onClick={() => {
+                    if (state.step === "files" && decisionSnapshot.current !== undefined) {
+                      reportOperation.current = "settings-report";
+                      void load();
+                    } else {
+                      void run(state.step);
+                    }
+                  }}
+                >
+                  {state.step === "files" && decisionSnapshot.current !== undefined
+                    ? "Review again"
+                    : "Retry"}
                 </button>
               )}
             </>

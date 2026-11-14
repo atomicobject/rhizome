@@ -5,22 +5,16 @@ import { describe, expect, it } from "vitest";
 import { withFakeFetch } from "../test/fakeFetch";
 import {
   bridgePanelEscape,
-  FOLDER_PANEL_IDENTITY,
   panelIdentity,
   panelPreferenceScope,
   type SidebarPanel,
   SidebarPanelSlot,
+  usePanelOpen,
 } from "./SidebarPanelSlot";
 
 const http = withFakeFetch();
 
 const PANEL: SidebarPanel = { identity: "experience:kb", title: "Contents" };
-
-const FOLDER: SidebarPanel = {
-  identity: FOLDER_PANEL_IDENTITY,
-  title: "Folder",
-  minimisedByDefault: true,
-};
 
 // Panel content with its own state, to see whether it stays mounted.
 function Counter({ subject }: { subject: string }) {
@@ -71,6 +65,30 @@ const patches = () =>
     .map((request) => JSON.parse(request.body ?? "{}"));
 
 describe("the sidebar panel slot", () => {
+  it("tells a panel nested in the navigation it is closed while the outer panel covers it", () => {
+    function Shown() {
+      return <span data-testid="inner">{usePanelOpen() ? "open" : "closed"}</span>;
+    }
+
+    render(
+      <SidebarPanelSlot
+        vaultKey="/vault"
+        panel={{ identity: "files", title: "Files" }}
+        navigation={
+          <SidebarPanelSlot vaultKey="/vault" panel={PANEL} navigation={null}>
+            <Shown />
+          </SidebarPanelSlot>
+        }
+      >
+        <span>Tree</span>
+      </SidebarPanelSlot>,
+    );
+
+    expect(screen.getByTestId("inner")).toHaveTextContent("open");
+    fireEvent.click(screen.getByRole("button", { name: "Fill the sidebar with Files" }));
+    expect(screen.getByTestId("inner")).toHaveTextContent("closed");
+  });
+
   it("shows split with a divider, minimised to its title bar, and cover over the navigation", async () => {
     render(<Slot />);
 
@@ -183,33 +201,14 @@ describe("the sidebar panel slot", () => {
     await waitFor(() => expect(title()).toHaveAttribute("aria-expanded", "false"));
   });
 
-  it("keys a panel by its experience or by builtin:folder, in a slot apart from the panel page's preferences", () => {
+  it("keys a custom panel by its experience, in a slot apart from the panel page's preferences", () => {
     expect(panelIdentity({ kind: "view", viewId: "contents", experienceKey: "kb" })).toBe(
       "experience:kb",
     );
-    expect(panelIdentity({ kind: "folder" })).toBe("builtin:folder");
+    expect(panelIdentity({ kind: "folder" })).toBeNull();
     expect(panelIdentity({ kind: "none" })).toBeNull();
     // web/kit/preferences.ts keeps a panel page's own values at this view ID with no slot.
     expect(panelPreferenceScope("experience:kb").slot).toBe("rhizome-panel");
-  });
-
-  it("starts Folder minimised until someone opens it, then remembers that", async () => {
-    const first = render(<Slot panel={FOLDER} />);
-    const folderTitle = () => screen.getByRole("button", { name: "Folder" });
-
-    await waitFor(() => expect(folderTitle()).toHaveAttribute("aria-expanded", "false"));
-    fireEvent.click(folderTitle());
-    await waitFor(() => expect(folderTitle()).toHaveAttribute("aria-expanded", "true"));
-    await waitFor(() =>
-      expect(patches().at(-1)).toMatchObject({
-        scope: { viewId: "builtin:folder", slot: "rhizome-panel" },
-        set: { minimised: false },
-      }),
-    );
-    first.unmount();
-
-    render(<Slot panel={FOLDER} />);
-    await waitFor(() => expect(folderTitle()).toHaveAttribute("aria-expanded", "true"));
   });
 
   it("keeps the panel's component mounted across subjects and states", async () => {

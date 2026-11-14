@@ -52,12 +52,15 @@ type RunOptions struct {
 	// as the terminal prompt saves a pasted key. It is never printed.
 	SearchKey string
 
-	RefreshDocs    bool // offer updates to existing starter docs; by default they are only created
-	IncludeIgnored []string
-	Eject          string // keep these workflows' files (comma-separated) and stop updating them
-	Restore        string // resume updates for an ejected workflow
-	AddAddon       string // install these add-ons in an existing setup (comma-separated)
-	RemoveAddon    string // stop installing these add-ons in an existing setup (comma-separated)
+	DecisionSnapshot string   // binds choices to the reviewed file versions and groups
+	Take             []string // use the generated version of each pending decision
+	Keep             []string // retain each pending decision and remember the decline
+	RefreshDocs      bool     // offer updates to existing starter docs; by default they are only created
+	IncludeIgnored   []string
+	Eject            string // keep these workflows' files (comma-separated) and stop updating them
+	Restore          string // resume updates for an ejected workflow
+	AddAddon         string // install these add-ons in an existing setup (comma-separated)
+	RemoveAddon      string // stop installing these add-ons in an existing setup (comma-separated)
 
 	Stdout io.Writer
 	Stderr io.Writer

@@ -1623,3 +1623,33 @@ label.choice {
   width: 16px;
   text-align: center;
 }
+
+.upgrade-decisions-heading,
+.upgrade-decision label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.upgrade-decision {
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+.upgrade-decision label .path {
+  min-width: 0;
+}
+.upgrade-decision select {
+  flex-shrink: 0;
+}
+.upgrade-decision p,
+.upgrade-decision details {
+  margin-top: 8px;
+}
+.upgrade-diff {
+  max-height: 320px;
+  overflow: auto;
+  padding: 10px;
+  background: var(--surface-sunk);
+  font-size: var(--fs-xs);
+  white-space: pre;
+}

@@ -2600,7 +2600,7 @@ export interface components {
       choices: components["schemas"]["ViewChoice"][];
       panel: components["schemas"]["ViewPanel"];
     };
-    /** @description The sidebar panel for this target, resolved by the server (SPEC-0136 R6); the browser never derives it, and the server always sends it on every target. `view` names an experience's panel view; `folder` is the built-in Folder panel; `owner` means use the descriptor of the Note target for the node's notePath (an embedded or section node), or Folder for a note; `none` shows no panel. */
+    /** @description The sidebar panel for this target, resolved by the server (SPEC-0136 R6); the browser never derives it, and the server always sends it on every target. `view` names an experience's panel view; `folder` marks a note-backed subject with no experience panel; `owner` means use the descriptor of the Note target for the node's notePath (an embedded or section node), or `folder` for a note; `none` shows no panel. The host's Files panel is docked below every one. */
     ViewPanel:
       | components["schemas"]["ViewPanelView"]
       | components["schemas"]["ViewPanelFolder"]
@@ -3789,6 +3789,7 @@ export interface operations {
       };
       header?: never;
       path: {
+        /** @description A type or interface name, or a pseudo type. __all__ lists every note, __issues__ notes with validation issues, and __untyped__ notes without a note type or with an ambiguous one. */
         name: string;
       };
       cookie?: never;

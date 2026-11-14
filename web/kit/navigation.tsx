@@ -15,6 +15,7 @@ import {
   type ViewMessage,
 } from "../src/lib/customViewMessages";
 import { buildNotesLocation, buildNotesPath } from "../src/components/notesRoute";
+import { UNTYPED_NOTES } from "../src/components/searchState";
 import {
   nodeHref,
   parseViewContext,
@@ -105,7 +106,11 @@ function pageNavigation(page: () => Page) {
         return;
       }
 
-      window.location.assign(buildNotesPath({ kind: "type", typeName: name }));
+      window.location.assign(
+        name === UNTYPED_NOTES
+          ? buildNotesLocation({ selection: { kind: "all" }, search: "", noteType: name })
+          : buildNotesPath({ kind: "type", typeName: name }),
+      );
     },
 
     openSearch({ folder, query }: { folder?: string; query?: string } = {}) {
@@ -162,7 +167,10 @@ export const openView = onScreen.openView;
  */
 export const openIssues = onScreen.openIssues;
 
-/** Open a type or interface collection in the workspace. */
+/**
+ * Open a type or interface collection in the workspace. `"__untyped__"` lists
+ * the notes without a note type, or with an ambiguous one.
+ */
 export const openCollection = onScreen.openCollection;
 
 /**

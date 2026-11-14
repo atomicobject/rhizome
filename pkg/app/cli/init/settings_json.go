@@ -56,14 +56,18 @@ func (r *initRun) settingsPlan(s setup) (SetupPlan, error) {
 // applySettings applies a configured folder's options without asking: edited
 // files are kept and opt-in suggestions are left for a terminal.
 func (r *initRun) applySettings(s setup) (SetupResult, error) {
-	result := SetupResult{Schema: SetupSchema, Root: r.layout.ProjectRoot, Created: []string{}, Updated: []string{}, Kept: []string{}, Commit: []string{}, Warnings: []string{}}
+	result := SetupResult{Schema: SetupSchema, Root: r.layout.ProjectRoot, Created: []string{}, Updated: []string{}, Kept: []string{}, Commit: []string{}, Warnings: []string{}, Decisions: []SetupDecision{}}
 	plan, err := r.planSettings(s)
 	if err != nil {
 		return result, err
 	}
 	result.Pin.Version = pinVersion(plan.res.cfg)
 	if !plan.pending() {
+		result.Decisions = plan.res.files.decisions()
 		result.Summary = []string{"Everything is up to date."}
+		if len(result.Decisions) > 0 {
+			result.Summary = []string{pendingSummary(result.Decisions)}
+		}
 		// Edited files with newer versions are kept, as on any apply.
 		for _, line := range plan.decisions {
 			result.Kept = append(result.Kept, line.paths...)
@@ -81,6 +85,13 @@ func (r *initRun) applySettings(s setup) (SetupResult, error) {
 	result.Warnings = orEmpty(report.Warnings)
 	result.Summary = orEmpty(rerunDoneLines(plan, report))
 	result.Commit = commitPaths(report)
+	result.Decisions, err = plan.res.files.remainingDecisions()
+	if err != nil {
+		return result, err
+	}
+	if len(result.Decisions) > 0 {
+		result.Summary = append(result.Summary, pendingSummary(result.Decisions))
+	}
 	result.HooksBlocked = hooksBlockedReason(plan.res)
 	if err := ensurePinnedBinary(r.layout.ProjectRoot, plan.res.cfg, r.opts); err != nil {
 		result.Pin.Error = err.Error()
@@ -101,7 +112,7 @@ func (r *initRun) planSettings(s setup) (rerunPlan, error) {
 // settingsWrites lists the change lines a terminal rerun prints, every file
 // they touch, and the edited files a run without a terminal keeps.
 func (r *initRun) settingsWrites(plan rerunPlan) SetupWrites {
-	writes := SetupWrites{Summary: []string{}, Files: []string{}}
+	writes := SetupWrites{Summary: []string{}, Files: []string{}, Decisions: plan.res.files.decisions(), DecisionSnapshot: plan.res.files.decisionSnapshot()}
 	seen := map[string]bool{}
 	addFile := func(path string) {
 		if !seen[path] {

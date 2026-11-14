@@ -88,8 +88,20 @@ links, and repository pin advances. `protocol.go` bounds input and returns proto
   worktree's selected executable, and probe `init --help` for "repository
   settings once set up" before running `init --check --json` or `init --json`
   with `--workflow`, `--agents`, `--search`, `--add-addon`, and
-  `--remove-addon`, each only when its choice is present. They reject a key
-  and setup choices; error documents become `settings_failed`, and a pin-only
+  `--remove-addon`, each only when its choice is present. File decisions forward
+  repeated `--take` and `--keep` target paths with
+  `--decision-snapshot=<writes.decisionSnapshot>`. The sheet offers these choices
+  only when the plan includes both a decisions array and a nonempty snapshot
+  string, and sends the reviewed snapshot even when no choices are selected.
+  Missing either field preserves the older binary contract; a kept-only legacy
+  report does not show the files pill.
+  Pending decisions show the pill even without automatic writes. The upgrade
+  sheet groups mirrored copies, shows optional source paths and diffs, and leaves
+  choices deferred until selected. After applying, remaining decisions reopen
+  through settings-report because the pin offer may already be gone. A file-step
+  failure on a snapshot-capable plan offers Review again, reloads settings-report,
+  and clears the old choices before another apply. These operations
+  reject a key and setup choices; error documents become `settings_failed`, and a pin-only
   install failure after an apply remains a result.
 - Scope and scope-edit require configuration and trust, prepare the worktree's
   selected executable, and probe `index scope --help` for `--remove-rule` before

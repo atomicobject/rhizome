@@ -44,6 +44,40 @@ for (const colorScheme of ["light", "dark"] as const) {
       await capture(page, info, "home");
     });
 
+    test("stage lists are Delivery group tabs that home links open", async ({ page }, info) => {
+      await page.goto(home);
+      const tabs = page.getByRole("toolbar", { name: "Workspace view" });
+
+      for (const name of ["Delivery", "Shaping", "Ready", "Planned", "Active", "History"])
+        await expect(tabs.getByRole("button", { name, exact: true })).toBeVisible();
+
+      // Picking a tab is remembered per group; picking the default Delivery tab clears it.
+      await tabs.getByRole("button", { name: "Delivery", exact: true }).click();
+      await content(page).getByRole("link", { name: "Open planned efforts →" }).click();
+      await expect(page).toHaveURL(
+        /\/notes\/group\/Delivery\?presentation=agentic-engineering\.stage\.planned/,
+      );
+      await expect(tabs.getByRole("button", { name: "Planned", exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      await expect(
+        content(page).getByRole("heading", { name: "Planned efforts", exact: true, level: 1 }),
+      ).toBeVisible();
+      await expect(
+        content(page).getByRole("navigation", { name: "Delivery workflow" }),
+      ).toHaveCount(0);
+      await tabs.getByRole("button", { name: "Ready", exact: true }).click();
+      await expect(
+        content(page).getByRole("heading", { name: "Ready stories", exact: true, level: 1 }),
+      ).toBeVisible();
+      await capture(page, info, "stage-group-tab");
+      await tabs.getByRole("button", { name: "Delivery", exact: true }).click();
+      await expect(
+        content(page).getByRole("link", { name: "Open planned efforts →" }),
+      ).toBeVisible();
+    });
+
     for (const [value, title] of [
       ["shaping", "Shaping specs"],
       ["ready", "Ready stories"],
@@ -189,7 +223,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         .getByRole("link", { name: /Ready stories/ })
         .first()
         .click();
-      await expect(page).toHaveURL(/stage=ready/);
+      await expect(page).toHaveURL(/presentation=agentic-engineering\.stage\.ready/);
       await expect(
         content(page).getByRole("heading", { name: "Ready stories", exact: true, level: 1 }),
       ).toBeVisible();
@@ -198,7 +232,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         content(page).getByRole("heading", { name: specTitle, exact: true }),
       ).toBeVisible();
       await page.goForward();
-      await expect(page).toHaveURL(/stage=ready/);
+      await expect(page).toHaveURL(/presentation=agentic-engineering\.stage\.ready/);
     });
 
     test("explicit workspace preserves frozen, entry and log provenance", async ({
