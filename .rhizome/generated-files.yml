@@ -2,39 +2,39 @@
 # runs update files nobody edited and ask about files someone did. Commit it.
 version: 1
 written:
-  .agents/skills/action-items/SKILL.md: d4eb4805c8cb8fda
+  .agents/skills/action-items/SKILL.md: 856cfedcb182b863
   .agents/skills/agentic-engineering/SKILL.md: 1f2d046c8f00b7b7
-  .agents/skills/agentic-engineering/references/alignment.md: 13e911b572b2b94c
+  .agents/skills/agentic-engineering/references/alignment.md: 7c4406a3ff2b30e6
   .agents/skills/agentic-engineering/references/batch-plan-template.md: 67aa63944d698c68
   .agents/skills/agentic-engineering/references/closure-report-contract.md: b44220b007bf0631
-  .agents/skills/agentic-engineering/references/closure.md: 1ca792d85005c570
+  .agents/skills/agentic-engineering/references/closure.md: fbc1c22536687635
   .agents/skills/agentic-engineering/references/compounding.md: c644f0774ddc342f
   .agents/skills/agentic-engineering/references/effort-setup.md: 216cc9b5b460c79b
   .agents/skills/agentic-engineering/references/implementation.md: 6ad899a4fad8f03d
   .agents/skills/agentic-engineering/references/planning.md: 9932b9eb5605e222
   .agents/skills/agentic-engineering/references/quality-gates.md: 78ecf29c4b62d5e4
-  .agents/skills/agentic-engineering/references/reconciliation.md: ddc584e5e34ab29e
+  .agents/skills/agentic-engineering/references/reconciliation.md: 4e3707f37c965252
   .agents/skills/agentic-engineering/references/spec-template.md: 8da172c4ecf7bfbb
   .agents/skills/agentic-engineering/references/specification.md: 22af058c0233d57c
   .agents/skills/agentic-engineering/references/traceability.md: c9afa209aeb33b07
   .agents/skills/agentic-engineering/references/workflow-state.md: 79d7a64fc5c19779
-  .agents/skills/assumption-tracker/SKILL.md: 5ad3db6d81cfbee5
-  .agents/skills/client-harness-builder/SKILL.md: b9628572ae42e032
+  .agents/skills/assumption-tracker/SKILL.md: 309680261fb4d71b
+  .agents/skills/client-harness-builder/SKILL.md: 1d6aeff4c18412f4
   .agents/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .agents/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .agents/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
   .agents/skills/compounding/SKILL.md: 365b1ba0e8741ce9
   .agents/skills/compounding/references/models.md: ba80e96ccd08f5db
-  .agents/skills/custom-views/SKILL.md: 026a97a6554d1198
+  .agents/skills/custom-views/SKILL.md: 5582db1ccf3a1355
   .agents/skills/custom-views/references/example.md: 6c1e54b739c646b9
   .agents/skills/custom-views/references/experiences.md: 9c649c7ec2bb5b0b
   .agents/skills/custom-views/references/kit-api.md: 8d62f9621602b57b
   .agents/skills/custom-views/references/module-example.md: 0bcc51feb1c7416c
   .agents/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
-  .agents/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
+  .agents/skills/foundation-review/SKILL.md: 3d3ba60505404dd1
   .agents/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
-  .agents/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
-  .agents/skills/legacy-codebase-assessor/references/findings-template.md: 6172ac9f5c6d79fd
+  .agents/skills/legacy-codebase-assessor/SKILL.md: b67d39b8d24aaa99
+  .agents/skills/legacy-codebase-assessor/references/findings-template.md: b730dddb3034b614
   .agents/skills/rhizome/SKILL.md: f3de086ed01c787c
   .agents/skills/rhizome/references/automation.md: f559078a80cb986c
   .agents/skills/rhizome/references/code-mode.md: dbaf97cd8845d9d5
@@ -46,14 +46,14 @@ written:
   .agents/skills/rhizome/references/file-context.md: 1128da312ed1c0e6
   .agents/skills/rhizome/references/index-scope.md: f7a0a4041880a119
   .agents/skills/rhizome/references/indexing-and-freshness.md: 3ffde691332c5c3e
-  .agents/skills/rhizome/references/installation-and-integration.md: 4549005b642a873e
+  .agents/skills/rhizome/references/installation-and-integration.md: 41f5b42871cf65de
   .agents/skills/rhizome/references/markdown-mutations.md: cfadc458ed192976
-  .agents/skills/rhizome/references/onboarding.md: 1edce60ff7bca8ee
+  .agents/skills/rhizome/references/onboarding.md: 9f544b92087b1552
   .agents/skills/rhizome/references/ontology-authoring.md: a5c0e3cf2b5b5e19
   .agents/skills/rhizome/references/ontology-usage.md: 6dc255af54ef2c12
   .agents/skills/rhizome/references/reports-and-health.md: 47849fa37df2132c
   .agents/skills/rhizome/references/search-and-code-evidence.md: 517c10d908edc627
-  .agents/skills/rhizome/references/sessions.md: 481277c87a0b1dbc
+  .agents/skills/rhizome/references/sessions.md: 41f928fceeef751f
   .agents/skills/rhizome/references/setup-and-starters.md: 7594380e6d0324d0
   .agents/skills/rhizome/references/skill-authoring.md: 35ec03c0e8a679f3
   .agents/skills/rhizome/references/skill-scripts.md: 9bc5e247cf8bf273
@@ -62,39 +62,39 @@ written:
   .agents/skills/rhizome/references/validation-and-repair.md: d19b7023dc899b6c
   .agents/skills/rhizome/references/views.md: 26fb7388f96eefbc
   .claude/settings.json#rhizome-sandbox: a17fcf0a2f50e2d4
-  .claude/skills/action-items/SKILL.md: d4eb4805c8cb8fda
+  .claude/skills/action-items/SKILL.md: 856cfedcb182b863
   .claude/skills/agentic-engineering/SKILL.md: 1f2d046c8f00b7b7
-  .claude/skills/agentic-engineering/references/alignment.md: 13e911b572b2b94c
+  .claude/skills/agentic-engineering/references/alignment.md: 7c4406a3ff2b30e6
   .claude/skills/agentic-engineering/references/batch-plan-template.md: 67aa63944d698c68
   .claude/skills/agentic-engineering/references/closure-report-contract.md: b44220b007bf0631
-  .claude/skills/agentic-engineering/references/closure.md: 1ca792d85005c570
+  .claude/skills/agentic-engineering/references/closure.md: fbc1c22536687635
   .claude/skills/agentic-engineering/references/compounding.md: c644f0774ddc342f
   .claude/skills/agentic-engineering/references/effort-setup.md: 216cc9b5b460c79b
   .claude/skills/agentic-engineering/references/implementation.md: 6ad899a4fad8f03d
   .claude/skills/agentic-engineering/references/planning.md: 9932b9eb5605e222
   .claude/skills/agentic-engineering/references/quality-gates.md: 78ecf29c4b62d5e4
-  .claude/skills/agentic-engineering/references/reconciliation.md: ddc584e5e34ab29e
+  .claude/skills/agentic-engineering/references/reconciliation.md: 4e3707f37c965252
   .claude/skills/agentic-engineering/references/spec-template.md: 8da172c4ecf7bfbb
   .claude/skills/agentic-engineering/references/specification.md: 22af058c0233d57c
   .claude/skills/agentic-engineering/references/traceability.md: c9afa209aeb33b07
   .claude/skills/agentic-engineering/references/workflow-state.md: 79d7a64fc5c19779
-  .claude/skills/assumption-tracker/SKILL.md: 5ad3db6d81cfbee5
-  .claude/skills/client-harness-builder/SKILL.md: b9628572ae42e032
+  .claude/skills/assumption-tracker/SKILL.md: 309680261fb4d71b
+  .claude/skills/client-harness-builder/SKILL.md: 1d6aeff4c18412f4
   .claude/skills/client-harness-builder/references/document-table.md: 0b985bcda68184ae
   .claude/skills/client-harness-builder/references/generate-arch-overview.md: 4ac64cd6da5d3380
   .claude/skills/client-harness-builder/references/update-module-docs.md: 5971d86917c6fe00
   .claude/skills/compounding/SKILL.md: 365b1ba0e8741ce9
   .claude/skills/compounding/references/models.md: ba80e96ccd08f5db
-  .claude/skills/custom-views/SKILL.md: 026a97a6554d1198
+  .claude/skills/custom-views/SKILL.md: 5582db1ccf3a1355
   .claude/skills/custom-views/references/example.md: 6c1e54b739c646b9
   .claude/skills/custom-views/references/experiences.md: 9c649c7ec2bb5b0b
   .claude/skills/custom-views/references/kit-api.md: 8d62f9621602b57b
   .claude/skills/custom-views/references/module-example.md: 0bcc51feb1c7416c
   .claude/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
-  .claude/skills/foundation-review/SKILL.md: 6bc6d56b93eb90e0
+  .claude/skills/foundation-review/SKILL.md: 3d3ba60505404dd1
   .claude/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
-  .claude/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
-  .claude/skills/legacy-codebase-assessor/references/findings-template.md: 6172ac9f5c6d79fd
+  .claude/skills/legacy-codebase-assessor/SKILL.md: b67d39b8d24aaa99
+  .claude/skills/legacy-codebase-assessor/references/findings-template.md: b730dddb3034b614
   .claude/skills/rhizome/SKILL.md: f3de086ed01c787c
   .claude/skills/rhizome/references/automation.md: f559078a80cb986c
   .claude/skills/rhizome/references/code-mode.md: dbaf97cd8845d9d5
@@ -106,14 +106,14 @@ written:
   .claude/skills/rhizome/references/file-context.md: 1128da312ed1c0e6
   .claude/skills/rhizome/references/index-scope.md: f7a0a4041880a119
   .claude/skills/rhizome/references/indexing-and-freshness.md: 3ffde691332c5c3e
-  .claude/skills/rhizome/references/installation-and-integration.md: 4549005b642a873e
+  .claude/skills/rhizome/references/installation-and-integration.md: 41f5b42871cf65de
   .claude/skills/rhizome/references/markdown-mutations.md: cfadc458ed192976
-  .claude/skills/rhizome/references/onboarding.md: 1edce60ff7bca8ee
+  .claude/skills/rhizome/references/onboarding.md: 9f544b92087b1552
   .claude/skills/rhizome/references/ontology-authoring.md: a5c0e3cf2b5b5e19
   .claude/skills/rhizome/references/ontology-usage.md: 6dc255af54ef2c12
   .claude/skills/rhizome/references/reports-and-health.md: 47849fa37df2132c
   .claude/skills/rhizome/references/search-and-code-evidence.md: 517c10d908edc627
-  .claude/skills/rhizome/references/sessions.md: 481277c87a0b1dbc
+  .claude/skills/rhizome/references/sessions.md: 41f928fceeef751f
   .claude/skills/rhizome/references/setup-and-starters.md: 7594380e6d0324d0
   .claude/skills/rhizome/references/skill-authoring.md: 35ec03c0e8a679f3
   .claude/skills/rhizome/references/skill-scripts.md: 9bc5e247cf8bf273

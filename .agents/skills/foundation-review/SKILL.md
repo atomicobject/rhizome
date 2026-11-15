@@ -19,12 +19,12 @@ Present one item at a time:
 - `Files to inspect`: the exact seams the human should examine
 - `Question to resolve now`: the minimum input needed
 
-Record decisions as they settle. Hold only the edits that depend on an unresolved decision; continue independent authorized fixes, then apply the settled decisions in one pass.
+Record decisions in the effort's execution notes as they settle. The review is done when every unresolved formative decision it covers is settled and recorded; then apply the settled decisions in one pass and continue the dependent phases.
 
 ## Authority
 
-Route through the installed `agentic-engineering` skill for workflow state and evidence. The human owns formative schema, API, ownership, and extension decisions; you own surfacing and sequencing them.
+Route through the installed `agentic-engineering` skill for workflow state and evidence.
 
 ## Decision boundaries
 
-The human settles the formative decisions; hold dependent phases only until those are settled, then continue. This is not ordinary code review or a substitute for an approved plan.
+The human owns formative schema, API, ownership, and extension decisions; you own surfacing and sequencing them. Hold only the edits that depend on an unresolved decision, and continue independent authorized fixes meanwhile. This is not ordinary code review or a substitute for an approved plan.
