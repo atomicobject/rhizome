@@ -19,13 +19,12 @@ import (
 
 func Serve(ctx context.Context, input io.Reader, output io.Writer, relayURL, token string) error {
 	u, err := url.Parse(relayURL)
-	// The Rhizome server's own listening address, which serve chose: loopback,
-	// or the one address it is bound to. The token authorizes the read.
 	if err != nil || u.Scheme != "http" || u.User != nil || u.Fragment != "" {
-		return errors.New("page relay URL must be an absolute HTTP URL of the Rhizome server")
+		return errors.New("page relay URL must be an absolute loopback HTTP URL")
 	}
-	if net.ParseIP(u.Hostname()) == nil || u.Port() == "" || token == "" {
-		return errors.New("page relay URL and token are required")
+	ip := net.ParseIP(u.Hostname())
+	if ip == nil || !ip.IsLoopback() || u.Port() == "" || token == "" {
+		return errors.New("page relay URL and token are required for a loopback server")
 	}
 	client := &http.Client{Timeout: 25 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	server := mcpserver.NewMCPServer("rhizome_page", "1.0.0")

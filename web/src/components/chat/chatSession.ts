@@ -4,7 +4,9 @@ import { useSyncExternalStore } from "react";
 // shows the same conversation, and the session survives a reload.
 const SESSION_KEY = "rhizome:chat:session:v1";
 
-type ChatPaneState = { sessionID: string; draft: string };
+// `sending` holds from a submit until its send returns. It lives here, not in
+// the pane, because the pane can unmount and mount again in the meantime.
+type ChatPaneState = { sessionID: string; draft: string; sending: boolean };
 
 let state: ChatPaneState | null = null;
 
@@ -21,7 +23,7 @@ function current(): ChatPaneState {
     // Browser storage is optional; a reload starts a new chat.
   }
 
-  state = { sessionID, draft: "" };
+  state = { sessionID, draft: "", sending: false };
 
   return state;
 }
@@ -53,6 +55,21 @@ export const useChatPane = () => useSyncExternalStore(subscribe, current, curren
 export const setChatSession = (sessionID: string) => update({ sessionID });
 
 export const setChatDraft = (draft: string) => update({ draft });
+
+/** Claims the one send in flight; false while another holds it. */
+export function beginChatSend(): boolean {
+  if (current().sending) return false;
+  update({ sending: true });
+
+  return true;
+}
+
+export const endChatSend = () => update({ sending: false });
+
+/** Clears the draft only if it is still the text that was sent. */
+export function clearChatDraftIf(sent: string) {
+  if (current().draft === sent) update({ draft: "" });
+}
 
 /** Starts over: the next message opens a new session. The old one stays on the Agent page. */
 export const startNewChat = () => update({ sessionID: "", draft: "" });

@@ -1,9 +1,9 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { AgentEvent, AgentSessionResponse } from "../api/types";
 import { withFakeEventSource } from "../test/fakeEventSource";
-import { withFakeFetch } from "../test/fakeFetch";
+import { deferredReply, withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { readyStatus, session, settingsWith } from "./AgentWorkspace.test-support";
 import { ChatDrawer } from "./ChatDrawer";
@@ -194,6 +194,33 @@ describe("Chat in the right pane", () => {
 
     await waitFor(() => expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(1));
     expect(http.count("POST", "/api/agent/sessions")).toBe(1);
+  });
+
+  it("keeps a pending first send across a remount without losing newer typing", async () => {
+    const creation = deferredReply<{ session: ReturnType<typeof session> }>();
+    http
+      .on("POST", "/api/agent/sessions", () => creation.promise)
+      .json("GET", "/api/agent/sessions/agt-1", { session: session(), messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    const first = render(<ChatDrawer />);
+    await screen.findByText(/Codex · GPT Standard/);
+    const composer = screen.getByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "first question" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    first.unmount();
+
+    render(<ChatDrawer />);
+    await screen.findByText(/Codex · GPT Standard/);
+    const again = screen.getByRole("textbox", { name: "Message" });
+    fireEvent.change(again, { target: { value: "a newer thought" } });
+    fireEvent.keyDown(again, { key: "Enter" });
+    await act(async () => creation.resolve({ session: session() }));
+
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(1));
+    expect(http.count("POST", "/api/agent/sessions")).toBe(1);
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("a newer thought");
   });
 
   it("starts over when the Agent page deleted the pane's session", async () => {

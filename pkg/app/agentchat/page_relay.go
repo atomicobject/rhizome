@@ -66,13 +66,12 @@ func (p *pageRelay) close() {
 
 func (s *Service) SetPageRelayOrigin(origin string) error {
 	u, err := url.Parse(origin)
-	// The server's own listening address, so an IP literal and a port; the
-	// per-session token, not the address, authorizes a page read.
 	if err != nil || u.Scheme != "http" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
-		return errors.New("page relay origin must be an absolute HTTP URL of the server's address")
+		return errors.New("page relay origin must be an absolute loopback HTTP URL")
 	}
-	if net.ParseIP(u.Hostname()) == nil || u.Port() == "" {
-		return errors.New("page relay origin must be an absolute HTTP URL of the server's address")
+	ip := net.ParseIP(u.Hostname())
+	if ip == nil || !ip.IsLoopback() || u.Port() == "" {
+		return errors.New("page relay origin must be an absolute loopback HTTP URL")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -21,7 +21,15 @@ import type {
 import { emptySettingsResponse } from "./agent/AgentSettingsPanel";
 import { harnessBlocked } from "./agent/AgentStatusHeader";
 import { useAgentThread } from "./agent/useAgentThread";
-import { setChatDraft, setChatSession, startNewChat, useChatPane } from "./chat/chatSession";
+import {
+  beginChatSend,
+  clearChatDraftIf,
+  endChatSend,
+  setChatDraft,
+  setChatSession,
+  startNewChat,
+  useChatPane,
+} from "./chat/chatSession";
 import { ChatTimeline, ContextChip, Icon } from "./chat/ChatTimeline";
 import { boundedContext, CONTEXT_KIND_LABELS, useViewContext } from "./chat/viewContext";
 import { readSingleKey, typingIn } from "./KeyboardShortcuts";
@@ -204,7 +212,7 @@ export function ChatPanel() {
   const log = useRef<HTMLDivElement>(null);
   const { pathname, search } = useLocationSnapshot();
   const context = useViewContext();
-  const { sessionID, draft } = useChatPane();
+  const { sessionID, draft, sending } = useChatPane();
   const [error, setError] = useState("");
   // The page whose context the user detached; moving on re-attaches.
   const [detachedFrom, setDetachedFrom] = useState<string | null>(null);
@@ -239,11 +247,10 @@ export function ChatPanel() {
     ? models.find((option) => option.id === modelID)?.displayName || modelID
     : (models.find((option) => option.default) ?? models[0])?.displayName;
 
-  // Held from the first keypress until the send returns, so a second Enter,
-  // even in the same frame, cannot start a second session or turn.
-  const sendingRef = useRef(false);
-  const [starting, setStarting] = useState(false);
-  const running = starting || thread.isSending || thread.turnRunning;
+  // The store holds a send from the first keypress until it returns, so a
+  // second Enter, even from a pane mounted meanwhile, cannot start a second
+  // session or turn.
+  const running = sending || thread.isSending || thread.turnRunning;
   const empty = thread.messages.length === 0 && thread.events.length === 0;
 
   // A session deleted on the Agent page, which archives it, starts over.
@@ -282,10 +289,8 @@ export function ChatPanel() {
   const send = async (text: string) => {
     const message = text.trim();
 
-    if (!message || running || blocked || sendingRef.current) return;
-    sendingRef.current = true;
+    if (!message || running || blocked || !beginChatSend()) return;
     pinned.current = true;
-    setStarting(true);
     setError("");
     const sent = attachContext ? boundedContext(context) : undefined;
 
@@ -298,13 +303,12 @@ export function ChatPanel() {
         setChatSession(target);
       }
 
-      setChatDraft("");
+      clearChatDraftIf(text);
       await thread.send(target, message, sent);
     } catch (cause) {
       setError(errorText(cause));
     } finally {
-      sendingRef.current = false;
-      setStarting(false);
+      endChatSend();
     }
   };
 
