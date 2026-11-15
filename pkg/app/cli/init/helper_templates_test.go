@@ -587,3 +587,38 @@ func TestCoreRhizomeSkillRoutesToDirectFocusedReferences(t *testing.T) {
 	sort.Strings(actualRefs)
 	require.Equal(t, expectedRefs, actualRefs)
 }
+
+// SPEC-0080 US8-AC7: starter facts reach the core skill as live catalog data,
+// so no bundled starter's id or name may appear in it.
+func TestCoreRhizomeSkillNamesNoBundledStarter(t *testing.T) {
+	registry, err := loadStarterTemplateMetadataRegistry()
+	require.NoError(t, err)
+	require.NotEmpty(t, registry)
+	var terms []string
+	for _, meta := range registry {
+		for _, term := range []string{meta.ID, meta.Name} {
+			term = strings.ToLower(strings.TrimSpace(term))
+			if term != "" && term != "core" {
+				terms = append(terms, term)
+			}
+		}
+	}
+	sort.Strings(terms)
+
+	skills, err := loadSkillTemplates()
+	require.NoError(t, err)
+	checked := 0
+	for _, skill := range skills {
+		if skill.Name != "rhizome" {
+			continue
+		}
+		for _, file := range skill.Files {
+			content := strings.ToLower(string(file.Content))
+			for _, term := range terms {
+				require.Falsef(t, strings.Contains(content, term), "core skill file %s names bundled starter %q", file.Path, term)
+			}
+			checked++
+		}
+	}
+	require.Greater(t, checked, 1)
+}
