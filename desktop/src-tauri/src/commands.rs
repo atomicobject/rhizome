@@ -106,7 +106,7 @@ pub enum Action {
     ChatSettings,
     ChatSettingsSet {
         harness: String,
-        model: Option<String>,
+        enabled: bool,
     },
     /// Opens a chat agent's install guide; the shell cannot open arbitrary URLs.
     OpenChatInstall {
@@ -462,13 +462,13 @@ pub async fn desktop_request(
             )
             .await
         }
-        Action::ChatSettingsSet { harness, model } => {
+        Action::ChatSettingsSet { harness, enabled } => {
             let result = crate::credentials::update(
                 &state.directory,
                 Request {
                     operation: "chat-settings-set",
                     harness: Some(&harness),
-                    model: model.as_deref(),
+                    enabled: Some(enabled),
                     ..Request::default()
                 },
                 &state.global,

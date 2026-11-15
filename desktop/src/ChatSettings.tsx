@@ -18,47 +18,15 @@ function readiness(status: ChatHarnessStatus): Readiness {
   return status.lastError ? "unchecked" : "signed-out";
 }
 
-const marks: Record<Readiness, string> = {
-  ready: "connected",
-  "signed-out": "legacy",
-  unchecked: "legacy",
-  missing: "unavailable",
-};
-
-function statusText(state: Readiness, status: ChatHarnessStatus) {
-  switch (state) {
-    case "ready":
-      return status.version ? `Ready · ${status.version}` : "Ready";
-    case "signed-out":
-      return status.loginHint ? (
-        <>
-          Signed out. Run <code>{status.loginHint}</code> in a terminal.
-        </>
-      ) : (
-        "Signed out."
-      );
-    case "unchecked":
-      return "Could not check its status.";
-    case "missing":
-      return "Not installed";
-  }
-}
-
-/** Claude Code lists its default as a model named `default`; Codex flags one. */
-function defaultLabel(status: ChatHarnessStatus) {
-  const models = status.models ?? [];
-  const own = models.find((option) => option.id === "default");
-  if (own?.displayName) return own.displayName;
-  const flagged = models.find((option) => option.default);
-  return flagged ? `Default (${flagged.displayName || flagged.id})` : "Default";
-}
-
-/** Chooses the coding agent, and its model, that chat in every repository uses. */
+/**
+ * The coding agents chat runs on this Mac: whether each can run, and a switch
+ * that hides one from chat's model picker. Detected agents are on until
+ * turned off; the picker in the chat chooses among the ones that are on.
+ */
 export function ChatSettings() {
   const [report, setReport] = useState<ChatSettingsReport | null>(null);
   const [checking, setChecking] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [copied, setCopied] = useState<ChatHarness | null>(null);
   const [error, setError] = useState("");
   const alive = useRef(true);
   const revision = useRef(0);
@@ -84,20 +52,10 @@ export function ChatSettings() {
       alive.current = false;
     };
   }, [check]);
-  async function save(harness: ChatHarness, model?: string) {
+  async function turn(harness: ChatHarness, enabled: boolean) {
     setSaving(true);
-    await apply(() =>
-      request("chat-settings-set", model === undefined ? { harness } : { harness, model }),
-    );
+    await apply(() => request("chat-settings-set", { harness, enabled }));
     if (alive.current) setSaving(false);
-  }
-  async function copy(harness: ChatHarness, hint: string) {
-    try {
-      await navigator.clipboard.writeText(hint);
-      setCopied(harness);
-    } catch {
-      setError("Could not copy. Select the command and copy it instead.");
-    }
   }
   async function openInstall(harness: ChatHarness) {
     try {
@@ -106,7 +64,31 @@ export function ChatSettings() {
       setError(failure(cause).message);
     }
   }
-  const chosen = report?.settings.harness ?? report?.resolved.harness;
+  function statusText(state: Readiness, kind: ChatHarness, status: ChatHarnessStatus) {
+    switch (state) {
+      case "ready":
+        return "Ready";
+      case "signed-out":
+        return status.loginHint ? (
+          <>
+            Signed out. Run <code>{status.loginHint}</code> in Terminal, then check again.
+          </>
+        ) : (
+          "Signed out. Sign in to it in Terminal, then check again."
+        );
+      case "unchecked":
+        return "Could not check its status.";
+      case "missing":
+        return (
+          <>
+            Not installed.{" "}
+            <button className="link-button" onClick={() => void openInstall(kind)}>
+              How to install
+            </button>
+          </>
+        );
+    }
+  }
   const rows = order.flatMap((kind) => {
     const found = report?.harnesses.find((item) => item.kind === kind);
     return found ? [found] : [];
@@ -114,58 +96,29 @@ export function ChatSettings() {
   return (
     <section className="setting-group chat-settings" aria-labelledby="chat-settings-title">
       <h2 id="chat-settings-title">Chat</h2>
-      <p>Chat runs a coding agent installed on this Mac. Choose which one every repository uses.</p>
+      <p>Chat runs the coding agents installed on this Mac, signed in with your own accounts.</p>
       {report ? (
-        <div className="chat-agents" role="radiogroup" aria-label="Chat agent">
+        <div className="chat-agents">
           {rows.map(({ kind, status }) => {
             const state = readiness(status);
-            const models = (status.models ?? []).filter((option) => option.id !== "default");
-            const saved = report.settings.harnesses[kind]?.model ?? "";
-            const model = models.some((option) => option.id === saved) ? saved : "";
+            const on = status.installed && !report.settings.harnesses[kind]?.disabled;
             return (
-              <div className="chat-agent" key={kind}>
-                <input
-                  type="radio"
-                  id={`chat-agent-${kind}`}
-                  name="chat-agent"
-                  checked={chosen === kind}
-                  disabled={saving || state === "missing"}
-                  onChange={() => void save(kind)}
+              <div className={`chat-agent ${state}`} key={kind}>
+                <span className="chat-agent-name">{names[kind]}</span>
+                <button
+                  type="button"
+                  role="switch"
+                  className="chat-switch"
+                  aria-checked={on}
+                  aria-label={`Use ${names[kind]} in chat`}
+                  disabled={saving || !status.installed}
+                  onClick={() => void turn(kind, !on)}
                 />
-                <div>
-                  <label htmlFor={`chat-agent-${kind}`}>{names[kind]}</label>
-                  <p className="provider-source-status">
-                    <span className={`provider-status-mark ${marks[state]}`} aria-hidden="true" />
-                    <span>{statusText(state, status)}</span>
-                  </p>
-                  {state === "unchecked" && <p className="hint">{status.lastError}</p>}
-                </div>
-                {state === "signed-out" && status.loginHint && (
-                  <button onClick={() => void copy(kind, status.loginHint ?? "")}>
-                    {copied === kind ? "Copied" : "Copy"}
-                  </button>
-                )}
-                {state === "missing" && (
-                  <button onClick={() => void openInstall(kind)}>Install Guide</button>
-                )}
-                {chosen === kind && models.length > 0 && (
-                  <div className="chat-model">
-                    <label htmlFor="chat-model">Model</label>
-                    <select
-                      id="chat-model"
-                      value={model}
-                      disabled={saving}
-                      onChange={(e) => void save(kind, e.target.value)}
-                    >
-                      <option value="">{defaultLabel(status)}</option>
-                      {models.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.displayName || option.id}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                <p className="chat-agent-status">
+                  <span className={`chat-mark ${state}`} aria-hidden="true" />
+                  <span>{statusText(state, kind, status)}</span>
+                </p>
+                {state === "unchecked" && <p className="hint">{status.lastError}</p>}
               </div>
             );
           })}

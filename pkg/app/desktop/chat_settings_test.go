@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestChatSettingsChooseTheAgentAndModelWithoutTouchingOtherSettings(t *testing.T) {
+func TestChatSettingsTurnAnAgentOffWithoutTouchingOtherSettings(t *testing.T) {
 	env := testkit.Env(t)
 	env.CLIConfigFile = filepath.Join(t.TempDir(), "config.yml")
 	require.NoError(t, repoconfig.SaveCliConfig(env, repoconfig.CliConfig{
@@ -36,31 +36,30 @@ func TestChatSettingsChooseTheAgentAndModelWithoutTouchingOtherSettings(t *testi
 		require.Nil(t, response.Error)
 		return response.Result.(agentchat.SettingsResponse)
 	}
-	model := func(value string) *string { return &value }
+	enabled := func(value bool) *bool { return &value }
 
 	report := handle(Request{Operation: "chat-settings"})
-	require.Equal(t, harness.KindCodex, report.Settings.Harness)
+	require.Equal(t, harness.KindCodex, report.Resolved.Harness)
 	require.Len(t, report.Harnesses, 2)
 
-	chosen := handle(Request{Operation: "chat-settings-set", Harness: "claude"})
-	require.Equal(t, agentchat.ResolvedHarness{Harness: harness.KindClaude, Model: "sonnet", Reason: "configured"}, chosen.Resolved, "choosing an agent keeps its saved model")
-
-	chosen = handle(Request{Operation: "chat-settings-set", Harness: "claude", Model: model("opus")})
-	require.Equal(t, "opus", chosen.Resolved.Model)
-	chosen = handle(Request{Operation: "chat-settings-set", Harness: "claude", Model: model("")})
-	require.Empty(t, chosen.Resolved.Model, "an empty model restores the default")
+	off := handle(Request{Operation: "chat-settings-set", Harness: "codex", Enabled: enabled(false)})
+	require.True(t, off.Settings.Harnesses[harness.KindCodex].Disabled)
+	require.Equal(t, agentchat.ResolvedHarness{Harness: harness.KindClaude, Model: "sonnet", Reason: "first available"}, off.Resolved, "chat moves to the agent still on")
 
 	cfg, err := repoconfig.LoadCliConfig(env, false)
 	require.NoError(t, err)
 	require.Equal(t, "existing", cfg.DefaultVaultName)
 	require.Equal(t, map[string]string{"voyage": "server"}, cfg.ProviderAccess)
-	require.Equal(t, "claude", cfg.Agent.Harness)
-	require.Equal(t, repoconfig.AgentHarnessConfig{Model: "gpt-saved", Effort: "high", PermissionMode: "auto"}, cfg.Agent.Harnesses["codex"])
-	require.Equal(t, repoconfig.AgentHarnessConfig{PermissionMode: "approval-required"}, cfg.Agent.Harnesses["claude"])
+	require.Equal(t, "codex", cfg.Agent.Harness, "the saved choice stays for when the agent is on again")
+	require.Equal(t, repoconfig.AgentHarnessConfig{Model: "gpt-saved", Effort: "high", PermissionMode: "auto", Disabled: true}, cfg.Agent.Harnesses["codex"])
+	require.Equal(t, repoconfig.AgentHarnessConfig{Model: "sonnet", PermissionMode: "approval-required"}, cfg.Agent.Harnesses["claude"])
+
+	on := handle(Request{Operation: "chat-settings-set", Harness: "codex", Enabled: enabled(true)})
+	require.Equal(t, harness.KindCodex, on.Resolved.Harness)
 
 	for _, req := range []Request{
-		{Protocol: Protocol, Operation: "chat-settings-set", Harness: "gemini"},
-		{Protocol: Protocol, Operation: "chat-settings-set", Harness: "codex", Model: model("bad\nmodel")},
+		{Protocol: Protocol, Operation: "chat-settings-set", Harness: "gemini", Enabled: enabled(true)},
+		{Protocol: Protocol, Operation: "chat-settings-set", Harness: "codex"},
 	} {
 		require.Equal(t, "invalid_request", service.Handle(context.Background(), req).Error.Code)
 	}

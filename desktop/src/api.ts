@@ -418,7 +418,10 @@ export interface ChatHarnessStatus {
 }
 /** The person's chat agent choice and what each agent reports (SPEC-0140). */
 export interface ChatSettingsReport {
-  settings: { harness?: ChatHarness; harnesses: Partial<Record<ChatHarness, { model?: string }>> };
+  settings: {
+    harness?: ChatHarness;
+    harnesses: Partial<Record<ChatHarness, { model?: string; disabled?: boolean }>>;
+  };
   resolved: { harness?: ChatHarness; model?: string; reason: string };
   harnesses: { kind: ChatHarness; status: ChatHarnessStatus }[];
 }
@@ -496,8 +499,8 @@ type Args = {
   "credential-import": { source: CredentialSource };
   "credential-cancel": Record<string, never>;
   "chat-settings": Record<string, never>;
-  /** Without a model, the agent keeps its saved model; an empty one restores its default. */
-  "chat-settings-set": { harness: ChatHarness; model?: string };
+  /** Turns a chat agent on or off; one that is off leaves chat's model picker. */
+  "chat-settings-set": { harness: ChatHarness; enabled: boolean };
   "open-chat-install": { harness: ChatHarness };
   "team-status": Record<string, never>;
   "team-sign-in": Record<string, never>;
