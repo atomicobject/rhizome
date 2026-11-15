@@ -165,6 +165,29 @@ describe("Chat in the right pane", () => {
     expect(within(pane).getByRole("button", { name: "Send" })).toBeVisible();
   });
 
+  it("does not open a chat whose creation finished after Stop", async () => {
+    const creating = deferredReply<{ session: ReturnType<typeof session> }>();
+    http
+      .on("POST", "/api/agent/sessions", () => creating.promise)
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    const composer = await within(pane).findByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "Delete the drafts" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions")).toBe(1));
+
+    fireEvent.click(within(pane).getByRole("button", { name: "Stop" }));
+    creating.resolve({ session: session() });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(window.localStorage.getItem(SESSION_KEY)).toBeNull();
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+    expect(composer).toHaveValue("Delete the drafts");
+  });
+
   it("sends again after a choice failed to save", async () => {
     window.localStorage.setItem(SESSION_KEY, "agt-1");
     const saving = deferredReply<AgentSettingsResponse>();

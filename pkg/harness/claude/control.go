@@ -66,7 +66,7 @@ func (s *session) SetModel(ctx context.Context, model, effort string) error {
 	if err == nil {
 		s.changingModel = true
 	}
-	modelChanged, effortChanged := model != s.model, effort != s.effort
+	modelChanged, effortChanged := s.settingsUnknown || model != s.model, s.settingsUnknown || effort != s.effort
 	s.stateMu.Unlock()
 	if err != nil {
 		return err
@@ -77,15 +77,33 @@ func (s *session) SetModel(ctx context.Context, model, effort string) error {
 		s.stateMu.Unlock()
 	}()
 	// Claude gets as long to answer as it gets to end a turn after an interrupt.
+	caller := ctx
 	ctx, cancel := context.WithTimeout(ctx, s.interruptTimeout)
 	defer cancel()
+	failed := func(err error) error {
+		switch {
+		case caller.Err() != nil:
+			// Stopped by the caller: Claude may still apply the change, so the
+			// next change resends both, and the process keeps running.
+			s.stateMu.Lock()
+			s.settingsUnknown = true
+			s.stateMu.Unlock()
+			return harness.Phase(harness.ErrTurnStart, caller.Err())
+		case ctx.Err() != nil:
+			// Claude may still apply a change it did not answer, even during a
+			// later turn, so the process cannot be trusted with another turn.
+			_ = s.Stop()
+			return harness.Phase(harness.ErrTimeout, errors.New("Claude did not answer a model or effort change"))
+		}
+		return err
+	}
 	if modelChanged {
 		name := model
 		if name == "" {
 			name = "default"
 		}
 		if err := s.control(ctx, map[string]any{"subtype": "set_model", "model": name}); err != nil {
-			return err
+			return failed(err)
 		}
 		s.stateMu.Lock()
 		s.model = model
@@ -97,12 +115,15 @@ func (s *session) SetModel(ctx context.Context, model, effort string) error {
 			level = effort
 		}
 		if err := s.control(ctx, map[string]any{"subtype": "apply_flag_settings", "settings": map[string]any{"effortLevel": level}}); err != nil {
-			return err
+			return failed(err)
 		}
 		s.stateMu.Lock()
 		s.effort = effort
 		s.stateMu.Unlock()
 	}
+	s.stateMu.Lock()
+	s.settingsUnknown = false
+	s.stateMu.Unlock()
 	return nil
 }
 
@@ -110,12 +131,6 @@ func (s *session) control(ctx context.Context, request map[string]any) error {
 	id := fmt.Sprintf("control-%d", s.controlSeq.Add(1))
 	body, _ := json.Marshal(request)
 	msg, err := s.roundTrip(ctx, id, message{Type: "control_request", RequestID: id, Request: body}, harness.ErrTurnStart)
-	if err != nil && ctx.Err() != nil {
-		// Claude may still apply a change it did not answer, even during a
-		// later turn, so the process cannot be trusted with another turn.
-		_ = s.Stop()
-		return harness.Phase(harness.ErrTimeout, fmt.Errorf("Claude did not answer %s", request["subtype"]))
-	}
 	if err != nil {
 		return err
 	}

@@ -133,6 +133,8 @@ type session struct {
 	items           map[string]harness.EventKind
 	model           string
 	effort          string
+	// settingsUnknown: a stopped change may still land, so the next one resends both.
+	settingsUnknown bool
 	turnSeq         atomic.Int64
 	controlSeq      atomic.Int64
 	reader          sync.WaitGroup

@@ -269,6 +269,9 @@ export function ChatPanel() {
 
       if (!target) {
         const created = await createAgentSession(message.slice(0, 48));
+
+        // A send stopped meanwhile must not select its chat over a newer one.
+        if (!chatSendLive(id)) return;
         target = created.session.id;
         setChatSession(target);
       }

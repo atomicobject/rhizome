@@ -162,6 +162,37 @@ func TestSetModelStopsTheSessionWhenClaudeNeverAnswers(t *testing.T) {
 	require.ErrorIs(t, session.SendTurn(context.Background(), "ping"), harness.ErrTransportClosed)
 }
 
+func TestStoppingAModelChangeKeepsTheSessionAndResendsNextTime(t *testing.T) {
+	script := harnesstest.NewScriptedIO(initResponse("init-1"))
+	driver := testDriver(script)
+	session, err := driver.StartSession(context.Background(), harness.SessionOptions{Cwd: "/tmp/project", Model: "opus"})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = session.Stop() })
+
+	stop := func() error {
+		ctx, cancel := context.WithCancel(context.Background())
+		time.AfterFunc(20*time.Millisecond, cancel)
+		return session.SetModel(ctx, "sonnet", "")
+	}
+	err = stop()
+	require.ErrorIs(t, err, context.Canceled)
+	require.NotErrorIs(t, err, harness.ErrTimeout)
+	require.False(t, script.Closed(), "a stopped change keeps the process, so the turn ends as interrupted")
+
+	setModels := func() int {
+		count := 0
+		for _, line := range script.Writes() {
+			if strings.Contains(line, `"set_model"`) {
+				count++
+			}
+		}
+		return count
+	}
+	require.Equal(t, 1, setModels())
+	require.ErrorIs(t, stop(), context.Canceled)
+	require.Equal(t, 2, setModels(), "Claude may have applied the stopped change, so the same model is sent again")
+}
+
 func TestOptionsPermissionAndMCPArgs(t *testing.T) {
 	script := harnesstest.NewScriptedIO(initResponse("init-1"))
 	var args []string
