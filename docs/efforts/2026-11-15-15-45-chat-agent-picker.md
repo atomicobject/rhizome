@@ -83,6 +83,7 @@ Built on `t3/chat-agent-model-picker`.
 - Greptile's fourteenth pass (4/5) found the Agent page sending to a chat opened by link before its agent was known; it now reads the open chat before choosing the target, as the chat pane does, with a test shown to fail before the fix.
 - Greptile's fifteenth pass (4/5) found a message reusing a replacement process another window started, with that window's permission mode, while its own old process stopped; the service now checks the process found after stopping again and replaces any idle one with other permissions, with a test shown to fail before the fix.
 - Greptile's sixteenth pass (4/5) found an earlier save's reply restoring an older choice while a later one was still saving, which a later permission change could then save again; replies now apply only when no later choice is pending, with a test shown to fail before the fix.
+- Greptile's seventeenth pass (4/5) found a failed earlier save's settings read overwriting a later pending choice; a failed save now re-reads settings only when no later choice is pending, with a test shown to fail before the fix.
 
 ## Compounding Follow-ups
 

@@ -104,7 +104,11 @@ export function useChatAgent(session?: Pick<AgentSession, "harness"> | null) {
     onSuccess: async (next) => {
       if (pendingChoices(queryClient) === 1) await store(next);
     },
-    onError: () => queryClient.invalidateQueries({ queryKey: key }),
+    // A later choice still saving keeps the composer; its own reply, or its
+    // own failure's read, settles it.
+    onError: async () => {
+      if (pendingChoices(queryClient) === 1) await queryClient.invalidateQueries({ queryKey: key });
+    },
     onSettled: () => unsaved.set(queryClient, pendingChoices(queryClient) - 1),
   });
 

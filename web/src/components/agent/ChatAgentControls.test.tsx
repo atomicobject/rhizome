@@ -131,6 +131,33 @@ describe("chat's agent picker", () => {
     expect(saved().harnesses.claude).toMatchObject({ model: "sonnet" });
   });
 
+  it("keeps the latest choice when an earlier save fails after it", async () => {
+    const replies: ((ok: boolean) => void)[] = [];
+
+    http.on("PUT", "/api/agent/settings", (request) => {
+      const settings = decodeJSONBody(request, isSettingsBody).settings;
+
+      return new Promise((resolve) => {
+        replies.push((ok) =>
+          resolve(ok ? jsonReply({ ...response, settings }) : jsonReply({ error: "busy" }, 500)),
+        );
+      });
+    });
+    render(<Composer />);
+    const picker = await openPicker();
+
+    fireEvent.click(within(picker).getByRole("radio", { name: "Max" }));
+    fireEvent.click(within(picker).getByRole("option", { name: /Sonnet 5.5/ }));
+    await waitFor(() => expect(replies).toHaveLength(1));
+
+    replies[0]!(false);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect(screen.getByRole("button", { name: /^Sonnet 5.5/ })).toBeVisible();
+    await waitFor(() => expect(replies).toHaveLength(2));
+    replies[1]!(true);
+    expect(await screen.findByRole("button", { name: /^Sonnet 5.5/ })).toBeVisible();
+  });
+
   it("groups each agent's models, Claude Code first, with a faint note for a signed-out one", async () => {
     render(<Composer />);
     const picker = await openPicker();
