@@ -14,6 +14,7 @@ export function AgentComposer({
   blocked,
   readOnly,
   agent,
+  onStop,
 }: {
   runningID: string;
   onError: (message: string) => void;
@@ -25,6 +26,8 @@ export function AgentComposer({
   blocked: boolean;
   readOnly: boolean;
   agent: ChatAgent;
+  /** Set while a message waits to be sent; Stop takes Send's place. */
+  onStop?: () => void;
 }) {
   const canSend = !busy && !blocked && Boolean(draft.trim()) && !readOnly;
   // The composer grows with its message; CSS caps it, then it scrolls.
@@ -82,13 +85,19 @@ export function AgentComposer({
             ) : (
               <ChatAgentControls agent={agent} />
             )}
-            <button
-              type="submit"
-              className={`button${canSend ? " button--primary" : ""}`}
-              disabled={!canSend}
-            >
-              Send
-            </button>
+            {onStop ? (
+              <button type="button" className="button" onClick={onStop}>
+                Stop
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className={`button${canSend ? " button--primary" : ""}`}
+                disabled={!canSend}
+              >
+                Send
+              </button>
+            )}
           </div>
         </div>
       </form>

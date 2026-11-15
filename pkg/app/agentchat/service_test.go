@@ -350,7 +350,7 @@ func TestServiceCompletionSerializesAssistantBeforeNextUserMessage(t *testing.T)
 func requireCommandTimelineDetails(t *testing.T, event Event) {
 	t.Helper()
 	require.NotNil(t, event.Result)
-	require.Equal(t, "turn-1", event.Result.TurnID)
+	require.Regexp(t, `^[0-9a-f]+:turn-1$`, event.Result.TurnID, "the harness turn id under its process generation")
 	require.Equal(t, "item-1", event.Result.ItemID)
 	require.Equal(t, "go test", event.Result.Command)
 	require.Equal(t, harness.PhaseFailed, event.Result.Phase)
@@ -543,7 +543,8 @@ func sendAndFinish(t *testing.T, ctx context.Context, service *Service, fake *fa
 	_, err := service.SendMessage(ctx, sessionID, content)
 	require.NoError(t, err)
 	require.Equal(t, content, <-fake.session.turns)
-	fake.session.events <- harness.Event{Kind: harness.EventTurnCompleted}
+	// Each process numbers its turns from one, as Claude Code does.
+	fake.session.events <- harness.Event{Kind: harness.EventTurnCompleted, TurnID: "turn-1"}
 	fake.session.turnResults <- nil
 	require.Eventually(t, func() bool { return !service.turnRunning(sessionID) }, 5*time.Second, time.Millisecond)
 }
@@ -611,6 +612,16 @@ func TestServiceResumesAnOpenSessionInANewProcessWhenThePermissionModeChanges(t 
 	default:
 		t.Fatal("the old process was not stopped")
 	}
+	events, err := service.EventsAfter(ctx, created.Session.ID, 0)
+	require.NoError(t, err)
+	var turnIDs []string
+	for _, event := range events {
+		if event.Type == string(harness.EventTurnCompleted) {
+			turnIDs = append(turnIDs, event.Result.TurnID)
+		}
+	}
+	require.Len(t, turnIDs, 2)
+	require.NotEqual(t, turnIDs[0], turnIDs[1], "each process's turn-1 is its own turn, so the browser does not merge them")
 }
 
 func TestServiceRefusesATurnForAnAgentTurnedOffInSettings(t *testing.T) {

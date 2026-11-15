@@ -41,7 +41,13 @@ export function AgentWorkspace({
   const [deleteConfirmID, setDeleteConfirmID] = useState("");
   const threadRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
-  const submitting = useRef(false);
+  // The submit in flight, by id, held from the first keypress until its send
+  // returns, so a second submit cannot create another session or send twice.
+  const submitting = useRef(0);
+  const submits = useRef(0);
+  // Whether that submit still waits for its choice to save or its chat to
+  // open; Stop then cancels it, since there is no turn to interrupt.
+  const [waiting, setWaiting] = useState(false);
 
   const sessionsQuery = useQuery({
     queryKey: queryKeys.agent.sessions(),
@@ -136,13 +142,15 @@ export function AgentWorkspace({
       selectedSession?.readOnly
     )
       return;
-    // Held across a new session's creation, so a second submit in that wait
-    // cannot create another session and send the message twice.
-    submitting.current = true;
+    const id = ++submits.current;
+    const live = () => submitting.current === id;
+
+    submitting.current = id;
+    setWaiting(true);
     setError("");
 
     try {
-      if (!(await agent.saved())) return;
+      if (!(await agent.saved()) || !live()) return;
 
       // A choice of another agent starts a new chat with it.
       let sessionID = agent.startsNewChat() ? "" : selectedID;
@@ -153,7 +161,7 @@ export function AgentWorkspace({
 
         setSessions((current) => [created.session, ...current]);
 
-        if (!(await agent.saved())) return;
+        if (!(await agent.saved()) || !live()) return;
 
         if (!agent.startsNewChat(created.session.harness)) sessionID = created.session.id;
       }
@@ -162,16 +170,25 @@ export function AgentWorkspace({
 
       // A permission mode or model chosen while the chat opened is saved
       // before the message runs on it.
-      if (!(await agent.saved())) return;
+      if (!(await agent.saved()) || !live()) return;
 
+      setWaiting(false);
       // Text typed while the message waited stays for the next one.
       setDraft((current) => (current.trim() === trimmed ? "" : current));
       await send(sessionID, trimmed);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      submitting.current = false;
+      if (live()) {
+        submitting.current = 0;
+        setWaiting(false);
+      }
     }
+  };
+
+  const cancelWaiting = () => {
+    submitting.current = 0;
+    setWaiting(false);
   };
 
   const harness = selectedSession?.harness || agent.choice?.harness;
@@ -268,6 +285,7 @@ export function AgentWorkspace({
           blocked={blocked}
           readOnly={Boolean(selectedSession?.readOnly)}
           agent={agent}
+          onStop={waiting ? cancelWaiting : undefined}
         />
       </section>
     </main>

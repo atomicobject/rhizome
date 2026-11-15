@@ -70,6 +70,10 @@ type liveSession struct {
 	page          *pageRelay
 	// The process's permission mode, fixed at launch.
 	permissionMode harness.PermissionMode
+	// generation prefixes the process's turn ids in stored events. A process
+	// numbers its turns from one, so a chat resumed in a new process would
+	// otherwise repeat an earlier turn's id.
+	generation string
 }
 
 type chatStore interface {
@@ -379,7 +383,7 @@ func (s *Service) beginTurn(session Session, settings Settings) (*liveSession, *
 		live = &liveSession{
 			page: page, ready: make(chan struct{}), drained: make(chan struct{}), starting: true,
 			startupCancel: cancelStartup, pending: make(map[string]struct{}),
-			permissionMode: configured.PermissionMode,
+			permissionMode: configured.PermissionMode, generation: newID(""),
 		}
 		s.live[session.ID] = live
 		origin := s.pageRelayOrigin

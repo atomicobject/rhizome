@@ -130,7 +130,8 @@ describe("AgentWorkspace", () => {
     const message = await screen.findByLabelText("Message");
     fireEvent.change(message, { target: { value: "hello" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    // Stop takes Send's place while the chat opens; the shortcut still submits.
+    fireEvent.keyDown(message, { key: "Enter", metaKey: true });
     await act(async () => creation.resolve({ session: created }));
 
     await waitFor(() => expect(http.count("POST", "/api/agent/sessions/created/messages")).toBe(1));
@@ -245,6 +246,54 @@ describe("AgentWorkspace", () => {
     await waitFor(() => expect(http.count("POST", "/api/agent/sessions/created/messages")).toBe(1));
     expect(http.count("POST", "/api/agent/sessions")).toBe(1);
     expect(screen.getByLabelText("Message")).toHaveValue("hello, and also");
+  });
+
+  it("stops a message still waiting for its choice to save", async () => {
+    const response = settingsWith(readyStatus);
+    response.harnesses.push({
+      kind: "claude",
+      status: {
+        ...readyStatus,
+        models: [{ id: "opus", displayName: "Opus 5.5", efforts: ["high"], default: true }],
+      },
+    });
+    const current = session();
+    const saving = deferredReply<typeof response>();
+    http
+      .json("GET", "/api/agent/settings", response)
+      .on("PUT", "/api/agent/settings", () => saving.promise)
+      .json("GET", "/api/agent/sessions", { sessions: [current] })
+      .json("GET", `/api/agent/sessions/${current.id}`, {
+        session: current,
+        messages: [],
+        events: [],
+      });
+
+    render(<AgentWorkspace />);
+    fireEvent.click(await screen.findByRole("button", { name: "GPT Standard · Medium" }));
+    fireEvent.click(screen.getByRole("option", { name: /Opus 5.5/ }));
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "hello" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Stop" }));
+    expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
+
+    await act(async () =>
+      saving.resolve({
+        ...response,
+        settings: {
+          harness: "claude",
+          harnesses: {
+            ...response.settings.harnesses,
+            claude: { model: "opus", permissionMode: "approval-required" },
+          },
+        },
+        resolved: { harness: "claude", model: "opus", reason: "configured" },
+      }),
+    );
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions")).toBe(0);
+    expect(http.count("POST", `/api/agent/sessions/${current.id}/messages`)).toBe(0);
+    expect(screen.getByLabelText("Message")).toHaveValue("hello");
   });
 
   it("renders approval details, posts a decision, and disables the controls", async () => {
