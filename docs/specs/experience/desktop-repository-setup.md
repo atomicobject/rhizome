@@ -111,7 +111,8 @@ The app does not reimplement setup. Each step runs the Rhizome executable that o
   - the project root, its name, and `configured: false`
   - the docs, code, and skip findings as display text
   - the workflow choices with labels, descriptions, and the recommended choice
-  - the add-on starters with labels, descriptions, and which workflows activate each by default
+  - the add-on starters, optional add-ons included and marked optional but not enabled unless chosen, with labels, descriptions, and which workflows activate each by default
+  - for each workflow choice and add-on, the repository signals that suggest it (`fit`) and its cautions (`cautions`) when its starter declares them
   - for each of Claude Code, Codex, and Cursor: whether it would be enabled and why (repository marker or installed command)
   - each search provider's label and readiness, the name of the key it needs, whether team keys are offered, and the recommended provider
   - ignored nested repository candidates

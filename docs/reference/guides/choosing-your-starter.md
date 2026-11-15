@@ -78,7 +78,7 @@ Use Agentic Engineering alone when the work does not need a durable source-to-re
 rzm init --add-addon compounding
 ```
 
-An optional add-on that no workflow turns on. After setup, turn it on under **Add-ons** in the repository's tab in Rhizome Desktop's **Settings** and choose **Apply changes**. You can also run the command above, ask your agent to, or use the Add-ons section of the `rzm init` settings menu. First-time setup in the app doesn't offer it. It mines this repository's Claude Code and Codex sessions into reviewed proposals: context shards for agents, edits to documents, and findings for friction worth fixing. Installing it adds a guide at `docs/reference/guides/compounding.md`.
+An optional add-on that no workflow turns on. Rhizome Desktop's setup sheet lists it unchecked below the workflow choices; check it to install it at setup. After setup, turn it on under **Add-ons** in the repository's tab in Rhizome Desktop's **Settings** and choose **Apply changes**. You can also run the command above, ask your agent to, or use the Add-ons section of the `rzm init` settings menu. It mines this repository's Claude Code and Codex sessions into reviewed proposals: context shards for agents, edits to documents, and findings for friction worth fixing. Installing it adds a guide at `docs/reference/guides/compounding.md`.
 
 ## Valid combinations
 
