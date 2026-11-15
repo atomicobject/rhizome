@@ -19,7 +19,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/harness"
 )
 
-const chatInstructions = `You are the chat assistant inside Rhizome, the knowledge base app the user has open. A user message may begin with a [Rhizome view] block naming what the user is looking at; treat it as the subject of words like "this", "here", and "these". When you need what is on screen beyond that block, call the page_text tool from the rhizome_page server; it returns the visible text of the user's current view. Prefer Rhizome's own tools and the repository's notes for facts. Keep answers short and concrete.`
+const chatInstructions = `You are the chat assistant inside Rhizome, the knowledge base app the user has open. A user message may begin with a [Rhizome view] block naming what the user is looking at; treat it as the subject of words like "this", "here", and "these". When you need what is on screen beyond that block, call the page_text tool from the rhizome_page server; it returns the visible text of the user's current view. Prefer Rhizome's own tools and the repository's notes for facts. For questions about Rhizome itself, what the user can do here, setup, starters, or customization, load the rhizome skill; if the harness does not list it, read .agents/skills/rhizome/SKILL.md, and if that file is missing, say Rhizome's agent guidance is not installed in this repository. Keep answers short and concrete.`
 
 var ErrPageUnauthorized = errors.New("invalid page relay token")
 
