@@ -33,10 +33,12 @@ type OSRunner struct {
 	Label string
 }
 
-// LookPath resolves name on the login shell's PATH, since a runtime the
-// desktop app starts has a bare one. exec.LookPath still checks a name that is
-// already a path, which loginpath.Look returns unchecked.
+// LookPath resolves name on PATH, then on the login shell's PATH, since a
+// runtime the desktop app starts has a bare one.
 func (OSRunner) LookPath(name string) (string, error) {
+	if path, err := exec.LookPath(name); err == nil {
+		return path, nil
+	}
 	path, err := loginpath.Look(name)
 	if err != nil {
 		return "", err
@@ -56,7 +58,7 @@ func (r OSRunner) Run(ctx context.Context, spec Spec) (Result, error) {
 		return err
 	}
 	cmd.Dir = spec.Dir
-	cmd.Env = append(loginpath.WithPath(os.Environ(), loginpath.Path()), spec.Env...)
+	cmd.Env = append(loginpath.WithPath(os.Environ(), loginpath.Extend(os.Getenv("PATH"))), spec.Env...)
 	cmd.Stdin = spec.Stdin
 	var stdout bytes.Buffer
 	var stderr tailBuffer

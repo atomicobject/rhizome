@@ -98,6 +98,18 @@ func Look(name string) (string, error) {
 	return "", fmt.Errorf("command %q is not on the login shell's PATH", name)
 }
 
+// Extend returns path followed by the entries of Path it lacks, so an explicit
+// PATH keeps priority and a bare one still reaches installed tools.
+func Extend(path string) string {
+	dirs := filepath.SplitList(path)
+	for _, dir := range filepath.SplitList(Path()) {
+		if !slices.Contains(dirs, dir) {
+			dirs = append(dirs, dir)
+		}
+	}
+	return strings.Join(dirs, string(os.PathListSeparator))
+}
+
 // WithPath returns env with PATH replaced by path.
 func WithPath(env []string, path string) []string {
 	out := make([]string, 0, len(env)+1)
