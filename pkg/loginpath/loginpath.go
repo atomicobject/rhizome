@@ -5,6 +5,7 @@ package loginpath
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -51,7 +52,14 @@ func shellPath() string {
 	defer cancel()
 	// A profile may print to stdout; the marker finds PATH after it.
 	const marker = "__RZM_LOGIN_PATH__"
-	out, err := exec.CommandContext(ctx, shell, "-lc", `printf '`+marker+`%s' "$PATH"`).Output()
+	cmd := exec.CommandContext(ctx, shell, "-lc", `printf '`+marker+`%s' "$PATH"`)
+	// A profile may leave a background child holding stdout; stop waiting
+	// for it once the shell is gone and keep what the shell printed.
+	cmd.WaitDelay = 500 * time.Millisecond
+	out, err := cmd.Output()
+	if errors.Is(err, exec.ErrWaitDelay) {
+		err = nil
+	}
 	i := strings.LastIndex(string(out), marker)
 	if err != nil || i < 0 {
 		return ""
