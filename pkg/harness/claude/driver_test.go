@@ -107,6 +107,61 @@ func TestSetModelRestoresClaudeDefaultsAndWaitsForTheTurn(t *testing.T) {
 	require.NoError(t, <-turn)
 }
 
+func TestSetModelAndATurnNeverOverlap(t *testing.T) {
+	script := harnesstest.NewScriptedIO(initResponse("init-1"))
+	session, err := testDriver(script).StartSession(context.Background(), harness.SessionOptions{Cwd: "/tmp/project", Model: "opus"})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = session.Stop() })
+
+	change := make(chan error, 1)
+	go func() { change <- session.SetModel(context.Background(), "sonnet", "") }()
+	require.Eventually(t, func() bool { return script.WriteCount() == 2 }, time.Second, time.Millisecond)
+	turn := make(chan error, 1)
+	go func() { turn <- session.SendTurn(context.Background(), "ping") }()
+	select {
+	case err := <-turn:
+		require.ErrorIs(t, err, harness.ErrTurnStart)
+	case <-time.After(time.Second):
+		t.Fatal("a turn started while Claude had not answered set_model")
+	}
+	require.ErrorIs(t, session.SetModel(context.Background(), "haiku", ""), harness.ErrTurnStart, "a second change does not interleave with the first")
+	require.Equal(t, 2, script.WriteCount(), "nothing else reached Claude during the change")
+
+	script.Push(`{"type":"control_response","response":{"subtype":"success","request_id":"control-1","response":{"model":"claude-sonnet-5-5"}}}`)
+	require.NoError(t, <-change)
+	go func() { turn <- session.SendTurn(context.Background(), "ping") }()
+	require.Eventually(t, func() bool { return script.WriteCount() == 3 }, time.Second, time.Millisecond)
+	script.Push(resultMessage("success", false))
+	require.NoError(t, <-turn)
+}
+
+func TestSetModelStopsTheSessionWhenClaudeNeverAnswers(t *testing.T) {
+	script := harnesstest.NewScriptedIO(initResponse("init-1"))
+	driver := testDriver(script)
+	driver.interruptTimeout = 20 * time.Millisecond
+	session, err := driver.StartSession(context.Background(), harness.SessionOptions{Cwd: "/tmp/project", Model: "opus"})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = session.Stop() })
+
+	change := make(chan error, 1)
+	go func() { change <- session.SetModel(context.Background(), "sonnet", "") }()
+	select {
+	case err := <-change:
+		require.ErrorIs(t, err, harness.ErrTimeout)
+	case <-time.After(time.Second):
+		t.Fatal("SetModel waited on Claude without a deadline")
+	}
+	require.Eventually(t, func() bool {
+		select {
+		case _, open := <-session.Events():
+			return !open
+		default:
+			return false
+		}
+	}, time.Second, time.Millisecond, "the stopped session closes its events, so chat resumes in a new process")
+	require.ErrorIs(t, session.SendTurn(context.Background(), "ping"), harness.ErrTransportClosed)
+}
+
 func TestOptionsPermissionAndMCPArgs(t *testing.T) {
 	script := harnesstest.NewScriptedIO(initResponse("init-1"))
 	var args []string

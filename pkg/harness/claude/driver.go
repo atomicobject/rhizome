@@ -122,6 +122,7 @@ type session struct {
 	stopped         bool
 	terminalErr     error
 	running         bool
+	changingModel   bool // SetModel is waiting on Claude; no turn starts meanwhile
 	started         bool
 	sessionID       string
 	turnID          string
@@ -163,15 +164,10 @@ func (s *session) SendTurn(ctx context.Context, prompt string) error {
 	}
 	s.dispatchMu.Lock()
 	s.stateMu.Lock()
-	if s.stopped {
+	if err := s.admission(); err != nil {
 		s.stateMu.Unlock()
 		s.dispatchMu.Unlock()
-		return harness.Phase(harness.ErrTransportClosed, errors.New("session stopped"))
-	}
-	if s.running {
-		s.stateMu.Unlock()
-		s.dispatchMu.Unlock()
-		return harness.Phase(harness.ErrTurnStart, errors.New("turn already running"))
+		return err
 	}
 	s.running, s.started = true, false
 	s.turnID = fmt.Sprintf("turn-%d", s.turnSeq.Add(1))

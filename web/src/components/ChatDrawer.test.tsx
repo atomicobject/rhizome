@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { AgentEvent, AgentSessionResponse } from "../api/types";
+import type { AgentEvent, AgentSessionResponse, AgentSettingsResponse } from "../api/types";
 import { withFakeEventSource } from "../test/fakeEventSource";
 import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
@@ -104,6 +104,34 @@ describe("Chat in the right pane", () => {
     sources.latest().emitJSON(event(2, "turn-completed", { turnId: "t1" }), "agent_event");
     expect(await within(pane).findByRole("button", { name: "Send" })).toBeVisible();
     expect(within(pane).queryByRole("button", { name: "Stop" })).toBeNull();
+  });
+
+  it("holds a message until the permission mode chosen just before it is saved", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+    const saving = deferredReply<AgentSettingsResponse>();
+    http
+      .on("PUT", "/api/agent/settings", () => saving.promise)
+      .json("GET", "/api/agent/sessions/agt-1", { session: session(), messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    fireEvent.click(await within(pane).findByRole("button", { name: "Auto" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Ask first/ }));
+    const composer = within(pane).getByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "Delete the drafts" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+
+    const asked = settingsWith(readyStatus);
+    asked.settings.harnesses.codex = { model: "gpt-standard", permissionMode: "approval-required" };
+    saving.resolve(asked);
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(1));
   });
 
   it("shows each agent action as one line and asks only for escalations", async () => {

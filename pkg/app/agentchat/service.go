@@ -20,6 +20,17 @@ var (
 	ErrNotFound = errors.New("agent session not found")
 )
 
+var harnessLabels = map[harness.Kind]string{harness.KindClaude: "Claude Code", harness.KindCodex: "Codex"}
+
+// turnedOff refuses a turn for an agent turned off in Settings, in words the
+// composer shows as they are.
+type turnedOff harness.Kind
+
+func (e turnedOff) Error() string {
+	return harnessLabels[harness.Kind(e)] + " is turned off in Settings."
+}
+func (turnedOff) Unwrap() error { return ErrConflict }
+
 const statusCacheTTL = 30 * time.Second
 
 const defaultSessionStartupTimeout = 60 * time.Second
@@ -143,8 +154,9 @@ func (s *Service) Settings(ctx context.Context) (SettingsResponse, error) {
 	return settingsResponse(settings, s.harnessStatuses(ctx)), nil
 }
 
-func (s *Service) SaveSettings(ctx context.Context, settings Settings) (SettingsResponse, error) {
-	saved, err := SaveSettings(vaultconfig.FromContext(s.ctx), settings)
+// SaveChoice stores the composer's choice; see the package function.
+func (s *Service) SaveChoice(ctx context.Context, settings Settings) (SettingsResponse, error) {
+	saved, err := SaveChoice(vaultconfig.FromContext(s.ctx), settings)
 	if err != nil {
 		return SettingsResponse{}, err
 	}
@@ -339,6 +351,9 @@ func (s *Service) beginTurn(session Session, settings Settings) (*liveSession, *
 		return nil, nil, fmt.Errorf("harness %q is unavailable", session.Harness)
 	}
 	configured := settings.Harnesses[session.Harness]
+	if configured.Disabled {
+		return nil, nil, turnedOff(session.Harness)
+	}
 	s.mu.Lock()
 	live := s.live[session.ID]
 	if live != nil && !live.starting && !live.running && live.permissionMode != configured.PermissionMode {

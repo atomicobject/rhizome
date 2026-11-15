@@ -31,6 +31,8 @@ func (s *Server) handleAgentSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, response)
 	case http.MethodPut:
+		// Saves the composer's choice: the agent and its model, effort, and
+		// permission mode. Other agents and the Settings switches stay as stored.
 		defer r.Body.Close()
 		var req struct {
 			Settings agentchat.Settings `json:"settings"`
@@ -39,7 +41,7 @@ func (s *Server) handleAgentSettings(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		response, err := s.agentService.SaveSettings(r.Context(), req.Settings)
+		response, err := s.agentService.SaveChoice(r.Context(), req.Settings)
 		if err != nil {
 			writeAgentError(w, err)
 			return

@@ -67,6 +67,7 @@ Built on `t3/chat-agent-model-picker`.
 - The visual comparison against the mockup found the Agent page's button style drawing borders on the picker's buttons; fixed.
 - The web E2E agent journey found the picker opening while invisible, so ⌘3 never reached it; fixed.
 - The Claude driver crossed the file-size limit; control requests moved to `pkg/harness/claude/control.go`.
+- Review fixes (Greptile and GPT-6.1 Sol): a send waits for the choice it shows to save; a turn for an agent turned off in Settings is refused before its message is stored; the composer and the Settings switch each write only their own fields inside one locked rewrite of user configuration; a Claude model change and a turn never overlap; and a model change Claude never answers stops the session after five seconds, so the next turn resumes in a new process.
 
 ## Compounding Follow-ups
 

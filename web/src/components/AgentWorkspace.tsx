@@ -144,6 +144,8 @@ export function AgentWorkspace({
     let sessionID = agent.newChat ? "" : selectedID;
 
     try {
+      if (!(await agent.saved())) return;
+
       if (!sessionID) {
         const created = await createAgentSession(trimmed.slice(0, 48));
         sessionID = created.session.id;

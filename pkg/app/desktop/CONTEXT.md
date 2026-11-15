@@ -383,9 +383,9 @@ user configuration. It probes Claude Code and Codex concurrently, each within
 five seconds. `chat-settings-set` accepts `harness` (`claude` or `codex`) and a
 required `enabled`, and turns that agent on or off for chat by storing
 `agent.harnesses.<kind>.disabled`; chat's picker, not Settings, chooses the agent
-and model. It rewrites only the `agent` section of user configuration, keeps the
-chosen agent, model, effort, and permission mode, and returns the refreshed
-report. Native routing holds the
+and model. It changes only that agent's `disabled` flag, inside one locked
+rewrite of the current user configuration, so a choice a composer saves
+meanwhile survives, and returns the refreshed report. Native routing holds the
 same app-wide user-config lock as provider settings. `open-chat-install` is a
 native-only action that opens the fixed install guide for `claude` or `codex`;
 the shell never supplies the URL.

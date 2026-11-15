@@ -18,6 +18,7 @@ const agent: ChatAgent = {
   fallback: undefined,
   newChat: false,
   choose: vi.fn(),
+  saved: () => Promise.resolve(true),
   recheck: vi.fn(),
 };
 

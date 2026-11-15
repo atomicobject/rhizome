@@ -50,9 +50,12 @@ func TestChatSettingsTurnAnAgentOffWithoutTouchingOtherSettings(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "existing", cfg.DefaultVaultName)
 	require.Equal(t, map[string]string{"voyage": "server"}, cfg.ProviderAccess)
-	require.Equal(t, "codex", cfg.Agent.Harness, "the saved choice stays for when the agent is on again")
-	require.Equal(t, repoconfig.AgentHarnessConfig{Model: "gpt-saved", Effort: "high", PermissionMode: "auto", Disabled: true}, cfg.Agent.Harnesses["codex"])
-	require.Equal(t, repoconfig.AgentHarnessConfig{Model: "sonnet", PermissionMode: "approval-required"}, cfg.Agent.Harnesses["claude"])
+	// The switch writes its one field into the stored section rather than a
+	// copy it read first, so a choice the composer saves meanwhile survives.
+	require.Equal(t, &repoconfig.AgentUserConfig{Harness: "codex", Harnesses: map[string]repoconfig.AgentHarnessConfig{
+		"codex":  {Model: "gpt-saved", Effort: "high", Disabled: true},
+		"claude": {Model: "sonnet", PermissionMode: "approval-required"},
+	}}, cfg.Agent, "only Codex's switch changed; the saved choice stays for when it is on again")
 
 	on := handle(Request{Operation: "chat-settings-set", Harness: "codex", Enabled: enabled(true)})
 	require.Equal(t, harness.KindCodex, on.Resolved.Harness)

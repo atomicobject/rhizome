@@ -19,37 +19,67 @@ func LoadSettings(env vaultconfig.Env) (Settings, error) {
 	if err != nil {
 		return Settings{}, err
 	}
-	if cfg.Agent == nil {
-		return DefaultSettings(), nil
+	return settingsFrom(cfg.Agent), nil
+}
+
+func settingsFrom(agent *repoconfig.AgentUserConfig) Settings {
+	if agent == nil {
+		return DefaultSettings()
 	}
-	settings := Settings{Harness: harness.Kind(cfg.Agent.Harness)}
-	for key, value := range cfg.Agent.Harnesses {
-		if settings.Harnesses == nil {
-			settings.Harnesses = make(map[harness.Kind]HarnessSettings)
-		}
+	settings := Settings{Harness: harness.Kind(agent.Harness), Harnesses: make(map[harness.Kind]HarnessSettings)}
+	for key, value := range agent.Harnesses {
 		settings.Harnesses[harness.Kind(key)] = HarnessSettings{
 			Model: value.Model, Effort: value.Effort,
 			PermissionMode: harness.PermissionMode(value.PermissionMode), Disabled: value.Disabled,
 		}
 	}
-	return normalizeSettings(settings), nil
+	return normalizeSettings(settings)
 }
 
-func SaveSettings(env vaultconfig.Env, settings Settings) (Settings, error) {
+// SaveChoice stores the composer's choice: the agent in settings.Harness and
+// that agent's model, effort, and permission mode. Every other stored value,
+// including whether an agent is turned off, stays as it is, so a page holding
+// older settings cannot undo a newer change or turn an agent back on.
+func SaveChoice(env vaultconfig.Env, settings Settings) (Settings, error) {
 	settings = normalizeSettings(settings)
-	agent := &repoconfig.AgentUserConfig{
-		Harness:   string(settings.Harness),
-		Harnesses: make(map[string]repoconfig.AgentHarnessConfig, len(settings.Harnesses)),
-	}
-	for kind, value := range settings.Harnesses {
-		agent.Harnesses[string(kind)] = repoconfig.AgentHarnessConfig{
-			Model: value.Model, Effort: value.Effort, PermissionMode: string(value.PermissionMode), Disabled: value.Disabled,
+	return updateAgent(env, func(agent *repoconfig.AgentUserConfig) {
+		agent.Harness = string(settings.Harness)
+		if settings.Harness == "" {
+			return
 		}
-	}
-	if err := repoconfig.UpdateCliConfig(env, func(cfg *repoconfig.CliConfig) error {
-		cfg.Agent = agent
+		chosen := settings.Harnesses[settings.Harness]
+		stored := agent.Harnesses[agent.Harness]
+		stored.Model, stored.Effort, stored.PermissionMode = chosen.Model, chosen.Effort, string(chosen.PermissionMode)
+		agent.Harnesses[agent.Harness] = stored
+	})
+}
+
+// SetHarnessDisabled turns one agent on or off for chat and changes nothing else.
+func SetHarnessDisabled(env vaultconfig.Env, kind harness.Kind, disabled bool) (Settings, error) {
+	return updateAgent(env, func(agent *repoconfig.AgentUserConfig) {
+		stored := agent.Harnesses[string(kind)]
+		stored.Disabled = disabled
+		agent.Harnesses[string(kind)] = stored
+	})
+}
+
+// updateAgent edits the agent section of the current user configuration
+// under its file lock, so writers from other windows and processes keep each
+// other's changes.
+func updateAgent(env vaultconfig.Env, edit func(*repoconfig.AgentUserConfig)) (Settings, error) {
+	var settings Settings
+	err := repoconfig.UpdateCliConfig(env, func(cfg *repoconfig.CliConfig) error {
+		if cfg.Agent == nil {
+			cfg.Agent = &repoconfig.AgentUserConfig{}
+		}
+		if cfg.Agent.Harnesses == nil {
+			cfg.Agent.Harnesses = make(map[string]repoconfig.AgentHarnessConfig)
+		}
+		edit(cfg.Agent)
+		settings = settingsFrom(cfg.Agent)
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		return Settings{}, err
 	}
 	return settings, nil

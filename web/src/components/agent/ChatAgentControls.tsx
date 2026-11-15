@@ -1,7 +1,7 @@
 // The composer's agent controls (SPEC-0140): one picker for the model and its
 // reasoning effort and a permission mode menu, which the right pane and the
 // Agent page share. A choice saves the agent and model new chats use.
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { getAgentSettings, saveAgentSettings } from "../../api/internalAgentClient";
@@ -42,6 +42,10 @@ const subscribePrevious = (listener: () => void) => {
 
   return () => previousListeners.delete(listener);
 };
+
+// Each app's last choice save. The server runs the saved choice, so a
+// message sent before it lands would run the one before it.
+const saving = new WeakMap<QueryClient, Promise<boolean>>();
 
 export function resetChatAgentForTests() {
   previous = undefined;
@@ -121,8 +125,17 @@ export function useChatAgent(session?: Pick<AgentSession, "harness"> | null) {
     newChat: Boolean(session?.harness && choice && session.harness !== choice.harness),
     choose: (next: ChatChoice) => {
       if (choice && !blocker) rememberPrevious(choice);
-      save.mutate(next);
+      // Saves run in order, so the last one settles after every earlier one.
+      saving.set(
+        queryClient,
+        save.mutateAsync(next).then(
+          () => true,
+          () => false,
+        ),
+      );
     },
+    /** Waits until the choice shown is saved; false when its save failed, which the notice reports. */
+    saved: () => saving.get(queryClient) ?? Promise.resolve(true),
     recheck: () => recheck.mutate(),
   };
 }

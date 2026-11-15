@@ -2,6 +2,7 @@ package agentchat
 
 import (
 	"github.com/atomicobject/rhizome/internal/testkit"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,29 +13,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSettingsPersistInUserConfig(t *testing.T) {
+func settingsEnv(t *testing.T) (vaultconfig.Env, string) {
+	t.Helper()
 	env := testkit.Env(t)
 	env.LookupEnv = os.LookupEnv
+	env.CLIConfigFile = filepath.Join(t.TempDir(), "config", "config.yml")
+	return env, env.CLIConfigFile
+}
 
-	configRoot := filepath.Join(t.TempDir(), "config")
-	configFile := filepath.Join(configRoot, "config.yml")
-	env.CLIConfigFile = configFile
+func TestSettingsPersistInUserConfig(t *testing.T) {
+	env, configFile := settingsEnv(t)
 
-	saved, err := SaveSettings(env, Settings{
+	saved, err := SaveChoice(env, Settings{
 		Harness: harness.KindClaude,
 		Harnesses: map[harness.Kind]HarnessSettings{
-			harness.KindCodex:  {Model: " gpt-5.6 ", Effort: " high ", PermissionMode: harness.PermissionFullAccess},
 			harness.KindClaude: {Model: " opus ", Effort: " medium ", PermissionMode: "invalid", Disabled: true},
-			"unknown":          {Model: "ignored"},
+			harness.KindCodex:  {Model: "gpt-5.6"},
 		},
 	})
 	require.NoError(t, err)
 	require.Equal(t, harness.KindClaude, saved.Harness)
-	require.Equal(t, "gpt-5.6", saved.Harnesses[harness.KindCodex].Model)
-	require.Equal(t, harness.PermissionAuto, saved.Harnesses[harness.KindClaude].PermissionMode)
-	require.NotContains(t, saved.Harnesses, harness.Kind("unknown"))
-	require.True(t, saved.Harnesses[harness.KindClaude].Disabled)
-	require.False(t, saved.Harnesses[harness.KindCodex].Disabled)
+	require.Equal(t, HarnessSettings{Model: "opus", Effort: "medium", PermissionMode: harness.PermissionAuto}, saved.Harnesses[harness.KindClaude], "a choice is trimmed, an unknown mode becomes auto, and a choice never turns an agent off")
+	require.Empty(t, saved.Harnesses[harness.KindCodex].Model, "only the chosen agent's settings are saved")
+
+	saved, err = SetHarnessDisabled(env, harness.KindCodex, true)
+	require.NoError(t, err)
+	require.True(t, saved.Harnesses[harness.KindCodex].Disabled)
 
 	loaded, err := LoadSettings(env)
 	require.NoError(t, err)
@@ -45,6 +49,28 @@ func TestSettingsPersistInUserConfig(t *testing.T) {
 	require.Contains(t, string(data), "permission-mode: auto")
 	require.Equal(t, 1, strings.Count(string(data), "disabled: true"), "an enabled agent stores no flag")
 	require.NotContains(t, string(data), "enginePreference")
+}
+
+// A page that loaded settings before another window chose a Codex model and
+// Settings turned Codex off saves its own Claude choice from that old copy.
+func TestSaveChoiceKeepsNewerSettingsItDidNotChoose(t *testing.T) {
+	env, _ := settingsEnv(t)
+	_, err := SaveChoice(env, Settings{Harness: harness.KindCodex, Harnesses: map[harness.Kind]HarnessSettings{harness.KindCodex: {Model: "gpt-new"}}})
+	require.NoError(t, err)
+	_, err = SetHarnessDisabled(env, harness.KindCodex, true)
+	require.NoError(t, err)
+
+	saved, err := SaveChoice(env, Settings{Harness: harness.KindClaude, Harnesses: map[harness.Kind]HarnessSettings{
+		harness.KindCodex:  {Model: "gpt-old", PermissionMode: harness.PermissionFullAccess},
+		harness.KindClaude: {Model: "sonnet", PermissionMode: harness.PermissionApprovalRequired},
+	}})
+	require.NoError(t, err)
+	require.Equal(t, harness.KindClaude, saved.Harness)
+	require.Equal(t, HarnessSettings{Model: "sonnet", PermissionMode: harness.PermissionApprovalRequired}, saved.Harnesses[harness.KindClaude])
+	require.Equal(t, HarnessSettings{Model: "gpt-new", PermissionMode: harness.PermissionAuto, Disabled: true}, saved.Harnesses[harness.KindCodex], "the old copy neither reverts Codex's model nor turns it back on")
+	loaded, err := LoadSettings(env)
+	require.NoError(t, err)
+	require.Equal(t, saved, loaded)
 }
 
 func TestLoadSettingsDefaultsAndInvalidHarness(t *testing.T) {

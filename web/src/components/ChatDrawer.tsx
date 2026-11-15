@@ -255,6 +255,8 @@ export function ChatPanel() {
     const sent = attachContext ? boundedContext(context) : undefined;
 
     try {
+      if (!(await agent.saved())) return;
+
       // A choice of another agent starts a new chat with it.
       let target = agent.newChat ? "" : sessionID;
 

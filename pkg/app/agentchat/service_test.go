@@ -464,7 +464,7 @@ func setTestSettings(t *testing.T, settings Settings) vaultconfig.Env {
 	root := filepath.Join(t.TempDir(), "config")
 	file := filepath.Join(root, "config.yml")
 	env.CLIConfigFile = file
-	_, err := SaveSettings(env, settings)
+	_, err := SaveChoice(env, settings)
 	require.NoError(t, err)
 	return env
 }
@@ -521,12 +521,12 @@ func TestServiceAppliesTheChosenModelToAnOpenSessionFromItsNextTurn(t *testing.T
 	require.Equal(t, [2]string{"gpt-test", "low"}, [2]string{options.Model, options.Effort}, "nothing chosen runs the default model at its default effort")
 	require.Equal(t, [2]string{"gpt-test", "low"}, <-fake.session.models)
 
-	_, err = SaveSettings(env, saved("gpt-test", "high"))
+	_, err = SaveChoice(env, saved("gpt-test", "high"))
 	require.NoError(t, err)
 	sendAndFinish(t, ctx, service, fake, created.Session.ID, "second")
 	require.Equal(t, [2]string{"gpt-test", "high"}, <-fake.session.models)
 
-	_, err = SaveSettings(env, saved("gpt-other", "high"))
+	_, err = SaveChoice(env, saved("gpt-other", "high"))
 	require.NoError(t, err)
 	sendAndFinish(t, ctx, service, fake, created.Session.ID, "third")
 	require.Equal(t, [2]string{"gpt-other", "medium"}, <-fake.session.models, "an effort the new model lacks becomes its default")
@@ -549,7 +549,7 @@ func TestServiceResumesAnOpenSessionInANewProcessWhenThePermissionModeChanges(t 
 	sendAndFinish(t, ctx, service, fake, created.Session.ID, "first")
 	require.Equal(t, harness.PermissionAuto, (<-fake.starts).PermissionMode)
 
-	_, err = SaveSettings(env, mode(harness.PermissionApprovalRequired))
+	_, err = SaveChoice(env, mode(harness.PermissionApprovalRequired))
 	require.NoError(t, err)
 	first := fake.session
 	fake.session = newFakeSession()
@@ -562,4 +562,28 @@ func TestServiceResumesAnOpenSessionInANewProcessWhenThePermissionModeChanges(t 
 	default:
 		t.Fatal("the old process was not stopped")
 	}
+}
+
+func TestServiceRefusesATurnForAnAgentTurnedOffInSettings(t *testing.T) {
+	env := setTestSettings(t, Settings{Harness: harness.KindCodex})
+	ctx := vaultconfig.WithEnv(context.Background(), env)
+	fake := newFakeHarness()
+	service, err := NewService(ctx, t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, service.Close()) })
+	created, err := service.CreateSession(ctx, "Turned off")
+	require.NoError(t, err)
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "first")
+
+	_, err = SetHarnessDisabled(env, harness.KindCodex, true)
+	require.NoError(t, err)
+	_, err = service.SendMessage(ctx, created.Session.ID, "second")
+	require.ErrorIs(t, err, ErrConflict)
+	require.EqualError(t, err, "Codex is turned off in Settings.")
+
+	require.Empty(t, fake.session.turns, "the open process ran no turn")
+	thread, err := service.GetSession(ctx, created.Session.ID)
+	require.NoError(t, err)
+	require.Len(t, thread.Messages, 1, "the refused message was not stored")
+	require.False(t, thread.Session.TurnRunning)
 }
