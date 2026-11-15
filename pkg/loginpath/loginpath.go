@@ -22,8 +22,8 @@ var (
 )
 
 // Path is PATH as the login shell sets it, followed by the well-known install
-// directories that exist and are missing from it, which covers a shell that
-// sets PATH only in an interactive rc file. It is computed once per process.
+// directories missing from it, which covers a shell that sets PATH only in an
+// interactive rc file. It is computed once per process.
 // On Windows it is the process PATH.
 func Path() string {
 	once.Do(func() {
@@ -69,7 +69,9 @@ func withFallbacks(path string) string {
 		fallbacks = append(fallbacks, filepath.Join(home, ".local", "bin"))
 	}
 	for _, dir := range fallbacks {
-		if info, err := os.Stat(dir); err == nil && info.IsDir() && !slices.Contains(dirs, dir) {
+		// Listed even before they exist, so a CLI installed into a new
+		// ~/.local/bin is found without restarting the runtime.
+		if !slices.Contains(dirs, dir) {
 			dirs = append(dirs, dir)
 		}
 	}
