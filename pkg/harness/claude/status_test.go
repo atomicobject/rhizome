@@ -26,6 +26,25 @@ func TestStatusStates(t *testing.T) {
 		require.False(t, status.LoggedIn)
 		require.Empty(t, status.LastError)
 	})
+	t.Run("an API key or cloud provider signs in", func(t *testing.T) {
+		for account, want := range map[string]string{
+			`{"tokenSource":"none","apiKeySource":"ANTHROPIC_API_KEY","apiProvider":"firstParty"}`: "ANTHROPIC_API_KEY",
+			`{"apiProvider":"bedrock"}`: "bedrock",
+		} {
+			script := harnesstest.NewScriptedIO(`{"type":"control_response","response":{"subtype":"success","request_id":"status-init","response":{"account":` + account + `,"models":[]}}}`)
+			status, err := statusDriver(script).Status(context.Background())
+			require.NoError(t, err)
+			require.True(t, status.LoggedIn, account)
+			require.Equal(t, want, status.Account)
+		}
+	})
+	t.Run("signed out still lists models", func(t *testing.T) {
+		script := harnesstest.NewScriptedIO(`{"type":"control_response","response":{"subtype":"success","request_id":"status-init","response":{"account":{"tokenSource":"none"},"models":[{"value":"default","resolvedModel":"claude-opus-5-5","displayName":"Default (recommended)"},{"value":"opus","resolvedModel":"claude-opus-5-5","displayName":"Opus 5.5","supportedEffortLevels":["low","high"]},{"value":"sonnet","resolvedModel":"claude-sonnet-5-5","displayName":"Sonnet 5.5"}]}}}`)
+		status, err := statusDriver(script).Status(context.Background())
+		require.NoError(t, err)
+		require.False(t, status.LoggedIn)
+		require.Equal(t, []harness.ModelOption{{ID: "opus", DisplayName: "Opus 5.5", Efforts: []string{"low", "high"}, Default: true}, {ID: "sonnet", DisplayName: "Sonnet 5.5"}}, status.Models, `"default" names the model it points at`)
+	})
 	t.Run("ready", func(t *testing.T) {
 		script := harnesstest.NewScriptedIO(`{"type":"control_response","response":{"subtype":"success","request_id":"status-init","response":{"account":{"email":"person@example.com","subscriptionType":"Claude Max"},"models":[{"value":"opus","resolvedModel":"claude-opus-5","displayName":"Opus","isDefault":true,"supportedEffortLevels":["high","medium"]},{"value":"haiku","resolvedModel":"claude-haiku-4-5","supportedEffortLevels":[]}]}}}`)
 		driver := statusDriver(script)

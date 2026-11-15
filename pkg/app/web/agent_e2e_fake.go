@@ -32,15 +32,25 @@ type agentE2EHarness struct {
 	started int
 }
 
+// Status reports Claude Code ready and Codex signed out, so the journey can
+// choose a model from either and see the sign-in notice.
 func (h *agentE2EHarness) Status(context.Context) (harness.Status, error) {
-	return harness.Status{
+	status := harness.Status{
 		Kind: h.kind, Installed: true, LoggedIn: true, Version: "e2e-fake", Account: "fixture",
-		Models: []harness.ModelOption{{ID: "fake", DisplayName: "Fake", Efforts: []string{"low"}, Default: true}},
+		Models: []harness.ModelOption{
+			{ID: "fake-opus", DisplayName: "Fake Opus", Efforts: []string{"low", "high"}, Default: true},
+			{ID: "fake-sonnet", DisplayName: "Fake Sonnet", Efforts: []string{"low", "high"}},
+		},
 		Capabilities: harness.Capabilities{
 			SupportsAllowedTools: true, SupportsAllowForSession: true,
 			PermissionModes: []harness.PermissionMode{harness.PermissionAuto, harness.PermissionApprovalRequired},
 		},
-	}, nil
+	}
+	if h.kind == harness.KindCodex {
+		status.LoggedIn, status.Account, status.LoginHint = false, "", "codex login"
+		status.Models = []harness.ModelOption{{ID: "fake-sol", DisplayName: "Fake Sol", Efforts: []string{"low", "medium"}, DefaultEffort: "medium", Default: true}}
+	}
+	return status, nil
 }
 
 func (h *agentE2EHarness) StartSession(context.Context, harness.SessionOptions) (harness.Session, error) {
@@ -131,6 +141,10 @@ func (s *agentE2ESession) SendTurn(ctx context.Context, _ string) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func (s *agentE2ESession) SetModel(ctx context.Context, model, effort string) error {
+	return s.fake.SetModel(ctx, model, effort)
 }
 
 func (s *agentE2ESession) Interrupt(ctx context.Context) error {

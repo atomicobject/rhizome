@@ -73,6 +73,8 @@ type initializeResponse struct {
 		Account *struct {
 			Email            string `json:"email"`
 			SubscriptionType string `json:"subscriptionType"`
+			APIKeySource     string `json:"apiKeySource"`
+			APIProvider      string `json:"apiProvider"`
 		} `json:"account"`
 	} `json:"response"`
 }

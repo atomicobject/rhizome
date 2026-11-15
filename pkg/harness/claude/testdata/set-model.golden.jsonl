@@ -1,0 +1,3 @@
+{"type":"control_response","response":{"subtype":"success","request_id":"control-1","response":{"model":"claude-sonnet-5-5"}}}
+{"type":"control_response","response":{"subtype":"success","request_id":"control-2"}}
+{"type":"control_response","response":{"subtype":"error","request_id":"control-3","error":"Model 'not-a-model' not found","error_code":"not_found","model":"claude-sonnet-5-5"}}

@@ -74,6 +74,7 @@ func (d *Driver) StartSession(ctx context.Context, options harness.SessionOption
 		return nil, harness.Phase(harness.ErrSpawn, err)
 	}
 	s := d.newSession(connection, true)
+	s.model, s.effort = options.Model, options.Effort
 	if _, err := s.initialize(ctx, "init-1"); err != nil {
 		_ = s.Stop()
 		return nil, err
@@ -129,7 +130,10 @@ type session struct {
 	responseBacklog map[string]message
 	pending         map[string]pendingApproval
 	items           map[string]harness.EventKind
+	model           string
+	effort          string
 	turnSeq         atomic.Int64
+	controlSeq      atomic.Int64
 	reader          sync.WaitGroup
 	stopOnce        sync.Once
 	closeErr        error
@@ -142,39 +146,15 @@ func (s *session) ID() string {
 }
 
 func (s *session) initialize(ctx context.Context, id string) (initializeResponse, error) {
-	waiter := make(chan message, 1)
-	s.stateMu.Lock()
-	s.responses[id] = waiter
-	if buffered, ok := s.responseBacklog[id]; ok {
-		delete(s.responseBacklog, id)
-		waiter <- buffered
+	msg, err := s.roundTrip(ctx, id, initializeMessage(id), harness.ErrInitialize)
+	if err != nil {
+		return initializeResponse{}, err
 	}
-	s.stateMu.Unlock()
-	defer func() {
-		s.stateMu.Lock()
-		delete(s.responses, id)
-		s.stateMu.Unlock()
-	}()
-	if err := s.transport.Send(ctx, initializeMessage(id)); err != nil {
-		if errors.Is(err, io.ErrClosedPipe) || errors.Is(err, io.EOF) {
-			// The read loop may already have failed the session (bad version,
-			// decode error) and closed the transport; report that cause.
-			return initializeResponse{}, s.transportError()
-		}
-		return initializeResponse{}, classifyError(ctx, harness.ErrInitialize, err)
+	var response initializeResponse
+	if err := json.Unmarshal(msg.Response, &response); err != nil {
+		return response, harness.Phase(harness.ErrDecode, err)
 	}
-	select {
-	case msg := <-waiter:
-		var response initializeResponse
-		if err := json.Unmarshal(msg.Response, &response); err != nil {
-			return response, harness.Phase(harness.ErrDecode, err)
-		}
-		return response, nil
-	case <-ctx.Done():
-		return initializeResponse{}, classifyError(ctx, harness.ErrInitialize, ctx.Err())
-	case <-s.lifetime.Done():
-		return initializeResponse{}, s.transportError()
-	}
+	return response, nil
 }
 
 func (s *session) SendTurn(ctx context.Context, prompt string) error {

@@ -19,10 +19,11 @@ func TestStatusNotInstalled(t *testing.T) {
 	require.Equal(t, "codex login", status.LoginHint)
 }
 
-func TestStatusInstalledNotLoggedIn(t *testing.T) {
+func TestStatusInstalledNotLoggedInStillListsModels(t *testing.T) {
 	script := harnesstest.NewScriptedIO(
 		`{"jsonrpc":"2.0","id":1,"result":{"userAgent":"codex-cli/0.154.0"}}`,
 		`{"jsonrpc":"2.0","id":2,"result":{"account":null,"requiresOpenaiAuth":true}}`,
+		`{"jsonrpc":"2.0","id":3,"result":{"data":[{"id":"gpt-a","model":"gpt-a","displayName":"GPT A","isDefault":true,"defaultReasoningEffort":"low","supportedReasoningEfforts":[{"reasoningEffort":"low"},{"reasoningEffort":"high"}]}]}}`,
 	)
 	driver := statusDriver(script)
 	status, err := driver.Status(context.Background())
@@ -31,6 +32,20 @@ func TestStatusInstalledNotLoggedIn(t *testing.T) {
 	require.Equal(t, "0.154.0", status.Version)
 	require.False(t, status.LoggedIn)
 	require.Empty(t, status.LastError)
+	require.Equal(t, []harness.ModelOption{{ID: "gpt-a", DisplayName: "GPT A", Efforts: []string{"low", "high"}, DefaultEffort: "low", Default: true}}, status.Models)
+}
+
+func TestStatusSignedOutModelListFailureIsNotAnError(t *testing.T) {
+	script := harnesstest.NewScriptedIO(
+		`{"jsonrpc":"2.0","id":1,"result":{"userAgent":"codex-cli/0.154.0"}}`,
+		`{"jsonrpc":"2.0","id":2,"result":{"account":null,"requiresOpenaiAuth":true}}`,
+		`{"jsonrpc":"2.0","id":3,"error":{"code":-32603,"message":"models unavailable"}}`,
+	)
+	status, err := statusDriver(script).Status(context.Background())
+	require.NoError(t, err)
+	require.False(t, status.LoggedIn)
+	require.Empty(t, status.LastError, "signed out reads as signed out, not as a failed check")
+	require.Empty(t, status.Models)
 }
 
 func TestStatusOldVersionIsProbeError(t *testing.T) {

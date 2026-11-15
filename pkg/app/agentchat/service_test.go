@@ -59,6 +59,7 @@ type fakeSession struct {
 	SessionID   string
 	events      chan harness.Event
 	turns       chan string
+	models      chan [2]string
 	turnResults chan error
 	interrupts  chan struct{}
 	responses   chan approvalResponse
@@ -72,7 +73,7 @@ func (f *fakeSession) ID() string { return f.SessionID }
 
 func newFakeSession() *fakeSession {
 	return &fakeSession{
-		events: make(chan harness.Event, 32), turns: make(chan string, 4), turnResults: make(chan error, 4),
+		events: make(chan harness.Event, 32), turns: make(chan string, 4), models: make(chan [2]string, 8), turnResults: make(chan error, 4),
 		interrupts: make(chan struct{}, 4), responses: make(chan approvalResponse, 4), stopped: make(chan struct{}),
 	}
 }
@@ -87,6 +88,10 @@ func (f *fakeSession) SendTurn(ctx context.Context, prompt string) error {
 	case <-f.stopped:
 		return errors.New("stopped")
 	}
+}
+func (f *fakeSession) SetModel(_ context.Context, model, effort string) error {
+	f.models <- [2]string{model, effort}
+	return nil
 }
 func (f *fakeSession) Interrupt(context.Context) error { f.interrupts <- struct{}{}; return nil }
 func (f *fakeSession) Respond(requestID string, decision harness.Decision) error {

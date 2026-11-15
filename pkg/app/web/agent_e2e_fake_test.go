@@ -12,7 +12,7 @@ import (
 
 func TestAgentE2EFakeRequiresApprovalThenRespondsPong(t *testing.T) {
 	require.NotNil(t, agentHarnessOverride)
-	driver := agentHarnessOverride()[harness.KindCodex]
+	driver := agentHarnessOverride()[harness.KindClaude]
 	status, err := driver.Status(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, "e2e-fake", status.Version)
