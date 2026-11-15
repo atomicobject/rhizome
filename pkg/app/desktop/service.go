@@ -13,6 +13,7 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/repoexec"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	appupdate "github.com/atomicobject/rhizome/pkg/app/update"
+	"github.com/atomicobject/rhizome/pkg/harness"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 )
@@ -48,6 +49,8 @@ type Service struct {
 	ensurePinned func(context.Context, appupdate.EnsureOptions) error
 	// teamStatus reports the team session; nil uses the installed provider-access factory.
 	teamStatus func() provideraccess.TeamStatus
+	// chatHarnesses supplies the coding agents that chat settings probe; nil uses the installed drivers.
+	chatHarnesses func() map[harness.Kind]harness.Harness
 }
 
 func New(stateDir string, env vaultconfig.Env) (*Service, error) {

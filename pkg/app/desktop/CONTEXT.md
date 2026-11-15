@@ -375,6 +375,19 @@ Planning shares PinAdvance's managed-pin, non-source, existing-trust, and
 `upgrade_plan_failed` for executable, process, JSON, or two-minute timeout
 failures. Planning neither installs a binary nor changes the pin or agent files.
 
+### Chat agent
+
+`chat-settings` returns the shape of the web chat settings API (`settings`,
+`resolved`, and `harnesses[]` with each agent's status and offered models) from
+user configuration. It probes Claude Code and Codex concurrently, each within
+five seconds. `chat-settings-set` accepts `harness` (`claude` or `codex`) and an
+optional `model`: omitted keeps that agent's saved model, and empty restores its
+default. It rewrites only the `agent` section of user configuration, keeps effort
+and permission mode, and returns the refreshed report. Native routing holds the
+same app-wide user-config lock as provider settings. `open-chat-install` is a
+native-only action that opens the fixed install guide for `claude` or `codex`;
+the shell never supplies the URL.
+
 ### Provider credential import
 
 Settings groups account sign-in, independent Voyage/Jev route choices, manual key management and 1Password import as Provider access. Sign-in and imports do not alter route choices. `credential-status` additionally returns secret-free `providers` reports from the shared provider factory; these are the app's next-run defaults, not proof of a running repository's connection.

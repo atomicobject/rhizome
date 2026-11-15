@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { THEMES } from "../../web/src/lib/themes";
+import { ChatSettings } from "./ChatSettings";
 import { ProviderAccess } from "./ProviderAccess";
 import type { ProviderRuntime } from "./ProviderRoutes";
 import {
@@ -347,6 +348,7 @@ export function Settings({
         repositories={providerRuntimes}
         onRestart={onProviderRestart}
       />
+      <ChatSettings />
       <Diagnostics />
       {developmentBuilds.length > 0 && (
         <div className="development-builds">

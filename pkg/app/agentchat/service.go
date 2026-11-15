@@ -134,8 +134,7 @@ func (s *Service) Settings(ctx context.Context) (SettingsResponse, error) {
 	if err != nil {
 		return SettingsResponse{}, err
 	}
-	statuses := s.harnessStatuses(ctx)
-	return SettingsResponse{Settings: settings, Resolved: resolveHarness(settings, statuses), Harnesses: statuses}, nil
+	return settingsResponse(settings, s.harnessStatuses(ctx)), nil
 }
 
 func (s *Service) SaveSettings(ctx context.Context, settings Settings) (SettingsResponse, error) {
@@ -143,8 +142,7 @@ func (s *Service) SaveSettings(ctx context.Context, settings Settings) (Settings
 	if err != nil {
 		return SettingsResponse{}, err
 	}
-	statuses := s.harnessStatuses(ctx)
-	return SettingsResponse{Settings: saved, Resolved: resolveHarness(saved, statuses), Harnesses: statuses}, nil
+	return settingsResponse(saved, s.harnessStatuses(ctx)), nil
 }
 
 func resolveHarness(settings Settings, statuses []HarnessStatus) ResolvedHarness {

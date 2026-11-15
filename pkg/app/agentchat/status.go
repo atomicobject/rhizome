@@ -3,21 +3,66 @@ package agentchat
 import (
 	"context"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/harness"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 )
 
-func (s *Service) harnessStatuses(ctx context.Context) []HarnessStatus {
-	statuses := make([]HarnessStatus, 0, len(s.harnesses))
-	for _, kind := range harnessOrder {
-		driver := s.harnesses[kind]
-		if driver == nil {
-			continue
-		}
-		statuses = append(statuses, HarnessStatus{Kind: kind, Status: statusForAPI(s.harnessStatus(ctx, kind, driver))})
+const statusProbeTimeout = 5 * time.Second
+
+// Report loads the person's chat settings and probes each harness, for callers
+// without a running Service such as the desktop bridge.
+func Report(ctx context.Context, env vaultconfig.Env, harnesses map[harness.Kind]harness.Harness) (SettingsResponse, error) {
+	settings, err := LoadSettings(env)
+	if err != nil {
+		return SettingsResponse{}, err
 	}
+	return settingsResponse(settings, probeStatuses(harnesses, func(kind harness.Kind, driver harness.Harness) harness.Status {
+		return probeStatus(ctx, kind, driver)
+	})), nil
+}
+
+func settingsResponse(settings Settings, statuses []HarnessStatus) SettingsResponse {
+	return SettingsResponse{Settings: settings, Resolved: resolveHarness(settings, statuses), Harnesses: statuses}
+}
+
+// probeStatuses probes every harness concurrently and reports them in
+// harnessOrder.
+func probeStatuses(harnesses map[harness.Kind]harness.Harness, probe func(harness.Kind, harness.Harness) harness.Status) []HarnessStatus {
+	statuses := make([]HarnessStatus, 0, len(harnesses))
+	for _, kind := range harnessOrder {
+		if harnesses[kind] != nil {
+			statuses = append(statuses, HarnessStatus{Kind: kind})
+		}
+	}
+	var wg sync.WaitGroup
+	for i := range statuses {
+		wg.Go(func() {
+			kind := statuses[i].Kind
+			statuses[i].Status = statusForAPI(probe(kind, harnesses[kind]))
+		})
+	}
+	wg.Wait()
 	return statuses
+}
+
+func probeStatus(ctx context.Context, kind harness.Kind, driver harness.Harness) harness.Status {
+	ctx, cancel := context.WithTimeout(ctx, statusProbeTimeout)
+	defer cancel()
+	status, err := driver.Status(ctx)
+	status.Kind = kind
+	if err != nil {
+		status.LastError = err.Error()
+	}
+	return status
+}
+
+func (s *Service) harnessStatuses(ctx context.Context) []HarnessStatus {
+	return probeStatuses(s.harnesses, func(kind harness.Kind, driver harness.Harness) harness.Status {
+		return s.harnessStatus(ctx, kind, driver)
+	})
 }
 
 func statusForAPI(status harness.Status) Status {
@@ -52,13 +97,7 @@ func (s *Service) harnessStatus(ctx context.Context, kind harness.Kind, driver h
 	// The probe's result is cached for every caller, so one caller leaving,
 	// such as a page that reloads mid-request, must not cancel it into a
 	// cached failure that hides an installed harness.
-	probeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-	defer cancel()
-	status, err := driver.Status(probeCtx)
-	status.Kind = kind
-	if err != nil {
-		status.LastError = err.Error()
-	}
+	status := probeStatus(context.WithoutCancel(ctx), kind, driver)
 	s.mu.Lock()
 	s.status[kind] = statusCacheEntry{status: status, checkedAt: now}
 	s.mu.Unlock()

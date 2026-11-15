@@ -50,6 +50,38 @@ fn provider_settings_decode_the_shell_contract_and_reject_keys_elsewhere() {
 }
 
 #[test]
+fn chat_settings_decode_the_shell_contract() {
+    assert!(matches!(
+        serde_json::from_value::<Action>(json!({"operation":"chat-settings"})).unwrap(),
+        Action::ChatSettings
+    ));
+    let Action::ChatSettingsSet { harness, model } = serde_json::from_value(
+        json!({"operation":"chat-settings-set","harness":"claude","model":""}),
+    )
+    .unwrap() else {
+        panic!("unexpected action");
+    };
+    assert_eq!((harness.as_str(), model.as_deref()), ("claude", Some("")));
+    let Action::ChatSettingsSet { model, .. } =
+        serde_json::from_value(json!({"operation":"chat-settings-set","harness":"codex"})).unwrap()
+    else {
+        panic!("unexpected action");
+    };
+    assert_eq!(model, None, "an omitted model keeps the saved one");
+    assert!(serde_json::from_value::<Action>(
+        json!({"operation":"chat-settings-set","harness":"codex","key":"synthetic-provider-secret"})
+    )
+    .is_err());
+    assert!(
+        serde_json::from_value::<Action>(
+            json!({"operation":"open-chat-install","harness":"claude","url":"https://example.com"})
+        )
+        .is_err(),
+        "the shell names an agent, never a URL"
+    );
+}
+
+#[test]
 fn every_library_save_advances_the_revision_shells_receive() {
     let directory = tempfile::tempdir().unwrap();
     let desktop = Desktop::new(directory.path().into());

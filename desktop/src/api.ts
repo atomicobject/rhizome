@@ -401,6 +401,27 @@ export interface SetupResult {
   searchHint?: string;
   pin: { version?: string; error?: string };
 }
+export type ChatHarness = "claude" | "codex";
+export interface ChatModel {
+  id: string;
+  displayName: string;
+  default?: boolean;
+}
+export interface ChatHarnessStatus {
+  installed: boolean;
+  version?: string;
+  loggedIn: boolean;
+  account?: string;
+  models?: ChatModel[];
+  lastError?: string;
+  loginHint?: string;
+}
+/** The person's chat agent choice and what each agent reports (SPEC-0140). */
+export interface ChatSettingsReport {
+  settings: { harness?: ChatHarness; harnesses: Partial<Record<ChatHarness, { model?: string }>> };
+  resolved: { harness?: ChatHarness; model?: string; reason: string };
+  harnesses: { kind: ChatHarness; status: ChatHarnessStatus }[];
+}
 export interface MenuEntry {
   id?: string;
   label?: string;
@@ -416,6 +437,9 @@ type Results = {
   "credential-status": CredentialStatus;
   "credential-import": CredentialStatus;
   "credential-cancel": null;
+  "chat-settings": ChatSettingsReport;
+  "chat-settings-set": ChatSettingsReport;
+  "open-chat-install": null;
   "team-status": TeamStatus;
   "team-sign-in": TeamStatus;
   "team-cancel": null;
@@ -471,6 +495,10 @@ type Args = {
   "credential-status": Record<string, never>;
   "credential-import": { source: CredentialSource };
   "credential-cancel": Record<string, never>;
+  "chat-settings": Record<string, never>;
+  /** Without a model, the agent keeps its saved model; an empty one restores its default. */
+  "chat-settings-set": { harness: ChatHarness; model?: string };
+  "open-chat-install": { harness: ChatHarness };
   "team-status": Record<string, never>;
   "team-sign-in": Record<string, never>;
   "team-cancel": Record<string, never>;
