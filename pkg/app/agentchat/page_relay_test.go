@@ -102,6 +102,14 @@ func TestViewContextTurnText(t *testing.T) {
 	require.Equal(t, "  original text  ", turnText("  original text  ", nil))
 }
 
+func TestChatInstructionsRouteRhizomeQuestionsToSkill(t *testing.T) {
+	require.Contains(t, chatInstructions, "load the rhizome skill")
+	require.Contains(t, chatInstructions, ".agents/skills/rhizome/SKILL.md")
+	require.Contains(t, chatInstructions, "guidance is not installed")
+	// Every chat session's system prompt carries this text, so keep it short.
+	require.LessOrEqual(t, len(strings.Fields(chatInstructions)), 140)
+}
+
 func TestSettingsPermissionModes(t *testing.T) {
 	for _, mode := range []harness.PermissionMode{harness.PermissionAuto, harness.PermissionApprovalRequired, harness.PermissionAutoAcceptEdits, harness.PermissionFullAccess} {
 		require.Equal(t, mode, normalizePermissionMode(mode))

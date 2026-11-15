@@ -3,7 +3,7 @@ type: ReferenceDoc
 summary: "Decision guide for selecting and combining Rhizome starters."
 reference-kind: guide
 status: active
-last-verified: 2026-10-01
+last-verified: 2026-11-15
 ---
 
 # Choosing Your Starter
@@ -29,6 +29,7 @@ Rhizome Desktop's setup sheet asks which workflow to install under **Workflow**,
 | Agentic software delivery with specs, efforts, and phase routing | `agentic-engineering` | `core` |
 | Source-backed requirements and domain traceability | `complex-domain` | `agentic-engineering` |
 | Learning from past agent sessions: context shards, document edits, and findings (optional add-on) | `compounding` | `core` |
+| Browsing and editing an existing AO KB's knowledge in Rhizome (optional add-on) | `ao-kb` | `core` |
 
 ## `core`
 
@@ -80,11 +81,20 @@ rzm init --add-addon compounding
 
 An optional add-on that no workflow turns on. Rhizome Desktop's setup sheet lists it unchecked below the workflow choices; check it to install it at setup. After setup, turn it on under **Add-ons** in the repository's tab in Rhizome Desktop's **Settings** and choose **Apply changes**. You can also run the command above, ask your agent to, or use the Add-ons section of the `rzm init` settings menu. It mines this repository's Claude Code and Codex sessions into reviewed proposals: context shards for agents, edits to documents, and findings for friction worth fixing. Installing it adds a guide at `docs/reference/guides/compounding.md`.
 
+## `ao-kb`
+
+```bash
+rzm init --add-addon ao-kb
+```
+
+An optional add-on for a repository whose root is an AO KB's root, with `.kb/config/vault.md`. It shows the KB's assertions, sources, concepts, and artifacts in a Knowledge site, lets you edit them in place beside AO's own skills, and indexes the selected product's model read-only. Rhizome Desktop's setup sheet lists it unchecked below the workflow choices. After setup, turn it on under **Add-ons** in the repository's tab in Rhizome Desktop's **Settings**, run the command above, or pass `--addons ao-kb` on first setup. While the repository is open in the app, a notice then walks through the rest of its setup. Without the app, follow the [AO KB guide](<../../../pkg/app/cli/init/templates/starters/ao-kb/repo/docs/reference/guides/ao-kb.md>), which covers trust, Node and uv, and binding refresh. Installing it adds that guide at `docs/reference/guides/ao-kb.md`.
+
 ## Valid combinations
 
 - `agentic-engineering` activates `action-items` by default.
 - `complex-domain` implies `agentic-engineering`, `core`, and the default action-items layer.
 - Use `core` alone for a custom workflow starter or basic Rhizome integration.
+- On first setup, `--addons` names the exact add-ons and replaces the workflow's defaults. `rzm init --workflow agentic-engineering --addons compounding` leaves out `action-items`, so list it too: `--addons action-items,compounding`. On a repository that is already set up, use `--add-addon` and `--remove-addon` instead.
 
 ## Existing `spec-driven` repositories
 

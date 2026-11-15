@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import type { AgentApprovalDecision, AgentEvent, AgentViewContext } from "../../api/types";
 import { humanizeName } from "../../lib/labels";
@@ -11,6 +12,25 @@ import {
 } from "../agent/AgentTimeline";
 import type { AgentMessage } from "../../api/types";
 import { CONTEXT_KIND_LABELS, sameContext } from "./viewContext";
+
+const REMARK_PLUGINS = [remarkGfm];
+
+// A wide table scrolls inside the narrow pane instead of widening the message.
+const MARKDOWN_COMPONENTS: Components = {
+  table: ({ node: _node, ...props }) => (
+    <div className="chat-table">
+      <table {...props} />
+    </div>
+  ),
+};
+
+function AssistantText({ children }: { children: string }) {
+  return (
+    <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_COMPONENTS}>
+      {children}
+    </ReactMarkdown>
+  );
+}
 
 export function Icon({ d, strokeWidth = 1.4 }: { d: string; strokeWidth?: number }) {
   return (
@@ -281,7 +301,7 @@ export function ChatTimeline({
                     key={`message-${message.id}`}
                     className="chat-message chat-message--assistant"
                   >
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                    <AssistantText>{message.content}</AssistantText>
                   </div>
                 );
 
@@ -307,7 +327,7 @@ export function ChatTimeline({
             })}
             {deltas && !stored ? (
               <div className="chat-message chat-message--assistant is-streaming">
-                <ReactMarkdown>{deltas}</ReactMarkdown>
+                <AssistantText>{deltas}</AssistantText>
               </div>
             ) : null}
           </div>

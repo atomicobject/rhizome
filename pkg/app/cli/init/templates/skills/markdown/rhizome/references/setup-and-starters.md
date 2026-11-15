@@ -20,7 +20,7 @@ Done when you can state the executable and version, the pin, whether the reposit
 
 ## 2. Recommend
 
-Read the catalog from that JSON, never from memory: starters change between versions, and a repository can carry its own. Each `workflows` and `addons` entry has an `id`, `label`, and `description`. When an entry has `fit` (the repository signals that suggest it) and `cautions` (credentials, spend, data egress, prerequisites), weigh those; otherwise work from the description. `defaultFor` lists the workflows that turn an add-on on by default.
+Read the catalog from that JSON, never from memory: starters change between versions, and a repository can carry its own. Each `workflows` and `addons` entry has an `id`, `label`, and `description`. When an entry has `fit` (the repository signals that suggest it) and `cautions` (credentials, spend, data egress, prerequisites, the type names it adds), weigh those; otherwise work from the description. `defaultFor` lists the workflows that turn an add-on on by default, and `optional: true` marks an add-on no workflow turns on.
 
 Match the catalog against evidence, citing paths:
 
@@ -28,11 +28,11 @@ Match the catalog against evidence, citing paths:
 - Structured material that already exists: requirement, decision, or meeting folders, checkbox commitments, knowledge-base layouts an entry's `fit` names.
 - The process the team already follows, in its own guidance files, policy documents, and skills. A team with a working process of its own gets the choice that adds search and agent guidance without a second process.
 
-Recommend the smallest set the evidence supports. Adding a starter later is one flag; removing a workflow later deletes files. Offer an entry with `cautions` only after stating them, and never preselect it.
+Recommend the smallest set the evidence supports. Adding a starter later is one flag; removing a workflow later deletes files. State each recommended entry's `cautions` with the recommendation. Recommend an `optional` add-on only when the evidence asks for it, and leave it off unless the person chooses it.
 
 Check two blockers before recommending:
 
-- **Colliding type names.** List the vault's types with `rzm agent ontology-reference` and compare them, ignoring case, with the types the entry's description or `fit` says it adds. A type declared twice is a schema error (`Cannot redeclare type`). Renaming or retiring a local type is the person's decision.
+- **Colliding type names.** List the vault's types with `rzm agent ontology-reference` and compare them, ignoring case, with the types the entry's `cautions` or description says it adds. A type declared twice is a schema error (`Cannot redeclare type`). Renaming or retiring a local type is the person's decision.
 - **Same-named skills.** A person's own skill folder with a managed skill's name makes the plan fail with a skill-collision error that names the folder. The person renames it or stops Rhizome managing agent files; never delete it.
 
 When signals conflict, ask one question with your recommendation attached. A recommendation states the workflow and add-ons, the evidence for each, what each adds day to day, its cautions, the command or Settings control that installs it, and the steps only the person can take.

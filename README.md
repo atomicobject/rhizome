@@ -109,6 +109,7 @@ The setup gives you starting points to change. Edit `docs/engineering/` with you
 | Build an experience: several views that run as one site, like Delivery | [Build an experience](docs/reference/guides/build-an-experience.md) |
 | Schedule recurring agent work | [Scheduled tasks](docs/reference/guides/scheduled-tasks-guide.md) |
 | Let Rhizome learn from your agent sessions | [Compounding](docs/reference/guides/compounding.md) |
+| Browse and edit an existing AO KB's knowledge | [AO KB knowledge](pkg/app/cli/init/templates/starters/ao-kb/repo/docs/reference/guides/ao-kb.md) |
 | Compare workflows | [Choosing a starter](docs/reference/guides/choosing-your-starter.md) |
 | Understand retrieval and links between notes and code | [How Rhizome works](docs/reference/guides/how-rhizome-works.md) |
 | Use `rzm` from a terminal or script, or install without the app | [Command-line reference](docs/reference/guides/command-line.md) |
