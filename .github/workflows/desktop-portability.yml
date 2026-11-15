@@ -148,13 +148,85 @@ jobs:
             desktop/src-tauri/target
           key: ${{ steps.rust-cache.outputs.cache-primary-key }}
 
-      - name: Exercise Windows startup and New Window
+      - name: Compare Windows shortcuts with observer off then on
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          ./desktop/scripts/portability-smoke.ps1 `
-            -AppPath desktop/src-tauri/target/release/rhizome-desktop.exe `
-            -OutputDir .tmp/desktop-portability/smoke
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $output = [IO.Path]::GetFullPath('.tmp/desktop-portability/smoke-pair')
+          $null = New-Item -ItemType Directory -Force -Path $output
+          $app = [IO.Path]::GetFullPath('desktop/src-tauri/target/release/rhizome-desktop.exe')
+          $onScript = [IO.Path]::GetFullPath('desktop/scripts/portability-smoke.ps1')
+          $offScript = [IO.Path]::GetFullPath('desktop/scripts/portability-smoke-observer-off.ps1')
+          $pair = [ordered]@{
+            startedUtc = [DateTime]::UtcNow.ToString('O')
+            endedUtc = $null
+            appPath = $app
+            appSha256 = $null
+            offScriptSha256 = $null
+            setupFailure = $null
+            arms = @()
+          }
+          try {
+            $pair.appSha256 = (Get-FileHash -LiteralPath $app -Algorithm SHA256).Hash
+            # Git's prior smoke bytes use LF even when checkout uses CRLF.
+            $source = [IO.File]::ReadAllText($onScript).Replace("`r`n", "`n")
+            $offSource = [regex]::Replace($source, '(?ms)^#region TemporaryKeyboardObserver\n.*?^#endregion TemporaryKeyboardObserver\n', '')
+            [IO.File]::WriteAllText($offScript, $offSource, [Text.UTF8Encoding]::new($false))
+            $pair.offScriptSha256 = (Get-FileHash -LiteralPath $offScript -Algorithm SHA256).Hash
+            # e1defe9ff901835aaa9d8e31d391c39c722e8887 desktop/scripts/portability-smoke.ps1.
+            if ($pair.offScriptSha256 -ne '64ce2f08555bf9d59caaf0b1dcf3096955003af259968ea201b9bbd68218a41a') {
+              throw 'Observer-off smoke differs from the prior trace-only diagnostic.'
+            }
+          } catch {
+            $pair.setupFailure = $_ | Out-String
+          }
+          foreach ($arm in @(
+            @{ observer = 'off'; script = $offScript }
+            @{ observer = 'on'; script = $onScript }
+          )) {
+            $armOutput = Join-Path $output $arm.observer
+            $result = [ordered]@{
+              observer = $arm.observer
+              startedUtc = [DateTime]::UtcNow.ToString('O')
+              endedUtc = $null
+              exitCode = $null
+              setupFailure = $null
+              probeGap = $null
+            }
+            try {
+              $null = New-Item -ItemType Directory -Force -Path $armOutput
+              if ($arm.observer -eq 'off' -and $null -ne $pair.setupFailure) {
+                throw $pair.setupFailure
+              }
+              & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -NonInteractive -File $arm.script `
+                -AppPath $app -OutputDir $armOutput *> (Join-Path $armOutput 'launch.log')
+              $result.exitCode = $LASTEXITCODE
+              if ($arm.observer -eq 'on') {
+                $keyboardPath = Join-Path $armOutput 'smoke-keyboard.json'
+                if (Test-Path -LiteralPath $keyboardPath) {
+                  $keyboard = Get-Content -Raw -LiteralPath $keyboardPath | ConvertFrom-Json
+                  if ($keyboard.setupFailure -or -not $keyboard.observer.ready -or -not $keyboard.observer.healthy) {
+                    $result.probeGap = 'Observer setup or capture failed. See smoke-keyboard.json and smoke-keyboard.log.'
+                  }
+                } else {
+                  $result.probeGap = 'Observer evidence is missing. See launch.log.'
+                }
+              }
+            } catch {
+              if ($null -eq $result.exitCode) { $result.setupFailure = $_ | Out-String }
+              else { $result.probeGap = $_ | Out-String }
+            }
+            $result.endedUtc = [DateTime]::UtcNow.ToString('O')
+            $pair.arms += $result
+            $pair | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $output 'pair.json')
+          }
+          $pair.endedUtc = [DateTime]::UtcNow.ToString('O')
+          $pair | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $output 'pair.json')
+          if ($pair.setupFailure -or @($pair.arms | Where-Object {
+            $null -eq $_.exitCode -or $_.exitCode -ne 0 -or $_.setupFailure -or $_.probeGap
+          }).Count -gt 0) { exit 1 }
 
       - name: Exercise Linux X11 startup and New Window
         if: runner.os == 'Linux'
@@ -170,6 +242,8 @@ jobs:
           mkdir -p .tmp/desktop-portability
           cat > .tmp/desktop-portability/EVIDENCE.txt <<'EOF'
           Temporary Windows Ctrl+N diagnostic only. Do not merge this branch into PR 150.
+          One observer-off launch followed by one observer-on launch shares the same built binary and worker.
+          Each launch uses fresh fixture state. Either arm failing keeps the comparison failed.
           A passing sample does not resolve the original intermittent failure.
           Unsigned native portability candidate. Not a public release.
           The default team API origin comes from matching checked-in release builds.
@@ -202,5 +276,9 @@ jobs:
             .tmp/desktop-portability/smoke/*.log
             .tmp/desktop-portability/smoke/*.json
             .tmp/desktop-portability/smoke/*.png
+            .tmp/desktop-portability/smoke-pair/pair.json
+            .tmp/desktop-portability/smoke-pair/**/*.log
+            .tmp/desktop-portability/smoke-pair/**/*.json
+            .tmp/desktop-portability/smoke-pair/**/*.png
             .tmp/desktop-portability/keyring/*.log
             .tmp/desktop-portability/keyring/*.json
