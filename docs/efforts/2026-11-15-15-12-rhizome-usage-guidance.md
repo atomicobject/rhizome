@@ -91,4 +91,4 @@ Verification: `make check` (Go unit tests in 160 packages, web unit tests 273 fi
 
 ## Status
 
-Complete on `t3/plan-rhizome-usage-skill`, left open and unmerged for Drew. Routing evaluations remain a follow-up that needs separate approval.
+Complete on `t3/plan-rhizome-usage-skill` for [PR #152](https://github.com/atomicobject/rhizome/pull/152), left open and unmerged for Drew. Routing evaluations remain a follow-up that needs separate approval.
