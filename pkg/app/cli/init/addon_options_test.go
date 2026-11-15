@@ -33,7 +33,12 @@ func requireUpToDate(t *testing.T, root string) {
 func TestFirstRunInstallsAnOptionalAddonListedInAddons(t *testing.T) {
 	root := machineRunRepo(t)
 
-	_, err := Apply(RunOptions{Dir: root, Workflow: "agentic-engineering", Addons: "action-items,compounding", Search: "off"})
+	plan, err := Plan(RunOptions{Dir: root, Workflow: "agentic-engineering", Addons: "action-items,compounding", Search: "off"})
+	require.NoError(t, err)
+	require.True(t, addon(t, plan, templateCompounding).Enabled)
+	require.True(t, addon(t, plan, templateActionItems).Enabled)
+
+	_, err = Apply(RunOptions{Dir: root, Workflow: "agentic-engineering", Addons: "action-items,compounding", Search: "off"})
 	require.NoError(t, err)
 
 	cfg := loadConfigForTest(t, root)
@@ -48,15 +53,12 @@ func TestFirstRunInstallsAnOptionalAddonListedInAddons(t *testing.T) {
 	require.Contains(t, out, "Add-ons   Action items and Compounding")
 }
 
-func TestOptionalAddonIsNotADefaultAndTheSetupSheetDoesNotListIt(t *testing.T) {
+func TestOptionalAddonIsNotADefault(t *testing.T) {
 	registry, err := loadStarterTemplateMetadataRegistry()
 	require.NoError(t, err)
 	require.True(t, registry[templateCompounding].OptionalAddon)
 	require.Equal(t, []string{templateCore}, registry[templateCompounding].Requires)
 	require.Contains(t, addonIDs(registry), templateCompounding)
-	for _, option := range addonOptions(registry, nil) {
-		require.NotEqual(t, templateCompounding, option.ID)
-	}
 
 	root := machineRunRepo(t)
 	_, err = Apply(RunOptions{Dir: root, Workflow: "agentic-engineering", Search: "off"})

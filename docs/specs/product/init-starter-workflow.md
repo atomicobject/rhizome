@@ -316,7 +316,7 @@ Add-ons are starters installed alongside the workflow. A default add-on, such as
 
 #### Acceptance Criteria
 
-- A first run installs the add-ons listed in `--addons`, optional ones included, and the desktop setup API passes its add-on list through the same option. An interactive first run names the optional add-ons it leaves off above its confirmation and points to the settings menu's Add-ons section, which turns them on without adding a question; the desktop setup sheet does not list optional add-ons yet. ^SPEC-0038-US12-AC1
+- A first run installs the add-ons listed in `--addons`, optional ones included, and the desktop setup API passes its add-on list through the same option. An interactive first run names the optional add-ons it leaves off above its confirmation and points to the settings menu's Add-ons section, which turns them on without adding a question; the desktop setup sheet lists optional add-ons unchecked. ^SPEC-0038-US12-AC1
 - A configured repository changes add-ons with `--add-addon <id>` and `--remove-addon <id>` (comma-separated ids are accepted), next to `--eject` and `--restore`. On a first run these flags fail and point to `--addons`; on a configured repository `--addons` fails and points to them. ^SPEC-0038-US12-AC2
   - Adding moves the id into `addons.enabled` and out of `addons.disabled` in `.rhizome/workflows.yml`.
   - Removing a default add-on of the chosen workflow moves it out of `addons.enabled` and into `addons.disabled`. Removing any other add-on, such as an optional one, drops it from `addons.enabled`.

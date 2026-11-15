@@ -9,7 +9,7 @@ written:
   .agents/skills/agentic-engineering/references/closure-report-contract.md: b44220b007bf0631
   .agents/skills/agentic-engineering/references/closure.md: 1ca792d85005c570
   .agents/skills/agentic-engineering/references/compounding.md: c644f0774ddc342f
-  .agents/skills/agentic-engineering/references/effort-setup.md: 6b278af59837f8a6
+  .agents/skills/agentic-engineering/references/effort-setup.md: 216cc9b5b460c79b
   .agents/skills/agentic-engineering/references/implementation.md: 6ad899a4fad8f03d
   .agents/skills/agentic-engineering/references/planning.md: 9932b9eb5605e222
   .agents/skills/agentic-engineering/references/quality-gates.md: 78ecf29c4b62d5e4
@@ -35,9 +35,11 @@ written:
   .agents/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
   .agents/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
   .agents/skills/legacy-codebase-assessor/references/findings-template.md: 6172ac9f5c6d79fd
-  .agents/skills/rhizome/SKILL.md: 255391890ffd96fc
-  .agents/skills/rhizome/references/code-mode.md: 0d29f619134584e4
-  .agents/skills/rhizome/references/configuration.md: 519acbe756f1d74c
+  .agents/skills/rhizome/SKILL.md: f3de086ed01c787c
+  .agents/skills/rhizome/references/automation.md: f559078a80cb986c
+  .agents/skills/rhizome/references/code-mode.md: dbaf97cd8845d9d5
+  .agents/skills/rhizome/references/configuration.md: c44f590db061d480
+  .agents/skills/rhizome/references/customization.md: 389cbe972425c2c3
   .agents/skills/rhizome/references/diagnostics.md: d8b9dbcb6ac0660f
   .agents/skills/rhizome/references/documentation-bindings.md: 5b35408613b2b137
   .agents/skills/rhizome/references/evidence-and-composition.md: 15d0531885ef6ee9
@@ -47,14 +49,16 @@ written:
   .agents/skills/rhizome/references/installation-and-integration.md: 4549005b642a873e
   .agents/skills/rhizome/references/markdown-mutations.md: cfadc458ed192976
   .agents/skills/rhizome/references/onboarding.md: 1edce60ff7bca8ee
-  .agents/skills/rhizome/references/ontology-authoring.md: f1690778f3fde4f6
+  .agents/skills/rhizome/references/ontology-authoring.md: a5c0e3cf2b5b5e19
   .agents/skills/rhizome/references/ontology-usage.md: 6dc255af54ef2c12
   .agents/skills/rhizome/references/reports-and-health.md: 47849fa37df2132c
   .agents/skills/rhizome/references/search-and-code-evidence.md: 517c10d908edc627
   .agents/skills/rhizome/references/sessions.md: 481277c87a0b1dbc
+  .agents/skills/rhizome/references/setup-and-starters.md: 7594380e6d0324d0
   .agents/skills/rhizome/references/skill-authoring.md: 35ec03c0e8a679f3
   .agents/skills/rhizome/references/skill-scripts.md: 9bc5e247cf8bf273
   .agents/skills/rhizome/references/structured-markdown.md: 854c3c460c33f429
+  .agents/skills/rhizome/references/usage.md: a31f67597ceeb602
   .agents/skills/rhizome/references/validation-and-repair.md: d19b7023dc899b6c
   .agents/skills/rhizome/references/views.md: 26fb7388f96eefbc
   .claude/settings.json#rhizome-sandbox: a17fcf0a2f50e2d4
@@ -65,7 +69,7 @@ written:
   .claude/skills/agentic-engineering/references/closure-report-contract.md: b44220b007bf0631
   .claude/skills/agentic-engineering/references/closure.md: 1ca792d85005c570
   .claude/skills/agentic-engineering/references/compounding.md: c644f0774ddc342f
-  .claude/skills/agentic-engineering/references/effort-setup.md: 6b278af59837f8a6
+  .claude/skills/agentic-engineering/references/effort-setup.md: 216cc9b5b460c79b
   .claude/skills/agentic-engineering/references/implementation.md: 6ad899a4fad8f03d
   .claude/skills/agentic-engineering/references/planning.md: 9932b9eb5605e222
   .claude/skills/agentic-engineering/references/quality-gates.md: 78ecf29c4b62d5e4
@@ -91,9 +95,11 @@ written:
   .claude/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
   .claude/skills/legacy-codebase-assessor/SKILL.md: 677d777c09df3534
   .claude/skills/legacy-codebase-assessor/references/findings-template.md: 6172ac9f5c6d79fd
-  .claude/skills/rhizome/SKILL.md: 255391890ffd96fc
-  .claude/skills/rhizome/references/code-mode.md: 0d29f619134584e4
-  .claude/skills/rhizome/references/configuration.md: 519acbe756f1d74c
+  .claude/skills/rhizome/SKILL.md: f3de086ed01c787c
+  .claude/skills/rhizome/references/automation.md: f559078a80cb986c
+  .claude/skills/rhizome/references/code-mode.md: dbaf97cd8845d9d5
+  .claude/skills/rhizome/references/configuration.md: c44f590db061d480
+  .claude/skills/rhizome/references/customization.md: 389cbe972425c2c3
   .claude/skills/rhizome/references/diagnostics.md: d8b9dbcb6ac0660f
   .claude/skills/rhizome/references/documentation-bindings.md: 5b35408613b2b137
   .claude/skills/rhizome/references/evidence-and-composition.md: 15d0531885ef6ee9
@@ -103,14 +109,16 @@ written:
   .claude/skills/rhizome/references/installation-and-integration.md: 4549005b642a873e
   .claude/skills/rhizome/references/markdown-mutations.md: cfadc458ed192976
   .claude/skills/rhizome/references/onboarding.md: 1edce60ff7bca8ee
-  .claude/skills/rhizome/references/ontology-authoring.md: f1690778f3fde4f6
+  .claude/skills/rhizome/references/ontology-authoring.md: a5c0e3cf2b5b5e19
   .claude/skills/rhizome/references/ontology-usage.md: 6dc255af54ef2c12
   .claude/skills/rhizome/references/reports-and-health.md: 47849fa37df2132c
   .claude/skills/rhizome/references/search-and-code-evidence.md: 517c10d908edc627
   .claude/skills/rhizome/references/sessions.md: 481277c87a0b1dbc
+  .claude/skills/rhizome/references/setup-and-starters.md: 7594380e6d0324d0
   .claude/skills/rhizome/references/skill-authoring.md: 35ec03c0e8a679f3
   .claude/skills/rhizome/references/skill-scripts.md: 9bc5e247cf8bf273
   .claude/skills/rhizome/references/structured-markdown.md: 854c3c460c33f429
+  .claude/skills/rhizome/references/usage.md: a31f67597ceeb602
   .claude/skills/rhizome/references/validation-and-repair.md: d19b7023dc899b6c
   .claude/skills/rhizome/references/views.md: 26fb7388f96eefbc
   .codex/config.toml#rhizome-sandbox: 54d9924328c49a3b

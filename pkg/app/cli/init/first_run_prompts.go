@@ -16,12 +16,19 @@ type workflowChoice struct {
 	label       string
 	description string
 	starters    []string
+	// fit and cautions describe a choice that installs no starter. A
+	// choice that installs one reports the starter's own.
+	fit, cautions string
 }
 
 var workflowChoices = []workflowChoice{
-	{"agentic-engineering", "Agentic Engineering", "Specs, efforts, and engineering policy docs your agents follow", []string{templateAgenticEngineering}},
-	{"domain", "Agentic Engineering with domain modeling", "Adds sources, requirements, and traceability for regulated or complex domains", []string{templateComplexDomain}},
-	{"none", "Search and agent guidance only", "Search, code navigation, and Rhizome guidance, with no workflow docs", nil},
+	{id: "agentic-engineering", label: "Agentic Engineering", description: "Specs, efforts, and engineering policy docs your agents follow", starters: []string{templateAgenticEngineering}},
+	{id: "domain", label: "Agentic Engineering with domain modeling", description: "Adds sources, requirements, and traceability for regulated or complex domains", starters: []string{templateComplexDomain}},
+	{
+		id: "none", label: "Search and agent guidance only", description: "Search, code navigation, and Rhizome guidance, with no workflow docs",
+		fit:      "A notes vault, a knowledge base, or a repository whose team keeps its own process and wants search, code navigation, typed notes, and the rhizome skill without workflow documents. Also the base for a team that will define its own types.",
+		cautions: "Installs no starter, so there is no Person type and no current user for assignments or approvals until an add-on or the team's own schema adds one.",
+	},
 }
 
 // workflowChoiceFor returns the choice that installs workflows.

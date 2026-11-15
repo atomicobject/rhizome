@@ -1,6 +1,8 @@
 id: ao-kb
 name: AO KB knowledge
 description: "Browse, trace, and edit an existing AO KB's knowledge beside AO's own skills, with the selected product model read-only"
+fit: "A repository that is already an AO KB, with .kb/config/vault.md at its root beside assertions/, sources/, concepts/, and artifacts/; Rhizome reads and edits that knowledge while AO's own skills keep authoring it. Not for starting a new KB, or for a KB in a subfolder, because the KB root must be the vault root."
+cautions: "Needs a trusted repository, AO schemaVersion 8 (a single-product KB at 4 through 7 gets knowledge only), a product choice for a multi-product KB, and uv on PATH, which downloads AO's pinned packages for the model stage. Local types with the same names as the starter's collide and must be retired or renamed first, by the person's decision."
 requires:
   - core
 optionalAddon: true
