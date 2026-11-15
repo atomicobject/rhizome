@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/atomicobject/rhizome/pkg/app/procrun"
+	"github.com/atomicobject/rhizome/pkg/loginpath"
 	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	"github.com/atomicobject/rhizome/pkg/vault/actiondef"
@@ -132,7 +133,7 @@ func (r *Runner) Run(ctx context.Context, id string, input map[string]any) (Enve
 
 func (r *Runner) runCommand(ctx context.Context, a actiondef.Action, input map[string]any) Envelope {
 	argv := a.Command()
-	name, err := procrun.LookLoginPath(argv[0])
+	name, err := loginpath.Look(argv[0])
 	if err != nil {
 		return failed(err.Error(), "")
 	}
@@ -310,7 +311,7 @@ func (r *Runner) environment() []string {
 		executable, _ = os.Executable()
 	}
 	executable = paths.AbsFromInput(r.RepoRoot, executable).String()
-	env := procrun.WithPath(os.Environ(), procrun.LoginPath())
+	env := loginpath.WithPath(os.Environ(), loginpath.Path())
 	filtered := env[:0]
 	for _, value := range env {
 		if strings.HasPrefix(value, "RZM=") || strings.HasPrefix(value, "RZM_SKIP_REPO_DELEGATE=") || strings.HasPrefix(value, "RZM_REPO_DELEGATED=") || strings.HasPrefix(value, "RZM_MODULE_LIFECYCLE=") {
