@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestLookFindsLocalBinUnderBarePath(t *testing.T) {
@@ -26,5 +27,22 @@ func TestLookFindsLocalBinUnderBarePath(t *testing.T) {
 	}
 	if want := filepath.Join(bin, "fake-agent-cli"); got != want {
 		t.Fatalf("Look = %q, want %q", got, want)
+	}
+}
+
+func TestShellPathReturnsWhenAProfileLeavesOutputOpen(t *testing.T) {
+	shell := filepath.Join(t.TempDir(), "profile-shell")
+	script := "#!/bin/sh\nsleep 30 &\nprintf '__RZM_LOGIN_PATH__/from/login'\n"
+	if err := os.WriteFile(shell, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SHELL", shell)
+	start := time.Now()
+	got := shellPath()
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Fatalf("shellPath waited %s for a background child's output", elapsed)
+	}
+	if got != "/from/login" {
+		t.Fatalf("shellPath = %q, want %q", got, "/from/login")
 	}
 }
