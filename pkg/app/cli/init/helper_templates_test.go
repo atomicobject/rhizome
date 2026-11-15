@@ -543,8 +543,10 @@ func TestCoreRhizomeSkillRoutesToDirectFocusedReferences(t *testing.T) {
 	}
 	require.True(t, foundRhizome)
 	expectedRefs := []string{
+		"automation.md",
 		"code-mode.md",
 		"configuration.md",
+		"customization.md",
 		"diagnostics.md",
 		"documentation-bindings.md",
 		"evidence-and-composition.md",
@@ -559,9 +561,11 @@ func TestCoreRhizomeSkillRoutesToDirectFocusedReferences(t *testing.T) {
 		"reports-and-health.md",
 		"search-and-code-evidence.md",
 		"sessions.md",
+		"setup-and-starters.md",
 		"skill-authoring.md",
 		"skill-scripts.md",
 		"structured-markdown.md",
+		"usage.md",
 		"validation-and-repair.md",
 		"views.md",
 	}
