@@ -49,6 +49,12 @@ const subscribePrevious = (listener: () => void) => {
 // message sent before it lands would run the one before it.
 const saving = new WeakMap<QueryClient, Promise<boolean>>();
 
+// Choices still saving. A reply that lands while a later choice waits would
+// show, and then save, the earlier choice, so only the last reply is stored.
+const unsaved = new WeakMap<QueryClient, number>();
+
+const pendingChoices = (queryClient: QueryClient) => unsaved.get(queryClient) ?? 0;
+
 export function resetChatAgentForTests() {
   previous = undefined;
 }
@@ -88,20 +94,26 @@ export function useChatAgent(session?: Pick<AgentSession, "harness"> | null) {
     scope: AGENT_SETTINGS_SCOPE,
     // The composer follows the click, not the save's reply.
     onMutate: async (next) => {
+      unsaved.set(queryClient, pendingChoices(queryClient) + 1);
       await queryClient.cancelQueries({ queryKey: key });
       queryClient.setQueryData<AgentSettingsResponse>(
         key,
         (current) => current && { ...current, settings: withChoice(current.settings, next) },
       );
     },
-    onSuccess: store,
+    onSuccess: async (next) => {
+      if (pendingChoices(queryClient) === 1) await store(next);
+    },
     onError: () => queryClient.invalidateQueries({ queryKey: key }),
+    onSettled: () => unsaved.set(queryClient, pendingChoices(queryClient) - 1),
   });
 
   const recheck = useMutation({
     mutationFn: () => getAgentSettings({ refresh: true }),
     scope: AGENT_SETTINGS_SCOPE,
-    onSuccess: store,
+    onSuccess: async (next) => {
+      if (pendingChoices(queryClient) === 0) await store(next);
+    },
   });
 
   const remembered = useSyncExternalStore(subscribePrevious, () => previous);
