@@ -3,7 +3,7 @@ type: ProductSpec
 id: SPEC-0080
 summary: "Defines one base Rhizome skill that gives agents reliable core operating guidance and routes lazily to focused references without owning starter-specific workflows."
 spec-status: active
-last-updated: 2026-09-12
+last-updated: 2026-11-15
 aliases:
   - SPEC-0080
   - base-rhizome-agent-guidance
@@ -133,11 +133,27 @@ The skill stays lean by classifying the request, selecting one primary route, an
 - Focused references retain the safety constraints needed for validation repair, structured Markdown, ontology authoring, documentation bindings, skill authoring, onboarding, and graph-safe mutations without restoring retired skill duplication. ^SPEC-0080-US7-AC3
 - The spec-driven development-loop routes unfamiliar codebase or subsystem orientation through the base `rhizome` onboarding reference and composes with its lean session defaults. ^SPEC-0080-US7-AC4
 
+### US8 - Explain Rhizome, onboard a repository, and customize or automate it
+
+- id:: ^SPEC-0080-US8
+- summary:: A person new to Rhizome, in the desktop app's chat or a standalone agent session, gets an explanation of what Rhizome and this repository can do, a starter recommendation drawn from live catalog data, and a safe path from a goal to a view, schema change, or automation, without knowing Rhizome's vocabulary.
+- status:: ready
+
+#### Acceptance Criteria
+
+- The base skill routes questions about what Rhizome is or can do, starter setup and repair, vault customization, and vault automation to focused references, and its description names those branches without deictic triggers that would fire on ordinary work. ^SPEC-0080-US8-AC1
+- Orientation detects in-app chat from the leading `[Rhizome view]` block, answers about the shown subject first, discovers the repository's actual types and views through live calls, and directs the person to app controls the agent cannot press. ^SPEC-0080-US8-AC2
+- Starter recommendation reads the workflow and add-on catalog, including optional add-ons and each entry's `fit` and `cautions`, from `rzm init --check --json` in configured and unconfigured folders, cites repository evidence, and names no bundled starter in the skill. ^SPEC-0080-US8-AC3
+- The request sets the authority: a recommendation request stays read-only, a setup request authorizes previewing and applying the plan it describes, and a workflow switch that removes files needs an explicit yes. Trust, keys, identity, budgets, and commits stay with the person. ^SPEC-0080-US8-AC4
+- Customization starts at the lowest mechanism that answers the goal and stops for approval before migrating existing notes; automation names cost, data egress, and trust before declaring a module action or scheduled task. ^SPEC-0080-US8-AC5
+- The desktop chat's session instructions route questions about Rhizome itself to the `rhizome` skill and fall back to the shared `.agents/skills/rhizome/SKILL.md` when the harness does not list it. ^SPEC-0080-US8-AC6
+- Tests keep bundled starter ids out of the skill and fail when a skill template names an `rzm` command or long flag the command tree does not have. ^SPEC-0080-US8-AC7
+
 ## Requirements
 
-- The installed core skill MUST be named `rhizome` and MUST expose focused references for installation/integration, sessions, evidence/composition, search/code evidence, file context, onboarding, configuration, indexing/freshness, validation/repair, Markdown mutations, structured Markdown, ontology usage, ontology authoring, documentation bindings, reports/health, and opted-in skill authoring.
+- The installed core skill MUST be named `rhizome` and MUST expose focused references for installation/integration, sessions, evidence/composition, search/code evidence, file context, onboarding, configuration, indexing/freshness, validation/repair, Markdown mutations, structured Markdown, ontology usage, ontology authoring, documentation bindings, reports/health, opted-in skill authoring, product orientation, setup and starters, customization, and automation.
 - The skill MUST select one primary route and MUST load additional references only when they materially affect the outcome.
-- The skill MUST keep starter-specific names, spec/effort terminology, and starter-owned recipe ids out of its base body and references.
+- The skill MUST keep starter-specific names, spec/effort terminology, and starter-owned recipe ids out of its base body and references. Starter facts reach the skill as live catalog data (`fit`, `cautions`, descriptions) reported by `rzm init --check --json`.
 - The managed `RHIZOME.md` guidance MUST remain a lean router and integration check, not a duplicate operational manual.
 - The core guidance refresh MUST retire `rhizome-onboard`, `rhizome-note-authoring`, `rhizome-ontology`, and `rhizome-skill-creator` as managed core skills without leaving compatibility wrappers.
 - GraphQL guidance MUST describe typed note/relationship queries, semantic-only note/node search and ontology-scoped surveys, schema-validated recipes, authoring/schema metadata, and bounded known-path code/document/test evidence; it MUST NOT describe GraphQL as unified note-and-code search or the code runtime as arbitrary code search.
