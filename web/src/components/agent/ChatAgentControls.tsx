@@ -19,6 +19,7 @@ import {
   readiness,
   statusOf,
   withChoice,
+  inChatComposer,
 } from "./chatAgent";
 import { commandKey, IS_MAC, ModeMenu, ModelPicker } from "./ChatAgentPanels";
 
@@ -234,6 +235,8 @@ export function ChatAgentControls({ agent }: { agent: ChatAgent }) {
       if (!which || !event.shiftKey || event.altKey || !commandKey(event)) return;
 
       if (which === "modes" && !hasChoice) return;
+
+      if (which === "reasoning" && !inChatComposer(event.target)) return;
 
       event.preventDefault();
       show(which);

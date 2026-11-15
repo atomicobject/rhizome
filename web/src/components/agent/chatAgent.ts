@@ -260,3 +260,11 @@ export function blockerFor(
       return undefined;
   }
 }
+
+/**
+ * Whether a key press comes from a chat composer. There ⇧⌘E opens Reasoning;
+ * elsewhere it stays the Notes shortcut that starts editing.
+ */
+export function inChatComposer(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(".agent-composer") !== null;
+}

@@ -67,6 +67,7 @@ import { withViewParams, type ViewParamValue } from "../views/params";
 import type { OpenSearchRequest } from "../views/viewBridge";
 import { useValidationScopeSummaries, validationScopeKey } from "./useValidationScopeSummaries";
 import { validationHealth } from "./validation/validationPresentation";
+import { inChatComposer } from "./agent/chatAgent";
 
 function navigate(url: string, replace = false) {
   const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -590,6 +591,7 @@ export function NotesShell({ active = true }: { active?: boolean }) {
       if (
         event.shiftKey &&
         event.key.toLowerCase() === "e" &&
+        !inChatComposer(event.target) &&
         !editSession.editing &&
         !activeReadOnly
       ) {

@@ -67,13 +67,16 @@ function Composer({ session }: { session?: { harness?: AgentHarnessKind } }) {
   const agent = useChatAgent(session);
 
   return (
-    <div className="agent-composer__frame">
-      <ChatAgentNotice agent={agent} />
-      <ChatAgentControls agent={agent} />
-      <button type="button" disabled={Boolean(agent.blocker)}>
-        Send
-      </button>
-    </div>
+    <form className="agent-composer">
+      <div className="agent-composer__frame">
+        <ChatAgentNotice agent={agent} />
+        <textarea aria-label="Message" />
+        <ChatAgentControls agent={agent} />
+        <button type="button" disabled={Boolean(agent.blocker)}>
+          Send
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -187,8 +190,19 @@ describe("chat's agent picker", () => {
     render(<Composer />);
     await screen.findByRole("button", { name: "Opus 5.5 · High" });
 
+    // Outside the composer ⇧⌘E stays the Notes shortcut that starts editing.
     act(() => {
-      fireEvent.keyDown(window, { key: "E", code: "KeyE", shiftKey: true, ctrlKey: true });
+      fireEvent.keyDown(document.body, { key: "E", code: "KeyE", shiftKey: true, ctrlKey: true });
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    act(() => {
+      fireEvent.keyDown(screen.getByRole("textbox", { name: "Message" }), {
+        key: "E",
+        code: "KeyE",
+        shiftKey: true,
+        ctrlKey: true,
+      });
     });
 
     const high = within(screen.getByRole("radiogroup", { name: "Reasoning" })).getByRole("radio", {

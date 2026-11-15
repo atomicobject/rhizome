@@ -147,12 +147,22 @@ export function AgentWorkspace({
       // A choice of another agent starts a new chat with it.
       let sessionID = agent.startsNewChat() ? "" : selectedID;
 
-      if (!sessionID) {
+      // An agent chosen while the chat opened gets a chat of its own.
+      while (!sessionID) {
         const created = await createAgentSession(trimmed.slice(0, 48));
-        sessionID = created.session.id;
+
         setSessions((current) => [created.session, ...current]);
-        setSelectedID(sessionID);
+
+        if (!(await agent.saved())) return;
+
+        if (!agent.startsNewChat(created.session.harness)) sessionID = created.session.id;
       }
+
+      setSelectedID(sessionID);
+
+      // A permission mode or model chosen while the chat opened is saved
+      // before the message runs on it.
+      if (!(await agent.saved())) return;
 
       // Text typed while the message waited stays for the next one.
       setDraft((current) => (current.trim() === trimmed ? "" : current));

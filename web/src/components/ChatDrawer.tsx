@@ -284,14 +284,17 @@ export function ChatPanel() {
       // open chat that could not be read, since its agent is unknown.
       let target = !open || agent.startsNewChat(open.session.harness) ? "" : sessionID;
 
-      if (!target) {
+      // An agent chosen while the chat opened gets a chat of its own.
+      while (!target) {
         const created = await createAgentSession(message.slice(0, 48));
 
         // A send stopped meanwhile must not select its chat over a newer one.
-        if (!chatSendLive(id)) return;
-        target = created.session.id;
-        setChatSession(target);
+        if (!(await agent.saved()) || !chatSendLive(id)) return;
+
+        if (!agent.startsNewChat(created.session.harness)) target = created.session.id;
       }
+
+      if (target !== sessionID) setChatSession(target);
 
       // A permission mode or model chosen while the chat opened is saved
       // before the message runs on it.
