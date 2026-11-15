@@ -75,6 +75,7 @@ Built on `t3/chat-agent-model-picker`.
 - Greptile's sixth pass (4/5) found the Agent page erasing text typed while a message waited, and a slow login shell spending the agent status check's time limit; the draft now clears only if unchanged (test shown to fail before the fix), and the status check finds the login PATH before its limit starts.
 - Greptile's seventh pass found the chat pane's Stop leaving a message that waited for its choice to save to go out afterwards, and another window's open Settings keeping a chat agent's old switch state; Stop now cancels a send that has not reached the server, keeping the draft, and a saved chat setting is broadcast to every window's shell, where Settings checks again. Each fix has a test shown to fail before it.
 - Greptile's eighth pass (4/5) found a stopped send's late chat creation replacing a newer chat, and Stop during a Claude model change ending as a connection failure because the driver stopped the process on any cancellation; the pane now drops a stopped send's new chat, and the driver stops the process only when Claude never answers, resending both values after a canceled change. Each has a test shown to fail before the fix.
+- Greptile's ninth pass (4/5) found a message sent while the saved chat was still loading going to that chat's agent instead of the one chosen; the pane now reads the open chat's agent before deciding, with a test shown to fail before the fix.
 
 ## Compounding Follow-ups
 

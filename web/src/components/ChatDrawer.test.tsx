@@ -188,6 +188,60 @@ describe("Chat in the right pane", () => {
     expect(composer).toHaveValue("Delete the drafts");
   });
 
+  it("starts a new chat for another agent chosen while the saved chat loads", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+
+    const loading = deferredReply<{
+      session: ReturnType<typeof session>;
+      messages: [];
+      events: [];
+    }>();
+
+    const both = settingsWith(readyStatus);
+
+    both.harnesses.push({
+      kind: "claude",
+      status: {
+        ...readyStatus,
+        models: [{ id: "opus", displayName: "Opus 5.5", efforts: ["high"], default: true }],
+      },
+    });
+    const created = session({ id: "created", harness: "claude" });
+    http
+      .json("GET", "/api/agent/settings", both)
+      .on("GET", "/api/agent/sessions/agt-1", () => loading.promise)
+      .json("PUT", "/api/agent/settings", {
+        ...both,
+        settings: {
+          harness: "claude",
+          harnesses: {
+            ...both.settings.harnesses,
+            claude: { model: "opus", permissionMode: "approval-required" },
+          },
+        },
+        resolved: { harness: "claude", model: "opus", reason: "configured" },
+      })
+      .json("POST", "/api/agent/sessions", { session: created })
+      .json("GET", "/api/agent/sessions/created", { session: created, messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/created/messages", { session: created })
+      .json("POST", "/api/agent/sessions/agt-1/messages", { session: session() });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    fireEvent.click(await within(pane).findByRole("button", { name: /GPT Standard/ }));
+    fireEvent.click(screen.getByRole("option", { name: /Opus 5.5/ }));
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+    const composer = within(pane).getByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "Summarize this" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+    loading.resolve({ session: session(), messages: [], events: [] });
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/created/messages")).toBe(1));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+  });
+
   it("sends again after a choice failed to save", async () => {
     window.localStorage.setItem(SESSION_KEY, "agt-1");
     const saving = deferredReply<AgentSettingsResponse>();

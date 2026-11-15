@@ -160,11 +160,14 @@ export function useChatAgent(session?: Pick<AgentSession, "harness"> | null) {
 
       return !blockerFor(latest, currentChoice(latest));
     },
-    /** Whether the next message starts a new chat, read after `saved` from the saved choice. */
-    startsNewChat: () => {
+    /**
+     * Whether the next message starts a new chat, read after `saved` from the
+     * saved choice; `harness` is the open chat's agent once it has loaded.
+     */
+    startsNewChat: (harness = session?.harness) => {
       const saved = currentChoice(queryClient.getQueryData<AgentSettingsResponse>(key) ?? response);
 
-      return Boolean(session?.harness && saved && session.harness !== saved.harness);
+      return Boolean(harness && saved && harness !== saved.harness);
     },
     recheck: () => recheck.mutate(),
   };

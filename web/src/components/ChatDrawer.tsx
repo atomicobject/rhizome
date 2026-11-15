@@ -1,10 +1,13 @@
 // Chat, a tab of the app's one right pane (SPEC-0140). It talks to the same
 // agent chat sessions as the Agent page, and each message carries what the
 // user is looking at.
+import { useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from "react";
 
+import { queryKeys } from "../api/queryKeys";
 import {
   createAgentSession,
+  getAgentSession,
   interruptAgentSession,
   respondToAgentApproval,
 } from "../api/internalAgentClient";
@@ -208,6 +211,7 @@ export function ChatPanel() {
 
   const session = thread.sessionQuery.data?.session;
   const agent = useChatAgent(session);
+  const queryClient = useQueryClient();
   const blocked = Boolean(agent.blocker);
 
   // The store holds a send from the first keypress until it returns, so a
@@ -264,8 +268,21 @@ export function ChatPanel() {
     try {
       if (!(await agent.saved()) || !chatSendLive(id)) return;
 
+      // The open chat's agent decides whether it can take the message, so a
+      // chat still loading is read first.
+      const open = sessionID
+        ? await queryClient
+            .ensureQueryData({
+              queryKey: queryKeys.agent.session(sessionID),
+              queryFn: ({ signal }) => getAgentSession(sessionID, { signal }),
+            })
+            .catch(() => undefined)
+        : undefined;
+
+      if (!chatSendLive(id)) return;
+
       // A choice of another agent starts a new chat with it.
-      let target = agent.startsNewChat() ? "" : sessionID;
+      let target = agent.startsNewChat(open?.session.harness) ? "" : sessionID;
 
       if (!target) {
         const created = await createAgentSession(message.slice(0, 48));
