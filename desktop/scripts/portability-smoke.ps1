@@ -83,6 +83,19 @@ function Wait-VisibleChildFocus([Diagnostics.Process]$Process, [IntPtr]$Window) 
     throw 'The new desktop window did not focus a visible child after the shell click.'
 }
 
+#region TemporaryKeyboardObserver
+$keyboardObserver = $null
+$keyboardSetupFailure = $null
+$keyboardSmokeFailure = $null
+try {
+    Add-Type -Path (Join-Path $PSScriptRoot 'portability-keyboard-observer.cs')
+    $keyboardObserver = [DesktopKeyboardObserver]::new()
+    $keyboardObserver.Start()
+} catch {
+    $keyboardSetupFailure = $_ | Out-String
+}
+try {
+#endregion TemporaryKeyboardObserver
 $previousState = [Environment]::GetEnvironmentVariable('RHIZOME_DESKTOP_DATA_DIR', 'Process')
 $previousTrace = [Environment]::GetEnvironmentVariable('RHIZOME_DESKTOP_STARTUP_TRACE', 'Process')
 $previousKeyTrace = [Environment]::GetEnvironmentVariable('RZM_DESKTOP_KEY_TRACE', 'Process')
@@ -112,7 +125,13 @@ try {
         Start-Sleep -Milliseconds 100
     }
     Save-WindowEvidence $process 'focused' $targetWindow
+#region TemporaryKeyboardObserver
+    if ($null -ne $keyboardObserver) { $keyboardObserver.Mark('first-before-sendkeys') }
+#endregion TemporaryKeyboardObserver
     $shell.SendKeys('^n')
+#region TemporaryKeyboardObserver
+    if ($null -ne $keyboardObserver) { $keyboardObserver.Mark('first-after-sendkeys') }
+#endregion TemporaryKeyboardObserver
     $windows = @(Wait-Windows $process 2)
     Save-WindowEvidence $process 'new-window' $targetWindow
     if ($windows.Count -ne 2) { throw "New Window opened $($windows.Count) application windows instead of two." }
@@ -138,7 +157,13 @@ try {
     Save-WindowEvidence $process 'visible-child-focused' $targetWindow
     $beforeChildKey = @([DesktopPortabilityWindows]::ApplicationWindows($process.Id))
     if ($beforeChildKey.Count -ne 2) { throw 'Desktop window count changed before the visible-child shortcut.' }
+#region TemporaryKeyboardObserver
+    if ($null -ne $keyboardObserver) { $keyboardObserver.Mark('visible-child-before-sendkeys') }
+#endregion TemporaryKeyboardObserver
     $shell.SendKeys('^n')
+#region TemporaryKeyboardObserver
+    if ($null -ne $keyboardObserver) { $keyboardObserver.Mark('visible-child-after-sendkeys') }
+#endregion TemporaryKeyboardObserver
     $windows = @(Wait-Windows $process 3)
     Save-WindowEvidence $process 'visible-child-new-window' $targetWindow
     if ($windows.Count -ne 3) { throw "The visible-child shortcut opened $($windows.Count) application windows instead of three." }
@@ -176,3 +201,35 @@ try {
         $process.Dispose()
     }
 }
+#region TemporaryKeyboardObserver
+} catch {
+    $keyboardSmokeFailure = $_
+    throw
+} finally {
+    $keyboardErrors = [Collections.Generic.List[string]]::new()
+    if ($null -ne $keyboardSetupFailure) { $keyboardErrors.Add($keyboardSetupFailure) }
+    $keyboardEvidence = $null
+    if ($null -ne $keyboardObserver) {
+        try { $keyboardObserver.Stop() }
+        catch { $keyboardErrors.Add(($_ | Out-String)) }
+        try {
+            $keyboardEvidence = $keyboardObserver.Evidence()
+            if (-not $keyboardObserver.Healthy) { $keyboardErrors.Add('Observer capture is incomplete. See observer errors and status in smoke-keyboard.json.') }
+        } catch { $keyboardErrors.Add(($_ | Out-String)) }
+    }
+    try {
+        @{
+            setupFailure = $keyboardSetupFailure
+            smokeFailure = if ($null -ne $keyboardSmokeFailure) { $keyboardSmokeFailure | Out-String } else { $null }
+            observer = $keyboardEvidence
+        } | ConvertTo-Json -Depth 9 | Set-Content -LiteralPath (Join-Path $output 'smoke-keyboard.json')
+    } catch { $keyboardErrors.Add(($_ | Out-String)) }
+    if ($keyboardErrors.Count -gt 0) {
+        $keyboardGap = 'Keyboard observer evidence gap. ' + ($keyboardErrors -join "`n")
+        try { $keyboardGap | Set-Content -LiteralPath (Join-Path $output 'smoke-keyboard.log') }
+        catch { Write-Warning "Could not save keyboard observer error log. $_" -WarningAction Continue }
+        if ($null -eq $keyboardSmokeFailure) { throw $keyboardGap }
+        Write-Warning $keyboardGap -WarningAction Continue
+    }
+}
+#endregion TemporaryKeyboardObserver
