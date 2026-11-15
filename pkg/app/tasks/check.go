@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/atomicobject/rhizome/pkg/app/procrun"
+	"github.com/atomicobject/rhizome/pkg/loginpath"
 )
 
 const maxCheckOutput = 1 << 20
@@ -51,7 +52,7 @@ func (l Locations) env() []string {
 // bare `rzm` would otherwise run whatever rzm is first on PATH instead of the
 // repository's binary that this runtime already resolved.
 func (s *Service) taskPath() string {
-	return filepath.Dir(s.opts.Rzm) + string(os.PathListSeparator) + procrun.LoginPath()
+	return filepath.Dir(s.opts.Rzm) + string(os.PathListSeparator) + loginpath.Path()
 }
 
 // agentEnv is the environment a task's agent adds to its own.
@@ -100,14 +101,14 @@ func (s *Service) runCheck(ctx context.Context, def Definition, loc Locations, l
 		name := s.opts.Rzm
 		if def.Check.Command[0] != "rzm" {
 			var err error
-			if name, err = procrun.LookLoginPath(def.Check.Command[0]); err != nil {
+			if name, err = loginpath.Look(def.Check.Command[0]); err != nil {
 				return CheckResult{}, fmt.Errorf("check %w", err)
 			}
 		}
 		cmd = exec.Command(name, def.Check.Command[1:]...)
 		cmd.Dir = dir
 	}
-	cmd.Env = append(procrun.WithPath(os.Environ(), s.taskPath()), loc.env()...)
+	cmd.Env = append(loginpath.WithPath(os.Environ(), s.taskPath()), loc.env()...)
 	if loc.Test && def.Check.Script != "" {
 		cmd.Env = append(cmd.Env, "RZM_RUNTIME_AUTOSTART=0")
 	}
