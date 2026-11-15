@@ -20,7 +20,10 @@ type Settings struct {
 
 type ResolvedHarness struct {
 	Harness harness.Kind `json:"harness,omitempty"`
-	Reason  string       `json:"reason"`
+	// Model is the configured model when the harness offers it, else empty
+	// for the harness's own default.
+	Model  string `json:"model,omitempty"`
+	Reason string `json:"reason"`
 }
 
 type HarnessStatus struct {

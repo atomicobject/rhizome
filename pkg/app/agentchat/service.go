@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -147,20 +148,34 @@ func (s *Service) SaveSettings(ctx context.Context, settings Settings) (Settings
 }
 
 func resolveHarness(settings Settings, statuses []HarnessStatus) ResolvedHarness {
-	if settings.Harness != "" {
-		return ResolvedHarness{Harness: settings.Harness, Reason: "configured"}
-	}
 	byKind := make(map[harness.Kind]Status, len(statuses))
 	for _, item := range statuses {
 		byKind[item.Kind] = item.Status
 	}
-	for _, kind := range harnessOrder {
-		status, ok := byKind[kind]
-		if ok && status.Installed && status.LoggedIn {
-			return ResolvedHarness{Harness: kind, Reason: "first available"}
+	resolved := ResolvedHarness{Reason: "none available"}
+	if settings.Harness != "" {
+		resolved = ResolvedHarness{Harness: settings.Harness, Reason: "configured"}
+	} else {
+		for _, kind := range harnessOrder {
+			if status, ok := byKind[kind]; ok && status.Installed && status.LoggedIn {
+				resolved = ResolvedHarness{Harness: kind, Reason: "first available"}
+				break
+			}
 		}
 	}
-	return ResolvedHarness{Reason: "none available"}
+	if resolved.Harness != "" {
+		resolved.Model = offeredModel(settings.Harnesses[resolved.Harness].Model, byKind[resolved.Harness].Models)
+	}
+	return resolved
+}
+
+// offeredModel keeps a configured model only while the harness offers it, so a
+// stale or mistyped setting falls back to the harness's default.
+func offeredModel(model string, offered []harness.ModelOption) string {
+	if slices.ContainsFunc(offered, func(option harness.ModelOption) bool { return option.ID == model }) {
+		return model
+	}
+	return ""
 }
 
 func (s *Service) CreateSession(ctx context.Context, title string) (SessionResponse, error) {
@@ -172,8 +187,7 @@ func (s *Service) CreateSession(ctx context.Context, title string) (SessionRespo
 	if kind == "" {
 		return SessionResponse{}, errors.New("no installed and logged-in harness is available")
 	}
-	model := settings.Settings.Harnesses[kind].Model
-	session, err := s.store.CreateSession(ctx, title, kind, model)
+	session, err := s.store.CreateSession(ctx, title, kind, settings.Resolved.Model)
 	return SessionResponse{Session: session}, err
 }
 
@@ -304,7 +318,9 @@ func (s *Service) beginTurn(session Session, settings Settings) (*liveSession, *
 
 		configured := settings.Harnesses[session.Harness]
 		options := harness.SessionOptions{
-			Cwd: s.vaultPath, Model: session.Model, Effort: configured.Effort,
+			// A session keeps its model only while the harness still offers it.
+			Cwd: s.vaultPath, Model: offeredModel(session.Model, s.harnessStatus(s.ctx, session.Harness, driver).Models),
+			Effort:         configured.Effort,
 			PermissionMode: configured.PermissionMode, Resume: session.HarnessSessionID,
 			Instructions: chatInstructions,
 		}

@@ -235,3 +235,10 @@ it("chooses the app-wide appearance and theme", () => {
   fireEvent.click(within(themes).getByLabelText("Spruce"));
   expect(base.onAppearance).toHaveBeenCalledWith({ theme: "spruce" });
 });
+
+it("closes on Escape like Done", () => {
+  const onClose = vi.fn();
+  render(<Settings {...props()} onClose={onClose} />);
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(onClose).toHaveBeenCalledOnce();
+});

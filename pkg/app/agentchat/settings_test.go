@@ -85,4 +85,11 @@ func TestResolveHarness(t *testing.T) {
 	require.Equal(t, ResolvedHarness{Harness: harness.KindClaude, Reason: "configured"}, resolveHarness(Settings{Harness: harness.KindClaude}, nil))
 	require.Equal(t, ResolvedHarness{Harness: harness.KindCodex, Reason: "first available"}, resolveHarness(DefaultSettings(), []HarnessStatus{readyClaude, readyCodex}))
 	require.Equal(t, ResolvedHarness{Reason: "none available"}, resolveHarness(DefaultSettings(), []HarnessStatus{{Kind: harness.KindCodex}}))
+
+	offered := HarnessStatus{Kind: harness.KindCodex, Status: Status{Installed: true, LoggedIn: true, Models: []harness.ModelOption{{ID: "gpt-test"}}}}
+	configured := func(model string) Settings {
+		return Settings{Harness: harness.KindCodex, Harnesses: map[harness.Kind]HarnessSettings{harness.KindCodex: {Model: model}}}
+	}
+	require.Equal(t, "gpt-test", resolveHarness(configured("gpt-test"), []HarnessStatus{offered}).Model)
+	require.Empty(t, resolveHarness(configured("fake"), []HarnessStatus{offered}).Model, "a model the harness does not offer falls back to its default")
 }

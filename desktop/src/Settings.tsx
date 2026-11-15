@@ -221,6 +221,13 @@ export function Settings({
   const [integrationError, setIntegrationError] = useState("");
   const [integrationNotice, setIntegrationNotice] = useState("");
   useEffect(() => setPath(selected ?? ""), [selected]);
+  useEffect(() => {
+    const close = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) onClose();
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [onClose]);
   async function removeIntegration() {
     setRemovingIntegration(true);
     setIntegrationError("");

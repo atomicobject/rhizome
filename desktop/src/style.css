@@ -474,6 +474,8 @@ html[data-platform="linux"] .toolbar-start {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* A scrollbar that comes and goes would shift the centred column. */
+  scrollbar-gutter: stable;
   background: var(--surface-alt);
 }
 .status-panel {
