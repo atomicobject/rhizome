@@ -137,7 +137,7 @@ The skill stays lean by classifying the request, selecting one primary route, an
 
 - id:: ^SPEC-0080-US8
 - summary:: A person new to Rhizome, in the desktop app's chat or a standalone agent session, gets an explanation of what Rhizome and this repository can do, a starter recommendation drawn from live catalog data, and a safe path from a goal to a view, schema change, or automation, without knowing Rhizome's vocabulary.
-- status:: ready
+- status:: satisfied
 
 #### Acceptance Criteria
 
