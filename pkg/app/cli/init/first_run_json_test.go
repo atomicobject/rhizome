@@ -52,11 +52,18 @@ func TestPlanReportsTheRecommendedSetupWithoutWriting(t *testing.T) {
 	require.Equal(t, "agentic-engineering", plan.Workflow)
 	require.Len(t, plan.Workflows, 3)
 	require.True(t, plan.Workflows[0].Recommended)
-	require.Equal(t, []AddonOption{{
-		ID: templateActionItems, Label: "Action items",
-		Description: "Track #action-item commitments in notes, with assignees and due dates",
-		DefaultFor:  []string{"agentic-engineering", "domain"}, Enabled: true,
-	}}, plan.Addons)
+	actionItems := addon(t, plan, templateActionItems)
+	require.Equal(t, "Action items", actionItems.Label)
+	require.Equal(t, []string{"agentic-engineering", "domain"}, actionItems.DefaultFor)
+	require.True(t, actionItems.Enabled)
+	require.False(t, actionItems.Optional)
+	for _, id := range []string{"ao-kb", templateCompounding} {
+		optional := addon(t, plan, id)
+		require.True(t, optional.Optional, id)
+		require.False(t, optional.Enabled, "%s is off until someone chooses it", id)
+		require.Empty(t, optional.DefaultFor, id)
+		require.NotEmpty(t, optional.Description, id)
+	}
 	require.Equal(t, searchVoyage, plan.Search.Provider)
 	require.False(t, plan.Search.Ready)
 	require.Equal(t, "VOYAGE_API_KEY", plan.Search.Providers[0].Key)
@@ -70,6 +77,42 @@ func TestPlanReportsTheRecommendedSetupWithoutWriting(t *testing.T) {
 	require.Equal(t, reasonFixtures, rule.Reason)
 	require.True(t, rule.Planned)
 	require.NoDirExists(t, filepath.Join(root, ".rhizome"))
+}
+
+func TestPlansDescribeEachChoiceForAnAgent(t *testing.T) {
+	configured, env := setUpRepo(t)
+	for name, root := range map[string]string{"first run": machineRunRepo(t), "configured": configured} {
+		plan, err := Plan(RunOptions{Env: env, Dir: root})
+		require.NoError(t, err, name)
+		data, err := json.Marshal(plan)
+		require.NoError(t, err)
+		var doc struct{ Workflows, Addons []map[string]any }
+		require.NoError(t, json.Unmarshal(data, &doc))
+
+		require.Len(t, doc.Workflows, 3, name)
+		for _, entry := range append(doc.Workflows, doc.Addons...) {
+			require.NotEmpty(t, entry["fit"], "%s: %v", name, entry["id"])
+		}
+		optional := map[string]any{}
+		for _, entry := range doc.Addons {
+			optional[entry["id"].(string)] = entry["optional"]
+			if entry["id"] == templateCompounding {
+				require.Contains(t, entry["cautions"], "TypeSafe", name)
+			}
+		}
+		require.Equal(t, map[string]any{templateActionItems: nil, "ao-kb": true, templateCompounding: true}, optional, name)
+	}
+}
+
+func TestEveryStarterAndWorkflowSaysWhatItFits(t *testing.T) {
+	registry, err := loadStarterTemplateMetadataRegistry()
+	require.NoError(t, err)
+	for id, meta := range registry {
+		require.NotEmpty(t, meta.Fit, "starter %s needs a fit in its template.yaml", id)
+	}
+	for _, option := range workflowOptions(registry) {
+		require.NotEmpty(t, option.Fit, "workflow %s needs a fit", option.ID)
+	}
 }
 
 func TestPlanFollowsTheChoicesItIsGiven(t *testing.T) {

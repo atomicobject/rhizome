@@ -53,20 +53,29 @@ type SetupFindings struct {
 	Skip string `json:"skip,omitempty"`
 }
 
+// WorkflowOption is one workflow choice. Fit names the repository signals
+// that suggest it, and Cautions its credentials, spend, data egress,
+// prerequisites, and type names.
 type WorkflowOption struct {
 	ID          string `json:"id"`
 	Label       string `json:"label"`
 	Description string `json:"description"`
+	Fit         string `json:"fit,omitempty"`
+	Cautions    string `json:"cautions,omitempty"`
 	Recommended bool   `json:"recommended"`
 }
 
-// AddonOption is a starter that workflows can activate by default.
+// AddonOption is a starter that workflows can activate by default, or an
+// optional add-on, which is on only when chosen.
 type AddonOption struct {
 	ID          string `json:"id"`
 	Label       string `json:"label"`
 	Description string `json:"description"`
+	Fit         string `json:"fit,omitempty"`
+	Cautions    string `json:"cautions,omitempty"`
 	// DefaultFor lists the workflow ids that activate it by default.
 	DefaultFor []string `json:"defaultFor"`
+	Optional   bool     `json:"optional,omitempty"`
 	Enabled    bool     `json:"enabled"`
 }
 
@@ -244,7 +253,8 @@ func (r *initRun) setupPlan(s setup, res resolved, outcome firstRunOutcome) (Set
 		Name:                filepath.Base(root),
 		Findings:            SetupFindings{Docs: docsFinding(s.cfg.Notes, r.layout), Code: codeFinding(r.layout)},
 		Workflow:            workflowChoiceFor(s.workflows).id,
-		Addons:              addonOptions(registry, res.effective),
+		Workflows:           workflowOptions(registry),
+		Addons:              allAddonOptions(registry, res.effective),
 		Agents:              r.agentOptions(s.cfg),
 		Search:              r.searchOptions(outcome),
 		IgnoredRepositories: []IgnoredRepository{},
@@ -254,9 +264,6 @@ func (r *initRun) setupPlan(s setup, res resolved, outcome firstRunOutcome) (Set
 	}
 	if len(s.skips) > 0 {
 		plan.Findings.Skip = skipSummary(s.skips)
-	}
-	for i, choice := range workflowChoices {
-		plan.Workflows = append(plan.Workflows, WorkflowOption{ID: choice.id, Label: choice.label, Description: choice.description, Recommended: i == 0})
 	}
 	for _, candidate := range r.layout.IgnoredRepoCandidates {
 		repo := IgnoredRepository{Path: candidate.Rel, Included: contains(s.includeIgnored, candidate.Rel)}
@@ -295,16 +302,30 @@ func supportWrites(root string, s setup) (created, updated []string, err error) 
 	return created, orEmpty(updated), nil
 }
 
-func addonOptions(registry map[string]starterTemplateMetadata, effective []string) []AddonOption {
+// workflowOptions lists the workflow choices. A choice that installs a
+// starter takes its fit and cautions from that starter's metadata, so the
+// two never drift.
+func workflowOptions(registry map[string]starterTemplateMetadata) []WorkflowOption {
+	out := make([]WorkflowOption, 0, len(workflowChoices))
+	for i, choice := range workflowChoices {
+		fit, cautions := choice.fit, choice.cautions
+		if len(choice.starters) > 0 {
+			meta := registry[choice.starters[0]]
+			fit, cautions = meta.Fit, meta.Cautions
+		}
+		out = append(out, WorkflowOption{ID: choice.id, Label: choice.label, Description: choice.description, Fit: fit, Cautions: cautions, Recommended: i == 0})
+	}
+	return out
+}
+
+// allAddonOptions lists every add-on, optional ones included and on only
+// when chosen, so the setup sheet can offer them and a configured folder's
+// settings never hide an installed one.
+func allAddonOptions(registry map[string]starterTemplateMetadata, effective []string) []AddonOption {
 	out := []AddonOption{}
 	for _, id := range addonIDs(registry) {
 		meta := registry[id]
-		// The setup sheet does not list optional add-ons yet; --addons
-		// still accepts them.
-		if meta.OptionalAddon {
-			continue
-		}
-		out = append(out, AddonOption{ID: id, Label: firstNonEmpty(meta.Name, id), Description: meta.Description, DefaultFor: defaultForWorkflows(id, registry), Enabled: contains(effective, id)})
+		out = append(out, AddonOption{ID: id, Label: firstNonEmpty(meta.Name, id), Description: meta.Description, Fit: meta.Fit, Cautions: meta.Cautions, DefaultFor: defaultForWorkflows(id, registry), Optional: meta.OptionalAddon, Enabled: contains(effective, id)})
 	}
 	return out
 }

@@ -1,5 +1,7 @@
 id: complex-domain
 name: Complex domain
+fit: "Everything Agentic Engineering fits, plus product behavior that must trace to outside sources a person accepts one obligation at a time, such as regulations, contracts, standards, RFPs, audit findings, or research. Not for a domain that is merely complicated."
+cautions: "Installs Agentic Engineering with its cautions, eight more skills, and the Requirement, RequirementSource, DomainContext, DomainType, DomainProcess, and UserWorkflow types. A person decides each requirement's acceptance."
 requires:
   - agentic-engineering
 installedAssetTypes:

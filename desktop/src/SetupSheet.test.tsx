@@ -201,6 +201,37 @@ describe("setup sheet", () => {
     expect(screen.getByRole("checkbox", { name: /Action items/ })).toBeChecked();
   });
 
+  it("offers an optional add-on unchecked and sets it up only when checked", async () => {
+    const compounding = {
+      id: "compounding",
+      label: "Compounding",
+      description: "Review agent sessions for recurring friction",
+      defaultFor: [],
+      optional: true,
+      enabled: false,
+    };
+    serve({ "setup-report": () => ({ ...plan, addons: [...plan.addons, compounding] }) });
+    sheet();
+    const box = await screen.findByRole("checkbox", { name: /Compounding/ });
+    expect(box).not.toBeChecked();
+    expect(screen.getByText("Review agent sessions for recurring friction.")).toBeVisible();
+    fireEvent.click(screen.getByRole("radio", { name: /Search and agent guidance only/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /Agentic Engineering/ }));
+    expect(box).not.toBeChecked();
+
+    fireEvent.click(box);
+    await waitFor(() =>
+      expect(calls("setup-report").at(-1)).toMatchObject({
+        choices: { addons: ["action-items", "compounding"] },
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Set up Rhizome" }));
+    await screen.findByRole("heading", { name: "Rhizome is set up in acme" });
+    expect(calls("initialize")[0]).toMatchObject({
+      choices: { addons: ["action-items", "compounding"] },
+    });
+  });
+
   it("holds What gets indexed edits until setup", async () => {
     serve();
     sheet();

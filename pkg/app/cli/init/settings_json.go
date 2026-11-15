@@ -32,6 +32,7 @@ func (r *initRun) settingsPlan(s setup) (SetupPlan, error) {
 		Configured:          true,
 		Findings:            SetupFindings{Docs: docsFinding(cfg.Notes, r.layout), Code: codeStatus(cfg.Code, r.layout)},
 		Workflow:            workflowChoiceFor(plan.setup.workflows).id,
+		Workflows:           workflowOptions(registry),
 		Addons:              allAddonOptions(registry, plan.res.effective),
 		Agents:              r.agentOptions(plan.setup.cfg),
 		Search:              r.searchOptions(firstRunOutcome{provider: provider, ready: ready}),
@@ -46,9 +47,6 @@ func (r *initRun) settingsPlan(s setup) (SetupPlan, error) {
 		if doc.Search.Providers[i].ID == provider && provider != searchOff {
 			doc.Search.Providers[i].Ready = ready
 		}
-	}
-	for i, choice := range workflowChoices {
-		doc.Workflows = append(doc.Workflows, WorkflowOption{ID: choice.id, Label: choice.label, Description: choice.description, Recommended: i == 0})
 	}
 	return doc, nil
 }
@@ -167,15 +165,4 @@ func currentSearch(r *initRun, s setup) (string, bool) {
 	}
 	provider := searchProviderOf(s.cfg)
 	return provider, provider != searchOff && searchReady(provider, r.session, s.cfg.NoteEmbeddings)
-}
-
-// allAddonOptions lists every add-on, optional ones included, so an
-// installed add-on is never hidden from a configured folder's settings.
-func allAddonOptions(registry map[string]starterTemplateMetadata, effective []string) []AddonOption {
-	out := []AddonOption{}
-	for _, id := range addonIDs(registry) {
-		meta := registry[id]
-		out = append(out, AddonOption{ID: id, Label: firstNonEmpty(meta.Name, id), Description: meta.Description, DefaultFor: defaultForWorkflows(id, registry), Enabled: contains(effective, id)})
-	}
-	return out
 }
