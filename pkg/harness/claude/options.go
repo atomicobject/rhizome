@@ -49,9 +49,15 @@ func sessionArgs(options harness.SessionOptions, cwd string) ([]string, error) {
 	if options.Instructions != "" {
 		args = append(args, "--append-system-prompt", options.Instructions)
 	}
-	if len(options.AllowedTools) > 0 {
+	allowed := append([]string(nil), options.AllowedTools...)
+	for _, server := range options.MCPServers {
+		for _, tool := range server.AutoApproveTools {
+			allowed = append(allowed, "mcp__"+server.Name+"__"+tool)
+		}
+	}
+	if len(allowed) > 0 {
 		args = append(args, "--allowedTools")
-		args = append(args, options.AllowedTools...)
+		args = append(args, allowed...)
 	}
 	if len(options.DisallowedTools) > 0 {
 		args = append(args, "--disallowedTools")
@@ -69,6 +75,8 @@ func sessionArgs(options harness.SessionOptions, cwd string) ([]string, error) {
 
 func permissionMode(mode harness.PermissionMode) (string, bool) {
 	switch mode {
+	case harness.PermissionAuto:
+		return "auto", false
 	case harness.PermissionAutoAcceptEdits:
 		return "acceptEdits", false
 	case harness.PermissionFullAccess:

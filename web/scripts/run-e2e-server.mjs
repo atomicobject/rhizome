@@ -84,10 +84,21 @@ for (const dir of Object.values(goEnv)) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-const run = (cmd, args, cwd = repoRoot) => {
+// Rhizome keeps per-user settings, such as the Agent page's, under HOME. The
+// server gets a throwaway one so the suite never rewrites the person's own;
+// the Go tool keeps reading its real environment file and GOPATH.
+const goTool = (name) => spawnSync("go", ["env", name], { encoding: "utf8" }).stdout.trim();
+
+const serverEnv = {
+  GOENV: goTool("GOENV"),
+  GOPATH: goTool("GOPATH"),
+  HOME: fs.mkdtempSync(path.join(os.tmpdir(), "rhizome-web-e2e-home-")),
+};
+
+const run = (cmd, args, cwd = repoRoot, env = {}) => {
   const result = spawnSync(cmd, args, {
     cwd,
-    env: { ...process.env, ...goEnv },
+    env: { ...process.env, ...goEnv, ...env },
     stdio: "inherit",
   });
 
@@ -98,6 +109,11 @@ const run = (cmd, args, cwd = repoRoot) => {
 
 run("npm", ["run", "build"], path.join(repoRoot, "web"));
 
-run("go", ["run", ".", "index", "--vault", fixtureRoot]);
+run("go", ["run", ".", "index", "--vault", fixtureRoot], repoRoot, serverEnv);
 
-run("go", ["run", ".", "serve", "--host", "127.0.0.1", "--port", port, "--vault", fixtureRoot]);
+run(
+  "go",
+  ["run", ".", "serve", "--host", "127.0.0.1", "--port", port, "--vault", fixtureRoot],
+  repoRoot,
+  serverEnv,
+);

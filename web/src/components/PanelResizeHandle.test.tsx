@@ -1,9 +1,16 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PanelResizeHandle } from "./PanelResizeHandle";
-import { PANE_RANGE, SIDEBAR_RANGE, useShellPanes } from "./shellPanes";
+import {
+  PANE_RANGE,
+  resetPanesForTests,
+  setPaneOwnContent,
+  SIDEBAR_RANGE,
+  togglePaneOpen,
+  useShellPanes,
+} from "./shellPanes";
 import { resetSidebarForTests, setSidebarWidth, useWorkbenchSidebar } from "./sidebarState";
 
 const STORAGE_KEY = "rhizome:notes:panes:v1";
@@ -12,6 +19,9 @@ function Shell() {
   const ref = useRef<HTMLDivElement>(null);
   const panes = useShellPanes();
   const sidebarState = useWorkbenchSidebar();
+
+  // A section with something of its own for the pane, such as a note.
+  useEffect(() => setPaneOwnContent(true), []);
 
   return (
     <div ref={ref} data-testid="shell" data-pane-collapsed={panes.paneCollapsed}>
@@ -33,7 +43,7 @@ function Shell() {
         target={ref}
         onResize={panes.setPaneWidth}
       />
-      <button type="button" onClick={panes.togglePane}>
+      <button type="button" onClick={() => togglePaneOpen()}>
         Toggle pane
       </button>
     </div>
@@ -58,6 +68,7 @@ function mockViewport(narrow: boolean) {
 beforeEach(() => {
   window.localStorage.clear();
   resetSidebarForTests();
+  resetPanesForTests();
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -71,9 +82,9 @@ describe("panel resizing", () => {
     expect(sidebar()).toHaveAttribute("aria-valuemin", "200");
     expect(sidebar()).toHaveAttribute("aria-valuemax", "400");
     expect(sidebar()).toHaveAttribute("tabindex", "0");
-    expect(pane()).toHaveAttribute("aria-valuenow", "340");
+    expect(pane()).toHaveAttribute("aria-valuenow", "380");
     expect(pane()).toHaveAttribute("aria-valuemin", "280");
-    expect(pane()).toHaveAttribute("aria-valuemax", "560");
+    expect(pane()).toHaveAttribute("aria-valuemax", "720");
   });
 
   it("moves 16px per arrow toward the panel's inner edge, and Home and End jump to the limits", () => {
@@ -91,9 +102,9 @@ describe("panel resizing", () => {
 
     // The right pane's handle sits on its left edge, so Left widens it.
     fireEvent.keyDown(pane(), { key: "ArrowLeft" });
-    expect(pane()).toHaveAttribute("aria-valuenow", "356");
+    expect(pane()).toHaveAttribute("aria-valuenow", "396");
     fireEvent.keyDown(pane(), { key: "End" });
-    expect(pane()).toHaveAttribute("aria-valuenow", "560");
+    expect(pane()).toHaveAttribute("aria-valuenow", "720");
   });
 
   it("drags without re-rendering, clamps to the range, and commits on release", () => {
@@ -121,6 +132,7 @@ describe("panel resizing", () => {
     fireEvent.click(screen.getByRole("button", { name: "Toggle pane" }));
     first.unmount();
     resetSidebarForTests();
+    resetPanesForTests();
 
     render(<Shell />);
     expect(sidebar()).toHaveAttribute("aria-valuenow", "400");
@@ -146,6 +158,30 @@ describe("panel resizing", () => {
     expect(shell).toHaveAttribute("data-pane-collapsed", "false");
     // Opening the overlay leaves the stored wide-window choice alone.
     expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}").paneCollapsed).toBe(false);
+  });
+});
+
+describe("the narrow overlay", () => {
+  function Other() {
+    const panes = useShellPanes();
+
+    return <p data-testid="other" data-pane-collapsed={panes.paneCollapsed} />;
+  }
+
+  it("stays open when another section's pane mounts", () => {
+    mockViewport(true);
+    const { rerender } = render(<Shell />);
+    fireEvent.click(screen.getByRole("button", { name: "Toggle pane" }));
+    expect(screen.getByTestId("shell")).toHaveAttribute("data-pane-collapsed", "false");
+
+    rerender(
+      <>
+        <Shell />
+        <Other />
+      </>,
+    );
+    expect(screen.getByTestId("shell")).toHaveAttribute("data-pane-collapsed", "false");
+    expect(screen.getByTestId("other")).toHaveAttribute("data-pane-collapsed", "false");
   });
 });
 

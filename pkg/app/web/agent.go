@@ -108,12 +108,20 @@ func (s *Server) handleAgentSessionByID(w http.ResponseWriter, r *http.Request) 
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		resp, err := s.agentService.SendMessage(r.Context(), sessionID, req.Content)
+		if err := req.Context.Validate(); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		resp, err := s.agentService.SendMessage(r.Context(), sessionID, req.Content, req.Context)
 		if err != nil {
 			writeAgentError(w, err)
 			return
 		}
 		writeJSON(w, http.StatusAccepted, resp)
+	case r.Method == http.MethodPost && action == "page-relay":
+		s.handleAgentPageRelay(w, r, sessionID)
+	case r.Method == http.MethodPost && strings.HasPrefix(action, "page-relay/"):
+		s.handleAgentPageReply(w, r, sessionID, strings.TrimPrefix(action, "page-relay/"))
 	case r.Method == http.MethodGet && action == "events":
 		s.handleAgentEvents(w, r, sessionID)
 	case r.Method == http.MethodPost && strings.HasPrefix(action, "approvals/"):

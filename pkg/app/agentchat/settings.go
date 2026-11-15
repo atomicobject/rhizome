@@ -79,6 +79,8 @@ func normalizeSettings(settings Settings) Settings {
 
 func normalizePermissionMode(mode harness.PermissionMode) harness.PermissionMode {
 	switch harness.PermissionMode(strings.ToLower(strings.TrimSpace(string(mode)))) {
+	case harness.PermissionAuto:
+		return harness.PermissionAuto
 	case harness.PermissionApprovalRequired:
 		return harness.PermissionApprovalRequired
 	case harness.PermissionAutoAcceptEdits:
@@ -86,6 +88,6 @@ func normalizePermissionMode(mode harness.PermissionMode) harness.PermissionMode
 	case harness.PermissionFullAccess:
 		return harness.PermissionFullAccess
 	default:
-		return harness.PermissionApprovalRequired
+		return harness.PermissionAuto
 	}
 }

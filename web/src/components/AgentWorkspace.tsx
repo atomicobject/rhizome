@@ -5,104 +5,29 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createAgentSession,
   deleteAgentSession,
-  getAgentEventsUrl,
-  getAgentSession,
   getAgentSettings,
   listAgentSessions,
   respondToAgentApproval,
   saveAgentSettings,
-  sendAgentMessage,
 } from "../api/internalAgentClient";
-import { openReconnectingEventSource } from "../api/eventStream";
-import { decodeJson, isFiniteNumber, isJsonObject, isOptionalString, isString } from "../api/parse";
 import { queryKeys } from "../api/queryKeys";
-import type {
-  AgentApprovalDecision,
-  AgentEvent,
-  AgentMessage,
-  AgentSession,
-  AgentSessionResponse,
-  AgentSessionsResponse,
-} from "../api/types";
+import type { AgentApprovalDecision, AgentSession, AgentSessionsResponse } from "../api/types";
 import { emptySettingsResponse } from "./agent/AgentSettingsPanel";
 import { AgentSessionRail } from "./agent/AgentSessionRail";
 import { AgentStatusHeader, harnessBlocked } from "./agent/AgentStatusHeader";
 import { AgentTimeline } from "./agent/AgentTimeline";
+import { useAgentThread } from "./agent/useAgentThread";
 import { WorkbenchSidebar } from "./WorkbenchSidebar";
 
-function mergeEvents(current: AgentEvent[], incoming: AgentEvent[]) {
-  const byID = new Map<number, AgentEvent>();
-
-  for (const event of current) byID.set(event.id, event);
-
-  for (const event of incoming) byID.set(event.id, event);
-
-  return [...byID.values()].sort(
-    (left, right) =>
-      new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime() ||
-      left.id - right.id,
-  );
+/** The session a link asked for, as `/agent?session=<id>`. */
+function linkedSession() {
+  return new URLSearchParams(window.location.search).get("session") || "";
 }
 
-function mergeMessages(current: AgentMessage[], incoming: AgentMessage[]) {
-  const persisted = new Set(
-    incoming.flatMap((message) => (message.id > 0 ? [`${message.role}:${message.content}`] : [])),
-  );
-
-  const byID = new Map<number, AgentMessage>();
-
-  for (const message of current) {
-    if (message.id < 0 && persisted.has(`${message.role}:${message.content}`)) continue;
-    byID.set(message.id, message);
-  }
-
-  for (const message of incoming) byID.set(message.id, message);
-
-  return [...byID.values()].sort(
-    (left, right) =>
-      new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime() ||
-      left.id - right.id,
-  );
-}
-
-function isAgentEvent(value: unknown): value is AgentEvent {
-  if (!isJsonObject(value)) return false;
-
-  return (
-    isFiniteNumber(value.id) &&
-    isString(value.sessionId) &&
-    isString(value.type) &&
-    isString(value.createdAt) &&
-    isOptionalString(value.role) &&
-    isOptionalString(value.content) &&
-    isOptionalString(value.toolName) &&
-    isOptionalString(value.error)
-  );
-}
-
-function completedAssistant(events: AgentEvent[], completed: AgentEvent): AgentMessage | undefined {
-  if (completed.type !== "turn-completed") return undefined;
-  const turnID = completed.result?.turnId;
-
-  const content = events
-    .flatMap((event) =>
-      (event.type === "message_delta" || event.type === "assistant-text-delta") &&
-      (!turnID || event.result?.turnId === turnID)
-        ? [event.content || ""]
-        : [],
-    )
-    .join("");
-
-  if (!content.trim()) return undefined;
-
-  return {
-    id: -Math.max(1, completed.id),
-    sessionId: completed.sessionId,
-    role: "assistant",
-    content,
-    createdAt: completed.createdAt,
-  };
-}
+const describeAgentPage = () => ({
+  title: "Agent",
+  route: `${window.location.pathname}${window.location.search}`,
+});
 
 export function AgentWorkspace({
   sidebarTitle,
@@ -112,26 +37,13 @@ export function AgentWorkspace({
   sidebarHint?: string | null;
 }) {
   const queryClient = useQueryClient();
-  const [selectedID, setSelectedID] = useState("");
-
-  const [thread, setThread] = useState<{
-    sessionID: string;
-    messages: AgentMessage[];
-    events: AgentEvent[];
-  }>({ sessionID: "", messages: [], events: [] });
-
+  const [selectedID, setSelectedID] = useState(linkedSession);
   const [draft, setDraft] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  // The session whose send reply is pending; the server may not know its turn yet.
-  const [sendingID, setSendingID] = useState("");
   const [error, setError] = useState("");
   const [deleteConfirmID, setDeleteConfirmID] = useState("");
   const threadRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
-
-  const latestEventIDRef = useRef(0);
-  // Counts terminal turn events per session, so a slow send reply cannot revive a finished turn.
-  const terminalEventsRef = useRef(new Map<string, number>());
+  const submitting = useRef(false);
 
   const sessionsQuery = useQuery({
     queryKey: queryKeys.agent.sessions(),
@@ -143,16 +55,13 @@ export function AgentWorkspace({
     queryFn: ({ signal }) => getAgentSettings({ signal }),
   });
 
-  const sessionQuery = useQuery({
-    queryKey: queryKeys.agent.session(selectedID),
-    queryFn: ({ signal }) => getAgentSession(selectedID, { signal }),
-    enabled: Boolean(selectedID),
-  });
+  const { sessionQuery, messages, events, isSending, sendingID, send } = useAgentThread(
+    selectedID,
+    describeAgentPage,
+  );
 
   const sessions = sessionsQuery.data?.sessions ?? [];
   const settingsResponse = settingsQuery.data ?? emptySettingsResponse;
-  const messages = thread.sessionID === selectedID ? thread.messages : [];
-  const events = thread.sessionID === selectedID ? thread.events : [];
 
   const selectedSession =
     sessionQuery.data?.session.id === selectedID
@@ -172,20 +81,6 @@ export function AgentWorkspace({
     [queryClient],
   );
 
-  const updateSession = useCallback(
-    (sessionID: string, update: Partial<AgentSession>) => {
-      setSessions((current) =>
-        current.map((session) => (session.id === sessionID ? { ...session, ...update } : session)),
-      );
-      queryClient.setQueryData<AgentSessionResponse>(
-        queryKeys.agent.session(sessionID),
-        (current) =>
-          current ? { ...current, session: { ...current.session, ...update } } : current,
-      );
-    },
-    [queryClient, setSessions],
-  );
-
   const settingsMutation = useMutation({
     mutationFn: saveAgentSettings,
     scope: { id: "agent-settings" },
@@ -195,97 +90,6 @@ export function AgentWorkspace({
   useEffect(() => {
     if (sessions.length > 0) setSelectedID((current) => current || sessions[0]?.id || "");
   }, [sessions]);
-
-  useEffect(() => {
-    if (!selectedID) {
-      setThread({ sessionID: "", messages: [], events: [] });
-      latestEventIDRef.current = 0;
-
-      return;
-    }
-
-    if (!sessionQuery.data) return;
-    const incomingEvents = sessionQuery.data.events ?? [];
-    setThread((current) => ({
-      sessionID: selectedID,
-      messages: mergeMessages(
-        current.sessionID === selectedID ? current.messages : [],
-        sessionQuery.data.messages ?? [],
-      ),
-      events: mergeEvents(current.sessionID === selectedID ? current.events : [], incomingEvents),
-    }));
-    setSessions((current) =>
-      current.map((session) =>
-        session.id === selectedID ? { ...session, ...sessionQuery.data.session } : session,
-      ),
-    );
-    latestEventIDRef.current = Math.max(
-      latestEventIDRef.current,
-      ...incomingEvents.map((event) => event.id),
-      0,
-    );
-  }, [selectedID, sessionQuery.data, setSessions]);
-
-  useEffect(() => {
-    if (!selectedID) return;
-
-    const handleEvent = (message: Event) => {
-      if (!(message instanceof MessageEvent)) return;
-      const event = decodeJson(String(message.data), isAgentEvent);
-
-      if (!event || event.sessionId !== selectedID) return;
-
-      if (event.id > 0) {
-        latestEventIDRef.current = Math.max(latestEventIDRef.current, event.id);
-      }
-
-      setThread((current) => {
-        const currentEvents = current.sessionID === selectedID ? current.events : [];
-        const nextEvents = mergeEvents(currentEvents, [event]);
-        const assistant = completedAssistant(nextEvents, event);
-
-        return {
-          sessionID: selectedID,
-          events: nextEvents,
-          messages: assistant
-            ? mergeMessages(current.sessionID === selectedID ? current.messages : [], [assistant])
-            : current.sessionID === selectedID
-              ? current.messages
-              : [],
-        };
-      });
-
-      if (event.type === "turn-started") updateSession(selectedID, { turnRunning: true });
-
-      if (
-        event.type === "turn-completed" ||
-        (event.type === "error" && event.result?.status !== "retrying")
-      ) {
-        terminalEventsRef.current.set(
-          selectedID,
-          (terminalEventsRef.current.get(selectedID) ?? 0) + 1,
-        );
-        updateSession(selectedID, { turnRunning: false });
-        queryClient.invalidateQueries({ queryKey: queryKeys.agent.session(selectedID) });
-      }
-    };
-
-    let removeListener = () => {};
-
-    const stop = openReconnectingEventSource(
-      () => getAgentEventsUrl(selectedID, latestEventIDRef.current),
-      (source) => {
-        removeListener();
-        source.addEventListener("agent_event", handleEvent);
-        removeListener = () => source.removeEventListener("agent_event", handleEvent);
-      },
-    );
-
-    return () => {
-      removeListener();
-      stop();
-    };
-  }, [queryClient, selectedID, updateSession]);
 
   useEffect(() => {
     if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight;
@@ -339,12 +143,15 @@ export function AgentWorkspace({
       !trimmed ||
       blocked ||
       isSending ||
+      submitting.current ||
       selectedSession?.turnRunning ||
       selectedSession?.readOnly
     )
       return;
+    // Held across a new session's creation, so a second submit in that wait
+    // cannot create another session and send the message twice.
+    submitting.current = true;
     setError("");
-    setIsSending(true);
     let sessionID = selectedID;
 
     try {
@@ -355,35 +162,12 @@ export function AgentWorkspace({
         setSelectedID(sessionID);
       }
 
-      const optimistic: AgentMessage = {
-        id: -Date.now(),
-        sessionId: sessionID,
-        role: "user",
-        content: trimmed,
-        createdAt: new Date().toISOString(),
-      };
-
-      setThread((current) => ({
-        sessionID,
-        messages: mergeMessages(current.sessionID === sessionID ? current.messages : [], [
-          optimistic,
-        ]),
-        events: current.sessionID === sessionID ? current.events : [],
-      }));
       setDraft("");
-      updateSession(sessionID, { turnRunning: true });
-      setSendingID(sessionID);
-      const terminalsBefore = terminalEventsRef.current.get(sessionID) ?? 0;
-      const response = await sendAgentMessage(sessionID, trimmed);
-      const { turnRunning: _stale, ...settled } = response.session;
-      const turnEnded = (terminalEventsRef.current.get(sessionID) ?? 0) !== terminalsBefore;
-      updateSession(sessionID, turnEnded ? settled : response.session);
+      await send(sessionID, trimmed);
     } catch (cause) {
-      if (sessionID) updateSession(sessionID, { turnRunning: false });
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      setIsSending(false);
-      setSendingID("");
+      submitting.current = false;
     }
   };
 

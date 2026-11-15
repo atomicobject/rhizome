@@ -6,6 +6,7 @@ export {
   getAgentSettings,
   listAgentSessions,
   interruptAgentSession,
+  replyToAgentPageRequest,
   respondToAgentApproval,
   saveAgentSettings,
   sendAgentMessage,

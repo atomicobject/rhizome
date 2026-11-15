@@ -8,15 +8,21 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/harness"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/atomicobject/rhizome/pkg/sqliteutil/migration"
 )
 
 type Store struct {
-	db *sql.DB
+	db        *sql.DB
+	writeMu   *chatWriteLock
+	dbPath    string
+	closeOnce sync.Once
+	closeErr  error
 }
 
 // OpenStore opens the per-vault agent chat database.
@@ -32,12 +38,22 @@ func OpenStore(ctx context.Context, vaultPath string) (*Store, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite3", sqliteutil.DSN(filepath.Join(dir, "sessions.sqlite")))
+	dbPath := paths.ResolveSymlinks(filepath.Join(dir, "sessions.sqlite")).String()
+	release, err := sqliteutil.LockSchemaInit(ctx, dbPath)
 	if err != nil {
 		return nil, err
 	}
-	store := &Store{db: db}
-	if err := store.migrate(ctx); err != nil {
+	defer release()
+	db, err := sqliteutil.OpenDSN(sqliteutil.DSNWithOptions(dbPath, sqliteutil.DSNOptions{TxLockMode: sqliteutil.TxLockImmediate}), sqliteutil.Options{})
+	if err != nil {
+		return nil, err
+	}
+	store := &Store{db: db, writeMu: retainChatWriter(dbPath), dbPath: dbPath}
+	store.writeMu.Lock()
+	err = migration.EnsureDomain(ctx, db, chatMigrationPlan(), migration.EnsureOptions{})
+	store.writeMu.Unlock()
+	if err != nil {
+		releaseChatWriter(dbPath, store.writeMu)
 		_ = db.Close()
 		return nil, err
 	}
@@ -48,97 +64,11 @@ func (s *Store) Close() error {
 	if s == nil || s.db == nil {
 		return nil
 	}
-	return s.db.Close()
-}
-
-func (s *Store) migrate(ctx context.Context) error {
-	stmts := []string{
-		`PRAGMA journal_mode=WAL`,
-		`CREATE TABLE IF NOT EXISTS agent_sessions (
-			id TEXT PRIMARY KEY,
-			title TEXT NOT NULL DEFAULT '',
-			engine TEXT NOT NULL DEFAULT '',
-			provider TEXT NOT NULL DEFAULT '',
-			harness TEXT NOT NULL DEFAULT '',
-			harness_session_id TEXT NOT NULL DEFAULT '',
-			last_turn_id TEXT NOT NULL DEFAULT '',
-			model TEXT NOT NULL DEFAULT '',
-			created_at TEXT NOT NULL,
-			updated_at TEXT NOT NULL,
-			archived INTEGER NOT NULL DEFAULT 0
-		)`,
-		`CREATE TABLE IF NOT EXISTS agent_messages (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			session_id TEXT NOT NULL,
-			role TEXT NOT NULL,
-			content TEXT NOT NULL,
-			created_at TEXT NOT NULL,
-			FOREIGN KEY(session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
-		)`,
-		`CREATE TABLE IF NOT EXISTS agent_events (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			session_id TEXT NOT NULL,
-			type TEXT NOT NULL,
-			role TEXT NOT NULL DEFAULT '',
-			content TEXT NOT NULL DEFAULT '',
-			tool_name TEXT NOT NULL DEFAULT '',
-			args_json TEXT NOT NULL DEFAULT '',
-			result_json TEXT NOT NULL DEFAULT '',
-			error TEXT NOT NULL DEFAULT '',
-			created_at TEXT NOT NULL,
-			FOREIGN KEY(session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_agent_messages_session ON agent_messages(session_id, id)`,
-		`CREATE INDEX IF NOT EXISTS idx_agent_events_session ON agent_events(session_id, id)`,
-	}
-	for _, stmt := range stmts {
-		// Migrations stay idempotent because the service opens on demand from web
-		// and tests. Keep schema changes append-only here unless a separate
-		// migration version table is introduced.
-		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
-			return err
-		}
-	}
-	for _, column := range []struct {
-		name string
-		sql  string
-	}{
-		{name: "harness", sql: `ALTER TABLE agent_sessions ADD COLUMN harness TEXT NOT NULL DEFAULT ''`},
-		{name: "harness_session_id", sql: `ALTER TABLE agent_sessions ADD COLUMN harness_session_id TEXT NOT NULL DEFAULT ''`},
-		{name: "last_turn_id", sql: `ALTER TABLE agent_sessions ADD COLUMN last_turn_id TEXT NOT NULL DEFAULT ''`},
-	} {
-		exists, err := s.sessionColumnExists(ctx, column.name)
-		if err != nil {
-			return err
-		}
-		if !exists {
-			if _, err := s.db.ExecContext(ctx, column.sql); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (s *Store) sessionColumnExists(ctx context.Context, name string) (bool, error) {
-	rows, err := s.db.QueryContext(ctx, `PRAGMA table_info(agent_sessions)`)
-	if err != nil {
-		return false, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var cid int
-		var columnName, columnType string
-		var notNull, primaryKey int
-		var defaultValue any
-		if err := rows.Scan(&cid, &columnName, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
-			return false, err
-		}
-		if columnName == name {
-			return true, nil
-		}
-	}
-	return false, rows.Err()
+	s.closeOnce.Do(func() {
+		s.closeErr = s.db.Close()
+		releaseChatWriter(s.dbPath, s.writeMu)
+	})
+	return s.closeErr
 }
 
 func (s *Store) CreateSession(ctx context.Context, title string, kind harness.Kind, model string) (Session, error) {
@@ -155,7 +85,7 @@ func (s *Store) CreateSession(ctx context.Context, title string, kind harness.Ki
 		session.Title = "New chat"
 	}
 	session.ReadOnly = kind == ""
-	_, err := s.db.ExecContext(ctx, `INSERT INTO agent_sessions (id, title, harness, model, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+	_, err := s.execWrite(ctx, `INSERT INTO agent_sessions (id, title, harness, model, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
 		session.ID, session.Title, kind, session.Model, formatTime(now), formatTime(now))
 	return session, err
 }
@@ -166,7 +96,7 @@ func (s *Store) GetSession(ctx context.Context, id string) (Session, error) {
 }
 
 func (s *Store) UpdateSessionHarness(ctx context.Context, id string, kind harness.Kind, harnessSessionID, turnID string) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE agent_sessions SET harness = ?, harness_session_id = CASE WHEN ? = '' THEN harness_session_id ELSE ? END, last_turn_id = CASE WHEN ? = '' THEN last_turn_id ELSE ? END, updated_at = ? WHERE id = ?`,
+	_, err := s.execWrite(ctx, `UPDATE agent_sessions SET harness = ?, harness_session_id = CASE WHEN ? = '' THEN harness_session_id ELSE ? END, last_turn_id = CASE WHEN ? = '' THEN last_turn_id ELSE ? END, updated_at = ? WHERE id = ?`,
 		kind, harnessSessionID, harnessSessionID, turnID, turnID, formatTime(time.Now().UTC()), id)
 	return err
 }
@@ -192,7 +122,7 @@ func (s *Store) ListSessions(ctx context.Context, limit int) ([]Session, error) 
 }
 
 func (s *Store) ArchiveSession(ctx context.Context, id string) error {
-	res, err := s.db.ExecContext(ctx, `UPDATE agent_sessions SET archived = 1, updated_at = ? WHERE id = ?`,
+	res, err := s.execWrite(ctx, `UPDATE agent_sessions SET archived = 1, updated_at = ? WHERE id = ?`,
 		formatTime(time.Now().UTC()), id)
 	if err != nil {
 		return err
@@ -207,10 +137,22 @@ func (s *Store) ArchiveSession(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *Store) AddMessage(ctx context.Context, sessionID, role, content string) (Message, error) {
+func (s *Store) AddMessage(ctx context.Context, sessionID, role, content string, view ...*ViewContext) (Message, error) {
+	var viewContext *ViewContext
+	if len(view) > 0 {
+		viewContext = view[0]
+	}
+	var encoded any
+	if viewContext != nil {
+		data, err := json.Marshal(viewContext)
+		if err != nil {
+			return Message{}, err
+		}
+		encoded = string(data)
+	}
 	now := time.Now().UTC()
-	res, err := s.db.ExecContext(ctx, `INSERT INTO agent_messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)`,
-		sessionID, role, content, formatTime(now))
+	res, err := s.execWrite(ctx, `INSERT INTO agent_messages (session_id, role, content, created_at, context_json) VALUES (?, ?, ?, ?, ?)`,
+		sessionID, role, content, formatTime(now), encoded)
 	if err != nil {
 		return Message{}, err
 	}
@@ -218,12 +160,12 @@ func (s *Store) AddMessage(ctx context.Context, sessionID, role, content string)
 	if err != nil {
 		return Message{}, err
 	}
-	_, _ = s.db.ExecContext(ctx, `UPDATE agent_sessions SET updated_at = ? WHERE id = ?`, formatTime(now), sessionID)
-	return Message{ID: id, SessionID: sessionID, Role: role, Content: content, CreatedAt: now}, nil
+	_, _ = s.execWrite(ctx, `UPDATE agent_sessions SET updated_at = ? WHERE id = ?`, formatTime(now), sessionID)
+	return Message{ID: id, SessionID: sessionID, Role: role, Content: content, Context: viewContext, CreatedAt: now}, nil
 }
 
 func (s *Store) Messages(ctx context.Context, sessionID string) ([]Message, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, session_id, role, content, created_at FROM agent_messages WHERE session_id = ? ORDER BY id`, sessionID)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, session_id, role, content, created_at, context_json FROM agent_messages WHERE session_id = ? ORDER BY id`, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +187,7 @@ func (s *Store) AddEvent(ctx context.Context, event Event) (Event, error) {
 	if err != nil {
 		return Event{}, err
 	}
-	res, err := s.db.ExecContext(ctx, `INSERT INTO agent_events (session_id, type, role, content, tool_name, args_json, result_json, error, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	res, err := s.execWrite(ctx, `INSERT INTO agent_events (session_id, type, role, content, tool_name, args_json, result_json, error, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		event.SessionID, event.Type, event.Role, event.Content, event.ToolName, "", resultJSON, event.Error, formatTime(now))
 	if err != nil {
 		return Event{}, err
@@ -296,9 +238,15 @@ func scanSession(row scanner) (Session, error) {
 
 func scanMessage(row scanner) (Message, error) {
 	var msg Message
+	var contextJSON sql.NullString
 	var created string
-	if err := row.Scan(&msg.ID, &msg.SessionID, &msg.Role, &msg.Content, &created); err != nil {
+	if err := row.Scan(&msg.ID, &msg.SessionID, &msg.Role, &msg.Content, &created, &contextJSON); err != nil {
 		return Message{}, err
+	}
+	if contextJSON.Valid {
+		if err := json.Unmarshal([]byte(contextJSON.String), &msg.Context); err != nil {
+			return Message{}, err
+		}
 	}
 	msg.CreatedAt = parseTime(created)
 	return msg, nil

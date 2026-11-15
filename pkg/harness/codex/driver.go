@@ -177,6 +177,7 @@ func (s *session) threadParams() threadParams {
 	return threadParams{
 		Model: s.options.Model, Cwd: s.cwd, ApprovalPolicy: approval, Sandbox: sandbox,
 		DeveloperInstructions: strings.TrimSpace(s.options.Instructions),
+		ApprovalsReviewer:     approvalsReviewer(s.options.PermissionMode),
 	}
 }
 
@@ -225,6 +226,7 @@ func (s *session) SendTurn(ctx context.Context, prompt string) error {
 		ThreadID: threadID, Input: []userInput{{Type: "text", Text: prompt}},
 		Model: s.options.Model, Effort: s.options.Effort, Cwd: s.cwd,
 		ApprovalPolicy: approval, SandboxPolicy: sandboxPolicy(sandbox),
+		ApprovalsReviewer: approvalsReviewer(s.options.PermissionMode),
 	})
 	if err != nil {
 		return err
@@ -465,5 +467,5 @@ func validDecision(decision harness.Decision) bool {
 }
 
 func supportedPermissionMode(mode harness.PermissionMode) bool {
-	return mode == "" || mode == harness.PermissionApprovalRequired || mode == harness.PermissionAutoAcceptEdits || mode == harness.PermissionFullAccess
+	return mode == "" || mode == harness.PermissionAuto || mode == harness.PermissionApprovalRequired || mode == harness.PermissionAutoAcceptEdits || mode == harness.PermissionFullAccess
 }

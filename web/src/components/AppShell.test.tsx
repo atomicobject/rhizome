@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import type { OntologyEditSessionResponse } from "../api/types";
@@ -6,6 +6,7 @@ import { queryKeys } from "../api/queryKeys";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { AppShell } from "./AppShell";
 import type { DesktopCommand } from "./desktopHost";
+import { resetPanesForTests } from "./shellPanes";
 import { resetSidebarForTests, SIDEBAR_KEY } from "./sidebarState";
 import { reportFixture, stateFixture } from "./tasks/taskFixtures";
 
@@ -22,6 +23,7 @@ describe("AppShell", () => {
     localStorage.clear();
     sessionStorage.clear();
     resetSidebarForTests();
+    resetPanesForTests();
     // Workspaces render for real; they only need empty, well-formed reads.
     http
       .json("GET", "/api/v1/starter-readiness", [])
@@ -287,6 +289,13 @@ describe("AppShell", () => {
     await waitFor(() => expect(window.location.search).toContain("search=meetings"));
     expect(sidebar()).toBeVisible();
 
+    // Search hides the note surfaces Notes' own pane sits in, so Chat opens
+    // in the shared pane instead.
+    fireEvent.click(screen.getByRole("button", { name: "Show right pane" }));
+    const chat = await screen.findByRole("complementary", { name: "Chat" });
+    expect(chat).toBeVisible();
+    fireEvent.click(within(chat).getByRole("button", { name: "Hide right pane" }));
+
     fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
     expect(sidebar()).not.toBeVisible();
     expect(JSON.parse(localStorage.getItem(SIDEBAR_KEY) ?? "{}")).toEqual({
@@ -428,6 +437,8 @@ describe("AppShell", () => {
           search: "meetings",
           issues: 37,
           health: "current_issues",
+          // Search has nothing for the pane until the person chooses Chat.
+          paneCollapsed: true,
         }),
       );
       // The vault title never replaces the report.
@@ -509,12 +520,40 @@ describe("AppShell", () => {
       localStorage.removeItem("rhizome:desktop-theme");
     });
 
+    it("toggles the right pane and Chat on app commands, and reports the pane", async () => {
+      http.json("GET", "/api/agent/sessions", { sessions: [] });
+      render(<AppShell />);
+      await send({ command: "section", section: "ontology" });
+      // Ontology has nothing of its own for the pane, so it starts hidden.
+      await waitFor(() => expect(report().paneCollapsed).toBe(true));
+      expect(screen.queryByRole("complementary", { name: "Chat" })).toBeNull();
+
+      await send({ command: "pane" });
+      await waitFor(() => expect(report().paneCollapsed).toBe(false));
+      expect(screen.getByRole("complementary", { name: "Chat" })).toBeVisible();
+
+      await send({ command: "chat" });
+      await waitFor(() => expect(report().paneCollapsed).toBe(true));
+      expect(screen.queryByRole("complementary", { name: "Chat" })).toBeNull();
+
+      await send({ command: "chat" });
+      await waitFor(() => expect(report().paneCollapsed).toBe(false));
+
+      // The Agent page is the full chat, so it has no right pane to report.
+      await send({ command: "section", section: "agent" });
+      await waitFor(() => expect(report().section).toBe("agent"));
+      expect(report()).not.toHaveProperty("paneCollapsed");
+      expect(screen.queryByRole("complementary", { name: "Chat" })).toBeNull();
+    });
+
     it("switches sections, searches, and opens issues on app commands", async () => {
       render(<AppShell />);
 
       await send({ command: "section", section: "ontology" });
       expect(window.location.pathname).toBe("/ontology");
-      await waitFor(() => expect(report()).toEqual({ v: 1, section: "ontology", search: "" }));
+      await waitFor(() =>
+        expect(report()).toEqual({ v: 1, section: "ontology", search: "", paneCollapsed: true }),
+      );
 
       // The report follows history the page moves through on its own.
       await act(async () => {

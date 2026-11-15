@@ -1,0 +1,412 @@
+/* PROTOTYPE: the context-aware chat drawer (ChatDrawer.tsx). The shell body
+   is a row: the section, then the Chat-only pane. */
+.app-shell__body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.app-shell__main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.chat-toggle {
+  margin-right: 0;
+}
+
+/* Outside Notes the pane is the right part of the section's card, as it is
+   in Notes: the card gives up its right edge and the pane closes it. */
+.app-shell__body:has(> .chat-drawer:not(.is-overlay)) .workbench__panel {
+  margin-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.chat-drawer {
+  position: relative;
+  display: flex;
+  flex: 0 0 var(--pane-width);
+  flex-direction: column;
+  width: var(--pane-width);
+  /* A wide pane never leaves the section less than about 640px. */
+  max-width: max(280px, calc(100% - 640px - var(--sidebar-space, 0px)));
+  min-height: 0;
+  /* The border covers the card's right outline, so the seam is one line. */
+  margin: 0 6px 6px -1px;
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+  border-radius: 0 var(--r-lg) var(--r-lg) 0;
+  background: var(--surface);
+  box-shadow:
+    inset 0 1px var(--panel-edge),
+    inset -1px 0 var(--panel-edge),
+    inset 0 -1px var(--panel-edge);
+  font-size: var(--fs-base);
+}
+
+/* Below 1200px the pane covers the section instead of narrowing it. */
+.chat-drawer.is-overlay {
+  position: absolute;
+  z-index: 20;
+  inset: 0 6px 6px auto;
+  width: min(var(--pane-width), calc(100% - 12px));
+  margin: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.chat-drawer .notes-right-rail__close svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The Chat tab's contents fill the pane in either host. */
+.notes-right-rail__chat,
+.chat-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+/* New chat and Open in Agent sit in the pane header, left of close. */
+.chat-pane-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.chat-pane-actions + .notes-right-rail__close {
+  margin-left: 0;
+}
+
+.chat-pane-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.chat-pane-actions button:hover {
+  background: var(--surface-sunk);
+  color: var(--text);
+}
+
+.chat-pane-actions svg {
+  width: 16px;
+  height: 16px;
+}
+
+.chat-drawer__log {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--sp-5);
+  overflow: auto;
+  padding: var(--sp-5);
+}
+
+.chat-drawer__empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: auto 0 0;
+  color: var(--text-muted);
+}
+
+.chat-drawer__empty p {
+  margin: 0;
+}
+
+.chat-starters {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+}
+
+.chat-starters button {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-starters button:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-sunk);
+}
+
+.chat-message {
+  max-width: 92%;
+  line-height: 1.5;
+}
+
+.chat-message p {
+  margin: 0;
+}
+
+.chat-message--user {
+  align-self: flex-end;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  background: var(--surface-strong);
+}
+
+.chat-message--assistant {
+  align-self: flex-start;
+}
+
+.chat-message__context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-2);
+}
+
+.chat-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.chat-context__kind {
+  color: var(--text-faint);
+}
+
+.chat-context__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.chat-context button {
+  padding: 0 0 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chat-context button:hover {
+  color: var(--text);
+}
+
+.chat-approval {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  align-self: stretch;
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface-alt);
+}
+
+.chat-approval span {
+  color: var(--text-muted);
+}
+
+.chat-approval__buttons {
+  display: flex;
+  gap: var(--sp-3);
+  margin-top: var(--sp-1);
+}
+
+.chat-composer {
+  padding: var(--sp-3) var(--sp-5) var(--sp-5);
+}
+
+.chat-composer__context {
+  display: flex;
+  padding: 8px 10px 0;
+}
+
+/* Re-attaches the page after the user detached it. */
+.chat-attach {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.chat-attach:hover {
+  color: var(--text);
+}
+
+.chat-composer textarea {
+  min-height: 48px;
+}
+
+.chat-composer__agent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  cursor: help;
+}
+
+.chat-composer__mode {
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 10px;
+  background: var(--surface-strong);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 20px;
+}
+
+/* Something the agent did or read on its own: one quiet line, no card. */
+.chat-activity {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.chat-activity svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  color: var(--text-faint);
+}
+
+.chat-activity--edit svg {
+  color: var(--success);
+}
+
+.chat-activity span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-spinner {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--border-strong);
+  border-top-color: var(--text-muted);
+  border-radius: 50%;
+  animation: chat-spin 0.8s linear infinite;
+}
+
+@keyframes chat-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-spinner {
+    animation: none;
+  }
+}
+
+/* One turn of the live conversation. */
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.chat-message--assistant > :first-child {
+  margin-top: 0;
+}
+
+.chat-message--assistant > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-message--assistant :is(p, ul, ol, pre) {
+  margin: 0 0 var(--sp-3);
+}
+
+.chat-message--assistant :is(ul, ol) {
+  padding-left: 1.3em;
+}
+
+.chat-message--assistant code {
+  padding: 1px 4px;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  font-size: 0.92em;
+}
+
+.chat-message--assistant pre {
+  overflow: auto;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--surface-sunk);
+}
+
+.chat-message--assistant pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.chat-message--user p {
+  white-space: pre-wrap;
+}
+
+.chat-activity.is-failed svg {
+  color: var(--accent-ink);
+}
+
+.chat-approval code {
+  overflow-wrap: anywhere;
+  font-size: var(--fs-sm);
+}
+
+.chat-error {
+  margin: 0;
+  color: var(--accent-ink);
+  font-size: var(--fs-sm);
+}
+
+.chat-error--composer {
+  padding: 0 var(--sp-5);
+}
+
+.chat-drawer__empty a {
+  color: var(--link);
+}

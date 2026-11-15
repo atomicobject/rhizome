@@ -9,7 +9,7 @@ import { setSidebarWidth, toggleSidebar, useWorkbenchSidebar } from "./sidebarSt
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
 /** The sidebar shortcuts as the toggle's tooltip names them. */
-export const SIDEBAR_SHORTCUTS = IS_MAC ? "⌃⌘S or ⌘\\" : "Ctrl+Alt+S or Ctrl+\\";
+export const SIDEBAR_SHORTCUTS = IS_MAC ? "⌘B" : "Ctrl+B";
 
 export function PanelIcon({ side }: { side: "left" | "right" }) {
   return (
@@ -28,8 +28,8 @@ export function PanelIcon({ side }: { side: "left" | "right" }) {
 }
 
 /**
- * ⌃⌘S or ⌘\ (Ctrl+Alt+S or Ctrl+\ elsewhere). In Rhizome Desktop ⌃⌘S is the
- * View menu's, so the page answers only ⌘\ there.
+ * ⌘B, as in VS Code, or the older ⌃⌘S and ⌘\ (Ctrl+B, Ctrl+Alt+S, or Ctrl+\
+ * elsewhere). In Rhizome Desktop ⌘B is the View menu's, so the page leaves it.
  */
 export function isSidebarShortcut(event: KeyboardEvent, desktop = false): boolean {
   if (event.shiftKey || event.isComposing) return false;
@@ -39,14 +39,20 @@ export function isSidebarShortcut(event: KeyboardEvent, desktop = false): boolea
   const backslash =
     event.code === "Backslash" && primary && !event.altKey && (IS_MAC ? !event.ctrlKey : true);
 
-  const letterS =
+  const letterB =
     !desktop &&
+    event.code === "KeyB" &&
+    primary &&
+    !event.altKey &&
+    (IS_MAC ? !event.ctrlKey : !event.metaKey);
+
+  const letterS =
     event.code === "KeyS" &&
     (IS_MAC
       ? event.metaKey && event.ctrlKey && !event.altKey
       : event.ctrlKey && event.altKey && !event.metaKey);
 
-  return backslash || letterS;
+  return letterB || backslash || letterS;
 }
 
 /** A key listener for `realm` that toggles the sidebar on its shortcut, outside text fields. */
@@ -98,7 +104,9 @@ export function SidebarToggle({ disabled = false }: { disabled?: boolean }) {
       aria-label={label}
       aria-expanded={disabled ? undefined : !collapsed}
       aria-keyshortcuts={
-        IS_MAC ? "Control+Meta+S Meta+Backslash" : "Control+Alt+S Control+Backslash"
+        IS_MAC
+          ? "Meta+B Control+Meta+S Meta+Backslash"
+          : "Control+B Control+Alt+S Control+Backslash"
       }
       title={disabled ? "This section has no sidebar" : `${label} (${SIDEBAR_SHORTCUTS})`}
       disabled={disabled}

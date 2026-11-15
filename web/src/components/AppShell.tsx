@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { type CSSProperties, lazy, Suspense, useEffect, useRef, useState } from "react";
 
 import { getStatus } from "../api/client";
 import { vaultLabel } from "../lib/labels";
@@ -30,6 +30,8 @@ import { TypeLabelsProvider } from "./typeLabels";
 import { NOTES_ROOT_PATH, parseNotesLocation } from "./notesRoute";
 import { OntologyAtlasWorkspace } from "./OntologyAtlasWorkspace";
 import { isOntologyPath, ONTOLOGY_ROOT_PATH } from "./ontologyRoute";
+import { ChatDrawer, PaneToggle, toggleChatPane, togglePane, useChatShortcut } from "./ChatDrawer";
+import { setPaneOwnContent, useShellPanes } from "./shellPanes";
 import { OntologyEditSessionProvider } from "./useOntologyEditSession";
 import { isTasksPath, navigateTasks, TASKS_ROOT_PATH } from "./tasks/tasksRoute";
 import { TasksWorkspace } from "./tasks/TasksWorkspace";
@@ -234,6 +236,9 @@ function DesktopReporter({ route }: { route: Route }) {
   const sidebarToggles = sidebar.synced ? sidebar.toggles : undefined;
   const request = useDesktopRequest();
   const tasks = useDesktopTasks();
+  // The Agent page is the full chat, so it has no right pane.
+  const pane = useShellPanes();
+  const paneCollapsed = route === "agent" ? undefined : pane.paneCollapsed;
 
   useEffect(() => {
     document.title = desktopTitle({
@@ -243,13 +248,26 @@ function DesktopReporter({ route }: { route: Route }) {
       health,
       sidebarCollapsed,
       sidebarToggles,
+      paneCollapsed,
       request,
       tasks,
     });
-  }, [route, search, issues, health, sidebarCollapsed, sidebarToggles, request, tasks]);
+  }, [
+    route,
+    search,
+    issues,
+    health,
+    sidebarCollapsed,
+    sidebarToggles,
+    paneCollapsed,
+    request,
+    tasks,
+  ]);
 
   return null;
 }
+
+type BodyStyle = CSSProperties & { "--sidebar-space": string };
 
 export function AppShell() {
   const snapshot = useLocationSnapshot();
@@ -263,6 +281,18 @@ export function AppShell() {
       : null;
 
   const [notesVisited, setNotesVisited] = useState(route === "notes");
+
+  // The Chat-only pane leaves the section about 640px beside the sidebar.
+  const workbenchSidebar = useWorkbenchSidebar();
+
+  const bodyStyle: BodyStyle = {
+    "--sidebar-space": workbenchSidebar.collapsed ? "0px" : `${workbenchSidebar.width}px`,
+  };
+
+  const notesSearch =
+    route === "notes" &&
+    parseNotesLocation(snapshot.pathname, snapshot.search, snapshot.hash).search != null;
+
   const [desktop] = useState(inDesktop);
 
   useDesktopCommands((command) => {
@@ -274,15 +304,23 @@ export function AppShell() {
       openIssues();
     } else if (command.command === "sidebar") {
       applyDesktopSidebar(command.collapsed);
+    } else if (command.command === "pane") {
+      if (route !== "agent") togglePane();
+    } else if (command.command === "chat") {
+      if (route !== "agent") toggleChatPane();
     } else if (command.command === "task") {
       navigateTasks({ task: command.task });
     }
   });
 
   useSidebarShortcut({ desktop, disabled: false });
+  useChatShortcut();
 
   useEffect(() => {
     if (route === "notes") setNotesVisited(true);
+    // Other sections have nothing of their own for the right pane; Notes
+    // says what it has while it shows.
+    else setPaneOwnContent(false);
   }, [route]);
 
   // WHY: one status owner at AppShell scope per SPEC-0071.US2.AC3 — do not
@@ -403,6 +441,7 @@ export function AppShell() {
             <VaultTools />
             <AppearanceMenu />
             <KeyboardShortcuts />
+            <PaneToggle disabled={route === "agent"} />
           </div>
         </header>
       )}
@@ -423,51 +462,58 @@ export function AppShell() {
         onStatusChange={setStatus}
         rebuilding={summaryQuery.data?.rebuilding}
       />
-      <OntologyEditSessionProvider vaultKey={status?.vaultPath || null}>
-        <ErrorBoundary resetKey={route} label="Rhizome could not render this view">
-          {notesVisited || route === "notes" ? (
-            <div
-              className="app-shell__route-surface"
-              hidden={route !== "notes"}
-              inert={route === "notes" ? undefined : true}
-            >
-              <TypeLabelsProvider>
-                <NotesShell active={route === "notes"} />
-              </TypeLabelsProvider>
-            </div>
-          ) : null}
-          {route === "notes" ? null : route === "ontology" ? (
-            <OntologyAtlasWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
-          ) : route === "agent" ? (
-            <AgentWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
-          ) : route === "tasks" ? (
-            <TasksWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
-          ) : route === "graphql" ? (
-            <Suspense
-              fallback={
-                <div className="workspace workbench graphql-workspace">
-                  <WorkbenchSidebar title={sidebarTitle} titleHint={sidebarHint}>
-                    {null}
-                  </WorkbenchSidebar>
-                  <main className="workbench__panel graphql-explorer" />
+      <div className="app-shell__body" style={bodyStyle}>
+        <div className="app-shell__main">
+          <OntologyEditSessionProvider vaultKey={status?.vaultPath || null}>
+            <ErrorBoundary resetKey={route} label="Rhizome could not render this view">
+              {notesVisited || route === "notes" ? (
+                <div
+                  className="app-shell__route-surface"
+                  hidden={route !== "notes"}
+                  inert={route === "notes" ? undefined : true}
+                >
+                  <TypeLabelsProvider>
+                    <NotesShell active={route === "notes"} />
+                  </TypeLabelsProvider>
                 </div>
-              }
-            >
-              <GraphQLExplorer
-                vaultName={vaultName}
-                sidebarTitle={sidebarTitle}
-                sidebarHint={sidebarHint}
-              />
-            </Suspense>
-          ) : (
-            <ExplorerWorkspace
-              vaultName={vaultName ?? ""}
-              sidebarTitle={sidebarTitle}
-              sidebarHint={sidebarHint}
-            />
-          )}
-        </ErrorBoundary>
-      </OntologyEditSessionProvider>
+              ) : null}
+              {route === "notes" ? null : route === "ontology" ? (
+                <OntologyAtlasWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
+              ) : route === "agent" ? (
+                <AgentWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
+              ) : route === "tasks" ? (
+                <TasksWorkspace sidebarTitle={sidebarTitle} sidebarHint={sidebarHint} />
+              ) : route === "graphql" ? (
+                <Suspense
+                  fallback={
+                    <div className="workspace workbench graphql-workspace">
+                      <WorkbenchSidebar title={sidebarTitle} titleHint={sidebarHint}>
+                        {null}
+                      </WorkbenchSidebar>
+                      <main className="workbench__panel graphql-explorer" />
+                    </div>
+                  }
+                >
+                  <GraphQLExplorer
+                    vaultName={vaultName}
+                    sidebarTitle={sidebarTitle}
+                    sidebarHint={sidebarHint}
+                  />
+                </Suspense>
+              ) : (
+                <ExplorerWorkspace
+                  vaultName={vaultName ?? ""}
+                  sidebarTitle={sidebarTitle}
+                  sidebarHint={sidebarHint}
+                />
+              )}
+            </ErrorBoundary>
+          </OntologyEditSessionProvider>
+        </div>
+        {/* Notes hosts Chat in its own pane, except on search, which hides the
+            note surfaces that pane sits in. */}
+        {route === "agent" || (route === "notes" && !notesSearch) ? null : <ChatDrawer />}
+      </div>
       <FinderQuickOpen />
     </div>
   );

@@ -43,6 +43,7 @@ type threadParams struct {
 	ExcludeTurns          bool   `json:"excludeTurns,omitempty"`
 	Model                 string `json:"model,omitempty"`
 	Cwd                   string `json:"cwd,omitempty"`
+	ApprovalsReviewer     string `json:"approvalsReviewer,omitempty"`
 	ApprovalPolicy        string `json:"approvalPolicy,omitempty"`
 	Sandbox               string `json:"sandbox,omitempty"`
 	DeveloperInstructions string `json:"developerInstructions,omitempty"`
@@ -55,14 +56,15 @@ type threadResponse struct {
 }
 
 type turnStartParams struct {
-	ThreadID       string          `json:"threadId"`
-	Input          []userInput     `json:"input"`
-	Model          string          `json:"model,omitempty"`
-	Effort         string          `json:"effort,omitempty"`
-	Cwd            string          `json:"cwd,omitempty"`
-	ApprovalPolicy string          `json:"approvalPolicy,omitempty"`
-	SandboxPolicy  any             `json:"sandboxPolicy,omitempty"`
-	OutputSchema   json.RawMessage `json:"outputSchema,omitempty"`
+	ThreadID          string          `json:"threadId"`
+	Input             []userInput     `json:"input"`
+	Model             string          `json:"model,omitempty"`
+	Effort            string          `json:"effort,omitempty"`
+	Cwd               string          `json:"cwd,omitempty"`
+	ApprovalsReviewer string          `json:"approvalsReviewer,omitempty"`
+	ApprovalPolicy    string          `json:"approvalPolicy,omitempty"`
+	SandboxPolicy     any             `json:"sandboxPolicy,omitempty"`
+	OutputSchema      json.RawMessage `json:"outputSchema,omitempty"`
 }
 
 type userInput struct {

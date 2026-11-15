@@ -273,12 +273,21 @@ func TestServiceSendMessageReturnsWhileTurnContinuesAfterRequestCancellation(t *
 	_, err = service.SendMessage(vaultconfig.WithEnv(context.Background(), env), created.Session.ID, "second")
 	require.ErrorIs(t, err, ErrConflict)
 	fake.session.events <- harness.Event{Kind: harness.EventTurnStarted, TurnID: "turn-async"}
-	fake.session.events <- harness.Event{Kind: harness.EventAssistantTextDelta, TurnID: "turn-async", Text: "pong"}
+	// A progress note and the answer are separate message items, so they
+	// become separate paragraphs; one item's deltas join as they stream.
+	for _, delta := range []harness.Event{
+		{ItemID: "note", Text: "Checking."},
+		{ItemID: "answer", Text: "po"},
+		{ItemID: "answer", Text: "ng"},
+	} {
+		delta.Kind, delta.TurnID = harness.EventAssistantTextDelta, "turn-async"
+		fake.session.events <- delta
+	}
 	fake.session.events <- harness.Event{Kind: harness.EventTurnCompleted, TurnID: "turn-async"}
 	fake.session.turnResults <- nil
 	require.Eventually(t, func() bool {
 		persisted, getErr := service.GetSession(vaultconfig.WithEnv(context.Background(), env), created.Session.ID)
-		return getErr == nil && !persisted.Session.TurnRunning && len(persisted.Messages) == 2 && persisted.Messages[1].Content == "pong"
+		return getErr == nil && !persisted.Session.TurnRunning && len(persisted.Messages) == 2 && persisted.Messages[1].Content == "Checking.\n\npong"
 	}, time.Second, 10*time.Millisecond)
 }
 

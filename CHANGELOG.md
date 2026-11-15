@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Chat beside what you're looking at: the right pane gains a Chat tab in every section, toggled from the top bar (and Rhizome Desktop's toolbar), `]`, or ⌥⌘B, with ⌘B now toggling the left sidebar. Each message carries the note, view, or type on screen, the agent can read the page's visible text with a `page_text` tool, and the conversation continues on the Agent page. Chat sessions default to a new `auto` permission mode (Claude auto mode, Codex Approve for me), so routine actions show as one line and only escalations ask. Rhizome Desktop's View menu moves the sidebar shortcut from ⌃⌘S to ⌘B and adds Show Chat.
+
 - The Notes sidebar has a Files panel docked at its bottom: the vault's folders and note files as an expandable tree, with the open note selected and its folders opened. Clicking a note opens it, and the panel's height and collapsed state are remembered. It replaces the Folder panel and stays below an experience's panel.
 
 - Init recovers verified legacy ownership from Git history and exposes unresolved file upgrades with diffs and explicit `--take` and `--keep` choices. Deferred upgrades remain visible after automatic updates, and desktop choices are rejected if the reviewed files change before applying.

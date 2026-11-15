@@ -19,7 +19,8 @@ test("runs an approval and interrupt journey against the fake harness", async ({
     model?.replace(" (default)", "") || "",
   );
 
-  const settings = page.getByLabel("Settings: Tool approval: ask first", { exact: true });
+  // A new chat runs in auto mode; the fake harness still escalates its actions.
+  const settings = page.getByLabel("Settings: Tool approval: Auto", { exact: true });
   await expect(settings).toContainText("Settings");
   await expect(settings).toHaveCSS("height", "28px");
   const active = settings.locator(".agent-session-settings__active");

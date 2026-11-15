@@ -49,7 +49,10 @@ func (s *Service) harnessStatus(ctx context.Context, kind harness.Kind, driver h
 	if ok && now.Sub(cached.checkedAt) < statusCacheTTL {
 		return cached.status
 	}
-	probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	// The probe's result is cached for every caller, so one caller leaving,
+	// such as a page that reloads mid-request, must not cancel it into a
+	// cached failure that hides an installed harness.
+	probeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	status, err := driver.Status(probeCtx)
 	status.Kind = kind

@@ -43,7 +43,7 @@ test("keeps context scoped to the active note while relations open beside it", a
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/notes?note=notes%2Ftask-flow.md");
   await expect(page.getByRole("heading", { name: "Task Flow", exact: true }).first()).toBeVisible();
-  const contextTabs = page.getByRole("tablist", { name: "Note context" });
+  const contextTabs = page.getByRole("tablist", { name: "Right pane" });
   await expect(contextTabs).toBeVisible();
   await contextTabs.getByRole("tab", { name: "Info", exact: true }).click();
   const context = page.getByRole("complementary", { name: "Note context" });
@@ -79,7 +79,7 @@ test("persists the right pane and panel widths, and closes the pane on Home", as
   await expect(
     page.getByRole("heading", { name: "Search Rewrite", exact: true }).first(),
   ).toBeVisible();
-  const contextTabs = page.getByRole("tablist", { name: "Note context" });
+  const contextTabs = page.getByRole("tablist", { name: "Right pane" });
   await expect(contextTabs).toBeVisible();
 
   // ] hides the pane; the choice and a keyboard-resized sidebar survive a reload.
@@ -105,15 +105,25 @@ test("persists the right pane and panel widths, and closes the pane on Home", as
   const paneHandle = page.getByRole("separator", { name: "Resize right pane" });
   await paneHandle.focus();
   await paneHandle.press("End");
+  // At its 720px maximum the pane stops where the note keeps about 640px.
+  await expect(paneHandle).toHaveAttribute("aria-valuenow", "720");
   await expect
-    .poll(() => page.getByRole("complementary", { name: "Note context" }).boundingBox())
-    .toMatchObject({ width: 560 });
+    .poll(() =>
+      page.evaluate(() => {
+        const pane = document.querySelector("#notes-right-pane")?.getBoundingClientRect();
+        const body = document.querySelector(".notes-shell__body")?.getBoundingClientRect();
 
-  // Home has nothing for the pane to show, so it offers no pane toggle.
+        return pane && body ? Math.round(body.width - pane.width) : 0;
+      }),
+    )
+    .toBe(640);
+
+  // Home has nothing of its own for the pane, so it keeps its width until
+  // the person chooses Chat from the one toggle.
   const tabs = page.getByRole("tablist", { name: "Open notes" });
   await tabs.getByRole("tab", { name: "Home", exact: true }).click();
   await expect(contextTabs).toBeHidden();
-  await expect(page.getByRole("button", { name: "Show right pane" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Show right pane" })).toBeVisible();
   await tabs.getByRole("tab", { name: /Search Rewrite/ }).click();
   await expect(contextTabs).toBeVisible();
 });
@@ -123,7 +133,7 @@ test("below 1200px the right pane starts closed and opens over the content", asy
   await page.goto("/notes?note=notes%2Fspecs%2Fsearch-rewrite.md");
   const article = page.locator(".notes-shell__panel.is-active");
   await expect(article.getByRole("heading", { name: "Search Rewrite", exact: true })).toBeVisible();
-  await expect(page.getByRole("tablist", { name: "Note context" })).toBeHidden();
+  await expect(page.getByRole("tablist", { name: "Right pane" })).toBeHidden();
   const width = await article.evaluate((element) => element.clientWidth);
 
   await page.getByRole("button", { name: "Show right pane" }).click();

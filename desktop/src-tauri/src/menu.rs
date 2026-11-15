@@ -34,6 +34,7 @@ const SHORTCUTS: &[(&str, &str)] = &[
     ("find", "CmdOrCtrl+P"),
     ("reload", "CmdOrCtrl+R"),
     ("sidebar", SIDEBAR_SHORTCUT),
+    ("chat", "Alt+CmdOrCtrl+B"),
     ("fullscreen", "F11"),
 ];
 
@@ -200,12 +201,7 @@ fn copy_page_url(window: &Window) -> Result<(), String> {
         .map_err(|e| format!("Cannot copy the address: {e}"))
 }
 
-/// ⌃⌘S on macOS; ⌃⌥S elsewhere, where ⌘ is Ctrl and ⌃S would be Save.
-const SIDEBAR_SHORTCUT: &str = if cfg!(target_os = "macos") {
-    "Ctrl+CmdOrCtrl+S"
-} else {
-    "Ctrl+Alt+S"
-};
+const SIDEBAR_SHORTCUT: &str = "CmdOrCtrl+B";
 
 fn sidebar_label(collapsed: bool) -> &'static str {
     if collapsed {
@@ -216,10 +212,10 @@ fn sidebar_label(collapsed: bool) -> &'static str {
 }
 
 struct SidebarItem(MenuItem<Wry>);
+struct ChatItem(MenuItem<Wry>);
 
-/// Names the View menu's sidebar item for the saved state, and enables it
-/// while the focused window's page can toggle its sidebar.
-pub fn refresh_sidebar(app: &AppHandle) {
+/// Refreshes the panel controls for the focused window's reported capabilities.
+pub fn refresh_panels(app: &AppHandle) {
     let Some(item) = app.try_state::<SidebarItem>() else {
         return;
     };
@@ -232,6 +228,15 @@ pub fn refresh_sidebar(app: &AppHandle) {
         .unwrap_or(false);
     let _ = item.0.set_text(sidebar_label(collapsed));
     let _ = item.0.set_enabled(enabled);
+    if let Some(item) = app.try_state::<ChatItem>() {
+        let enabled = focused_window(app)
+            .and_then(|window| {
+                app.state::<Panes>()
+                    .with(window.label(), page::toggles_pane)
+            })
+            .unwrap_or(false);
+        let _ = item.0.set_enabled(enabled);
+    }
 }
 
 fn toggle_sidebar(app: &AppHandle, window: Option<Window>) {
@@ -367,6 +372,8 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
         false,
     )?;
     app.manage(SidebarItem(sidebar.clone()));
+    let chat = item("chat", "Show Chat", false)?;
+    app.manage(ChatItem(chat.clone()));
     #[cfg(target_os = "macos")]
     let fullscreen = PredefinedMenuItem::fullscreen(app, None)?;
     #[cfg(not(target_os = "macos"))]
@@ -384,6 +391,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             &theme_menu,
             &PredefinedMenuItem::separator(app)?,
             &sidebar,
+            &chat,
             &fullscreen,
         ],
     )?;
@@ -436,6 +444,12 @@ fn dispatch(app: &AppHandle, id: &str, window: Option<Window>) {
         }
         "check-updates" => crate::updater::check_from_menu(app),
         "sidebar" => toggle_sidebar(app, window),
+        "chat" => {
+            if let Some(window) = window {
+                dismiss_finder(&window);
+                page_command(&window, &page::Command::Chat {});
+            }
+        }
         "search" => {
             if let Some(window) = window {
                 dismiss_finder(&window);

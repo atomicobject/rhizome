@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the agent surface: rzm agent * command family, agentapi in-process bridge, contextpack budgeting, answer packets, presentation packing."
 reference-kind: guide
-last-verified: 2026-11-06
+last-verified: 2026-11-14
 code-paths:
   - pkg/app/agentchat
   - pkg/app/agentapi
@@ -133,3 +133,15 @@ Code-mode dispatch admits concurrent calls, with exclusive access for live vault
 Credential environments are consumed without offering to persist their values.
 Compression requires explicit `compression.enabled: true`; setup no longer offers
 compression configuration. See [credential policy](../../engineering/secrets.md).
+
+## In-app chat context and page reads
+
+`POST /api/agent/sessions/{id}/messages` accepts `{content, context?}`. A context contains `kind`, `title`, `route`, and optional `path`, `viewId`, and `detail`. The HTTP boundary admits kinds `note`, `view`, `type`, `group`, `ontology`, `notes`, and `section`. Title is required and limited to 200 runes. Route is required, starts with `/`, and is limited to 2048 bytes. Path and viewId are each limited to 1024 bytes. Detail is limited to 2000 runes. Invalid context returns 400. Message content is persisted verbatim with nullable JSON context. Only the harness turn gets the `[Rhizome view]` prefix.
+
+`POST /api/agent/sessions/{id}/page-relay` requires the live session's `Authorization: Bearer <token>`. Missing or invalid tokens return 401. It publishes an unpersisted `agent_event` SSE event with `id: 0`, `type: "page-request"`, and `result: {requestId}`. Errors use the existing API error envelope, including its code field. No SSE id header is emitted for this event, so it cannot advance the replay cursor. The relay waits at most 20 seconds. No subscriber returns 502 with `{"error":"The chat isn't open in a Rhizome window, so the page can't be read."}`. Timeout returns 502 with `{"error":"No Rhizome window answered."}`.
+
+The browser posts `{title, route, text?, error?}` to `/api/agent/sessions/{id}/page-relay/{requestId}` under the existing API host and origin protections. Text or error must be present; an empty text is valid. The reply JSON envelope is limited to 1 MiB. Text is truncated to 60,000 bytes at a UTF-8 boundary. Success returns 200 with `{"responded":true}`. Unknown or expired requests return 404. A second reply before expiry returns 409. Answered request IDs expire at their original deadline and are removed by the next request or session shutdown. This retains first-reply ownership without a background goroutine.
+
+The hidden `rzm agent page-mcp` command serves one argument-free, read-only MCP tool named `page_text`. It POSTs `{}` to `RHIZOME_PAGE_RELAY_URL`, using `RHIZOME_PAGE_RELAY_TOKEN`, with a 25-second HTTP timeout and no redirects. Success returns `Title: <title>\nRoute: <route>\n\n<text>`. Relay and browser errors become MCP tool errors. Claude pre-approves `mcp__rhizome_page__page_text`. Codex pre-approves that tool through `mcp_servers.rhizome_page.tools.page_text.approval_mode="approve"`, supported by the [0.169.0 configuration types](https://github.com/openai/codex/blob/rust-v0.169.0/codex-rs/config/src/mcp_types.rs).
+
+Agent routes use handwritten web types in `web/src/api/types.ts` and `web/src/api/client.ts`. They are absent from the generated OpenAPI surface, so these changes require no generation command.

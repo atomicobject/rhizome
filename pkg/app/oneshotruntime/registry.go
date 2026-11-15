@@ -285,6 +285,7 @@ func DefaultRegistry() Registry {
 	}
 
 	return NewRegistry(
+		static("agent.page-mcp", "agent page-mcp", CompositionNone, AuthorityReadOnly, empty()),
 		static("agent.surface", "agent surface", CompositionNone, AuthorityReadOnly, empty()),
 		static("agent.code.surface", "agent code surface", CompositionNone, AuthorityReadOnly, empty()),
 		static("agent.code.describe", "agent code describe", CompositionNone, AuthorityReadOnly, empty()),

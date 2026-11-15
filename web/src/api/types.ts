@@ -657,7 +657,11 @@ export type ValidateEnvelope = components["schemas"]["ValidateEnvelope"];
 
 export type AgentHarnessKind = "codex" | "claude";
 
-export type AgentPermissionMode = "approval-required" | "auto-accept-edits" | "full-access";
+export type AgentPermissionMode =
+  | "auto"
+  | "approval-required"
+  | "auto-accept-edits"
+  | "full-access";
 
 export type AgentHarnessSettings = {
   model?: string;
@@ -717,11 +721,24 @@ export type AgentSession = {
   archived?: boolean;
 };
 
+/** What the user was looking at when they sent a chat message (SPEC-0140). */
+export type AgentViewContext = {
+  kind: "note" | "view" | "type" | "group" | "ontology" | "notes" | "section";
+  title: string;
+  /** A vault-relative note path. */
+  path?: string;
+  viewId?: string;
+  /** The app URL path and query. */
+  route: string;
+  detail?: string;
+};
+
 export type AgentMessage = {
   id: number;
   sessionId: string;
   role: "user" | "assistant" | string;
   content: string;
+  context?: AgentViewContext;
   createdAt: string;
 };
 

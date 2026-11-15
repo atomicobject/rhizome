@@ -173,7 +173,7 @@ describe("NotesRightRail", () => {
     expect(http.requests()).toHaveLength(0);
   });
 
-  it("shows the selected record's slot under a Record title", () => {
+  it("shows the selected record's slot under a Record tab, with Chat beside it", () => {
     const onRecordSlot = vi.fn();
     render(
       <RailHarness
@@ -187,7 +187,9 @@ describe("NotesRightRail", () => {
     );
 
     const pane = screen.getByRole("complementary", { name: "Record" });
-    expect(within(pane).getByRole("heading", { name: "Record" })).toBeVisible();
+    const tabs = within(pane).getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Record", "Chat"]);
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
     expect(onRecordSlot).toHaveBeenCalledWith(expect.any(HTMLElement));
     fireEvent.click(within(pane).getByRole("button", { name: "Hide right pane" }));
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
@@ -203,8 +205,12 @@ describe("NotesRightRail", () => {
     );
 
     const rail = screen.getByRole("complementary", { name: "Note context" });
-    const tabs = within(rail).getByRole("tablist", { name: "Note context" });
-    expect(within(tabs).getAllByRole("tab")).toHaveLength(3);
+    const tabs = within(rail).getByRole("tablist", { name: "Right pane" });
+    expect(
+      within(tabs)
+        .getAllByRole("tab")
+        .map((tab) => tab.textContent),
+    ).toEqual(["Info", "Outline", "Graph", "Chat"]);
     expect(within(tabs).getByRole("tab", { name: "Info" })).toHaveAttribute(
       "aria-selected",
       "true",
@@ -246,7 +252,7 @@ describe("NotesRightRail", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Outline" }));
     fireEvent.click(screen.getByRole("button", { name: "Hide right pane" }));
-    expect(screen.queryByRole("tablist", { name: "Note context" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tablist", { name: "Right pane" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Toggle pane" }));
     expect(screen.getByRole("tab", { name: "Outline" })).toHaveAttribute("aria-selected", "true");
     expect(window.sessionStorage.getItem(tabKey)).toBe("outline");

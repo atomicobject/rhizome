@@ -25,7 +25,9 @@ const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
     [
       ["↑ ↓", "Move between sidebar rows"],
       ["→ ←", "Open / close a section"],
+      ["⌘B", "Show or hide the sidebar"],
       ["]", "Show or hide the right pane"],
+      ["⌥⌘B", "Show Chat, or hide it"],
       ["← → on a divider", "Resize a pane"],
     ],
   ],

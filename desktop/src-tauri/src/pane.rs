@@ -68,6 +68,8 @@ pub struct Pane {
     pub sidebar: Option<bool>,
     pub sidebar_toggles: Option<u32>,
     pub graphql: bool,
+    /// The page owns the right pane; absence means it cannot take its commands.
+    pub right_pane_collapsed: Option<bool>,
     /// The current document's last Tasks request number, from its first
     /// report on, and a newer request the title handler has yet to take.
     pub requests: Option<u32>,

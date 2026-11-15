@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -325,6 +326,11 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 	defer listener.Close()
 
 	actualPort := listener.Addr().(*net.TCPAddr).Port
+	if origin := pageRelayOrigin(listener.Addr().(*net.TCPAddr)); origin != "" {
+		if err := srv.SetPageRelayOrigin(origin); err != nil {
+			return err
+		}
+	}
 	// Best effort: a missing record only costs the next start a stable URL.
 	_ = appruntime.WriteLastPort(vaultPath, actualPort)
 	url := ServeURL(opts.Host, actualPort)
@@ -466,4 +472,19 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 	stoppedURL = url
 	stopped = true
 	return nil
+}
+
+// pageRelayOrigin is where a chat's page_text helper reaches this server, on
+// loopback. A server bound to one other address does not listen on loopback,
+// and its host check refuses a request to that address that does not match
+// the application origin, so it offers no page_text tool ("").
+func pageRelayOrigin(addr *net.TCPAddr) string {
+	if !addr.IP.IsUnspecified() && !addr.IP.IsLoopback() {
+		return ""
+	}
+	host := "127.0.0.1"
+	if addr.IP.To4() == nil {
+		host = "::1"
+	}
+	return "http://" + net.JoinHostPort(host, strconv.Itoa(addr.Port))
 }

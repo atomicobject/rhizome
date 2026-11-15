@@ -9,8 +9,8 @@ import { DisclosureChevron } from "../DisclosureChevron";
 
 const defaultSettings: AgentSettings = {
   harnesses: {
-    codex: { permissionMode: "approval-required" },
-    claude: { permissionMode: "approval-required" },
+    codex: { permissionMode: "auto" },
+    claude: { permissionMode: "auto" },
   },
 };
 
