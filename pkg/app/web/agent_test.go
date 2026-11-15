@@ -233,3 +233,27 @@ func TestAgentEventsHonorsLastEventIDAndWritesSSEIDs(t *testing.T) {
 	require.NotContains(t, string(body), fmt.Sprintf("id: %d\n", persisted[0].ID))
 	require.NotContains(t, string(body), fmt.Sprintf("id: %d\n", persisted[1].ID))
 }
+
+func TestAgentSettingsRefreshProbesAgain(t *testing.T) {
+	env := testkit.Env(t)
+	env.CLIConfigFile = filepath.Join(t.TempDir(), "config.yml")
+	fake := &harnesstest.Harness{StatusResult: harness.Status{Installed: false}}
+	service, err := agentchat.NewService(vaultconfig.WithEnv(context.Background(), env), t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, service.Close()) })
+	server := &Server{agentService: service}
+
+	installed := func(target string) bool {
+		recorder := httptest.NewRecorder()
+		server.handleAgentSettings(recorder, httptest.NewRequest(http.MethodGet, target, nil))
+		require.Equal(t, http.StatusOK, recorder.Code)
+		var response agentchat.SettingsResponse
+		require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+		return response.Harnesses[0].Status.Installed
+	}
+
+	require.False(t, installed("/api/agent/settings"))
+	fake.StatusResult = harness.Status{Installed: true, LoggedIn: true}
+	require.False(t, installed("/api/agent/settings"), "a plain read keeps the cached probe")
+	require.True(t, installed("/api/agent/settings?refresh=1"), "refresh probes the harness again")
+}

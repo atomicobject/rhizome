@@ -703,6 +703,8 @@ export type AgentSettingsResponse = {
   settings: AgentSettings;
   resolved: {
     harness?: AgentHarnessKind;
+    /** The configured model when the harness offers it; empty means its default. */
+    model?: string;
     reason: "configured" | "first available" | "none available";
   };
   harnesses: { kind: AgentHarnessKind; status: AgentHarnessStatus }[];

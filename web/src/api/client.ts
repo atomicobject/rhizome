@@ -999,8 +999,12 @@ export function deleteOntologyEditSession(sessionId: string) {
   });
 }
 
-export function getAgentSettings(options: RequestOptions = {}) {
-  return fetchJSON<AgentSettingsResponse>("/api/agent/settings", requestInit(options));
+/** `refresh` skips the server's cached harness probes. */
+export function getAgentSettings(options: RequestOptions & { refresh?: boolean } = {}) {
+  return fetchJSON<AgentSettingsResponse>(
+    options.refresh ? "/api/agent/settings?refresh=1" : "/api/agent/settings",
+    requestInit(options),
+  );
 }
 
 export function saveAgentSettings(settings: AgentSettings) {

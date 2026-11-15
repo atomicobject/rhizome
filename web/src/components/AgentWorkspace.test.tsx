@@ -132,9 +132,11 @@ describe("AgentWorkspace", () => {
       .json("GET", "/api/agent/sessions", { sessions: [] });
 
     render(<AgentWorkspace />);
-    // The header names the state, and the note beside Send repeats the next step.
-    const hints = await screen.findAllByText(/Install Claude Code to use chat/);
-    expect(hints).toHaveLength(2);
+    // The header names the state, and the setup card links the install steps.
+    expect(await screen.findByText(/Install Claude Code to use chat/)).toBeVisible();
+    const card = screen.getByRole("region", { name: "Set up chat" });
+    expect(within(card).getByRole("link", { name: "How to install Claude Code" })).toBeVisible();
+    expect(screen.queryByText(/No messages yet/)).toBeNull();
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
 
     // The keyboard shortcut is gated too: nothing posts and the draft stays.
