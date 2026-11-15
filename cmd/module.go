@@ -123,12 +123,32 @@ func runModuleCommand(parent *cobra.Command, name string, args []string) error {
 	if err != nil {
 		return err
 	}
-	loaded, err := operations.LoadModuleRecipes(def.BasePath(), name)
+	root, err := opts.moduleCommandTree(def, name)
 	if err != nil {
 		return err
 	}
+	root.SilenceUsage = parent.Root().SilenceUsage
+	root.SetArgs(append([]string{name}, args...))
+	root.SetIn(parent.InOrStdin())
+	root.SetOut(parent.OutOrStdout())
+	root.SetErr(parent.ErrOrStderr())
+	err = root.ExecuteContext(ctx)
+	// An action already reported its refusal or error.
+	if errors.As(err, new(silentExitError)) {
+		parent.SilenceUsage, parent.SilenceErrors = true, true
+	}
+	return err
+}
 
-	root := &cobra.Command{Use: "rzm", SilenceErrors: true, SilenceUsage: parent.Root().SilenceUsage}
+// moduleCommandTree builds `rzm <name>` for the module in def: one command
+// per query recipe and per action.
+func (opts *vaultCommandOptions) moduleCommandTree(def obsidian.VaultDefinition, name string) (*cobra.Command, error) {
+	loaded, err := operations.LoadModuleRecipes(def.BasePath(), name)
+	if err != nil {
+		return nil, err
+	}
+
+	root := &cobra.Command{Use: "rzm", SilenceErrors: true}
 	root.PersistentFlags().StringVarP(&opts.vaultName, "vault", "v", opts.vaultName, "vault name (uses default if unset)")
 	root.PersistentFlags().Bool("no-pager", false, "disable paging (when stdout is a TTY)")
 	module := &cobra.Command{
@@ -144,7 +164,7 @@ func runModuleCommand(parent *cobra.Command, name string, args []string) error {
 	runner := vaultActionRunner(def)
 	actionList, err := runner.List()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	recipeNames := map[string]bool{}
 	for _, recipe := range loaded.Commands {
@@ -174,16 +194,7 @@ func runModuleCommand(parent *cobra.Command, name string, args []string) error {
 	for _, action := range moduleActions {
 		module.AddCommand(newModuleActionCmd(runner, action))
 	}
-	root.SetArgs(append([]string{name}, args...))
-	root.SetIn(parent.InOrStdin())
-	root.SetOut(parent.OutOrStdout())
-	root.SetErr(parent.ErrOrStderr())
-	err = root.ExecuteContext(ctx)
-	// An action already reported its refusal or error.
-	if errors.As(err, new(silentExitError)) {
-		parent.SilenceUsage, parent.SilenceErrors = true, true
-	}
-	return err
+	return root, nil
 }
 
 func (commandOptions *vaultCommandOptions) newModuleRecipeCmd(recipe queryrecipe.Recipe, recipes []queryrecipe.Recipe, issues []queryrecipe.Issue) *cobra.Command {

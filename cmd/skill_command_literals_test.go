@@ -11,19 +11,14 @@ import (
 
 	"github.com/atomicobject/rhizome/internal/testkit"
 	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
 
-// moduleShortcuts are first words of `rzm <module> <action>` commands. Modules
-// resolve at run time from .rhizome/modules/<name>/, not from the command tree,
-// so each name here is checked by its own module, never by this test.
-var moduleShortcuts = map[string]bool{
-	"<module>":    true, // the generic form
-	"ao-kb":       true, // the ao-kb starter's module actions
-	"compounding": true, // the compounding starter's module recipes and actions
-	"pipeline":    true, // the example module in the rhizome skill's references/automation.md
-}
+// exampleModule is the module the rhizome skill's references/automation.md
+// declares as an example; no starter ships it.
+const exampleModule = "pipeline"
 
 var (
 	inlineCodeSpan = regexp.MustCompile("`([^`\n]+)`")
@@ -31,6 +26,7 @@ var (
 	// followed by a space or a second `<`.
 	commandPlaceholder = regexp.MustCompile(`<[A-Za-z][^<>]*>`)
 	shellFences        = map[string]bool{"bash": true, "sh": true, "shell": true}
+	shellAssignment    = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
 )
 
 const placeholderMark = "\x00"
@@ -41,12 +37,26 @@ type commandLiteral struct {
 }
 
 // SPEC-0080 US8-AC7: an agent copies the commands shipped guidance names, so
-// every `rzm` command and long flag in it must exist in the command tree.
+// every `rzm` command and long flag in it must exist in the command tree, and
+// every shipped module command must exist in its starter's module.
 func TestShippedGuidanceNamesRealCommandsAndFlags(t *testing.T) {
-	root := newRootCommand(commandEnv{Config: testkit.Env(t)}).Command
-	root.InitDefaultHelpCmd()
-	root.InitDefaultCompletionCmd()
-	root.InitDefaultVersionFlag()
+	check := newCommandLiteralChecker(t)
+	for _, tc := range []struct {
+		literal string
+		wrong   bool
+	}{
+		{literal: "rzm agent start --intent \"<task>\" --file <path>"},
+		{literal: "rzm compounding item --ref proposal:<cluster>"},
+		{literal: "rzm <module> <action>"},
+		{literal: "rzm next-id", wrong: true},
+		{literal: "rzm status", wrong: true},
+		{literal: "rzm agent start --bogus", wrong: true},
+		{literal: "rzm agent surface && rzm agent nonexistent", wrong: true},
+		{literal: "rzm compounding itme --ref <ref>", wrong: true},
+		{literal: "rzm compounding item --reference <ref>", wrong: true},
+	} {
+		require.Equal(t, tc.wrong, check(tc.literal) != "", "check(%q) = %q", tc.literal, check(tc.literal))
+	}
 
 	var literals []commandLiteral
 	for _, dir := range shippedGuidanceDirs(t) {
@@ -66,11 +76,63 @@ func TestShippedGuidanceNamesRealCommandsAndFlags(t *testing.T) {
 
 	var failures []string
 	for _, literal := range literals {
-		if problem := checkCommandLiteral(root, literal.text); problem != "" {
+		if problem := check(literal.text); problem != "" {
 			failures = append(failures, literal.at+": `"+literal.text+"`: "+problem)
 		}
 	}
 	require.Empty(t, failures, "shipped guidance names commands or flags rzm does not have:\n%s", strings.Join(failures, "\n"))
+}
+
+// newCommandLiteralChecker returns a check of a command line's `rzm`
+// invocations against the command tree and, for `rzm <module>`, against the
+// tree `rzm module` builds from each starter's shipped module.
+func newCommandLiteralChecker(t *testing.T) func(literal string) string {
+	t.Helper()
+	root := newRootCommand(commandEnv{Config: testkit.Env(t)}).Command
+	root.InitDefaultHelpCmd()
+	root.InitDefaultCompletionCmd()
+	root.InitDefaultVersionFlag()
+
+	vault := t.TempDir()
+	moduleDirs, err := filepath.Glob(filepath.Join("..", "pkg", "app", "cli", "init", "templates", "starters", "*", "module"))
+	require.NoError(t, err)
+	require.NotEmpty(t, moduleDirs)
+	modules := map[string]*cobra.Command{}
+	for _, dir := range moduleDirs {
+		name := filepath.Base(filepath.Dir(dir))
+		require.NoError(t, os.CopyFS(filepath.Join(vault, ".rhizome", "modules", name), os.DirFS(dir)))
+	}
+	for _, dir := range moduleDirs {
+		name := filepath.Base(filepath.Dir(dir))
+		tree, err := (&vaultCommandOptions{}).moduleCommandTree(obsidian.VaultDefinition{Name: "starters", Path: vault}, name)
+		require.NoError(t, err)
+		modules[name] = tree
+	}
+
+	return func(literal string) string {
+		for _, words := range shellCommands(commandPlaceholder.ReplaceAllString(literal, placeholderMark)) {
+			if len(words) == 0 || words[0] != "rzm" {
+				continue
+			}
+			args := words[1:]
+			if len(args) > 0 && args[0] == "module" {
+				args = args[1:]
+			}
+			tree := root
+			if len(args) > 0 && !isBuiltinCommand(root, args[0]) {
+				if strings.Contains(args[0], placeholderMark) || args[0] == exampleModule {
+					continue
+				}
+				if modules[args[0]] != nil {
+					tree = modules[args[0]]
+				}
+			}
+			if problem := checkCommandArgs(tree, args); problem != "" {
+				return problem
+			}
+		}
+		return ""
+	}
 }
 
 func shippedGuidanceDirs(t *testing.T) []string {
@@ -84,8 +146,8 @@ func shippedGuidanceDirs(t *testing.T) []string {
 	}, starters...)
 }
 
-// rzmCommandLiterals returns inline code spans and shell-fence lines that start
-// with `rzm `, joining continued fence lines.
+// rzmCommandLiterals returns inline code spans and shell-fence lines that run
+// `rzm`, joining continued fence lines.
 func rzmCommandLiterals(path, content string) []commandLiteral {
 	var out []commandLiteral
 	fence, shell, pending, pendingLine := "", false, "", 0
@@ -113,13 +175,13 @@ func rzmCommandLiterals(path, content string) []commandLiteral {
 				continue
 			}
 			pending = ""
-			if strings.HasPrefix(text, "rzm ") {
+			if invokesRzm(text) {
 				out = append(out, commandLiteral{at: path + ":" + strconv.Itoa(pendingLine), text: text})
 			}
 			continue
 		}
 		for _, match := range inlineCodeSpan.FindAllStringSubmatch(line, -1) {
-			if strings.HasPrefix(match[1], "rzm ") {
+			if invokesRzm(match[1]) {
 				out = append(out, commandLiteral{at: path + ":" + strconv.Itoa(i+1), text: match[1]})
 			}
 		}
@@ -127,19 +189,15 @@ func rzmCommandLiterals(path, content string) []commandLiteral {
 	return out
 }
 
-// checkCommandLiteral resolves a literal's subcommand path and long flags in
-// the command tree and returns what is wrong, or "".
-func checkCommandLiteral(root *cobra.Command, literal string) string {
-	if fields := strings.Fields(literal); len(fields) > 1 && moduleShortcuts[fields[1]] {
-		return ""
-	}
-	args := shellWords(commandPlaceholder.ReplaceAllString(literal, placeholderMark))[1:]
+// checkCommandArgs resolves an invocation's subcommand path and long flags in
+// a command tree and returns what is wrong, or "".
+func checkCommandArgs(root *cobra.Command, args []string) string {
 	command, rest, err := root.Find(args)
 	if err != nil {
 		return err.Error()
 	}
 	command.InitDefaultHelpFlag()
-	// A command that parses its own flags, such as `rzm module`, declares none.
+	// A command that parses its own flags declares none.
 	if command.DisableFlagParsing {
 		return ""
 	}
@@ -151,7 +209,7 @@ func checkCommandLiteral(root *cobra.Command, literal string) string {
 		if !strings.HasPrefix(word, "-") {
 			// A placeholder stands for any value, so it is never an unknown command.
 			placeholder := strings.Contains(word, placeholderMark) || word == "..." || word == "…"
-			if !placeholder && command.HasSubCommands() && !command.Runnable() {
+			if !placeholder && command.HasSubCommands() && (!command.Runnable() || command.ValidateArgs([]string{word}) != nil) {
 				return "unknown command \"" + word + "\" for \"" + command.CommandPath() + "\""
 			}
 			continue
@@ -172,19 +230,39 @@ func checkCommandLiteral(root *cobra.Command, literal string) string {
 	return ""
 }
 
-// shellWords splits a command line into words, honoring quotes and stopping at
-// the first unquoted shell operator (pipe, list, redirect, or comment).
-func shellWords(line string) []string {
+// invokesRzm reports whether a command line runs `rzm` with arguments.
+func invokesRzm(text string) bool {
+	for _, words := range shellCommands(commandPlaceholder.ReplaceAllString(text, placeholderMark)) {
+		if len(words) > 1 && words[0] == "rzm" {
+			return true
+		}
+	}
+	return false
+}
+
+// shellCommands splits a command line into the words of each command,
+// honoring quotes. Pipes and lists (`|`, `||`, `&&`, `;`, `&`) separate
+// commands, a redirect ends its command's words, and a comment ends the line.
+// Leading variable assignments are dropped.
+func shellCommands(line string) [][]string {
+	var commands [][]string
 	var words []string
 	var word strings.Builder
-	inWord := false
+	inWord, redirected := false, false
 	var quote rune
 	flush := func() {
-		if inWord {
+		if inWord && !redirected && (len(words) > 0 || !shellAssignment.MatchString(word.String())) {
 			words = append(words, word.String())
 		}
 		word.Reset()
 		inWord = false
+	}
+	end := func() {
+		flush()
+		if len(words) > 0 {
+			commands = append(commands, words)
+		}
+		words, redirected = nil, false
 	}
 	runes := []rune(line)
 	for i := 0; i < len(runes); i++ {
@@ -204,14 +282,19 @@ func shellWords(line string) []string {
 			inWord = true
 		case r == ' ' || r == '\t':
 			flush()
-		case strings.ContainsRune("|&;<>", r) || r == '#' && !inWord:
+		case strings.ContainsRune("|&;", r):
+			end()
+		case r == '<' || r == '>':
 			flush()
-			return words
+			redirected = true
+		case r == '#' && !inWord:
+			end()
+			return commands
 		default:
 			word.WriteRune(r)
 			inWord = true
 		}
 	}
-	flush()
-	return words
+	end()
+	return commands
 }
