@@ -8,6 +8,10 @@ test("runs an approval and interrupt journey against the fake harness", async ({
   await page.goto("/agent");
   await expect(page.locator(".agent-thread__head")).toContainText("e2e-fake");
 
+  // Both fake harnesses are ready and none is chosen, so chat asks once.
+  await page.getByRole("radio", { name: "Codex" }).click();
+  await expect(page.getByRole("radiogroup")).toHaveCount(0);
+
   await page.getByLabel("Model", { exact: true }).selectOption({ index: 0 });
 
   const model = await page
