@@ -281,8 +281,9 @@ export function ChatPanel() {
 
       if (!chatSendLive(id)) return;
 
-      // A choice of another agent starts a new chat with it.
-      let target = agent.startsNewChat(open?.session.harness) ? "" : sessionID;
+      // A choice of another agent starts a new chat with it, and so does an
+      // open chat that could not be read, since its agent is unknown.
+      let target = !open || agent.startsNewChat(open.session.harness) ? "" : sessionID;
 
       if (!target) {
         const created = await createAgentSession(message.slice(0, 48));

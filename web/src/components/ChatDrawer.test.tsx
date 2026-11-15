@@ -242,6 +242,28 @@ describe("Chat in the right pane", () => {
     expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
   });
 
+  it("starts a new chat when the open chat cannot be read", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+
+    const created = session({ id: "created" });
+
+    http
+      .on("GET", "/api/agent/sessions/agt-1", () => jsonReply({ error: "unavailable" }, 500))
+      .json("POST", "/api/agent/sessions", { session: created })
+      .json("GET", "/api/agent/sessions/created", { session: created, messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/created/messages", { session: created })
+      .json("POST", "/api/agent/sessions/agt-1/messages", { session: session() });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    const composer = await within(pane).findByRole("textbox", { name: "Message" });
+
+    fireEvent.change(composer, { target: { value: "Summarize this" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/created/messages")).toBe(1));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+  });
+
   it("sends again after a choice failed to save", async () => {
     window.localStorage.setItem(SESSION_KEY, "agt-1");
     const saving = deferredReply<AgentSettingsResponse>();

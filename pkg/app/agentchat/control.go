@@ -122,9 +122,12 @@ func (s *Service) endInterruptedTurn(sessionID string, live *liveSession, turn *
 	if !s.finishTurn(sessionID, live, turn) || s.ctx.Err() != nil {
 		return
 	}
+	// Its own turn id, so a client gathering this turn's reply does not
+	// collect every earlier turn's text.
+	turnID := fmt.Sprintf("stopped-%d", time.Now().UnixNano())
 	for _, event := range []Event{
-		{SessionID: sessionID, Type: "interrupt-requested", Result: &EventResult{Status: "requested"}},
-		{SessionID: sessionID, Type: string(harness.EventTurnCompleted), Result: &EventResult{Status: "interrupted"}},
+		{SessionID: sessionID, Type: "interrupt-requested", Result: &EventResult{Status: "requested", TurnID: turnID}},
+		{SessionID: sessionID, Type: string(harness.EventTurnCompleted), Result: &EventResult{Status: "interrupted", TurnID: turnID}},
 	} {
 		if err := s.persistAndPublish(s.ctx, event); err != nil {
 			s.publishPersistenceError(event, err)

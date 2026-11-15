@@ -426,6 +426,8 @@ func TestServiceStopDuringModelChangeEndsTurnWithoutSending(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{"interrupt-requested", string(harness.EventTurnCompleted)}, eventTypes(persisted))
 	require.Equal(t, "interrupted", persisted[1].Result.Status)
+	require.NotEmpty(t, persisted[1].Result.TurnID, "a stopped turn has its own id, so a client does not gather earlier turns' replies into it")
+	require.Equal(t, persisted[0].Result.TurnID, persisted[1].Result.TurnID)
 	require.Empty(t, fake.session.turns, "no harness turn starts")
 	require.Empty(t, fake.session.interrupts, "the harness has no turn to interrupt")
 }
