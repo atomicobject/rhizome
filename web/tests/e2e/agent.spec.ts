@@ -8,28 +8,45 @@ test("runs an approval and interrupt journey against the fake harness", async ({
   await page.goto("/agent");
   await expect(page.locator(".agent-thread__head")).toContainText("e2e-fake");
 
-  // Both fake harnesses are ready and none is chosen, so chat asks once.
-  await page.getByRole("radio", { name: "Codex" }).click();
-  await expect(page.getByRole("radiogroup")).toHaveCount(0);
+  // Nothing is chosen, so chat uses the first ready agent: the fake Claude Code.
+  const picker = page.getByRole("button", { name: "Fake Opus · Default" });
+  await picker.click();
+  const dialog = page.getByRole("dialog", { name: "Choose a model" });
+  await expect(dialog.getByRole("group")).toHaveText([/^Claude Code/, /^Codex· signed out/]);
+  expect((await dialog.boundingBox())?.width).toBe(430);
 
-  await page.getByLabel("Model", { exact: true }).selectOption({ index: 0 });
-
-  const model = await page
-    .getByLabel("Model", { exact: true })
-    .locator("option:checked")
-    .textContent();
-
-  await expect(page.locator(".agent-thread__head .view-header__about")).toContainText(
-    model?.replace(" (default)", "") || "",
+  // Choosing the signed-out agent's model explains it in the conversation and holds Send.
+  await page.keyboard.press("ControlOrMeta+3");
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(/Codex is signed out/)).toHaveText(
+    "Codex is signed out. Run codex login in Terminal.",
   );
+  await page.getByLabel("Message").fill("draft kept");
+  await expect(page.getByRole("button", { name: "Send" })).toBeDisabled();
+  await page.getByRole("button", { name: "Use Fake Opus instead" }).click();
+  await expect(page.getByText(/signed out/)).toBeHidden();
+  await expect(page.getByLabel("Message")).toHaveValue("draft kept");
+  await page.getByLabel("Message").fill("");
 
-  // A new chat runs in auto mode; the fake harness still escalates its actions.
-  const settings = page.getByLabel("Settings: Tool approval: Auto", { exact: true });
-  await expect(settings).toContainText("Settings");
-  await expect(settings).toHaveCSS("height", "28px");
-  const active = settings.locator(".agent-session-settings__active");
-  await expect(active).toHaveCSS("font-size", "13px");
-  await expect(active).toHaveCSS("font-weight", "500");
+  // ⇧⌘E opens on Reasoning; the choice saves for the next chats.
+  await page.keyboard.press("ControlOrMeta+Shift+E");
+  const reasoning = page.getByRole("radiogroup", { name: "Reasoning" });
+  await expect(reasoning.getByRole("radio", { name: "Default" })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Fake Opus · High" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  await page.keyboard.press("ControlOrMeta+Shift+A");
+  const modes = page.getByRole("menu", { name: "Permission mode" });
+  await expect(modes.locator(".chat-mode-menu__label")).toHaveText(["Ask first", "Auto"]);
+  await page.keyboard.press("Escape");
+  await expect(modes).toBeHidden();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Fake Opus · High" })).toBeVisible();
+
   await expect(page.getByText("No sessions yet.", { exact: true })).toHaveCSS("font-size", "13px");
   const rows = page.locator(".agent-examples button");
   await expect(rows).toHaveCount(3);

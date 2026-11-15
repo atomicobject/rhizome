@@ -1,14 +1,13 @@
 import { StatusMark } from "../StatusMark";
 import { DisclosureChevron } from "../DisclosureChevron";
 import type { AgentHarnessKind, AgentHarnessStatus, AgentSession } from "../../api/types";
-import { CopyCommand, HARNESS_LABELS } from "./AgentSetup";
+import { HARNESS_LABELS } from "./chatAgent";
 
 type Props = {
   session: AgentSession | null;
   harness: AgentHarnessKind | undefined;
   status: AgentHarnessStatus | undefined;
   messageCount: number;
-  model: string | undefined;
 };
 
 const harnessName = (kind: AgentHarnessKind) => HARNESS_LABELS[kind];
@@ -16,17 +15,7 @@ const harnessName = (kind: AgentHarnessKind) => HARNESS_LABELS[kind];
 const installHint = (kind?: AgentHarnessKind) =>
   kind === "claude" ? "Install Claude Code to use chat." : "Install the Codex CLI to use chat.";
 
-/** True when no turn can be sent until the user picks or installs a harness. */
-export function harnessBlocked(
-  harness: AgentHarnessKind | undefined,
-  status: AgentHarnessStatus | undefined,
-) {
-  // The server runs a configured harness without checking login (an API key
-  // or a timed-out probe reads as logged out), so login is a hint, not a block.
-  return !harness || (status !== undefined && !status.installed);
-}
-
-export function AgentStatusHeader({ session, harness, status, messageCount, model }: Props) {
+export function AgentStatusHeader({ session, harness, status, messageCount }: Props) {
   let state = "Checking harness status…";
 
   if (session?.readOnly) {
@@ -64,7 +53,7 @@ export function AgentStatusHeader({ session, harness, status, messageCount, mode
         <span className="view-header__about">
           {shown ? (
             <>
-              {harnessName(shown)} · {model ? `${model} · ` : ""}
+              {harnessName(shown)} ·{" "}
               {state === "Ready" ? <StatusMark tone="success" label={state} /> : state}
             </>
           ) : session?.readOnly ? (
@@ -100,31 +89,5 @@ export function AgentStatusHeader({ session, harness, status, messageCount, mode
         ) : null}
       </div>
     </header>
-  );
-}
-
-/**
- * How to sign in to an installed harness, beside the composer. A missing or
- * unchosen harness has the setup card instead, so this renders nothing then.
- */
-export function AgentAvailability({
-  harness,
-  status,
-}: {
-  harness: AgentHarnessKind | undefined;
-  status: AgentHarnessStatus | undefined;
-}) {
-  if (!harness || !status?.installed || status.loggedIn) return null;
-
-  return (
-    <span className="agent-availability">
-      {status.loginHint && !status.lastError ? (
-        <>
-          Sign in to {harnessName(harness)}: <CopyCommand command={status.loginHint} />
-        </>
-      ) : (
-        `Sign in to ${harnessName(harness)} to chat.`
-      )}
-    </span>
   );
 }

@@ -42,7 +42,7 @@ describe("AgentWorkspace harness status", () => {
       },
       "codex 0.149.0 is older than minimum 0.150.0",
     ],
-    ["ready", readyStatus, "Codex · GPT Standard · Ready"],
+    ["ready", readyStatus, "Codex · Ready"],
     [
       "degraded",
       {
@@ -64,19 +64,20 @@ describe("AgentWorkspace harness status", () => {
       expect(screen.getByText("Details")).toBeVisible();
     }
 
-    expect(screen.getAllByText("Codex").length).toBeGreaterThan(0);
-
+    // A signed-out agent's notice gives the command to copy; one whose probe
+    // failed shows no notice, since the server still runs it.
     if (status.loginHint && !status.lastError) {
       const command = screen.getByText(status.loginHint);
       expect(command).toBeVisible();
       expect(command.tagName).toBe("CODE");
-      expect(screen.getByRole("button", { name: "Copy" })).toBeVisible();
+      expect(screen.getByRole("button", { name: `Copy ${status.loginHint}` })).toBeVisible();
+      expect(screen.getByText(/Codex is signed out/)).toBeVisible();
     }
 
-    // A missing harness gets the setup card, whose raw error waits behind Details.
-    if (!status.installed && status.lastError) {
-      expect(screen.getByRole("region", { name: "Set up chat" })).toBeVisible();
-      expect(screen.getByText(status.lastError)).not.toBeVisible();
+    // A missing agent's notice links the install steps, never the raw error.
+    if (!status.installed) {
+      expect(screen.getByText(/Codex isn't installed/)).toBeVisible();
+      expect(screen.queryByText(status.lastError ?? "")).toBeNull();
     }
 
     if (status.installed && status.lastError && status.loginHint) {

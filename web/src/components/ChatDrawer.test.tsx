@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import type { AgentEvent, AgentSessionResponse } from "../api/types";
 import { withFakeEventSource } from "../test/fakeEventSource";
-import { deferredReply, withFakeFetch } from "../test/fakeFetch";
+import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { capabilities, readyStatus, session, settingsWith } from "./AgentWorkspace.test-support";
 import { ChatDrawer } from "./ChatDrawer";
@@ -75,8 +75,10 @@ describe("Chat in the right pane", () => {
     render(<ChatDrawer />);
 
     const pane = screen.getByRole("complementary", { name: "Chat" });
-    expect(await within(pane).findByText(/Codex · GPT Standard/)).toBeVisible();
-    expect(within(pane).getByText("Auto")).toBeVisible();
+    expect(
+      await within(pane).findByRole("button", { name: "GPT Standard · Default" }),
+    ).toBeVisible();
+    expect(within(pane).getByRole("button", { name: "Auto" })).toBeVisible();
 
     const composer = within(pane).getByRole("textbox", { name: "Message" });
     fireEvent.change(composer, { target: { value: "Explain this graph" } });
@@ -187,7 +189,7 @@ describe("Chat in the right pane", () => {
     render(<ChatDrawer />);
 
     const composer = await screen.findByRole("textbox", { name: "Message" });
-    await screen.findByText(/Codex · GPT Standard/);
+    await screen.findByRole("button", { name: "GPT Standard · Default" });
     fireEvent.change(composer, { target: { value: "Explain this graph" } });
     fireEvent.keyDown(composer, { key: "Enter" });
     fireEvent.keyDown(composer, { key: "Enter" });
@@ -205,14 +207,14 @@ describe("Chat in the right pane", () => {
         session: session({ turnRunning: true }),
       });
     const first = render(<ChatDrawer />);
-    await screen.findByText(/Codex · GPT Standard/);
+    await screen.findByRole("button", { name: "GPT Standard · Default" });
     const composer = screen.getByRole("textbox", { name: "Message" });
     fireEvent.change(composer, { target: { value: "first question" } });
     fireEvent.keyDown(composer, { key: "Enter" });
     first.unmount();
 
     render(<ChatDrawer />);
-    await screen.findByText(/Codex · GPT Standard/);
+    await screen.findByRole("button", { name: "GPT Standard · Default" });
     const again = screen.getByRole("textbox", { name: "Message" });
     fireEvent.change(again, { target: { value: "a newer thought" } });
     fireEvent.keyDown(again, { key: "Enter" });
@@ -249,7 +251,7 @@ describe("Chat in the right pane", () => {
     expect(composer).toHaveValue("half a thought");
   });
 
-  it("offers the setup card instead of a composer when no coding agent is installed", async () => {
+  it("explains a missing agent above the composer, keeping the draft and holding Send", async () => {
     http.json("GET", "/api/agent/settings", {
       ...settingsWith({
         ...readyStatus,
@@ -261,42 +263,38 @@ describe("Chat in the right pane", () => {
 
     const pane = screen.getByRole("complementary", { name: "Chat" });
 
-    const card = await within(pane).findByRole("region", { name: "Set up chat" });
-    expect(within(card).getByRole("radio", { name: "Codex" })).toBeDisabled();
-    expect(within(card).getByRole("radio", { name: "Claude Code" })).toBeDisabled();
-    expect(within(pane).getByRole("textbox", { name: "Message" })).toBeDisabled();
-    // Neither the raw error nor a harness that cannot run reads as the footer's agent.
-    expect(within(pane).getByText(/harness not installed/)).not.toBeVisible();
-    expect(within(pane).queryByText(/Codex ·/)).toBeNull();
+    expect(await within(pane).findByText(/Codex isn't installed/)).toBeVisible();
+    expect(within(pane).getByRole("link", { name: "How to install" })).toHaveAttribute(
+      "href",
+      "https://github.com/openai/codex",
+    );
+    const composer = within(pane).getByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "keep me" } });
+    expect(composer).toHaveValue("keep me");
+    expect(within(pane).getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(within(pane).queryByText(/harness not installed/)).toBeNull();
+    expect(within(pane).queryByRole("button", { name: /What changed|look at first/ })).toBeNull();
   });
 
-  it("asks once which harness to use when both are ready and none is chosen", async () => {
-    const both = settingsWith(readyStatus);
-    both.settings.harness = undefined;
-    both.resolved = { harness: "codex", reason: "first available" };
-    both.harnesses = [
-      { kind: "codex", status: readyStatus },
-      { kind: "claude", status: readyStatus },
-    ];
-    const chosen = structuredClone(both);
-    chosen.settings.harness = "claude";
-    chosen.resolved = { harness: "claude", reason: "configured" };
-    http.json("GET", "/api/agent/settings", both).json("PUT", "/api/agent/settings", chosen);
+  it("shows the sign-in notice as soon as a chosen agent is signed out, and checks again", async () => {
+    const signedOut = settingsWith({ ...readyStatus, loggedIn: false, loginHint: "codex login" });
+    http.on("GET", "/api/agent/settings", (request) =>
+      jsonReply(request.query.has("refresh") ? settingsWith(readyStatus) : signedOut),
+    );
     render(<ChatDrawer />);
 
     const pane = screen.getByRole("complementary", { name: "Chat" });
-
-    const card = await within(pane).findByRole("region", {
-      name: "Choose a coding agent for chat",
+    const notice = await within(pane).findByText(/Codex is signed out/);
+    expect(notice).toHaveTextContent("Codex is signed out. Run codex login in Terminal.");
+    expect(within(pane).getByRole("button", { name: "Copy codex login" })).toBeVisible();
+    fireEvent.change(within(pane).getByRole("textbox", { name: "Message" }), {
+      target: { value: "hello" },
     });
+    expect(within(pane).getByRole("button", { name: "Send" })).toBeDisabled();
 
-    expect(within(pane).getByRole("textbox", { name: "Message" })).toBeEnabled();
-
-    fireEvent.click(within(card).getByRole("radio", { name: "Claude Code" }));
-
-    expect(await within(pane).findByText(/Claude Code · GPT Standard/)).toBeVisible();
-    expect(within(pane).queryByRole("region", { name: /coding agent/ })).toBeNull();
-    expect(within(pane).getByText("Ask about what you're looking at.")).toBeVisible();
+    fireEvent.click(within(pane).getByRole("button", { name: "Check again" }));
+    await waitFor(() => expect(within(pane).queryByText(/signed out/)).toBeNull());
+    expect(within(pane).getByRole("button", { name: "Send" })).toBeEnabled();
   });
 
   it("just works with the one ready harness when none is chosen", async () => {
@@ -312,7 +310,7 @@ describe("Chat in the right pane", () => {
 
     const pane = screen.getByRole("complementary", { name: "Chat" });
     expect(await within(pane).findByText("Ask about what you're looking at.")).toBeVisible();
-    expect(within(pane).queryByRole("region", { name: /chat/i })).toBeNull();
+    expect(within(pane).queryByRole("status")).toBeNull();
   });
 
   it("names the harness default when the saved model is no longer offered", async () => {
@@ -323,7 +321,9 @@ describe("Chat in the right pane", () => {
     render(<ChatDrawer />);
 
     const pane = screen.getByRole("complementary", { name: "Chat" });
-    expect(await within(pane).findByText(/Codex · GPT Standard/)).toBeVisible();
+    expect(
+      await within(pane).findByRole("button", { name: "GPT Standard · Medium" }),
+    ).toBeVisible();
     expect(within(pane).queryByText(/fake/)).toBeNull();
   });
 });

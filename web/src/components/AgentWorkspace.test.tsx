@@ -1,8 +1,8 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { AgentEvent, AgentSettingsResponse } from "../api/types";
+import type { AgentEvent } from "../api/types";
 import { withFakeEventSource } from "../test/fakeEventSource";
-import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
+import { deferredReply, withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { AgentWorkspace } from "./AgentWorkspace";
 import {
@@ -70,7 +70,7 @@ describe("AgentWorkspace", () => {
     },
   );
 
-  it("shows no harness as chosen and says chat is not set up when none is available", async () => {
+  it("names both agents to install when none is installed", async () => {
     const response = settingsWith({ installed: false, loggedIn: false, capabilities });
     response.settings.harness = undefined;
     response.resolved = { reason: "none available" };
@@ -80,23 +80,23 @@ describe("AgentWorkspace", () => {
 
     render(<AgentWorkspace />);
     expect(await screen.findByText("Chat not set up")).toBeVisible();
-    expect(screen.getByLabelText("Harness")).toHaveValue("");
-    expect(screen.queryByLabelText("Model")).toBeNull();
+    const notice = await screen.findByText(/No coding agent is installed/);
+    expect(notice).toHaveTextContent("No coding agent is installed. Install Claude Code or Codex.");
+    expect(within(notice).getByRole("link", { name: "Codex" })).toHaveAttribute(
+      "href",
+      "https://github.com/openai/codex",
+    );
+    expect(screen.queryByRole("button", { name: /Rhizome agent chat|What changed/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
   });
 
-  it.each([
-    ["a model the harness no longer offers", readyStatus, "fake", "Codex · GPT Standard"],
-    [
-      "a model kept while the harness reported none",
-      { ...readyStatus, models: [] },
-      "gpt-saved",
-      "Codex · gpt-saved",
-    ],
-  ])("names the model a session runs, for %s", async (_, status, model, label) => {
-    setup(http, { status, current: session({ model }) });
+  it("keeps a session's header to its agent and state, since the composer names the model", async () => {
+    setup(http, { current: session({ model: "gpt-fast" }) });
 
     render(<AgentWorkspace />);
-    expect(await screen.findByText(new RegExp(`^${label} ·`))).toBeVisible();
+    const about = await screen.findByText(/^Codex ·/);
+    await waitFor(() => expect(about).toHaveTextContent("Codex · Ready"));
+    expect(screen.getByRole("button", { name: "GPT Standard · Medium" })).toBeVisible();
   });
 
   it("offers example questions in an empty thread that fill the composer", async () => {
@@ -137,7 +137,7 @@ describe("AgentWorkspace", () => {
     expect(http.count("POST", "/api/agent/sessions")).toBe(1);
   });
 
-  it("uses the Claude Code install hint", async () => {
+  it("explains a missing agent above the composer and holds the draft", async () => {
     const response = settingsWith({ installed: false, loggedIn: false, capabilities });
     response.settings.harness = "claude";
     response.resolved.harness = "claude";
@@ -149,11 +149,13 @@ describe("AgentWorkspace", () => {
       .json("GET", "/api/agent/sessions", { sessions: [] });
 
     render(<AgentWorkspace />);
-    // The header names the state, and the setup card links the install steps.
+    // The header names the state, and the notice links the install steps.
     expect(await screen.findByText(/Install Claude Code to use chat/)).toBeVisible();
-    const card = screen.getByRole("region", { name: "Set up chat" });
-    expect(within(card).getByRole("link", { name: "How to install Claude Code" })).toBeVisible();
-    expect(screen.queryByText(/No messages yet/)).toBeNull();
+    const notice = await screen.findByText(/Claude Code isn't installed/);
+    expect(within(notice).getByRole("link", { name: "How to install" })).toHaveAttribute(
+      "href",
+      "https://docs.anthropic.com/en/docs/claude-code/setup",
+    );
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
 
     // The keyboard shortcut is gated too: nothing posts and the draft stays.
@@ -162,6 +164,34 @@ describe("AgentWorkspace", () => {
     fireEvent.keyDown(message, { key: "Enter", metaKey: true, ctrlKey: true });
     expect(http.requests("POST", "/api/agent/sessions")).toHaveLength(0);
     expect(message).toHaveValue("hello");
+  });
+
+  it("sends in a new chat when the open one runs another agent", async () => {
+    const response = settingsWith(readyStatus);
+    response.harnesses.push({ kind: "claude", status: { ...readyStatus, models: [] } });
+    response.settings.harness = "claude";
+    response.resolved.harness = "claude";
+    const current = session();
+    const created = session({ id: "created", harness: "claude", title: "hello" });
+    http
+      .json("GET", "/api/agent/settings", response)
+      .json("GET", "/api/agent/sessions", { sessions: [current] })
+      .json("GET", `/api/agent/sessions/${current.id}`, {
+        session: current,
+        messages: [],
+        events: [],
+      })
+      .json("POST", "/api/agent/sessions", { session: created })
+      .json("GET", "/api/agent/sessions/created", { session: created, messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/created/messages", { session: created });
+
+    render(<AgentWorkspace />);
+    expect(await screen.findByText("Sends in a new chat with Claude Code")).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "hello" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/created/messages")).toBe(1));
+    expect(http.count("POST", `/api/agent/sessions/${current.id}/messages`)).toBe(0);
   });
 
   it("renders approval details, posts a decision, and disables the controls", async () => {
@@ -364,38 +394,6 @@ describe("AgentWorkspace", () => {
     expect(await screen.findByText(/Read-only history from before harness sessions/)).toBeVisible();
     expect(screen.getByLabelText("Message")).toBeDisabled();
     expect(screen.getByText("This pre-harness session is read-only.")).toBeVisible();
-  });
-
-  it("couples effort choices to the selected model and saves both", async () => {
-    setup(http);
-    http.on("PUT", "/api/agent/settings", async (request) => {
-      // SAFETY: the settings client always sends this documented request shape.
-      const body = JSON.parse(request.body || "{}") as {
-        settings: AgentSettingsResponse["settings"];
-      };
-
-      return jsonReply({ ...settingsWith(readyStatus), settings: body.settings });
-    });
-    render(<AgentWorkspace />);
-
-    await screen.findByRole("option", { name: "GPT Fast" });
-    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "gpt-fast" } });
-
-    // Switching models never invents an effort: the vendor default stays selected
-    // until the user picks one, and only that model's efforts are offered.
-    await waitFor(() => expect(screen.getByLabelText("Reasoning effort")).toHaveValue(""));
-    expect(within(screen.getByLabelText("Reasoning effort")).getAllByRole("option")).toHaveLength(
-      2,
-    );
-    fireEvent.change(screen.getByLabelText("Reasoning effort"), { target: { value: "low" } });
-    await waitFor(() => {
-      // SAFETY: this is the request produced by the typed settings client above.
-      const body = JSON.parse(String(http.requests("PUT", "/api/agent/settings").at(-1)?.body)) as {
-        settings: AgentSettingsResponse["settings"];
-      };
-
-      expect(body.settings.harnesses.codex).toMatchObject({ model: "gpt-fast", effort: "low" });
-    });
   });
 
   it("updates phased items in place and streams assistant text through the live region", async () => {

@@ -1,21 +1,17 @@
 // Chat, a tab of the app's one right pane (SPEC-0140). It talks to the same
 // agent chat sessions as the Agent page, and each message carries what the
 // user is looking at.
-import { useQuery } from "@tanstack/react-query";
 import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from "react";
 
 import {
   createAgentSession,
-  getAgentSettings,
   interruptAgentSession,
   respondToAgentApproval,
 } from "../api/internalAgentClient";
 import { ApiError } from "../api/client";
-import { queryKeys } from "../api/queryKeys";
-import type { AgentApprovalDecision, AgentPermissionMode, AgentViewContext } from "../api/types";
-import { AgentSetup, chatModelLabel, HARNESS_LABELS, needsHarnessChoice } from "./agent/AgentSetup";
-import { emptySettingsResponse } from "./agent/AgentSettingsPanel";
-import { harnessBlocked } from "./agent/AgentStatusHeader";
+import type { AgentApprovalDecision, AgentViewContext } from "../api/types";
+import { ChatAgentControls, useChatAgent } from "./agent/ChatAgentControls";
+import { ChatAgentNotice } from "./agent/ChatAgentNotice";
 import { useAgentThread } from "./agent/useAgentThread";
 import {
   beginChatSend,
@@ -157,20 +153,6 @@ function startersFor(kind: AgentViewContext["kind"]): string[] {
   }
 }
 
-const MODE_LABELS: Record<AgentPermissionMode, { label: string; title: string }> = {
-  auto: {
-    label: "Auto",
-    title:
-      "Claude runs in auto mode and Codex in Approve for me: a reviewer allows routine actions and asks you only about risky ones.",
-  },
-  "approval-required": { label: "Ask first", title: "The agent asks before every action." },
-  "auto-accept-edits": {
-    label: "Auto edits",
-    title: "File edits run without asking; other actions ask first.",
-  },
-  "full-access": { label: "Full access", title: "Every action runs without asking." },
-};
-
 function openInAgent(sessionID: string) {
   window.history.pushState({}, "", `/agent?session=${encodeURIComponent(sessionID)}`);
   notifyLocationChange();
@@ -216,36 +198,20 @@ export function ChatPanel() {
 
   contextRef.current = context;
 
-  const settingsQuery = useQuery({
-    queryKey: queryKeys.agent.settings(),
-    queryFn: ({ signal }) => getAgentSettings({ signal }),
-    // A harness that was busy or slow to answer its probe may answer later.
-    refetchInterval: (query) => (query.state.data?.resolved.harness ? false : 15_000),
-  });
-
   const thread = useAgentThread(sessionID, () => ({
     title: contextRef.current.title,
     route: contextRef.current.route,
   }));
 
   const session = thread.sessionQuery.data?.session;
-  const settings = settingsQuery.data ?? emptySettingsResponse;
-  const harness = session?.harness || settings.settings.harness || settings.resolved.harness;
-  const status = settings.harnesses.find((item) => item.kind === harness)?.status;
-  const blocked = settingsQuery.isSuccess && harnessBlocked(harness, status);
-  const mode = harness ? settings.settings.harnesses[harness].permissionMode : "auto";
-  const model = chatModelLabel(settings, harness, session);
+  const agent = useChatAgent(session);
+  const blocked = Boolean(agent.blocker);
 
   // The store holds a send from the first keypress until it returns, so a
   // second Enter, even from a pane mounted meanwhile, cannot start a second
   // session or turn.
   const running = sending || thread.isSending || thread.turnRunning;
   const empty = thread.messages.length === 0 && thread.events.length === 0;
-
-  // Blocked, or on first use with more than one harness ready, so the person
-  // picks once. A started conversation keeps the harness it began with.
-  const setup =
-    settingsQuery.isSuccess && (blocked || (!sessionID && empty && needsHarnessChoice(settings)));
 
   // A session deleted on the Agent page, which archives it, starts over.
   useEffect(() => {
@@ -289,7 +255,8 @@ export function ChatPanel() {
     const sent = attachContext ? boundedContext(context) : undefined;
 
     try {
-      let target = sessionID;
+      // A choice of another agent starts a new chat with it.
+      let target = agent.newChat ? "" : sessionID;
 
       if (!target) {
         const created = await createAgentSession(message.slice(0, 48));
@@ -344,9 +311,7 @@ export function ChatPanel() {
           pinned.current = element.scrollHeight - element.scrollTop - element.clientHeight < 24;
         }}
       >
-        {setup ? (
-          <AgentSetup response={settings} blocked={blocked} />
-        ) : empty && !(sessionID && thread.sessionQuery.isPending) ? (
+        {empty && !blocked && !(sessionID && thread.sessionQuery.isPending) ? (
           <div className="chat-drawer__empty">
             <p>Ask about what you're looking at.</p>
             <div className="chat-starters">
@@ -362,7 +327,7 @@ export function ChatPanel() {
           messages={thread.messages}
           events={thread.events}
           running={running}
-          autoNote={mode === "auto" ? "Allowed by auto mode" : undefined}
+          autoNote={agent.choice?.permissionMode === "auto" ? "Allowed by auto mode" : undefined}
           onApproval={approve}
         />
       </div>
@@ -372,6 +337,7 @@ export function ChatPanel() {
         </p>
       ) : null}
       <form className="agent-composer chat-composer" onSubmit={onSubmit}>
+        <ChatAgentNotice agent={agent} />
         <div className="agent-composer__frame">
           <div className="chat-composer__context">
             {attachContext ? (
@@ -387,7 +353,6 @@ export function ChatPanel() {
             aria-label="Message"
             placeholder={`Ask about ${context.title}…`}
             rows={2}
-            disabled={blocked}
             onChange={(event) => setChatDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -397,15 +362,7 @@ export function ChatPanel() {
             }}
           />
           <div className="agent-composer__bar">
-            {blocked || !harness ? (
-              <span />
-            ) : (
-              <span className="chat-composer__agent" title={MODE_LABELS[mode].title}>
-                {HARNESS_LABELS[harness]}
-                {model ? ` · ${model}` : ""}{" "}
-                <span className="chat-composer__mode">{MODE_LABELS[mode].label}</span>
-              </span>
-            )}
+            <ChatAgentControls agent={agent} />
             {running ? (
               <button type="button" className="button" onClick={() => void stop()}>
                 Stop

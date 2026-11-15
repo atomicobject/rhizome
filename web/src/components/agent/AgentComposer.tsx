@@ -1,7 +1,7 @@
 import { interruptAgentSession } from "../../api/internalAgentClient";
 import { useLayoutEffect, type RefObject } from "react";
-import type { AgentHarnessKind, AgentHarnessStatus } from "../../api/types";
-import { AgentAvailability } from "./AgentStatusHeader";
+import { type ChatAgent, ChatAgentControls } from "./ChatAgentControls";
+import { ChatAgentNotice } from "./ChatAgentNotice";
 
 export function AgentComposer({
   runningID,
@@ -13,9 +13,7 @@ export function AgentComposer({
   busy,
   blocked,
   readOnly,
-  disabledReason,
-  harness,
-  status,
+  agent,
 }: {
   runningID: string;
   onError: (message: string) => void;
@@ -26,9 +24,7 @@ export function AgentComposer({
   busy: boolean;
   blocked: boolean;
   readOnly: boolean;
-  disabledReason: string;
-  harness: AgentHarnessKind | undefined;
-  status: AgentHarnessStatus | undefined;
+  agent: ChatAgent;
 }) {
   const canSend = !busy && !blocked && Boolean(draft.trim()) && !readOnly;
   // The composer grows with its message; CSS caps it, then it scrolls.
@@ -63,6 +59,7 @@ export function AgentComposer({
           onSubmit(draft);
         }}
       >
+        {readOnly ? null : <ChatAgentNotice agent={agent} />}
         <div className="agent-composer__frame">
           <textarea
             ref={composerRef}
@@ -80,17 +77,10 @@ export function AgentComposer({
             }}
           />
           <div className="agent-composer__bar">
-            {disabledReason ? (
-              <p className="agent-muted">{disabledReason}</p>
-            ) : blocked ? (
-              // The setup card above says what to do.
-              <span />
-            ) : status?.loggedIn === false ? (
-              <AgentAvailability harness={harness} status={status} />
+            {readOnly ? (
+              <p className="agent-muted">This pre-harness session is read-only.</p>
             ) : (
-              <p className="agent-muted">
-                <kbd>{/Mac/i.test(navigator.platform) ? "⌘" : "Ctrl"}</kbd> <kbd>↵</kbd> to send
-              </p>
+              <ChatAgentControls agent={agent} />
             )}
             <button
               type="submit"
