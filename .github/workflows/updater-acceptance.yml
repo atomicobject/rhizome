@@ -1,0 +1,97 @@
+name: Isolated updater acceptance
+# Temporary release-environment exception: only t3/updater-acceptance-v0521.
+# Remove that exception after this reviewed workflow run completes.
+on:
+  workflow_dispatch:
+  push:
+    branches: [t3/updater-acceptance-v0521]
+permissions:
+  contents: read
+concurrency:
+  group: isolated-updater-acceptance
+  cancel-in-progress: false
+jobs:
+  register:
+    if: github.repository == 'atomicobject/rhizome' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Register workflow with synthetic checks only
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 .acceptance-kit/scripts/ci-selfcheck.py
+  candidates:
+    if: github.repository == 'atomicobject/rhizome' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/t3/updater-acceptance-v0521'
+    runs-on: macos-15
+    timeout-minutes: 120
+    environment: release
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Create isolated source exports and test key
+        run: |
+          test "$(uname -m)" = arm64
+          umask 077
+          mkdir -p "$RUNNER_TEMP/acceptance"/{scripts,configs,evidence,sources,artifacts,feed,keys,tools,cache}
+          cp .acceptance-kit/scripts/*.py "$RUNNER_TEMP/acceptance/scripts/"
+          npm --prefix desktop ci
+          python3 scripts/release/updater_fixture.py --output "$RUNNER_TEMP/acceptance/keys/local" --endpoint http://127.0.0.1:19452/latest.json
+          python3 "$RUNNER_TEMP/acceptance/scripts/prepare.py" "$GITHUB_WORKSPACE"
+          cargo fetch --locked --manifest-path scripts/release/updater-signature/Cargo.toml
+          cargo build --locked --offline --manifest-path scripts/release/updater-signature/Cargo.toml --target-dir "$RUNNER_TEMP/acceptance/cache/verifier"
+          cp "$RUNNER_TEMP/acceptance/cache/verifier/debug/rhizome-verify-updater" "$RUNNER_TEMP/acceptance/tools/"
+          python3 .acceptance-kit/scripts/ci-selfcheck.py
+          python3 "$RUNNER_TEMP/acceptance/scripts/selfcheck.py"
+      - name: Compile all three builds without credentials
+        run: |
+          python3 "$RUNNER_TEMP/acceptance/scripts/build.py" compile all
+          python3 "$RUNNER_TEMP/acceptance/scripts/package-check.py"
+          python3 "$RUNNER_TEMP/acceptance/scripts/signature-selfcheck.py"
+      - name: Prepare temporary signing keychain
+        run: python3 scripts/release/ci_desktop_signing.py prepare
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+      - name: Sign and notarize A B C with the real Developer ID
+        run: python3 "$RUNNER_TEMP/acceptance/scripts/sign-ci.py"
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      - name: Clean up signing credentials
+        if: always()
+        run: python3 scripts/release/ci_desktop_signing.py cleanup
+      - name: Verify every distributed byte after credential cleanup
+        run: |
+          test ! -e "$RUNNER_TEMP/rhizome-desktop-signing"
+          python3 "$RUNNER_TEMP/acceptance/scripts/public-bundle.py"
+      - name: Retain only public acceptance artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rhizome-updater-acceptance
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rhizome-updater-acceptance.tar.gz
+      - name: Remove the disposable updater key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/acceptance/keys/local/updater"
