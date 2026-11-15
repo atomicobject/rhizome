@@ -125,14 +125,19 @@ export function useChatAgent(session?: Pick<AgentSession, "harness"> | null) {
     newChat: Boolean(session?.harness && choice && session.harness !== choice.harness),
     choose: (next: ChatChoice) => {
       if (choice && !blocker) rememberPrevious(choice);
+
       // Saves run in order, so the last one settles after every earlier one.
-      saving.set(
-        queryClient,
-        save.mutateAsync(next).then(
-          () => true,
-          () => false,
-        ),
+      const pending = save.mutateAsync(next).then(
+        () => true,
+        () => false,
       );
+
+      saving.set(queryClient, pending);
+      // A failed save holds only the sends that waited on it; settings reload
+      // after it, so later sends go ahead with the choice the server kept.
+      void pending.then(() => {
+        if (saving.get(queryClient) === pending) saving.delete(queryClient);
+      });
     },
     /** Waits until the choice shown is saved; false when its save failed, which the notice reports. */
     saved: () => saving.get(queryClient) ?? Promise.resolve(true),

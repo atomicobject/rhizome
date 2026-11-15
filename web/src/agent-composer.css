@@ -201,6 +201,7 @@
 }
 
 .chat-model-picker__search {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -232,9 +233,17 @@
   color: var(--text-faint);
 }
 
+.chat-model-picker {
+  display: flex;
+  flex-direction: column;
+}
+
 .chat-model-picker__columns {
   display: grid;
+  flex: 1 1 auto;
   grid-template-columns: minmax(0, 1fr) 140px;
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
 }
 
 .chat-model-picker__list {
@@ -245,6 +254,7 @@
 
 .chat-model-picker__efforts {
   padding: 6px;
+  overflow-y: auto;
   border-left: 1px solid var(--border);
 }
 
@@ -344,6 +354,7 @@
 
 .chat-mode-menu {
   padding: 6px;
+  overflow-y: auto;
 }
 
 .chat-mode-menu__item {
