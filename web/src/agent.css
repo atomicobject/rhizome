@@ -394,3 +394,25 @@
   background: var(--accent-soft);
   border-top: 1px solid var(--accent-line);
 }
+
+.assistant-table {
+  margin: 0 0 var(--sp-3);
+  overflow-x: auto;
+}
+
+.assistant-table table {
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.assistant-table :is(th, td) {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.assistant-table th {
+  background: var(--bg-tint);
+  font-weight: 600;
+}

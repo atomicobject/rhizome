@@ -58,8 +58,8 @@ All seven US8 criteria are delivered on `t3/plan-rhizome-usage-skill`.
 
 - AC1, AC2, AC4, AC5: the `rhizome` skill's description and router gain four routes, to `references/usage.md`, `setup-and-starters.md`, `customization.md`, and `automation.md` (`9b1e756d4`, refined in `03d18114b`, `528cc4822`, `85b41cb9e`). `ontology-authoring.md` now places schemas in module folders, and `code-mode.md` uses a neutral example.
 - AC3: every starter's `template.yaml` carries `fit` and `cautions`; `rzm init --check --json` emits them with `types` (built at run time from each starter's embedded ontology, required starters included) and `optional` on workflow and add-on entries, in first-run and configured plans. First-run plans list optional add-ons unselected through `allAddonOptions`, and Rhizome Desktop's setup sheet shows them unchecked and keeps a chosen one across workflow changes (`3d4f3be17`, `528cc4822`, `e74966418`).
-- AC6: `chatInstructions` routes questions about Rhizome to the `rhizome` skill and falls back to `.agents/skills/rhizome/SKILL.md`; the chat timeline renders GFM tables that scroll inside the pane.
-- AC7: a starter-name guard in `helper_templates_test.go`, and `cmd/skill_command_literals_test.go`, which checks every `rzm` invocation in shipped guidance (chains, redirects, and shipped module actions and inputs) against the real command tree, with negative cases (`94c659146`, `942ab6ef0`, `29c0d0a77`).
+- AC6: `chatInstructions` routes questions about Rhizome to the `rhizome` skill and falls back to `.agents/skills/rhizome/SKILL.md`; the chat pane and the Agent page render GFM tables that scroll inside their messages, through one shared `AssistantMarkdown` component.
+- AC7: a starter-name guard in `helper_templates_test.go`, and `cmd/skill_command_literals_test.go`, which checks every `rzm` invocation in shipped guidance (chains, redirects, and shipped module actions and inputs) against the real command tree, treating an attached `<file` as a redirect rather than a placeholder, with negative cases (`94c659146`, `942ab6ef0`, `29c0d0a77`).
 - Small fixes: the `rzm agent next-id` prefix in the agentic-engineering effort-setup reference; AO KB and the `--addons` exact-set rule in README, getting-started, and choosing-your-starter; this repository's generated skills regenerated (`1c20eaa0f` and later).
 
 Verification: `make check` (Go unit tests in 160 packages, web unit tests 273 files and 2,244 tests) passed at `528cc4822` and again at `85b41cb9e`; `rzm init --check` exits 0 after regeneration; `rzm validate` and `rzm validate frozen-scope-drift` report 0 issues; desktop `npm run check` (typecheck, lint, 203 tests) passed. GPT-6.1 Sol review: 8/10 at `1c20eaa0f` (three findings, fixed), 9/10 with none remaining at `528cc4822`. Greptile: 4/5 with three findings (fixed), then 5/5 with no comments at `85b41cb9e`.
@@ -70,7 +70,7 @@ Verification: `make check` (Go unit tests in 160 packages, web unit tests 273 fi
 - Updated SPEC-0118 and SPEC-0038 US12-AC1, which said the setup sheet hides optional add-ons.
 - Extracted `moduleCommandTree` from `runModuleCommand` in `cmd/module.go` so the command-literal test checks shipped module commands against the real tree; execution behavior is unchanged.
 - Fixed a setup-sheet bug that offering optional add-ons exposed: changing the workflow dropped a chosen optional add-on.
-- The Agent page timeline still renders without GFM tables; left as a follow-up to keep scope to the chat pane.
+- Tables on the Agent page and the attached-redirect case in the command check, first listed as follow-ups, were delivered in this pull request at Drew's request.
 
 ## Execution Notes
 
@@ -78,8 +78,6 @@ Verification: `make check` (Go unit tests in 160 packages, web unit tests 273 fi
 
 ## Compounding Follow-ups
 
-- GFM tables on the Agent page timeline (`web/src/components/agent/AgentTimeline.tsx`).
-- The command-literal check reads an attached `<file` followed later by `>` as a placeholder.
 - Routing evaluations on Claude Code and Codex, standalone and in-app, with negatives for ordinary change work (needs separate approval under SPEC-0080 US6).
 - A live check that a Claude chat in a repository set up with `--agents shared` follows the fallback, and that a Codex chat can reach the runtime.
 

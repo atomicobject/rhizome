@@ -25,11 +25,25 @@ var (
 	// A placeholder may hold spaces (`<Person title>`); a shell redirect is
 	// followed by a space or a second `<`.
 	commandPlaceholder = regexp.MustCompile(`<[A-Za-z][^<>]*>`)
-	shellFences        = map[string]bool{"bash": true, "sh": true, "shell": true}
-	shellAssignment    = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
+	// A file name or flag inside `<...>` means the span is an attached
+	// redirect running to a later `>`, as in `<script.js --flag > out.json`.
+	redirectSpan    = regexp.MustCompile(`--|/|\.[A-Za-z]`)
+	shellFences     = map[string]bool{"bash": true, "sh": true, "shell": true}
+	shellAssignment = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
 )
 
 const placeholderMark = "\x00"
+
+// markPlaceholders replaces each `<placeholder>` with placeholderMark and
+// leaves attached redirects for the shell splitter.
+func markPlaceholders(line string) string {
+	return commandPlaceholder.ReplaceAllStringFunc(line, func(span string) string {
+		if redirectSpan.MatchString(span) {
+			return span
+		}
+		return placeholderMark
+	})
+}
 
 type commandLiteral struct {
 	at   string
@@ -57,6 +71,8 @@ func TestShippedGuidanceNamesRealCommandsAndFlags(t *testing.T) {
 		{literal: "rzm agent code --help 2>&1 | head"},
 		{literal: "rzm agent code execute < script.js --bogus", wrong: true},
 		{literal: "rzm agent code execute <script.js --bogus", wrong: true},
+		{literal: "rzm agent code execute <script.js --bogus > out.json", wrong: true},
+		{literal: "rzm agent code execute <script.js > out.json"},
 		{literal: "rzm agent code execute <<'JS' 2>&1 >>log --bogus", wrong: true},
 	} {
 		require.Equal(t, tc.wrong, check(tc.literal) != "", "check(%q) = %q", tc.literal, check(tc.literal))
@@ -114,7 +130,7 @@ func newCommandLiteralChecker(t *testing.T) func(literal string) string {
 	}
 
 	return func(literal string) string {
-		for _, words := range shellCommands(commandPlaceholder.ReplaceAllString(literal, placeholderMark)) {
+		for _, words := range shellCommands(markPlaceholders(literal)) {
 			if len(words) == 0 || words[0] != "rzm" {
 				continue
 			}
@@ -236,7 +252,7 @@ func checkCommandArgs(root *cobra.Command, args []string) string {
 
 // invokesRzm reports whether a command line runs `rzm` with arguments.
 func invokesRzm(text string) bool {
-	for _, words := range shellCommands(commandPlaceholder.ReplaceAllString(text, placeholderMark)) {
+	for _, words := range shellCommands(markPlaceholders(text)) {
 		if len(words) > 1 && words[0] == "rzm" {
 			return true
 		}

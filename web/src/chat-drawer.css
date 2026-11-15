@@ -388,28 +388,6 @@
   white-space: pre-wrap;
 }
 
-.chat-table {
-  margin: 0 0 var(--sp-3);
-  overflow-x: auto;
-}
-
-.chat-table table {
-  border-collapse: collapse;
-  font-size: var(--fs-sm);
-}
-
-.chat-table :is(th, td) {
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  text-align: left;
-  vertical-align: top;
-}
-
-.chat-table th {
-  background: var(--bg-tint);
-  font-weight: 600;
-}
-
 .chat-activity.is-failed svg {
   color: var(--accent-ink);
 }

@@ -338,6 +338,35 @@ describe("AgentWorkspace", () => {
     );
   });
 
+  it("renders a Markdown table in an answer as a table", async () => {
+    const current = session();
+    http
+      .json("GET", "/api/agent/settings", settingsWith(readyStatus))
+      .json("GET", "/api/agent/sessions", { sessions: [current] })
+      .json("GET", `/api/agent/sessions/${current.id}`, {
+        session: current,
+        messages: [
+          {
+            id: 1,
+            sessionId: current.id,
+            role: "assistant",
+            content: "| Type | Notes |\n| --- | --- |\n| Spec | 3 |",
+            createdAt: "2026-11-15T12:00:00Z",
+          },
+        ],
+        events: [],
+      });
+    render(<AgentWorkspace />);
+
+    const table = await screen.findByRole("table");
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((cell) => cell.textContent),
+    ).toEqual(["Type", "Notes"]);
+    expect(within(table).getByRole("cell", { name: "Spec" })).toBeVisible();
+  });
+
   it("renders pre-harness history as read-only", async () => {
     setup(http, { current: session({ harness: undefined, readOnly: true }) });
     render(<AgentWorkspace />);
