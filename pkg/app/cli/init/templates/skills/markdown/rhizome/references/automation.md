@@ -1,6 +1,6 @@
 # Automation
 
-Use this route when work over the vault should repeat, run from a button, or run on a schedule. Each layer builds on the one before it; choose the lowest that fits.
+Use this route when work over the vault should repeat, run from a button, or run on a schedule. Each layer builds on the one before it; choose the lowest that fits. Every layer needs a configured repository: until `rzm init --check --json` reports `configured: true`, `rzm` reads the registered default vault, another repository, so set it up first (`references/setup-and-starters.md`).
 
 | Layer | Fits when | Started by | Lives in |
 | --- | --- | --- | --- |

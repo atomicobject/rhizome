@@ -37,8 +37,9 @@ type starterTemplateMetadata struct {
 	Name        string `yaml:"name,omitempty"`
 	Description string `yaml:"description,omitempty"`
 	// Fit names the repository signals that suggest the starter, and
-	// Cautions its credentials, spend, data egress, prerequisites, and type
-	// names, so an agent can recommend it from `rzm init --check --json`.
+	// Cautions its credentials, spend, data egress, and prerequisites, so an
+	// agent can recommend it from `rzm init --check --json`. That report
+	// derives its type names from the module ontology.
 	Fit                 string   `yaml:"fit,omitempty"`
 	Cautions            string   `yaml:"cautions,omitempty"`
 	Requires            []string `yaml:"requires,omitempty"`

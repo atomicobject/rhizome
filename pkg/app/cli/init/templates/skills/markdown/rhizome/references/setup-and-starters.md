@@ -14,13 +14,13 @@ Use this route to recommend, install, change, update, or repair the workflow and
 Every command here writes nothing. Always pass `--check` when inspecting: a bare `rzm init` without a terminal applies its changes.
 
 1. `rzm --version` names the executable that runs and its version. An old global `rzm` beside a newer project pin explains missing commands; use the project's invocation from `SKILL.md`.
-2. `rzm init --check --json` reports `configured`, the current `workflow`, every choice in `workflows` and `addons` (each add-on's `enabled`), `agents`, `search`, `pin`, and pending `writes`. In an unconfigured folder it reports what setup would write for the given choices.
+2. `rzm init --check --json` reports `configured`, the current `workflow`, every choice in `workflows` and `addons` (each add-on's `enabled`), `agents`, `search`, `pin`, and pending `writes`. In an unconfigured folder it reports what setup would write for the given choices. Until it reports `configured: true`, run no `rzm agent` command: in a folder without `.rhizome/config.yml`, `rzm` reads the registered default vault, which is another repository.
 
 Done when you can state the executable and version, the pin, whether the repository is configured, its workflow and enabled add-ons, and whether writes are pending.
 
 ## 2. Recommend
 
-Read the catalog from that JSON, never from memory: starters change between versions, and a repository can carry its own. Each `workflows` and `addons` entry has an `id`, `label`, and `description`. When an entry has `fit` (the repository signals that suggest it) and `cautions` (credentials, spend, data egress, prerequisites, the type names it adds), weigh those; otherwise work from the description. `defaultFor` lists the workflows that turn an add-on on by default, and `optional: true` marks an add-on no workflow turns on.
+Read the catalog from that JSON, never from memory: starters change between versions, and a repository can carry its own. Each `workflows` and `addons` entry has an `id`, `label`, and `description`. When an entry has `fit` (the repository signals that suggest it) and `cautions` (credentials, spend, data egress, prerequisites), weigh those; otherwise work from the description. `types` lists every schema type name the entry installs, including those of the starters it requires. `defaultFor` lists the workflows that turn an add-on on by default, and `optional: true` marks an add-on no workflow turns on.
 
 Match the catalog against evidence, citing paths:
 
@@ -32,7 +32,9 @@ Recommend the smallest set the evidence supports. Adding a starter later is one 
 
 Check two blockers before recommending:
 
-- **Colliding type names.** List the vault's types with `rzm agent ontology-reference` and compare them, ignoring case, with the types the entry's `cautions` or description says it adds. A type declared twice is a schema error (`Cannot redeclare type`). Renaming or retiring a local type is the person's decision.
+- **Colliding type names.** Compare, ignoring case, the repository's own type names with the `types` of the recommended workflow and of each add-on that will be on. A type declared twice is a schema error (`Cannot redeclare type`). Renaming or retiring a local type is the person's decision.
+  - **Configured** (`configured: true`): list the vault's types with `rzm agent ontology-reference`. Set aside the `types` of the step 1 `workflow` and of the add-ons it reported `enabled`; those starters are already installed and their types are not collisions.
+  - **Unconfigured**: there is no Rhizome schema yet, so skip the check. The exception is `.graphql` files already under `.rhizome/ontology/` or `.rhizome/modules/*/ontology/`, which setup compiles with the starters' schema: read their top-level `type`, `interface`, `enum`, `union`, `input`, and `scalar` names from the files.
 - **Same-named skills.** A person's own skill folder with a managed skill's name makes the plan fail with a skill-collision error that names the folder. The person renames it or stops Rhizome managing agent files; never delete it.
 
 When signals conflict, ask one question with your recommendation attached. A recommendation states the workflow and add-ons, the evidence for each, what each adds day to day, its cautions, the command or Settings control that installs it, and the steps only the person can take.

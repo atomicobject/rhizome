@@ -1,7 +1,7 @@
 id: core
 name: Core identity
 fit: "Any repository that records who a person is, for assignments, approvals, and current-user queries. Every other starter installs it."
-cautions: "Adds the Person type, which collides with a local type of that name. Each person sets which Person note is theirs with rzm agent current-user set; it is never inferred."
+cautions: "Each person sets which Person note is theirs with rzm agent current-user set; it is never inferred."
 installedAssetTypes:
   - docs
   - ontology

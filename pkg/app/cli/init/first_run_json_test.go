@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/app/credentials"
@@ -92,6 +93,7 @@ func TestPlansDescribeEachChoiceForAnAgent(t *testing.T) {
 		require.Len(t, doc.Workflows, 3, name)
 		for _, entry := range append(doc.Workflows, doc.Addons...) {
 			require.NotEmpty(t, entry["fit"], "%s: %v", name, entry["id"])
+			require.Contains(t, entry, "types", "%s: %v", name, entry["id"])
 		}
 		optional := map[string]any{}
 		for _, entry := range doc.Addons {
@@ -101,6 +103,17 @@ func TestPlansDescribeEachChoiceForAnAgent(t *testing.T) {
 			}
 		}
 		require.Equal(t, map[string]any{templateActionItems: nil, "ao-kb": true, templateCompounding: true}, optional, name)
+
+		require.Subset(t, addon(t, plan, templateCompounding).Types, []string{"AgentFinding", "ContextShard", "ContextShardKind", "Person"}, name)
+		workflows := map[string][]string{}
+		for _, option := range plan.Workflows {
+			require.True(t, slices.IsSorted(option.Types), "%s: %s", name, option.ID)
+			workflows[option.ID] = option.Types
+		}
+		require.Subset(t, workflows["agentic-engineering"], []string{"Person", "EffortNote", "SpecStatus", "SpecLike", "NarrativeSection"}, name)
+		require.NotContains(t, workflows["agentic-engineering"], "ActionItem", "%s: a default add-on reports its own types", name)
+		require.Subset(t, workflows["domain"], []string{"Requirement", "EffortNote", "Person"}, name)
+		require.Empty(t, workflows["none"], name)
 	}
 }
 
@@ -110,7 +123,9 @@ func TestEveryStarterAndWorkflowSaysWhatItFits(t *testing.T) {
 	for id, meta := range registry {
 		require.NotEmpty(t, meta.Fit, "starter %s needs a fit in its template.yaml", id)
 	}
-	for _, option := range workflowOptions(registry) {
+	options, err := workflowOptions(registry)
+	require.NoError(t, err)
+	for _, option := range options {
 		require.NotEmpty(t, option.Fit, "workflow %s needs a fit", option.ID)
 	}
 }

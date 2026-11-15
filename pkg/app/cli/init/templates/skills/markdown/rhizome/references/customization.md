@@ -4,7 +4,7 @@ Use this route when a person wants the vault shaped to their work: a tracker, a 
 
 ## 1. Start from the question and real notes
 
-Ask what the person needs to see or decide, then read two or three notes that already hold that information. Discover what exists before designing anything: `rzm agent ontology-reference` for types and `rzm agent view list` for views and their targets.
+Ask what the person needs to see or decide, then read two or three notes that already hold that information. Discover what exists before designing anything: `rzm agent ontology-reference` for types and `rzm agent view list` for views and their targets. Run those only once `rzm init --check --json` reports `configured: true`; an unconfigured folder has no schema to extend, and `rzm agent` there reads the registered default vault, another repository. Set it up first (`references/setup-and-starters.md`).
 
 Done when you can name the grouping, sorting, filtering, or validation the question needs, and which existing type, if any, already carries it.
 

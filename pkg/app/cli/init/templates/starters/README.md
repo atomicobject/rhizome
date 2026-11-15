@@ -4,7 +4,7 @@ Each directory is one `rzm init` starter. Its assets are grouped by where they i
 
 | Source under `<id>/` | Installs to |
 | --- | --- |
-| `template.yaml` | Nothing. Resolver metadata: `requires`, `activatesByDefault`, and `optionalAddon: true` for an add-on no starter activates by default, installed only when chosen with `--addons` or `--add-addon`. Catalog text for `rzm init --check --json`: `name`, `description`, `fit` (the repository signals that suggest the starter; every starter needs one), and `cautions` (credentials, spend, data egress, prerequisites, and type names that can collide). |
+| `template.yaml` | Nothing. Resolver metadata: `requires`, `activatesByDefault`, and `optionalAddon: true` for an add-on no starter activates by default, installed only when chosen with `--addons` or `--add-addon`. Catalog text for `rzm init --check --json`: `name`, `description`, `fit` (the repository signals that suggest the starter; every starter needs one), and `cautions` (credentials, spend, data egress, and prerequisites). The report derives each entry's `types` from `module/ontology/*.graphql`, so `cautions` never lists type names. |
 | `repo/**` | The same relative path in the target repository, e.g. `repo/docs/specs/README.md` → `docs/specs/README.md`. |
 | `module/**` | The starter's module, `.rhizome/modules/<id>/`, e.g. `module/views/specs.yaml` → `.rhizome/modules/<id>/views/specs.yaml`. Asset kinds go in `ontology/` (`*.graphql`), `recipes/`, `views/`, `tasks/`, and `scripts/` (written once, executable). Files a script reads by a relative path, such as compounding's `models.json` and `references/`, sit beside them. |
 | `agents/skills/<name>/**` | `.agents/skills/<name>/` and `.claude/skills/<name>/` |

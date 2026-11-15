@@ -24,6 +24,14 @@ func (r *initRun) settingsPlan(s setup) (SetupPlan, error) {
 	}
 	root := r.layout.ProjectRoot
 	cfg := plan.res.cfg
+	workflows, err := workflowOptions(registry)
+	if err != nil {
+		return SetupPlan{}, err
+	}
+	addons, err := allAddonOptions(registry, plan.res.effective)
+	if err != nil {
+		return SetupPlan{}, err
+	}
 	provider, ready := currentSearch(r, plan.setup)
 	doc := SetupPlan{
 		Schema:              SetupSchema,
@@ -32,8 +40,8 @@ func (r *initRun) settingsPlan(s setup) (SetupPlan, error) {
 		Configured:          true,
 		Findings:            SetupFindings{Docs: docsFinding(cfg.Notes, r.layout), Code: codeStatus(cfg.Code, r.layout)},
 		Workflow:            workflowChoiceFor(plan.setup.workflows).id,
-		Workflows:           workflowOptions(registry),
-		Addons:              allAddonOptions(registry, plan.res.effective),
+		Workflows:           workflows,
+		Addons:              addons,
 		Agents:              r.agentOptions(plan.setup.cfg),
 		Search:              r.searchOptions(firstRunOutcome{provider: provider, ready: ready}),
 		IgnoredRepositories: []IgnoredRepository{},
