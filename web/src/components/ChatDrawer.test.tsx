@@ -264,6 +264,40 @@ describe("Chat in the right pane", () => {
     expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
   });
 
+  it("waits for a choice made while the open chat loads", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+
+    const loading = deferredReply<AgentSessionResponse>();
+    const saving = deferredReply<AgentSettingsResponse>();
+
+    http
+      .on("GET", "/api/agent/sessions/agt-1", () => loading.promise)
+      .on("PUT", "/api/agent/settings", () => saving.promise)
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    const composer = await within(pane).findByRole("textbox", { name: "Message" });
+
+    fireEvent.change(composer, { target: { value: "Delete the drafts" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    fireEvent.click(await within(pane).findByRole("button", { name: "Auto" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Ask first/ }));
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+
+    loading.resolve({ session: session(), messages: [], events: [] });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+
+    const asked = settingsWith(readyStatus);
+
+    asked.settings.harnesses.codex = { model: "gpt-standard", permissionMode: "approval-required" };
+    saving.resolve(asked);
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(1));
+  });
+
   it("sends again after a choice failed to save", async () => {
     window.localStorage.setItem(SESSION_KEY, "agt-1");
     const saving = deferredReply<AgentSettingsResponse>();

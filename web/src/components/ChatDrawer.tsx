@@ -266,8 +266,6 @@ export function ChatPanel() {
     const sent = attachContext ? boundedContext(context) : undefined;
 
     try {
-      if (!(await agent.saved()) || !chatSendLive(id)) return;
-
       // The open chat's agent decides whether it can take the message, so a
       // chat still loading is read first.
       const open = sessionID
@@ -279,7 +277,8 @@ export function ChatPanel() {
             .catch(() => undefined)
         : undefined;
 
-      if (!chatSendLive(id)) return;
+      // Then the latest choice, including one made while the chat was read.
+      if (!(await agent.saved()) || !chatSendLive(id)) return;
 
       // A choice of another agent starts a new chat with it, and so does an
       // open chat that could not be read, since its agent is unknown.
@@ -293,6 +292,10 @@ export function ChatPanel() {
         target = created.session.id;
         setChatSession(target);
       }
+
+      // A permission mode or model chosen while the chat opened is saved
+      // before the message runs on it.
+      if (!(await agent.saved())) return;
 
       if (!postChatSend(id)) return;
       clearChatDraftIf(text);

@@ -77,6 +77,7 @@ Built on `t3/chat-agent-model-picker`.
 - Greptile's eighth pass (4/5) found a stopped send's late chat creation replacing a newer chat, and Stop during a Claude model change ending as a connection failure because the driver stopped the process on any cancellation; the pane now drops a stopped send's new chat, and the driver stops the process only when Claude never answers, resending both values after a canceled change. Each has a test shown to fail before the fix.
 - Greptile's ninth pass (4/5) found a message sent while the saved chat was still loading going to that chat's agent instead of the one chosen; the pane now reads the open chat's agent before deciding, with a test shown to fail before the fix.
 - Greptile's tenth pass (3/5) found a turn stopped during its model change completing without a turn id, so the browser gathered every earlier reply into it, and a failed read of the open chat still sending to its unknown agent; stopped turns now carry their own id, and an unreadable chat starts a new one. Each has a test shown to fail before the fix.
+- Greptile's eleventh pass (4/5) found a choice made while the open chat loaded being skipped; the pane now reads the chat first, then waits for the latest choice, and waits again before sending to a chat it just opened, with a test shown to fail before the fix.
 
 ## Compounding Follow-ups
 
