@@ -232,6 +232,29 @@ describe("setup sheet", () => {
     });
   });
 
+  it("keeps a checked optional add-on when the workflow changes", async () => {
+    const knowledge = {
+      id: "aokb",
+      label: "AO KB knowledge",
+      description: "Search Atomic Object's knowledge base",
+      defaultFor: [],
+      enabled: false,
+    };
+    serve({ "setup-report": () => ({ ...plan, addons: [...plan.addons, knowledge] }) });
+    sheet();
+    const box = await screen.findByRole("checkbox", { name: /AO KB knowledge/ });
+    fireEvent.click(box);
+    fireEvent.click(screen.getByRole("radio", { name: /Search and agent guidance only/ }));
+    expect(box).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Action items/ })).not.toBeChecked();
+
+    fireEvent.click(screen.getByRole("button", { name: "Set up Rhizome" }));
+    await screen.findByRole("heading", { name: "Rhizome is set up in acme" });
+    expect(calls("initialize")[0]).toMatchObject({
+      choices: { workflow: "none", addons: ["aokb"] },
+    });
+  });
+
   it("holds What gets indexed edits until setup", async () => {
     serve();
     sheet();

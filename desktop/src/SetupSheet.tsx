@@ -351,8 +351,14 @@ export function SetupSheet({
                     change({
                       ...choices,
                       workflow: workflow.id,
+                      // Defaults follow the workflow; add-ons the person chose stay.
                       addons: plan.addons
-                        .filter((a) => a.defaultFor.includes(workflow.id))
+                        .filter(
+                          (a) =>
+                            a.defaultFor.includes(workflow.id) ||
+                            (choices.addons.includes(a.id) &&
+                              !a.defaultFor.includes(choices.workflow)),
+                        )
                         .map((a) => a.id),
                     })
                   }
