@@ -7,6 +7,8 @@ vi.mock("./api", async (original) => ({
   ...(await original<typeof import("./api")>()),
   request: vi.fn(),
 }));
+// ChatSettings.test.tsx covers the chat section and its own requests.
+vi.mock("./ChatSettings", () => ({ ChatSettings: () => null }));
 const call = vi.mocked(request);
 beforeEach(() => {
   call.mockReset();

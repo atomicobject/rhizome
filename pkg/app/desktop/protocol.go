@@ -29,7 +29,10 @@ type Request struct {
 	Key              string                       `json:"key,omitempty"`
 	Provider         string                       `json:"provider,omitempty"`
 	Preference       string                       `json:"preference,omitempty"`
-	Edits            *ScopeEdits                  `json:"edits,omitempty"`
+	// Harness and Model choose the chat agent; a nil Model keeps its saved model.
+	Harness string      `json:"harness,omitempty"`
+	Model   *string     `json:"model,omitempty"`
+	Edits   *ScopeEdits `json:"edits,omitempty"`
 	// Restart makes open replace a live headless runtime with a fresh one.
 	Restart bool `json:"restart,omitempty"`
 	// Folders and Repositories select what the status operation reports.
@@ -126,6 +129,10 @@ func (s *Service) Handle(ctx context.Context, req Request) Response {
 			response.Result, err = s.ImportCredentials(ctx, req)
 		case "provider-preference-set", "provider-key-set", "provider-key-clear":
 			response.Result, err = s.SetProviderAccess(req)
+		case "chat-settings":
+			response.Result, err = s.ChatSettings(ctx)
+		case "chat-settings-set":
+			response.Result, err = s.SetChatSettings(ctx, req)
 		case "global-status":
 			response.Result, err = s.GlobalStatus(ctx, req.GlobalExecutable)
 		case "cli-link-status":

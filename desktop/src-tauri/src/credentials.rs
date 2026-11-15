@@ -156,6 +156,7 @@ mod tests {
                 "provider-key-set",
                 "provider-key-clear",
                 "provider-preference-set",
+                "chat-settings-set",
             ] {
                 let request = Request {
                     operation,

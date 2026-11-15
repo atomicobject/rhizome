@@ -1528,6 +1528,41 @@ label.choice {
 .provider-import {
   margin-top: 14px;
 }
+/* Chat: one row per coding agent, its radio beside its name and status, and
+   the chosen agent's model under it. */
+.chat-agents {
+  border-top: 1px solid var(--border);
+}
+.chat-agent {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px 10px;
+  align-items: start;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.chat-agent > input {
+  margin: 3px 0 0;
+}
+.chat-agent label {
+  margin-bottom: 4px;
+}
+.chat-agent .hint {
+  margin: 4px 0 0;
+}
+.chat-model {
+  grid-column: 2 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.chat-model label {
+  margin: 0;
+  font-weight: 500;
+}
+.chat-check {
+  margin-top: 12px;
+}
 @media (max-width: 600px) {
   .provider-route {
     grid-template-columns: minmax(0, 1fr);

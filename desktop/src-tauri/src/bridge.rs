@@ -50,6 +50,11 @@ pub struct Request<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preference: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub harness: Option<&'a str>,
+    /// An empty model restores the chat agent's default; `None` keeps the saved one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub edits: Option<&'a ScopeEdits>,
     /// Replaces a live headless runtime with a fresh one during open.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
