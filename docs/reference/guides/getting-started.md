@@ -2,7 +2,7 @@
 type: ReferenceDoc
 reference-kind: guide
 summary: "Install Rhizome Desktop, set up a repository or join one your team already uses, connect a coding agent, find your way around the app, and configure optional providers."
-last-verified: 2026-11-13
+last-verified: 2026-11-15
 status: active
 ---
 
@@ -188,7 +188,7 @@ To change a repository's search provider, use its Settings tab, described next.
 Open **Settings** and choose the repository's tab, or right-click the repository name in the toolbar and choose **Repository Settings…**. The tab shows:
 
 - **Rhizome version.** **Pinned version** is what everyone on the team runs. **The app's Rhizome** or **Another executable…** changes only this computer and leaves the pin alone.
-- **Workflow**, **Add-ons**, **Agents**, and **Search**, with the current choices. Every add-on is listed here, including optional ones such as **Compounding** that first-time setup doesn't offer. Change any of them, review the files the change writes, and choose **Apply changes**. Each changed row has **Undo** until you apply.
+- **Workflow**, **Add-ons**, **Agents**, and **Search**, with the current choices. Every add-on is listed here, including optional ones such as **Compounding** and **AO KB knowledge**. Change any of them, review the files the change writes, and choose **Apply changes**. Each changed row has **Undo** until you apply. **AO KB knowledge** is for a repository whose root is an AO KB's root, with `.kb/config/vault.md`; after you apply it, a notice in the workspace walks through the rest of its setup. [AO KB guide](<../../../pkg/app/cli/init/templates/starters/ao-kb/repo/docs/reference/guides/ao-kb.md>)
 - **What gets indexed**, with **Edit rules…** to change it.
 
 Commit the files the tab lists after applying, so your team gets the same change.
