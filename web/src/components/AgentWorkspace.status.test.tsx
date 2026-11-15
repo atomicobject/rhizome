@@ -73,8 +73,10 @@ describe("AgentWorkspace harness status", () => {
       expect(screen.getByRole("button", { name: "Copy" })).toBeVisible();
     }
 
+    // A missing harness gets the setup card, whose raw error waits behind Details.
     if (!status.installed && status.lastError) {
-      expect(screen.getByText(status.lastError)).toBeVisible();
+      expect(screen.getByRole("region", { name: "Set up chat" })).toBeVisible();
+      expect(screen.getByText(status.lastError)).not.toBeVisible();
     }
 
     if (status.installed && status.lastError && status.loginHint) {

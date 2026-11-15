@@ -65,6 +65,13 @@ func (s *Service) harnessStatus(ctx context.Context, kind harness.Kind, driver h
 	return status
 }
 
+// ForgetHarnessStatus drops every cached probe, so the next read probes again.
+func (s *Service) ForgetHarnessStatus() {
+	s.mu.Lock()
+	clear(s.status)
+	s.mu.Unlock()
+}
+
 func (s *Service) cachedHarnessStatus(kind harness.Kind) harness.Status {
 	s.mu.Lock()
 	defer s.mu.Unlock()

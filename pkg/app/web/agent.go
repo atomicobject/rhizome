@@ -19,6 +19,11 @@ func (s *Server) handleAgentSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case http.MethodGet:
+		// Check again in the chat setup card asks for a fresh probe, so a
+		// harness installed or signed in moments ago shows at once.
+		if r.URL.Query().Has("refresh") {
+			s.agentService.ForgetHarnessStatus()
+		}
 		response, err := s.agentService.Settings(r.Context())
 		if err != nil {
 			writeAgentError(w, err)

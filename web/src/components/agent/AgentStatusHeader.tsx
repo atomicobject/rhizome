@@ -1,7 +1,7 @@
 import { StatusMark } from "../StatusMark";
-import { useState } from "react";
 import { DisclosureChevron } from "../DisclosureChevron";
 import type { AgentHarnessKind, AgentHarnessStatus, AgentSession } from "../../api/types";
+import { CopyCommand, HARNESS_LABELS } from "./AgentSetup";
 
 type Props = {
   session: AgentSession | null;
@@ -12,8 +12,7 @@ type Props = {
   model: string | undefined;
 };
 
-const harnessName = (kind?: AgentHarnessKind) =>
-  kind === "claude" ? "Claude" : kind === "codex" ? "Codex" : "No harness";
+const harnessName = (kind?: AgentHarnessKind) => (kind ? HARNESS_LABELS[kind] : "No harness");
 
 const installHint = (kind?: AgentHarnessKind) =>
   kind === "claude" ? "Install Claude Code to use chat." : "Install the Codex CLI to use chat.";
@@ -105,8 +104,8 @@ export function AgentStatusHeader({
 }
 
 /**
- * Why chat is unavailable and what to do next, beside the composer. Renders
- * nothing while the harness is ready or its status is still loading.
+ * How to sign in to an installed harness, beside the composer. A missing or
+ * unchosen harness has the setup card instead, so this renders nothing then.
  */
 export function AgentAvailability({
   harness,
@@ -115,47 +114,17 @@ export function AgentAvailability({
   harness: AgentHarnessKind | undefined;
   status: AgentHarnessStatus | undefined;
 }) {
-  const [copied, setCopied] = useState(false);
+  if (!harness || !status?.installed || status.loggedIn) return null;
 
-  if (!harness)
-    return (
-      <span className="agent-availability">
-        No coding harness is available. Install Claude Code or the Codex CLI, then reload.
-      </span>
-    );
-
-  if (!status) return null;
-
-  if (!status.installed)
-    return (
-      <span className="agent-availability">
-        {installHint(harness)}
-        {status.lastError ? <span className="agent-muted"> {status.lastError}</span> : null}
-      </span>
-    );
-
-  if (!status.loggedIn && !status.lastError && status.loginHint) {
-    const hint = status.loginHint;
-
-    return (
-      <span className="agent-availability">
-        Log in to {harnessName(harness)}: <code>{hint}</code>{" "}
-        <button
-          type="button"
-          className="button button--ghost"
-          onClick={async () => {
-            await navigator.clipboard?.writeText(hint);
-            setCopied(true);
-          }}
-        >
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </span>
-    );
-  }
-
-  if (!status.loggedIn)
-    return <span className="agent-availability">Log in to {harnessName(harness)} to chat.</span>;
-
-  return null;
+  return (
+    <span className="agent-availability">
+      {status.loginHint && !status.lastError ? (
+        <>
+          Sign in to {harnessName(harness)}: <CopyCommand command={status.loginHint} />
+        </>
+      ) : (
+        `Sign in to ${harnessName(harness)} to chat.`
+      )}
+    </span>
+  );
 }

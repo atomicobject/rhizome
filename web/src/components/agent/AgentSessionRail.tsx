@@ -1,4 +1,5 @@
 import type { AgentSession } from "../../api/types";
+import { HARNESS_LABELS } from "./AgentSetup";
 import { AgentSettingsPanel } from "./AgentSettingsPanel";
 import type { AgentSettingsResponse } from "../../api/types";
 
@@ -66,12 +67,13 @@ export function AgentSessionRail({
               <button
                 type="button"
                 className="agent-session__open"
-                aria-label={`${session.title || "New chat"} ${session.harness || "local"} ${formatTime(session.updatedAt)}`}
+                aria-label={`${session.title || "New chat"} ${session.harness ? HARNESS_LABELS[session.harness] : "local"} ${formatTime(session.updatedAt)}`}
                 onClick={() => onSelect(session.id)}
               >
                 <span>{session.title || "New chat"}</span>
                 <small>
-                  {session.harness || "local"} {formatTime(session.updatedAt)}
+                  {session.harness ? HARNESS_LABELS[session.harness] : "local"}{" "}
+                  {formatTime(session.updatedAt)}
                 </small>
               </button>
               <button

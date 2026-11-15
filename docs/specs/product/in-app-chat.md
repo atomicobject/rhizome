@@ -3,7 +3,7 @@ type: ProductSpec
 id: SPEC-0140
 summary: An AI chat in the app's right pane, in every section, that knows what the person is looking at, reads the page on demand, and acts through the Codex or Claude harness with few permission prompts.
 spec-status: active
-last-updated: 2026-11-14
+last-updated: 2026-11-15
 aliases: [SPEC-0140]
 ---
 
@@ -72,7 +72,8 @@ The pane and the Agent page show the same sessions. The Agent page is the expand
 - Commands, file edits, and tool calls show as one line each. In auto mode their detail says auto mode allowed them.
 - An escalated action shows a card with Allow and Deny, and Allow for this chat where the harness supports it. Once decided, the card collapses to one line.
 - The composer names the harness, the model, and the permission mode, and offers Stop while a turn runs.
-- Without an installed harness the pane says how to set one up instead of offering a message box.
+- Without a harness that can run, the pane and the Agent page show a setup card instead of inviting a message. It lists Claude Code and Codex, each ready with its version and account, signed out with the sign-in command to copy, or not installed with a link to the install steps, and choosing one saves it as chat's harness. Check again probes the harnesses afresh rather than reading the cached status.
+- On first use, with nothing chosen and both harnesses ready, the same card asks the person to pick one. With one ready harness, chat uses it without asking.
 
 ### US4 - Continue on the Agent page
 

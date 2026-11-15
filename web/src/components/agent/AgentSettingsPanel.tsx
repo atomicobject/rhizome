@@ -6,6 +6,7 @@ import type {
 } from "../../api/types";
 import { humanizeName } from "../../lib/labels";
 import { DisclosureChevron } from "../DisclosureChevron";
+import { HARNESS_LABELS } from "./AgentSetup";
 
 const defaultSettings: AgentSettings = {
   harnesses: {
@@ -30,8 +31,6 @@ type Props = {
   saving: boolean;
   onChange: (settings: AgentSettings) => void;
 };
-
-const labels: Record<AgentHarnessKind, string> = { codex: "Codex", claude: "Claude" };
 
 function harnessKind(value: string): AgentHarnessKind {
   return value === "claude" ? "claude" : "codex";
@@ -94,7 +93,7 @@ export function AgentSettingsPanel({
           >
             {(["codex", "claude"] as const).map((kind) => (
               <option key={kind} value={kind}>
-                {labels[kind]}
+                {HARNESS_LABELS[kind]}
               </option>
             ))}
           </select>
