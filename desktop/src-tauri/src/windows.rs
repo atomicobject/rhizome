@@ -251,6 +251,8 @@ const CLICK_GUARD: &str = r#"
 /// webview has no capabilities and may only show the verified runtime.
 pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> {
     let label = format!("window-{}", NEXT.fetch_add(1, Ordering::SeqCst));
+    #[cfg(windows)]
+    crate::menu::trace_key(app, "create-start", &label, serde_json::json!({}));
     let width = session.width.unwrap_or(WIDTH).max(MIN_WIDTH);
     let height = session.height.unwrap_or(HEIGHT).max(520.0);
     let mut builder = WindowBuilder::new(app, &label)
@@ -275,6 +277,15 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
     let settings = appearance::current(&app.state::<Desktop>().directory);
     let window = builder.build()?;
     crate::startup_stage("native window created");
+    #[cfg(windows)]
+    crate::menu::trace_key(
+        app,
+        "native-window-created",
+        &label,
+        serde_json::json!({
+            "hwnd": window.hwnd().ok().map(|hwnd| format!("{:p}", hwnd.0)),
+        }),
+    );
     // Keep GTK accelerators registered, but expose the menu through the shell.
     #[cfg(target_os = "linux")]
     window.hide_menu()?;
@@ -309,6 +320,13 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         LogicalSize::new(width, height),
     )?;
     crate::startup_stage("shell webview created");
+    #[cfg(windows)]
+    crate::menu::trace_key(
+        app,
+        "shell-webview-created",
+        &label,
+        serde_json::json!({ "view": shell_view.label() }),
+    );
     crate::menu::install_shortcuts(&shell_view).inspect_err(|_| discard_failed_window(&window))?;
     #[cfg(target_os = "linux")]
     crate::linux_webviews::mount_shell(&shell_view)
@@ -456,6 +474,13 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         LogicalSize::new(1.0, 1.0),
     )?;
     crate::startup_stage("content webview created");
+    #[cfg(windows)]
+    crate::menu::trace_key(
+        app,
+        "content-webview-created",
+        &label,
+        serde_json::json!({ "view": content.label() }),
+    );
     #[cfg(target_os = "linux")]
     crate::linux_webviews::mount_overlay(&content)?;
     content.hide()?;
@@ -498,6 +523,13 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         shell_view.set_focus()?;
     }
     crate::startup_stage("window ready");
+    #[cfg(windows)]
+    crate::menu::trace_key(
+        window.app_handle(),
+        "window-ready",
+        &label,
+        serde_json::json!({}),
+    );
     Ok(window)
 }
 
@@ -644,9 +676,20 @@ pub fn reopen(app: &AppHandle) {
 
 /// Windows child webviews cannot be created inside a synchronous event callback.
 pub fn create_from_event(app: &AppHandle, session: WindowSession) {
+    #[cfg(windows)]
+    crate::menu::trace_key(app, "create-queued", "", serde_json::json!({}));
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(windows)]
+        crate::menu::trace_key(&app, "create-begin", "", serde_json::json!({}));
         if let Err(error) = create(&app, session) {
+            #[cfg(windows)]
+            crate::menu::trace_key(
+                &app,
+                "create-error",
+                "",
+                serde_json::json!({ "error": error.to_string() }),
+            );
             eprintln!("Rhizome Desktop could not create a window: {error}");
         }
     });

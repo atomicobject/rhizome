@@ -85,14 +85,17 @@ function Wait-VisibleChildFocus([Diagnostics.Process]$Process, [IntPtr]$Window) 
 
 $previousState = [Environment]::GetEnvironmentVariable('RHIZOME_DESKTOP_DATA_DIR', 'Process')
 $previousTrace = [Environment]::GetEnvironmentVariable('RHIZOME_DESKTOP_STARTUP_TRACE', 'Process')
+$previousKeyTrace = [Environment]::GetEnvironmentVariable('RZM_DESKTOP_KEY_TRACE', 'Process')
 $env:RHIZOME_DESKTOP_DATA_DIR = Join-Path $output ('state-' + [Guid]::NewGuid().ToString('N'))
 $env:RHIZOME_DESKTOP_STARTUP_TRACE = '1'
 $process = $null
 $targetWindow = [IntPtr]::Zero
 try {
+    $env:RZM_DESKTOP_KEY_TRACE = 'ctrl-n'
     $process = Start-Process -FilePath $app -PassThru `
         -RedirectStandardOutput (Join-Path $output 'stdout.log') `
         -RedirectStandardError (Join-Path $output 'stderr.log')
+    [Environment]::SetEnvironmentVariable('RZM_DESKTOP_KEY_TRACE', $previousKeyTrace, 'Process')
     $windows = @(Wait-Windows $process 1)
     Save-WindowEvidence $process 'initial'
     if ($windows.Count -ne 1) { throw "Fresh desktop state opened $($windows.Count) windows instead of one." }
@@ -163,6 +166,7 @@ try {
 } finally {
     [Environment]::SetEnvironmentVariable('RHIZOME_DESKTOP_DATA_DIR', $previousState, 'Process')
     [Environment]::SetEnvironmentVariable('RHIZOME_DESKTOP_STARTUP_TRACE', $previousTrace, 'Process')
+    [Environment]::SetEnvironmentVariable('RZM_DESKTOP_KEY_TRACE', $previousKeyTrace, 'Process')
     if ($null -ne $process) {
         $process.Refresh()
         if (-not $process.HasExited) {

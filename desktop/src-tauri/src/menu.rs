@@ -22,6 +22,9 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 #[path = "windows_keyboard.rs"]
 mod windows_keyboard;
 
+#[cfg(windows)]
+pub(crate) use windows_keyboard::trace as trace_key;
+
 const SHORTCUTS: &[(&str, &str)] = &[
     ("settings", "CmdOrCtrl+,"),
     ("new-window", "CmdOrCtrl+N"),
@@ -40,12 +43,28 @@ const SHORTCUTS: &[(&str, &str)] = &[
 
 struct ShortcutItems(Vec<MenuItem<Wry>>);
 
-fn shortcut_enabled(app: &AppHandle, id: &str) -> bool {
-    app.state::<ShortcutItems>()
+fn shortcut_enabled(app: &AppHandle, id: &str, _window: &str, _view: &str) -> bool {
+    let result = app
+        .state::<ShortcutItems>()
         .0
         .iter()
         .find(|item| item.id().as_ref() == id)
-        .is_some_and(|item| item.is_enabled().unwrap_or(false))
+        .map(|item| item.is_enabled());
+    #[cfg(windows)]
+    if id == "new-window" {
+        trace_key(
+            app,
+            "enabled-query-result",
+            _window,
+            json!({
+                "view": _view,
+                "found": result.is_some(),
+                "enabled": result.as_ref().and_then(|result| result.as_ref().ok()),
+                "error": result.as_ref().and_then(|result| result.as_ref().err()).map(ToString::to_string),
+            }),
+        );
+    }
+    result.is_some_and(|result| result.unwrap_or(false))
 }
 
 pub fn install_shortcuts(_view: &tauri::Webview) -> tauri::Result<()> {
@@ -408,13 +427,39 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
         &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu],
     )?)?;
     app.manage(ShortcutItems(shortcuts));
-    app.on_menu_event(|app, event| dispatch(app, event.id().as_ref(), focused_window(app)));
+    app.on_menu_event(|app, event| dispatch(app, event.id().as_ref(), focused_window(app), ""));
     Ok(())
 }
 
-fn dispatch(app: &AppHandle, id: &str, window: Option<Window>) {
-    if SHORTCUTS.iter().any(|(name, _)| *name == id) && !shortcut_enabled(app, id) {
-        return;
+fn dispatch(app: &AppHandle, id: &str, window: Option<Window>, _view: &str) {
+    if SHORTCUTS.iter().any(|(name, _)| *name == id) {
+        #[cfg(windows)]
+        if id == "new-window" {
+            trace_key(
+                app,
+                "dispatch-enabled-begin",
+                window.as_ref().map_or("", |window| window.label()),
+                json!({ "view": _view }),
+            );
+        }
+        let enabled = shortcut_enabled(
+            app,
+            id,
+            window.as_ref().map_or("", |window| window.label()),
+            _view,
+        );
+        #[cfg(windows)]
+        if id == "new-window" {
+            trace_key(
+                app,
+                "dispatch-enabled-result",
+                window.as_ref().map_or("", |window| window.label()),
+                json!({ "view": _view, "enabled": enabled }),
+            );
+        }
+        if !enabled {
+            return;
+        }
     }
     if let Some((window, item)) = id
         .strip_prefix("popup:")

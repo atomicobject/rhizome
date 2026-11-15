@@ -1,41 +1,12 @@
-name: Desktop portability
+name: Temporary Windows shortcut diagnostic
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, labeled]
-    paths:
-      - '.github/workflows/desktop-portability.yml'
-      - '.goreleaser.yml'
-      - '.gitattributes'
-      - 'scripts/release/**'
-      - 'scripts/licenses/**'
-      - 'desktop/**'
-      - 'pkg/app/appbundle/**'
-      - 'pkg/app/desktop/**'
-      - 'pkg/app/repoexec/**'
-      - 'pkg/app/runtime/**'
-      - 'pkg/app/update/**'
-      - 'pkg/fileio/**'
-      - 'pkg/hiddencommand/**'
-      - 'pkg/paths/**'
-      - 'pkg/repositorytrust/**'
-      - 'pkg/teamapi/**'
-      - 'cmd/**'
-      - 'main.go'
-      - 'go.mod'
-      - 'go.sum'
-      - 'vendor/**'
-      - 'web/**'
   workflow_dispatch:
     inputs:
       team_api_origin:
         description: Optional team API origin override; defaults to the checked-in release origin
         type: string
         default: ''
-      upgrade_fixtures:
-        description: Also build two-version unsigned installed-upgrade fixtures
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -56,12 +27,6 @@ jobs:
           - os: windows-latest
             target: windows-x86_64
             artifact: windows-x64
-          - os: ubuntu-24.04
-            target: linux-x86_64
-            artifact: linux-x64
-          - os: ubuntu-24.04-arm
-            target: linux-aarch64
-            artifact: linux-arm64
     defaults:
       run:
         shell: bash
@@ -204,6 +169,8 @@ jobs:
         run: |
           mkdir -p .tmp/desktop-portability
           cat > .tmp/desktop-portability/EVIDENCE.txt <<'EOF'
+          Temporary Windows Ctrl+N diagnostic only. Do not merge this branch into PR 150.
+          A passing sample does not resolve the original intermittent failure.
           Unsigned native portability candidate. Not a public release.
           The default team API origin comes from matching checked-in release builds.
           Manual builds may override it with a working nonsecret team_api_origin URL.
@@ -237,82 +204,3 @@ jobs:
             .tmp/desktop-portability/smoke/*.png
             .tmp/desktop-portability/keyring/*.log
             .tmp/desktop-portability/keyring/*.json
-
-  upgrade_fixture:
-    name: Installed upgrade fixture (${{ matrix.target }})
-    if: (github.event_name == 'workflow_dispatch' && inputs.upgrade_fixtures) || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'desktop-upgrade-fixtures'))
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: windows-latest
-            target: windows-x86_64
-            artifact: windows-x64
-          - runner: ubuntu-24.04
-            target: linux-x86_64
-            artifact: linux-x64
-          - runner: ubuntu-24.04-arm
-            target: linux-aarch64
-            artifact: linux-arm64
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: goreleaser/goreleaser-action@v6
-        with:
-          version: '~> v2'
-          install-only: true
-      - uses: goto-bus-stop/setup-zig@v2
-        if: runner.os == 'Linux'
-        with:
-          version: 0.13.0
-      - name: Install Linux packaging prerequisites
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y build-essential curl file \
-            libayatana-appindicator3-dev libssl-dev librsvg2-dev libwebkit2gtk-4.1-dev \
-            libxdo-dev patchelf libfuse2t64
-      - name: Prepare build inputs
-        run: |
-          ./scripts/vendor/ensure_tree_sitter_sources.sh
-          python3 -m unittest discover -s scripts/licenses -p '*_test.py'
-          make web-build
-          npm ci --prefix desktop
-      - name: Build two exact fixture versions and sign their updater payloads
-        env:
-          TARGET: ${{ matrix.target }}
-          TEAM_API_ORIGIN: ${{ inputs.team_api_origin }}
-        run: |
-          python3 scripts/release/build_upgrade_fixture.py --target "$TARGET" \
-            --team-api-origin "$TEAM_API_ORIGIN" --output "$RUNNER_TEMP/upgrade-fixture" \
-            --evidence-dir "$RUNNER_TEMP/upgrade-fixture-evidence"
-      - name: Retain public fixture packages and acceptance instructions
-        uses: actions/upload-artifact@v4
-        with:
-          name: desktop-upgrade-fixture-${{ matrix.artifact }}
-          path: ${{ runner.temp }}/upgrade-fixture/
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Retain bounded fixture build diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: desktop-upgrade-build-evidence-${{ matrix.artifact }}
-          path: ${{ runner.temp }}/upgrade-fixture-evidence/**/*.log
-          if-no-files-found: warn
-          retention-days: 14
