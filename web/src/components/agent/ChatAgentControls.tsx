@@ -142,7 +142,7 @@ export function useChatAgent(session?: Pick<AgentSession, "harness"> | null) {
     },
     /**
      * Waits until the latest choice is saved, including one made while waiting;
-     * false when its save failed, which the notice reports.
+     * false when its save failed or it needs sign-in or an install, which the notice reports.
      */
     saved: async () => {
       let ok = true;
@@ -153,7 +153,12 @@ export function useChatAgent(session?: Pick<AgentSession, "harness"> | null) {
         if (saving.get(queryClient) === pending) break;
       }
 
-      return ok;
+      if (!ok) return false;
+
+      // A choice made while waiting may need sign-in or an install; its notice holds the message.
+      const latest = queryClient.getQueryData<AgentSettingsResponse>(key) ?? response;
+
+      return !blockerFor(latest, currentChoice(latest));
     },
     /** Whether the next message starts a new chat, read after `saved` from the saved choice. */
     startsNewChat: () => {

@@ -196,6 +196,46 @@ describe("Chat in the right pane", () => {
     await waitFor(() => expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(1));
   });
 
+  it("keeps a waiting message when the choice made meanwhile needs sign-in", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+    const saves = [deferredReply<AgentSettingsResponse>(), deferredReply<AgentSettingsResponse>()];
+    let put = 0;
+    http
+      .on("PUT", "/api/agent/settings", () => saves[put++]!.promise)
+      .json("GET", "/api/agent/sessions/agt-1", { session: session(), messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    fireEvent.click(await within(pane).findByRole("button", { name: "Auto" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Accept edits/ }));
+    const composer = within(pane).getByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "Delete the drafts" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+
+    fireEvent.click(within(pane).getByRole("button", { name: "Accept edits" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Ask first/ }));
+    const edits = settingsWith(readyStatus);
+    edits.settings.harnesses.codex = { model: "gpt-standard", permissionMode: "auto-accept-edits" };
+    saves[0]!.resolve(edits);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+
+    const signedOut = settingsWith({ ...readyStatus, loggedIn: false });
+    signedOut.settings.harnesses.codex = {
+      model: "gpt-standard",
+      permissionMode: "approval-required",
+    };
+    saves[1]!.resolve(signedOut);
+    expect(await within(pane).findByText(/Codex is signed out/)).toBeVisible();
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+    expect(composer).toHaveValue("Delete the drafts");
+  });
+
   it("shows each agent action as one line and asks only for escalations", async () => {
     window.localStorage.setItem(SESSION_KEY, "agt-1");
     http
