@@ -228,6 +228,8 @@ describe("AgentWorkspace", () => {
 
     await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
     expect(http.count("POST", "/api/agent/sessions")).toBe(0);
+    // Text typed while the message waits is kept for the next one.
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "hello, and also" } });
 
     saving.resolve({
       ...response,
@@ -242,6 +244,7 @@ describe("AgentWorkspace", () => {
     });
     await waitFor(() => expect(http.count("POST", "/api/agent/sessions/created/messages")).toBe(1));
     expect(http.count("POST", "/api/agent/sessions")).toBe(1);
+    expect(screen.getByLabelText("Message")).toHaveValue("hello, and also");
   });
 
   it("renders approval details, posts a decision, and disables the controls", async () => {

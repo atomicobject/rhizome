@@ -154,7 +154,8 @@ export function AgentWorkspace({
         setSelectedID(sessionID);
       }
 
-      setDraft("");
+      // Text typed while the message waited stays for the next one.
+      setDraft((current) => (current.trim() === trimmed ? "" : current));
       await send(sessionID, trimmed);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));

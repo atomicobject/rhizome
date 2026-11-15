@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/harness"
+	"github.com/atomicobject/rhizome/pkg/loginpath"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 )
 
@@ -49,6 +50,9 @@ func probeStatuses(harnesses map[harness.Kind]harness.Harness, probe func(harnes
 }
 
 func probeStatus(ctx context.Context, kind harness.Kind, driver harness.Harness) harness.Status {
+	// The login shell's PATH has its own time limit; finding it first keeps a
+	// slow profile from spending the probe's.
+	loginpath.Path()
 	ctx, cancel := context.WithTimeout(ctx, statusProbeTimeout)
 	defer cancel()
 	status, err := driver.Status(ctx)
