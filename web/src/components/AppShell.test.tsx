@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import type { OntologyEditSessionResponse } from "../api/types";
@@ -288,6 +288,13 @@ describe("AppShell", () => {
     fireEvent.submit(screen.getByRole("searchbox", { name: "Search this project" }));
     await waitFor(() => expect(window.location.search).toContain("search=meetings"));
     expect(sidebar()).toBeVisible();
+
+    // Search hides the note surfaces Notes' own pane sits in, so Chat opens
+    // in the shared pane instead.
+    fireEvent.click(screen.getByRole("button", { name: "Show right pane" }));
+    const chat = await screen.findByRole("complementary", { name: "Chat" });
+    expect(chat).toBeVisible();
+    fireEvent.click(within(chat).getByRole("button", { name: "Hide right pane" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
     expect(sidebar()).not.toBeVisible();

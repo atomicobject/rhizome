@@ -279,6 +279,11 @@ export function AppShell() {
       : null;
 
   const [notesVisited, setNotesVisited] = useState(route === "notes");
+
+  const notesSearch =
+    route === "notes" &&
+    parseNotesLocation(snapshot.pathname, snapshot.search, snapshot.hash).search != null;
+
   const [desktop] = useState(inDesktop);
 
   useDesktopCommands((command) => {
@@ -496,7 +501,9 @@ export function AppShell() {
             </ErrorBoundary>
           </OntologyEditSessionProvider>
         </div>
-        {route === "notes" || route === "agent" ? null : <ChatDrawer />}
+        {/* Notes hosts Chat in its own pane, except on search, which hides the
+            note surfaces that pane sits in. */}
+        {route === "agent" || (route === "notes" && !notesSearch) ? null : <ChatDrawer />}
       </div>
       <FinderQuickOpen />
     </div>
