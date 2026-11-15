@@ -224,6 +224,7 @@ export type Message =
   /** A sign-in or sign-out changed the shared account. */
   | { type: "team-changed" }
   | { type: "provider-access-changed" }
+  | { type: "chat-settings-changed" }
   /** The workspace page's reported state, or null when no page has reported. */
   | { type: "page"; state: PageState | null };
 /** The app-wide appearance; `auto` follows the operating system. */

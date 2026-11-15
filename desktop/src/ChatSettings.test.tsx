@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { request, type ChatHarness, type ChatSettingsReport } from "./api";
-import { ChatSettings } from "./ChatSettings";
+import { ChatSettings, chatSettingsChanged } from "./ChatSettings";
 
 vi.mock("./api", async (original) => ({
   ...(await original<typeof import("./api")>()),
@@ -72,6 +72,22 @@ it("saves an agent turned off and on", async () => {
   fireEvent.click(codex);
   await waitFor(() => expect(codex).toHaveAttribute("aria-checked", "true"));
   expect(call).toHaveBeenLastCalledWith("chat-settings-set", { harness: "codex", enabled: true });
+});
+
+it("shows an agent another window turned off", async () => {
+  render(<ChatSettings />);
+  const codex = await screen.findByRole("switch", { name: "Use Codex in chat" });
+  expect(codex).toHaveAttribute("aria-checked", "true");
+
+  report = {
+    ...report,
+    settings: {
+      ...report.settings,
+      harnesses: { ...report.settings.harnesses, codex: { disabled: true } },
+    },
+  };
+  act(() => chatSettingsChanged());
+  await waitFor(() => expect(codex).toHaveAttribute("aria-checked", "false"));
 });
 
 it("offers the install steps for a missing agent, whose switch stays off, and shows a failed save", async () => {

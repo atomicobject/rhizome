@@ -15,8 +15,11 @@ import { ChatAgentNotice } from "./agent/ChatAgentNotice";
 import { useAgentThread } from "./agent/useAgentThread";
 import {
   beginChatSend,
+  cancelChatSend,
+  chatSendLive,
   clearChatDraftIf,
   endChatSend,
+  postChatSend,
   setChatDraft,
   setChatSession,
   startNewChat,
@@ -249,13 +252,17 @@ export function ChatPanel() {
   const send = async (text: string) => {
     const message = text.trim();
 
-    if (!message || running || blocked || !beginChatSend()) return;
+    if (!message || running || blocked) return;
+
+    const id = beginChatSend();
+
+    if (!id) return;
     pinned.current = true;
     setError("");
     const sent = attachContext ? boundedContext(context) : undefined;
 
     try {
-      if (!(await agent.saved())) return;
+      if (!(await agent.saved()) || !chatSendLive(id)) return;
 
       // A choice of another agent starts a new chat with it.
       let target = agent.startsNewChat() ? "" : sessionID;
@@ -266,17 +273,20 @@ export function ChatPanel() {
         setChatSession(target);
       }
 
+      if (!postChatSend(id)) return;
       clearChatDraftIf(text);
       await thread.send(target, message, sent);
     } catch (cause) {
       setError(errorText(cause));
     } finally {
-      endChatSend();
+      endChatSend(id);
     }
   };
 
   const stop = async () => {
-    if (!sessionID) return;
+    // A message still waiting for its choice to save or its chat to open
+    // has no turn to interrupt.
+    if (cancelChatSend() || !sessionID) return;
 
     try {
       await interruptAgentSession(sessionID);

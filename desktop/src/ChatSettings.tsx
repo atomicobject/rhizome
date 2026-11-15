@@ -12,6 +12,13 @@ const order: ChatHarness[] = ["claude", "codex"];
 
 type Readiness = "ready" | "signed-out" | "unchecked" | "missing";
 
+const listeners = new Set<() => void>();
+
+/** The app broadcasts a saved change to the chat settings across its windows. */
+export function chatSettingsChanged() {
+  for (const listener of listeners) listener();
+}
+
 function readiness(status: ChatHarnessStatus): Readiness {
   if (!status.installed) return "missing";
   if (status.loggedIn) return "ready";
@@ -48,8 +55,11 @@ export function ChatSettings() {
   useEffect(() => {
     alive.current = true;
     void check();
+    const refresh = () => void check();
+    listeners.add(refresh);
     return () => {
       alive.current = false;
+      listeners.delete(refresh);
     };
   }, [check]);
   async function turn(harness: ChatHarness, enabled: boolean) {

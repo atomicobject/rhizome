@@ -6,7 +6,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tauri::{AppHandle, Manager, Window};
+use tauri::{AppHandle, Manager, Runtime, Window};
 use url::Url;
 
 /// Marks the content view so the web UI hides its header and reports state.
@@ -238,7 +238,7 @@ pub fn toggles_pane(pane: &mut Pane) -> bool {
 
 /// Hands a runtime document an app setting (theme, sidebar). A page that is
 /// loading or covered still takes it.
-pub fn send_setting(window: &Window, command: &Command) {
+pub fn send_setting<R: Runtime>(window: &Window<R>, command: &Command) {
     let shown = window
         .app_handle()
         .state::<crate::pane::Panes>()
@@ -279,8 +279,11 @@ pub fn set_sidebar(app: &AppHandle, collapsed: bool) -> Result<(), String> {
     .map_err(|error| error.to_string())
 }
 
-/// Tells every window's page that the chat settings changed.
-pub fn agent_settings_changed(app: &AppHandle) {
+/// Tells every window that the chat settings changed: its shell, so an open
+/// Settings shows them, and its page.
+pub fn agent_settings_changed<R: Runtime>(app: &AppHandle<R>) {
+    app.state::<crate::pane::Panes>()
+        .broadcast(&json!({"type": "chat-settings-changed"}));
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         for window in handle.windows().values() {
@@ -375,6 +378,35 @@ impl Command {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_chat_settings_change_reaches_every_shell() {
+        let app = tauri::test::mock_builder()
+            .manage(crate::pane::Panes::default())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .unwrap();
+        let (sent, received) = std::sync::mpsc::channel();
+        for window in ["main", "second"] {
+            let sent = sent.clone();
+            let mut pane = Pane::default();
+            pane.attach(tauri::ipc::Channel::new(move |body| {
+                if let tauri::ipc::InvokeResponseBody::Json(text) = body {
+                    sent.send(serde_json::from_str::<serde_json::Value>(&text).unwrap())
+                        .unwrap();
+                }
+                Ok(())
+            }));
+            app.state::<crate::pane::Panes>()
+                .insert(window.into(), pane);
+        }
+
+        agent_settings_changed(app.handle());
+
+        assert_eq!(
+            received.try_iter().collect::<Vec<_>>(),
+            vec![json!({"type": "chat-settings-changed"}); 2]
+        );
+    }
 
     #[test]
     fn render_profiling_is_always_on_in_dev_and_local_builds_and_chosen_in_releases() {
