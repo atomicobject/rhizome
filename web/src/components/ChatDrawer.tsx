@@ -10,6 +10,7 @@ import {
   interruptAgentSession,
   respondToAgentApproval,
 } from "../api/internalAgentClient";
+import { ApiError } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
 import type {
   AgentApprovalDecision,
@@ -247,16 +248,21 @@ export function ChatPanel() {
 
   // A session deleted on the Agent page, which archives it, starts over.
   useEffect(() => {
-    if (sessionID && (thread.sessionQuery.isError || session?.archived)) startNewChat();
-  }, [thread.sessionQuery.isError, session?.archived, sessionID]);
+    // A failed read for any other reason keeps the conversation and draft.
+    const missing =
+      thread.sessionQuery.error instanceof ApiError && thread.sessionQuery.error.status === 404;
+
+    if (sessionID && (missing || session?.archived)) startNewChat();
+  }, [thread.sessionQuery.error, session?.archived, sessionID]);
 
   // The log stays on the newest message, also when the pane resizes or the
   // page settles around it, unless the user scrolled up to read.
   const pinned = useRef(true);
 
+  // New messages and events follow the log only while it is pinned to the
+  // bottom; sending pins it again.
   useEffect(() => {
-    if (log.current) log.current.scrollTop = log.current.scrollHeight;
-    pinned.current = true;
+    if (log.current && pinned.current) log.current.scrollTop = log.current.scrollHeight;
   }, [thread.messages, thread.events]);
 
   useEffect(() => {
@@ -278,6 +284,7 @@ export function ChatPanel() {
 
     if (!message || running || blocked || sendingRef.current) return;
     sendingRef.current = true;
+    pinned.current = true;
     setStarting(true);
     setError("");
     const sent = attachContext ? boundedContext(context) : undefined;

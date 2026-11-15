@@ -209,6 +209,19 @@ describe("Chat in the right pane", () => {
     expect(await screen.findByText("Ask about what you're looking at.")).toBeVisible();
   });
 
+  it("keeps the conversation and draft when a session read fails for another reason", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+    http.json("GET", "/api/agent/sessions/agt-1", { error: "unavailable" }, 503);
+    render(<ChatDrawer />);
+
+    const composer = await screen.findByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "half a thought" } });
+    await waitFor(() => expect(http.count("GET", "/api/agent/sessions/agt-1")).toBeGreaterThan(0));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(window.localStorage.getItem(SESSION_KEY)).toBe("agt-1");
+    expect(composer).toHaveValue("half a thought");
+  });
+
   it("offers setup instead of a composer when no coding agent is installed", async () => {
     http.json("GET", "/api/agent/settings", settingsWith({ ...readyStatus, installed: false }));
     render(<ChatDrawer />);
@@ -283,5 +296,21 @@ describe("the page text the agent reads", () => {
       </div>`;
 
     expect(visiblePageText(root)).toBe("Backlink Decision");
+  });
+});
+
+describe("a context chip", () => {
+  it("tells apart pages that share a title", async () => {
+    const { sameContext } = await import("./chat/viewContext");
+
+    const overview = (path: string) => ({
+      kind: "note" as const,
+      title: "Overview",
+      path,
+      route: `/notes?note=${path}`,
+    });
+
+    expect(sameContext(overview("a/overview.md"), overview("a/overview.md"))).toBe(true);
+    expect(sameContext(overview("a/overview.md"), overview("b/overview.md"))).toBe(false);
   });
 });

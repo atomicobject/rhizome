@@ -161,6 +161,30 @@ describe("panel resizing", () => {
   });
 });
 
+describe("the narrow overlay", () => {
+  function Other() {
+    const panes = useShellPanes();
+
+    return <p data-testid="other" data-pane-collapsed={panes.paneCollapsed} />;
+  }
+
+  it("stays open when another section's pane mounts", () => {
+    mockViewport(true);
+    const { rerender } = render(<Shell />);
+    fireEvent.click(screen.getByRole("button", { name: "Toggle pane" }));
+    expect(screen.getByTestId("shell")).toHaveAttribute("data-pane-collapsed", "false");
+
+    rerender(
+      <>
+        <Shell />
+        <Other />
+      </>,
+    );
+    expect(screen.getByTestId("shell")).toHaveAttribute("data-pane-collapsed", "false");
+    expect(screen.getByTestId("other")).toHaveAttribute("data-pane-collapsed", "false");
+  });
+});
+
 describe("a height handle", () => {
   const RANGE = { min: 120, max: 600, initial: 240 };
 

@@ -43,6 +43,7 @@ export function AgentWorkspace({
   const [deleteConfirmID, setDeleteConfirmID] = useState("");
   const threadRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const submitting = useRef(false);
 
   const sessionsQuery = useQuery({
     queryKey: queryKeys.agent.sessions(),
@@ -142,10 +143,14 @@ export function AgentWorkspace({
       !trimmed ||
       blocked ||
       isSending ||
+      submitting.current ||
       selectedSession?.turnRunning ||
       selectedSession?.readOnly
     )
       return;
+    // Held across a new session's creation, so a second submit in that wait
+    // cannot create another session and send the message twice.
+    submitting.current = true;
     setError("");
     let sessionID = selectedID;
 
@@ -161,6 +166,8 @@ export function AgentWorkspace({
       await send(sessionID, trimmed);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      submitting.current = false;
     }
   };
 

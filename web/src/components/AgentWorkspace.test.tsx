@@ -100,6 +100,26 @@ describe("AgentWorkspace", () => {
     expect(screen.getByLabelText("Message")).toHaveFocus();
   });
 
+  it("starts one session and sends once when the first message is submitted twice", async () => {
+    setup(http);
+    const created = session({ id: "created", title: "Created chat" });
+    const creation = deferredReply<{ session: typeof created }>();
+    http
+      .on("POST", "/api/agent/sessions", () => creation.promise)
+      .json("GET", "/api/agent/sessions/created", { session: created, messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/created/messages", { session: created });
+    render(<AgentWorkspace />);
+
+    const message = await screen.findByLabelText("Message");
+    fireEvent.change(message, { target: { value: "hello" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await act(async () => creation.resolve({ session: created }));
+
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/created/messages")).toBe(1));
+    expect(http.count("POST", "/api/agent/sessions")).toBe(1);
+  });
+
   it("uses the Claude Code install hint", async () => {
     const response = settingsWith({ installed: false, loggedIn: false, capabilities });
     response.settings.harness = "claude";

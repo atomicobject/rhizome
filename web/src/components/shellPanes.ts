@@ -77,6 +77,8 @@ type PaneState = PaneLayout & { overlayOpen: boolean; own: boolean };
 
 let state: PaneState | null = null;
 
+let lastNarrow: boolean | null = null;
+
 const listeners = new Set<() => void>();
 
 function current(): PaneState {
@@ -152,8 +154,13 @@ export function useShellPanes() {
   const layout = useSyncExternalStore(subscribe, current, current);
   const narrow = useMediaQuery(NARROW_QUERY);
 
-  // Crossing the breakpoint either way starts the overlay closed.
+  // Crossing the breakpoint either way starts the overlay closed. Every
+  // consumer runs this, so only a change from the width last seen counts; a
+  // pane mounting in another section must not close it.
   useEffect(() => {
+    if (narrow === lastNarrow) return;
+    lastNarrow = narrow;
+
     if (current().overlayOpen) update(() => ({ overlayOpen: false }));
   }, [narrow]);
 
@@ -176,4 +183,5 @@ export function useShellPanes() {
 /** Forget the cached state; tests call this after changing storage. */
 export function resetPanesForTests() {
   state = null;
+  lastNarrow = null;
 }

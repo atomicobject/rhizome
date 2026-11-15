@@ -42,8 +42,11 @@ export function boundedContext(context: AgentViewContext): AgentViewContext {
   return bounded;
 }
 
+/** The same page: two notes titled alike in different folders are not. */
 export function sameContext(a?: AgentViewContext | null, b?: AgentViewContext | null) {
-  return a?.kind === b?.kind && a?.title === b?.title;
+  return (
+    a?.kind === b?.kind && a?.title === b?.title && a?.path === b?.path && a?.viewId === b?.viewId
+  );
 }
 
 /** What the route alone says the user is looking at. */
