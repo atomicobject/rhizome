@@ -251,6 +251,40 @@ describe("chat's agent picker", () => {
     expect(await screen.findByRole("button", { name: "Ask first" })).toBeVisible();
   });
 
+  it("offers the picker on a fresh setup with no agent installed, and choosing one says it isn't installed", async () => {
+    response.settings = {
+      harnesses: { claude: { permissionMode: "auto" }, codex: { permissionMode: "auto" } },
+    };
+    response.resolved = { reason: "none available" };
+
+    for (const item of response.harnesses)
+      item.status = { ...item.status, installed: false, loggedIn: false, models: [] };
+
+    render(<Composer />);
+
+    expect(await screen.findByText(/No coding agent is installed/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Choose a model" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Auto" })).toBeNull();
+
+    act(() => {
+      fireEvent.keyDown(window, { key: "M", code: "KeyM", shiftKey: true, ctrlKey: true });
+    });
+    const picker = screen.getByRole("dialog", { name: "Choose a model" });
+    expect(
+      within(picker)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["Claude CodeCtrl+1", "CodexCtrl+2"]);
+    expect(within(picker).getAllByRole("group")[1]).toHaveTextContent(/^Codex· not installed/);
+    fireEvent.click(within(picker).getByRole("option", { name: /Codex/ }));
+
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+    expect(saved()).toMatchObject({ harness: "codex", harnesses: { codex: { model: "" } } });
+    expect(await screen.findByText(/Codex isn't installed/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Codex" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  });
+
   it("hides an agent turned off in Settings", async () => {
     response.settings.harnesses.codex.disabled = true;
     render(<Composer />);

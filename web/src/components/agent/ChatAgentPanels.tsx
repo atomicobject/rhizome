@@ -111,12 +111,12 @@ export function ModelPicker({
   anchor,
   reasoning,
   onClose,
-}: PanelProps & { reasoning: boolean }) {
+}: Omit<PanelProps, "choice"> & { choice?: ChatChoice; reasoning: boolean }) {
   const { response } = agent;
   const [query, setQuery] = useState("");
   const groups = agentGroups(response, query);
   const rows = groups.flatMap((group) => group.rows);
-  const isCurrent = (row: ModelRow) => row.harness === choice.harness && row.id === choice.model;
+  const isCurrent = (row: ModelRow) => row.harness === choice?.harness && row.id === choice.model;
   const [active, setActive] = useState(() => Math.max(0, rows.findIndex(isCurrent)));
   const panel = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);
@@ -126,9 +126,10 @@ export function ModelPicker({
 
   useOutsidePress(panel, anchor, onClose);
 
-  const model = modelFor(statusOf(response, choice.harness), choice.model);
+  // With nothing chosen yet there is no model, so no Reasoning column.
+  const model = choice && modelFor(statusOf(response, choice.harness), choice.model);
   const efforts = effortRows(model);
-  const effort = effortFor(model, choice.effort);
+  const effort = effortFor(model, choice?.effort ?? "");
 
   const focusEfforts = () =>
     panel.current?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')?.focus();
@@ -294,7 +295,7 @@ export function ModelPicker({
                   tabIndex={checked ? 0 : -1}
                   className="chat-model-picker__effort"
                   onKeyDown={onEffortKeyDown}
-                  onClick={() => agent.choose({ ...choice, effort: row.value })}
+                  onClick={() => choice && agent.choose({ ...choice, effort: row.value })}
                 >
                   <span>{row.label}</span>
                   {checked ? (

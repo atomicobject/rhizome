@@ -65,6 +65,8 @@ type fakeSession struct {
 	responses   chan approvalResponse
 	stopped     chan struct{}
 	stopOnce    sync.Once
+	// modelGate, when set, holds SetModel until it closes or ctx ends.
+	modelGate chan struct{}
 	// respondHook, when set, runs before Respond records the decision.
 	respondHook func()
 }
@@ -89,9 +91,17 @@ func (f *fakeSession) SendTurn(ctx context.Context, prompt string) error {
 		return errors.New("stopped")
 	}
 }
-func (f *fakeSession) SetModel(_ context.Context, model, effort string) error {
+func (f *fakeSession) SetModel(ctx context.Context, model, effort string) error {
 	f.models <- [2]string{model, effort}
-	return nil
+	if f.modelGate == nil {
+		return nil
+	}
+	select {
+	case <-f.modelGate:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 func (f *fakeSession) Interrupt(context.Context) error { f.interrupts <- struct{}{}; return nil }
 func (f *fakeSession) Respond(requestID string, decision harness.Decision) error {
@@ -381,6 +391,43 @@ func TestServiceApprovalAndInterruptRoundTrips(t *testing.T) {
 	}
 	require.NotNil(t, approval)
 	require.True(t, approval.Result.AllowForSession)
+}
+
+func TestServiceStopDuringModelChangeEndsTurnWithoutSending(t *testing.T) {
+	env := setTestSettings(t, Settings{Harness: harness.KindCodex})
+	ctx := vaultconfig.WithEnv(context.Background(), env)
+	fake := newFakeHarness()
+	fake.session.modelGate = make(chan struct{})
+	service, err := NewService(ctx, t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, service.Close()) })
+	created, err := service.CreateSession(ctx, "Stop while changing model")
+	require.NoError(t, err)
+	sessionID := created.Session.ID
+	events, unsubscribe := service.Subscribe(sessionID)
+	t.Cleanup(unsubscribe)
+	_, err = service.SendMessage(ctx, sessionID, "work")
+	require.NoError(t, err)
+	<-fake.session.models
+
+	require.NoError(t, service.Interrupt(ctx, sessionID))
+
+	deadline := time.After(time.Second)
+	for completed := false; !completed; {
+		select {
+		case event := <-events:
+			completed = event.Type == string(harness.EventTurnCompleted)
+		case <-deadline:
+			t.Fatal("Stop did not end the turn waiting on the model change")
+		}
+	}
+	require.False(t, service.turnRunning(sessionID))
+	persisted, err := service.EventsAfter(ctx, sessionID, 0)
+	require.NoError(t, err)
+	require.Equal(t, []string{"interrupt-requested", string(harness.EventTurnCompleted)}, eventTypes(persisted))
+	require.Equal(t, "interrupted", persisted[1].Result.Status)
+	require.Empty(t, fake.session.turns, "no harness turn starts")
+	require.Empty(t, fake.session.interrupts, "the harness has no turn to interrupt")
 }
 
 func TestServiceRetryingErrorKeepsTurnRunningUntilCompletion(t *testing.T) {

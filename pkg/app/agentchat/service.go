@@ -42,9 +42,15 @@ type statusCacheEntry struct {
 
 type turnState struct {
 	// The model and effort the turn runs on, from the chat settings at send.
-	model     string
-	effort    string
-	assistant strings.Builder
+	model  string
+	effort string
+	// ctx covers the model change and the harness turn. Stop cancels it
+	// only before SendTurn, when the harness has no turn to interrupt.
+	ctx         context.Context
+	cancel      context.CancelFunc
+	started     bool
+	interrupted bool
+	assistant   strings.Builder
 	// The message item the last delta belonged to; a turn's separate
 	// messages, such as a progress note and its answer, become paragraphs.
 	assistantItem string
@@ -319,6 +325,7 @@ func (s *Service) SendMessage(ctx context.Context, sessionID, content string, vi
 		return SendMessageResponse{}, err
 	}
 	if _, err := s.store.AddMessage(s.ctx, sessionID, "user", content, viewContext); err != nil {
+		turn.cancel()
 		s.finishTurn(sessionID, live, turn)
 		return SendMessageResponse{}, err
 	}
@@ -331,18 +338,6 @@ func (s *Service) SendMessage(ctx context.Context, sessionID, content string, vi
 	// client cannot overwrite a terminal SSE event with a stale "running".
 	updated.TurnRunning = s.turnRunning(sessionID)
 	return SendMessageResponse{Session: updated}, nil
-}
-
-func (s *Service) sendTurn(session Session, live *liveSession, turn *turnState, content string) {
-	err := live.session.SetModel(s.ctx, turn.model, turn.effort)
-	if err == nil {
-		err = live.session.SendTurn(s.ctx, content)
-	}
-	if err != nil {
-		if s.finishTurn(session.ID, live, turn) && s.ctx.Err() == nil {
-			s.persistHarnessError(session.ID, session.Harness, err)
-		}
-	}
 }
 
 func (s *Service) beginTurn(session Session, settings Settings) (*liveSession, *turnState, error) {
@@ -432,7 +427,8 @@ func (s *Service) beginTurn(session Session, settings Settings) (*liveSession, *
 		close(live.ready)
 		go s.drainEvents(session.ID, session.Harness, live)
 	}
-	turn := &turnState{model: model, effort: effort}
+	turnCtx, cancelTurn := context.WithCancel(s.ctx)
+	turn := &turnState{model: model, effort: effort, ctx: turnCtx, cancel: cancelTurn}
 	live.running = true
 	live.turn = turn
 	s.mu.Unlock()

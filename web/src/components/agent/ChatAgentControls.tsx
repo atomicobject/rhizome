@@ -8,6 +8,7 @@ import { getAgentSettings, saveAgentSettings } from "../../api/internalAgentClie
 import { queryKeys } from "../../api/queryKeys";
 import type { AgentSession, AgentSettingsResponse } from "../../api/types";
 import {
+  agentGroups,
   blockerFor,
   type ChatChoice,
   choiceLabel,
@@ -213,14 +214,19 @@ export function ChatAgentControls({ agent }: { agent: ChatAgent }) {
   };
 
   const hasChoice = Boolean(choice);
+  // A fresh setup has no choice yet, but the picker still offers each agent that is on.
+  const hasPicker = agentGroups(response).length > 0;
 
   useEffect(() => {
-    if (!hasChoice) return;
+    if (!hasPicker) return;
 
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       const which = shortcutPanel(event.code);
 
       if (!which || !event.shiftKey || event.altKey || !commandKey(event)) return;
+
+      if (which === "modes" && !hasChoice) return;
+
       event.preventDefault();
       show(which);
     };
@@ -228,13 +234,13 @@ export function ChatAgentControls({ agent }: { agent: ChatAgent }) {
     window.addEventListener("keydown", onKeyDown);
 
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [hasChoice]);
+  }, [hasPicker, hasChoice]);
 
-  if (!choice) return null;
+  if (!hasPicker) return null;
 
-  const label = choiceLabel(response, choice);
+  const label = choice ? choiceLabel(response, choice) : { model: "Choose a model", effort: "" };
   const named = label.effort ? `${label.model} · ${label.effort}` : label.model;
-  const mode = PERMISSION_MODES.find((item) => item.mode === choice.permissionMode);
+  const mode = choice && PERMISSION_MODES.find((item) => item.mode === choice.permissionMode);
   const pickerOpen = open === "models" || open === "reasoning";
 
   return (
@@ -247,7 +253,7 @@ export function ChatAgentControls({ agent }: { agent: ChatAgent }) {
         aria-expanded={pickerOpen}
         aria-label={named}
         aria-keyshortcuts={IS_MAC ? "Shift+Meta+M" : "Control+Shift+M"}
-        title={`${HARNESS_LABELS[choice.harness]} · ${named} (${shortcut("M")})`}
+        title={`${choice ? `${HARNESS_LABELS[choice.harness]} · ` : ""}${named} (${shortcut("M")})`}
         onClick={() => (pickerOpen ? close(false) : show("models"))}
       >
         <span className="chat-agent-trigger__text">
@@ -261,19 +267,21 @@ export function ChatAgentControls({ agent }: { agent: ChatAgent }) {
         </span>
         <Chevron />
       </button>
-      <button
-        ref={modeButton}
-        type="button"
-        className="chat-agent-trigger"
-        aria-haspopup="menu"
-        aria-expanded={open === "modes"}
-        aria-keyshortcuts={IS_MAC ? "Shift+Meta+A" : "Control+Shift+A"}
-        title={`Permission mode (${shortcut("A")})`}
-        onClick={() => (open === "modes" ? close(false) : show("modes"))}
-      >
-        {mode?.label ?? choice.permissionMode}
-        <Chevron />
-      </button>
+      {choice ? (
+        <button
+          ref={modeButton}
+          type="button"
+          className="chat-agent-trigger"
+          aria-haspopup="menu"
+          aria-expanded={open === "modes"}
+          aria-keyshortcuts={IS_MAC ? "Shift+Meta+A" : "Control+Shift+A"}
+          title={`Permission mode (${shortcut("A")})`}
+          onClick={() => (open === "modes" ? close(false) : show("modes"))}
+        >
+          {mode?.label ?? choice.permissionMode}
+          <Chevron />
+        </button>
+      ) : null}
       {pickerOpen ? (
         <ModelPicker
           agent={agent}
@@ -283,7 +291,7 @@ export function ChatAgentControls({ agent }: { agent: ChatAgent }) {
           onClose={close}
         />
       ) : null}
-      {open === "modes" ? (
+      {open === "modes" && choice ? (
         <ModeMenu agent={agent} choice={choice} anchor={modeButton} onClose={close} />
       ) : null}
     </div>

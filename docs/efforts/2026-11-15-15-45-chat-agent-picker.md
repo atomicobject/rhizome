@@ -70,6 +70,7 @@ Built on `t3/chat-agent-model-picker`.
 - Review fixes (Greptile and GPT-6.1 Sol): a send waits for the choice it shows to save; a turn for an agent turned off in Settings is refused before its message is stored; the composer and the Settings switch each write only their own fields inside one locked rewrite of user configuration; a Claude model change and a turn never overlap; and a model change Claude never answers stops the session after five seconds, so the next turn resumes in a new process.
 - Greptile's second pass (4/5) found a failed choice save blocking every later send and the picker overflowing short windows; both fixed in `2610b42c2`, with a test shown to fail before the fix.
 - Greptile's third pass (4/5) found a message waiting on one save missing a choice made meanwhile, and the picker's 160px height floor still allowing it past the window's top; both fixed in `da1acd571`, with a test shown to fail before the fix.
+- Greptile's fourth pass found Stop not stopping a message still waiting on its model change, and a fresh setup with no agent installed and nothing saved hiding the picker; Stop now cancels the message before its harness turn starts and ends it as interrupted, and the picker (with ⇧⌘M) stays available, labelled "Choose a model", whenever an agent is on. Each fix has a test shown to fail before it.
 
 ## Compounding Follow-ups
 
