@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { type CSSProperties, lazy, Suspense, useEffect, useRef, useState } from "react";
 
 import { getStatus } from "../api/client";
 import { vaultLabel } from "../lib/labels";
@@ -267,6 +267,8 @@ function DesktopReporter({ route }: { route: Route }) {
   return null;
 }
 
+type BodyStyle = CSSProperties & { "--sidebar-space": string };
+
 export function AppShell() {
   const snapshot = useLocationSnapshot();
   const route = normalizeRouteLocation();
@@ -279,6 +281,13 @@ export function AppShell() {
       : null;
 
   const [notesVisited, setNotesVisited] = useState(route === "notes");
+
+  // The Chat-only pane leaves the section about 640px beside the sidebar.
+  const workbenchSidebar = useWorkbenchSidebar();
+
+  const bodyStyle: BodyStyle = {
+    "--sidebar-space": workbenchSidebar.collapsed ? "0px" : `${workbenchSidebar.width}px`,
+  };
 
   const notesSearch =
     route === "notes" &&
@@ -453,7 +462,7 @@ export function AppShell() {
         onStatusChange={setStatus}
         rebuilding={summaryQuery.data?.rebuilding}
       />
-      <div className="app-shell__body">
+      <div className="app-shell__body" style={bodyStyle}>
         <div className="app-shell__main">
           <OntologyEditSessionProvider vaultKey={status?.vaultPath || null}>
             <ErrorBoundary resetKey={route} label="Rhizome could not render this view">

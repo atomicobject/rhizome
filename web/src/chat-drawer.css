@@ -34,7 +34,7 @@
   flex-direction: column;
   width: var(--pane-width);
   /* A wide pane never leaves the section less than about 640px. */
-  max-width: max(280px, calc(100% - 640px));
+  max-width: max(280px, calc(100% - 640px - var(--sidebar-space, 0px)));
   min-height: 0;
   /* The border covers the card's right outline, so the seam is one line. */
   margin: 0 6px 6px -1px;

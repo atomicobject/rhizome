@@ -113,6 +113,15 @@ export function useAgentThread(sessionID: string, describePage: () => PageIdenti
   // Counts terminal turn events per session, so a slow send reply cannot revive a finished turn.
   const terminalEventsRef = useRef(new Map<string, number>());
   const describePageRef = useRef(describePage);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   describePageRef.current = describePage;
 
@@ -271,7 +280,9 @@ export function useAgentThread(sessionID: string, describePage: () => PageIdenti
       const response = await sendAgentMessage(targetID, content, context);
       const { turnRunning: _stale, ...settled } = response.session;
       const turnEnded = (terminalEventsRef.current.get(targetID) ?? 0) !== terminalsBefore;
-      updateSession(targetID, turnEnded ? settled : response.session);
+      // A thread that unmounted while the reply was on its way stopped hearing
+      // the stream, so it cannot know the turn is still running.
+      updateSession(targetID, turnEnded || !mounted.current ? settled : response.session);
 
       if (turnEnded) setStartedID("");
     } catch (cause) {

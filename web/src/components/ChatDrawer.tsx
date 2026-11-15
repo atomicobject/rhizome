@@ -453,7 +453,7 @@ export function ChatDrawer() {
   const ref = useRef<HTMLElement>(null);
   const panes = useShellPanes();
 
-  if (panes.paneCollapsed) return null;
+  if (!panes.chatOpen) return null;
 
   const style: DrawerStyle = { "--pane-width": `${panes.paneWidth}px` };
 

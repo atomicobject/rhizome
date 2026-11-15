@@ -105,9 +105,18 @@ test("persists the right pane and panel widths, and closes the pane on Home", as
   const paneHandle = page.getByRole("separator", { name: "Resize right pane" });
   await paneHandle.focus();
   await paneHandle.press("End");
+  // At its 720px maximum the pane stops where the note keeps about 640px.
+  await expect(paneHandle).toHaveAttribute("aria-valuenow", "720");
   await expect
-    .poll(() => page.getByRole("complementary", { name: "Note context" }).boundingBox())
-    .toMatchObject({ width: 720 });
+    .poll(() =>
+      page.evaluate(() => {
+        const pane = document.querySelector("#notes-right-pane")?.getBoundingClientRect();
+        const body = document.querySelector(".notes-shell__body")?.getBoundingClientRect();
+
+        return pane && body ? Math.round(body.width - pane.width) : 0;
+      }),
+    )
+    .toBe(640);
 
   // Home has nothing of its own for the pane, so it keeps its width until
   // the person chooses Chat from the one toggle.

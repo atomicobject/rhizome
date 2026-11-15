@@ -288,6 +288,8 @@
 }
 
 .notes-shell__body {
+  /* The right pane's width is capped against this body's width (cqw). */
+  container-type: inline-size;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   min-height: 0;
@@ -551,6 +553,8 @@
   display: flex;
   flex-direction: column;
   width: var(--pane-width);
+  /* A wide pane never leaves the note or table less than about 640px. */
+  max-width: max(280px, calc(100cqw - 640px));
   min-width: 0;
   min-height: 0;
   border-left: 1px solid var(--border);
@@ -564,6 +568,8 @@
   inset: 0 0 0 auto;
   grid-column: 1 / -1;
   width: min(var(--pane-width), 100%);
+  /* Covering the content, it needs no room left beside it. */
+  max-width: none;
   border-left-color: var(--border-strong);
   box-shadow: var(--shadow-lg);
 }

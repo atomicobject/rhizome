@@ -173,6 +173,12 @@ export function useShellPanes() {
     paneWidth: layout.pane,
     paneCollapsed:
       !(layout.own || layout.chat) || (narrow ? !layout.overlayOpen : layout.paneCollapsed),
+    /**
+     * Chat is the chosen tab and the pane is open. The Chat-only pane shows on
+     * this alone, so a section's report of its own content, which lags a
+     * render behind navigation, never flashes it open.
+     */
+    chatOpen: layout.chat && (narrow ? layout.overlayOpen : !layout.paneCollapsed),
     /** The pane, when open, covers the content instead of narrowing it. */
     paneOverlay: narrow,
     chat: layout.chat,
