@@ -90,6 +90,7 @@ func (s *Service) harnessStatus(ctx context.Context, kind harness.Kind, driver h
 	now := time.Now()
 	s.mu.Lock()
 	cached, ok := s.status[kind]
+	generation := s.statusGeneration
 	s.mu.Unlock()
 	if ok && now.Sub(cached.checkedAt) < statusCacheTTL {
 		return cached.status
@@ -99,16 +100,27 @@ func (s *Service) harnessStatus(ctx context.Context, kind harness.Kind, driver h
 	// cached failure that hides an installed harness.
 	status := probeStatus(context.WithoutCancel(ctx), kind, driver)
 	s.mu.Lock()
-	s.status[kind] = statusCacheEntry{status: status, checkedAt: now}
+	// A probe that began before ForgetHarnessStatus may predate the change
+	// the person asked to see, so it does not replace the cache.
+	if s.statusGeneration == generation {
+		s.status[kind] = statusCacheEntry{status: status, checkedAt: now}
+	}
 	s.mu.Unlock()
 	return status
 }
 
-// ForgetHarnessStatus drops every cached probe, so the next read probes again.
+// ForgetHarnessStatus drops every cached probe and each driver's cached CLI
+// version, so the next read probes again and sees an upgraded CLI.
 func (s *Service) ForgetHarnessStatus() {
 	s.mu.Lock()
 	clear(s.status)
+	s.statusGeneration++
 	s.mu.Unlock()
+	for _, driver := range s.harnesses {
+		if forgetter, ok := driver.(interface{ ForgetVersion() }); ok {
+			forgetter.ForgetVersion()
+		}
+	}
 }
 
 func (s *Service) cachedHarnessStatus(kind harness.Kind) harness.Status {

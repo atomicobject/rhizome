@@ -70,16 +70,33 @@ describe("AgentWorkspace", () => {
     },
   );
 
-  it("shows the resolution reason when no harness is configured", async () => {
-    const response = settingsWith(readyStatus);
+  it("shows no harness as chosen and says chat is not set up when none is available", async () => {
+    const response = settingsWith({ installed: false, loggedIn: false, capabilities });
     response.settings.harness = undefined;
-    response.resolved.reason = "first available";
+    response.resolved = { reason: "none available" };
     http
       .json("GET", "/api/agent/settings", response)
       .json("GET", "/api/agent/sessions", { sessions: [] });
 
     render(<AgentWorkspace />);
-    expect(await screen.findByText("Resolved: first available")).toBeVisible();
+    expect(await screen.findByText("Chat not set up")).toBeVisible();
+    expect(screen.getByLabelText("Harness")).toHaveValue("");
+    expect(screen.queryByLabelText("Model")).toBeNull();
+  });
+
+  it.each([
+    ["a model the harness no longer offers", readyStatus, "fake", "Codex · GPT Standard"],
+    [
+      "a model kept while the harness reported none",
+      { ...readyStatus, models: [] },
+      "gpt-saved",
+      "Codex · gpt-saved",
+    ],
+  ])("names the model a session runs, for %s", async (_, status, model, label) => {
+    setup(http, { status, current: session({ model }) });
+
+    render(<AgentWorkspace />);
+    expect(await screen.findByText(new RegExp(`^${label} ·`))).toBeVisible();
   });
 
   it("offers example questions in an empty thread that fill the composer", async () => {

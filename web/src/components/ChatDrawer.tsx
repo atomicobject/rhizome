@@ -234,7 +234,7 @@ export function ChatPanel() {
   const status = settings.harnesses.find((item) => item.kind === harness)?.status;
   const blocked = settingsQuery.isSuccess && harnessBlocked(harness, status);
   const mode = harness ? settings.settings.harnesses[harness].permissionMode : "auto";
-  const model = chatModelLabel(settings, harness, session?.model);
+  const model = chatModelLabel(settings, harness, session);
 
   // The store holds a send from the first keypress until it returns, so a
   // second Enter, even from a pane mounted meanwhile, cannot start a second

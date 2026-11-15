@@ -92,4 +92,7 @@ func TestResolveHarness(t *testing.T) {
 	}
 	require.Equal(t, "gpt-test", resolveHarness(configured("gpt-test"), []HarnessStatus{offered}).Model)
 	require.Empty(t, resolveHarness(configured("fake"), []HarnessStatus{offered}).Model, "a model the harness does not offer falls back to its default")
+	unlisted := HarnessStatus{Kind: harness.KindCodex, Status: Status{Installed: true}}
+	require.Equal(t, "gpt-saved", resolveHarness(configured("gpt-saved"), []HarnessStatus{unlisted}).Model, "a harness that reported no models, such as after a failed probe, keeps the saved model")
+	require.Empty(t, resolveHarness(configured("gpt-saved"), []HarnessStatus{{Kind: harness.KindCodex}}).Model, "a harness that is not installed runs no model")
 }

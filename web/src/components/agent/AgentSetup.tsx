@@ -40,22 +40,42 @@ export function needsHarnessChoice(response: AgentSettingsResponse) {
 }
 
 /**
- * The model chat runs: the session's, else the server's resolved model, else
- * the harness's default. Never the saved setting, which may name a model the
- * harness no longer offers.
+ * The model chat runs, by the server's rule: a session's model while its
+ * harness offers it (a harness that reported no models keeps it), else the
+ * harness's default; with no session yet, the server's resolved model.
  */
 export function chatModelLabel(
   response: AgentSettingsResponse,
   harness: AgentHarnessKind | undefined,
-  sessionModel?: string,
+  session?: { model?: string },
 ) {
-  const models = response.harnesses.find((item) => item.kind === harness)?.status.models ?? [];
-  const id = sessionModel || (harness === response.resolved.harness ? response.resolved.model : "");
+  const status = response.harnesses.find((item) => item.kind === harness)?.status;
+  const models = status?.models ?? [];
+  const resolved = harness === response.resolved.harness ? response.resolved.model : "";
+  const wanted = session ? session.model : resolved;
+  const offered = models.length === 0 || models.some((option) => option.id === wanted);
+  const id = status?.installed && offered ? wanted : "";
 
   if (id) return models.find((option) => option.id === id)?.displayName || id;
 
   return (models.find((option) => option.default) ?? models[0])?.displayName;
 }
+
+/**
+ * Applies a settings reply after cancelling settings reads still in flight,
+ * which began before it and would otherwise land after it with the old choice.
+ */
+export function useStoreAgentSettings() {
+  const queryClient = useQueryClient();
+
+  return async (next: AgentSettingsResponse) => {
+    await queryClient.cancelQueries({ queryKey: queryKeys.agent.settings() });
+    queryClient.setQueryData(queryKeys.agent.settings(), next);
+  };
+}
+
+/** Saves and "Check again" run one at a time, so the last one started lands last. */
+export const AGENT_SETTINGS_SCOPE = { id: "agent-settings" };
 
 export function CopyCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
@@ -112,21 +132,19 @@ export function AgentSetup({
   /** True when no turn can run until a harness is installed or chosen. */
   blocked: boolean;
 }) {
-  const queryClient = useQueryClient();
   const titleID = useId();
-
-  const store = (next: AgentSettingsResponse) =>
-    queryClient.setQueryData(queryKeys.agent.settings(), next);
+  const store = useStoreAgentSettings();
 
   const choose = useMutation({
     mutationFn: (kind: AgentHarnessKind) =>
       saveAgentSettings({ ...response.settings, harness: kind }),
-    scope: { id: "agent-settings" },
+    scope: AGENT_SETTINGS_SCOPE,
     onSuccess: store,
   });
 
   const recheck = useMutation({
     mutationFn: () => getAgentSettings({ refresh: true }),
+    scope: AGENT_SETTINGS_SCOPE,
     onSuccess: store,
   });
 

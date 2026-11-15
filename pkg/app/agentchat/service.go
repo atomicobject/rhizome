@@ -74,6 +74,7 @@ type Service struct {
 	eventWriteMu     sync.Mutex
 	live             map[string]*liveSession
 	status           map[harness.Kind]statusCacheEntry
+	statusGeneration uint64
 	closeOnce        sync.Once
 	closeError       error
 	transientEventID atomic.Int64
@@ -162,15 +163,21 @@ func resolveHarness(settings Settings, statuses []HarnessStatus) ResolvedHarness
 		}
 	}
 	if resolved.Harness != "" {
-		resolved.Model = offeredModel(settings.Harnesses[resolved.Harness].Model, byKind[resolved.Harness].Models)
+		status := byKind[resolved.Harness]
+		resolved.Model = effectiveModel(settings.Harnesses[resolved.Harness].Model, status.Installed, status.Models)
 	}
 	return resolved
 }
 
-// offeredModel keeps a configured model only while the harness offers it, so a
-// stale or mistyped setting falls back to the harness's default.
-func offeredModel(model string, offered []harness.ModelOption) string {
-	if slices.ContainsFunc(offered, func(option harness.ModelOption) bool { return option.ID == model }) {
+// effectiveModel is the model a turn runs, empty for the harness's default. A
+// stale or mistyped model falls back to the default, but only against a model
+// list: a harness that reported none, because its probe failed or it reported
+// no account, keeps the configured model.
+func effectiveModel(model string, installed bool, offered []harness.ModelOption) string {
+	if !installed {
+		return ""
+	}
+	if len(offered) == 0 || slices.ContainsFunc(offered, func(option harness.ModelOption) bool { return option.ID == model }) {
 		return model
 	}
 	return ""
@@ -315,9 +322,9 @@ func (s *Service) beginTurn(session Session, settings Settings) (*liveSession, *
 		s.mu.Unlock()
 
 		configured := settings.Harnesses[session.Harness]
+		status := s.harnessStatus(s.ctx, session.Harness, driver)
 		options := harness.SessionOptions{
-			// A session keeps its model only while the harness still offers it.
-			Cwd: s.vaultPath, Model: offeredModel(session.Model, s.harnessStatus(s.ctx, session.Harness, driver).Models),
+			Cwd: s.vaultPath, Model: effectiveModel(session.Model, status.Installed, status.Models),
 			Effort:         configured.Effort,
 			PermissionMode: configured.PermissionMode, Resume: session.HarnessSessionID,
 			Instructions: chatInstructions,

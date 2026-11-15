@@ -28,16 +28,17 @@ type commandRunner interface {
 }
 
 type Driver struct {
-	binary          string
-	start           transportStarter
-	runner          commandRunner
-	cancelTimeout   time.Duration
-	shutdownTimeout time.Duration
-	versionMu       sync.Mutex
-	versionAt       time.Time
-	versionValue    string
-	versionErr      error
-	versionProbe    *versionProbe
+	binary            string
+	start             transportStarter
+	runner            commandRunner
+	cancelTimeout     time.Duration
+	shutdownTimeout   time.Duration
+	versionMu         sync.Mutex
+	versionAt         time.Time
+	versionValue      string
+	versionErr        error
+	versionProbe      *versionProbe
+	versionGeneration uint64
 }
 
 func New() *Driver {

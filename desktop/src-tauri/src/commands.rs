@@ -463,7 +463,7 @@ pub async fn desktop_request(
             .await
         }
         Action::ChatSettingsSet { harness, model } => {
-            crate::credentials::update(
+            let result = crate::credentials::update(
                 &state.directory,
                 Request {
                     operation: "chat-settings-set",
@@ -473,7 +473,11 @@ pub async fn desktop_request(
                 },
                 &state.global,
             )
-            .await
+            .await;
+            if result.is_ok() {
+                crate::page::agent_settings_changed(&app);
+            }
+            result
         }
         Action::OpenChatInstall { harness } => {
             let url = match harness.as_str() {

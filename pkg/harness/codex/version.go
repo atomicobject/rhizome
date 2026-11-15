@@ -39,12 +39,15 @@ func (d *Driver) checkedVersion(ctx context.Context, path string) (string, error
 		if probe == nil {
 			probe = &versionProbe{done: make(chan struct{})}
 			d.versionProbe = probe
+			generation := d.versionGeneration
 			d.versionMu.Unlock()
 			result, err := d.runner.Run(ctx, command.Spec{Path: path, Args: []string{"--version"}})
 			probe.version, probe.err = codexVersionResult(ctx, result, err)
 			d.versionMu.Lock()
-			d.versionProbe = nil
-			if !errors.Is(probe.err, harness.ErrTimeout) {
+			if d.versionProbe == probe {
+				d.versionProbe = nil
+			}
+			if d.versionGeneration == generation && !errors.Is(probe.err, harness.ErrTimeout) {
 				d.versionAt, d.versionValue, d.versionErr = time.Now(), probe.version, probe.err
 			}
 			d.versionMu.Unlock()
@@ -62,6 +65,16 @@ func (d *Driver) checkedVersion(ctx context.Context, path string) (string, error
 			return "", harness.Phase(harness.ErrTimeout, ctx.Err())
 		}
 	}
+}
+
+// ForgetVersion drops the cached --version result, so the next status probe
+// runs the CLI again and sees an upgrade. A probe already running neither
+// serves later callers nor caches its result.
+func (d *Driver) ForgetVersion() {
+	d.versionMu.Lock()
+	d.versionAt, d.versionProbe = time.Time{}, nil
+	d.versionGeneration++
+	d.versionMu.Unlock()
 }
 
 func codexVersionResult(ctx context.Context, result command.Result, err error) (string, error) {

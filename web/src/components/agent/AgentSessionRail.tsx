@@ -108,8 +108,6 @@ export function AgentSessionRail({
       </div>
       <AgentSettingsPanel
         settings={settings.settings}
-        resolvedHarness={settings.resolved.harness}
-        resolutionReason={settings.resolved.reason}
         statuses={settings.harnesses}
         saving={settingsSaving}
         onChange={onSettingsChange}

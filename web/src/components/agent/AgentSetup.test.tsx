@@ -1,8 +1,9 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { queryKeys } from "../../api/queryKeys";
 import type { AgentSettingsResponse } from "../../api/types";
-import { withFakeFetch } from "../../test/fakeFetch";
+import { deferredReply, withFakeFetch } from "../../test/fakeFetch";
 import { renderWithQueryClient as render } from "../../test/renderWithQueryClient";
 import { capabilities, readyStatus } from "../AgentWorkspace.test-support";
 import { AgentSetup } from "./AgentSetup";
@@ -102,5 +103,31 @@ describe("the chat setup card", () => {
 
     await waitFor(() => expect(http.count("GET", "/api/agent/settings")).toBe(1));
     expect(http.requests("GET", "/api/agent/settings")[0]?.query.get("refresh")).toBe("1");
+  });
+
+  it("keeps a choice saved while an earlier check was still running", async () => {
+    const both = response();
+    both.harnesses = [
+      { kind: "codex", status: readyStatus },
+      { kind: "claude", status: readyStatus },
+    ];
+    const check = deferredReply<AgentSettingsResponse>();
+    http.on("GET", "/api/agent/settings", () => check.promise);
+    http.json("PUT", "/api/agent/settings", {
+      ...both,
+      settings: { ...both.settings, harness: "claude" },
+    });
+    const { queryClient } = render(<AgentSetup response={both} blocked={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Claude Code" }));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+    check.resolve(both);
+
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    expect(http.count("PUT", "/api/agent/settings")).toBe(1);
+    expect(
+      queryClient.getQueryData<AgentSettingsResponse>(queryKeys.agent.settings())?.settings.harness,
+    ).toBe("claude");
   });
 });

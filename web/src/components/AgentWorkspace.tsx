@@ -12,7 +12,13 @@ import {
 } from "../api/internalAgentClient";
 import { queryKeys } from "../api/queryKeys";
 import type { AgentApprovalDecision, AgentSession, AgentSessionsResponse } from "../api/types";
-import { AgentSetup, chatModelLabel, needsHarnessChoice } from "./agent/AgentSetup";
+import {
+  AGENT_SETTINGS_SCOPE,
+  AgentSetup,
+  chatModelLabel,
+  needsHarnessChoice,
+  useStoreAgentSettings,
+} from "./agent/AgentSetup";
 import { emptySettingsResponse } from "./agent/AgentSettingsPanel";
 import { AgentSessionRail } from "./agent/AgentSessionRail";
 import { AgentStatusHeader, harnessBlocked } from "./agent/AgentStatusHeader";
@@ -82,10 +88,12 @@ export function AgentWorkspace({
     [queryClient],
   );
 
+  const storeSettings = useStoreAgentSettings();
+
   const settingsMutation = useMutation({
     mutationFn: saveAgentSettings,
-    scope: { id: "agent-settings" },
-    onSuccess: (response) => queryClient.setQueryData(queryKeys.agent.settings(), response),
+    scope: AGENT_SETTINGS_SCOPE,
+    onSuccess: storeSettings,
   });
 
   useEffect(() => {
@@ -179,7 +187,7 @@ export function AgentWorkspace({
 
   const status = settingsResponse.harnesses.find((item) => item.kind === harness)?.status;
 
-  const model = chatModelLabel(settingsResponse, harness, selectedSession?.model);
+  const model = chatModelLabel(settingsResponse, harness, selectedSession ?? undefined);
 
   const busy = isSending || Boolean(selectedSession?.turnRunning);
 
@@ -242,7 +250,6 @@ export function AgentWorkspace({
           session={selectedSession}
           harness={harness}
           status={status}
-          resolutionReason={settingsResponse.resolved.reason}
           messageCount={messages.length}
           model={model}
         />

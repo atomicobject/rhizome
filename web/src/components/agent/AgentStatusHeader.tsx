@@ -7,12 +7,11 @@ type Props = {
   session: AgentSession | null;
   harness: AgentHarnessKind | undefined;
   status: AgentHarnessStatus | undefined;
-  resolutionReason: string;
   messageCount: number;
   model: string | undefined;
 };
 
-const harnessName = (kind?: AgentHarnessKind) => (kind ? HARNESS_LABELS[kind] : "No harness");
+const harnessName = (kind: AgentHarnessKind) => HARNESS_LABELS[kind];
 
 const installHint = (kind?: AgentHarnessKind) =>
   kind === "claude" ? "Install Claude Code to use chat." : "Install the Codex CLI to use chat.";
@@ -27,14 +26,7 @@ export function harnessBlocked(
   return !harness || (status !== undefined && !status.installed);
 }
 
-export function AgentStatusHeader({
-  session,
-  harness,
-  status,
-  resolutionReason,
-  messageCount,
-  model,
-}: Props) {
+export function AgentStatusHeader({ session, harness, status, messageCount, model }: Props) {
   let state = "Checking harness status…";
 
   if (session?.readOnly) {
@@ -49,9 +41,9 @@ export function AgentStatusHeader({
     } else {
       state = "Ready";
     }
-  } else if (!harness) {
-    state = resolutionReason;
   }
+
+  const shown = session?.harness || harness;
 
   // The version and account are diagnostics: behind a disclosure, and the
   // version only when the state line does not already name it.
@@ -70,8 +62,16 @@ export function AgentStatusHeader({
           </span>
         ) : null}
         <span className="view-header__about">
-          {harnessName(session?.harness || harness)} · {model ? `${model} · ` : ""}
-          {state === "Ready" ? <StatusMark tone="success" label={state} /> : state}
+          {shown ? (
+            <>
+              {harnessName(shown)} · {model ? `${model} · ` : ""}
+              {state === "Ready" ? <StatusMark tone="success" label={state} /> : state}
+            </>
+          ) : session?.readOnly ? (
+            state
+          ) : (
+            "Chat not set up"
+          )}
         </span>
         {details.length ? (
           <div className="view-header__actions">

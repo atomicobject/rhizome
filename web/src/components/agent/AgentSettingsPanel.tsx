@@ -25,8 +25,6 @@ type StatusEntry = { kind: AgentHarnessKind; status: AgentHarnessStatus };
 
 type Props = {
   settings: AgentSettings;
-  resolvedHarness?: AgentHarnessKind;
-  resolutionReason: string;
   statuses: StatusEntry[];
   saving: boolean;
   onChange: (settings: AgentSettings) => void;
@@ -36,19 +34,43 @@ function harnessKind(value: string): AgentHarnessKind {
   return value === "claude" ? "claude" : "codex";
 }
 
-function fallbackHarness(settings: AgentSettings, resolved?: AgentHarnessKind): AgentHarnessKind {
-  return settings.harness || resolved || "codex";
-}
+export function AgentSettingsPanel({ settings, statuses, saving, onChange }: Props) {
+  const harness = settings.harness;
 
-export function AgentSettingsPanel({
-  settings,
-  resolvedHarness,
-  resolutionReason,
-  statuses,
-  saving,
-  onChange,
-}: Props) {
-  const harness = fallbackHarness(settings, resolvedHarness);
+  const choose = (kind: AgentHarnessKind) => onChange({ ...settings, harness: kind });
+
+  const picker = (
+    <label>
+      Harness
+      <select
+        aria-label="Harness"
+        value={harness ?? ""}
+        disabled={saving}
+        onChange={(event) => choose(harnessKind(event.target.value))}
+      >
+        {harness ? null : (
+          <option value="" disabled>
+            Choose…
+          </option>
+        )}
+        {(["codex", "claude"] as const).map((kind) => (
+          <option key={kind} value={kind}>
+            {HARNESS_LABELS[kind]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  // Nothing reads as chosen until the person picks a harness.
+  if (!harness) {
+    return (
+      <section className="agent-settings" aria-label="Harness settings">
+        <div className="agent-model-controls">{picker}</div>
+      </section>
+    );
+  }
+
   const configured = settings.harnesses[harness];
   const status = statuses.find((item) => item.kind === harness)?.status;
   const models = status?.models ?? [];
@@ -62,42 +84,20 @@ export function AgentSettingsPanel({
   // A harness that reports no modes still shows the configured one, not an empty box.
   const modeOptions = permissionModes.length ? permissionModes : [configured.permissionMode];
 
-  const updateHarnessSettings = (
-    kind: AgentHarnessKind,
-    change: Partial<AgentSettings["harnesses"][AgentHarnessKind]>,
-  ) => {
+  const updateHarnessSettings = (change: Partial<AgentSettings["harnesses"][AgentHarnessKind]>) => {
     onChange({
       ...settings,
-      harness: kind,
       harnesses: {
         ...settings.harnesses,
-        [kind]: { ...settings.harnesses[kind], ...change },
+        [harness]: { ...configured, ...change },
       },
     });
   };
 
   return (
     <section className="agent-settings" aria-label="Harness settings">
-      {!settings.harness ? <p className="agent-muted">Resolved: {resolutionReason}</p> : null}
       <div className="agent-model-controls">
-        <label>
-          Harness
-          <select
-            aria-label="Harness"
-            value={harness}
-            disabled={saving}
-            onChange={(event) => {
-              const kind = harnessKind(event.target.value);
-              updateHarnessSettings(kind, {});
-            }}
-          >
-            {(["codex", "claude"] as const).map((kind) => (
-              <option key={kind} value={kind}>
-                {HARNESS_LABELS[kind]}
-              </option>
-            ))}
-          </select>
-        </label>
+        {picker}
         <label>
           Model
           <select
@@ -107,7 +107,7 @@ export function AgentSettingsPanel({
             onChange={(event) => {
               const nextModel = models.find((item) => item.id === event.target.value);
               const nextEfforts = nextModel?.efforts ?? [];
-              updateHarnessSettings(harness, {
+              updateHarnessSettings({
                 model: event.target.value,
                 effort: nextEfforts.includes(configured.effort || "") ? configured.effort : "",
               });
@@ -144,7 +144,7 @@ export function AgentSettingsPanel({
               aria-label="Reasoning effort"
               value={efforts.includes(configured.effort || "") ? configured.effort : ""}
               disabled={saving || efforts.length === 0}
-              onChange={(event) => updateHarnessSettings(harness, { effort: event.target.value })}
+              onChange={(event) => updateHarnessSettings({ effort: event.target.value })}
             >
               <option value="">Default</option>
               {efforts.map((effort) => (
@@ -161,7 +161,7 @@ export function AgentSettingsPanel({
               value={configured.permissionMode}
               disabled={saving || permissionModes.length === 0}
               onChange={(event) =>
-                updateHarnessSettings(harness, {
+                updateHarnessSettings({
                   permissionMode:
                     permissionModes.find((mode) => mode === event.target.value) ||
                     configured.permissionMode,
