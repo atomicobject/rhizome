@@ -337,7 +337,7 @@
 
 .agent-message {
   flex: 0 0 auto;
-  max-width: 78ch;
+  max-width: min(78ch, 100%);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   padding: var(--sp-5);
