@@ -54,6 +54,10 @@ func TestShippedGuidanceNamesRealCommandsAndFlags(t *testing.T) {
 		{literal: "rzm agent surface && rzm agent nonexistent", wrong: true},
 		{literal: "rzm compounding itme --ref <ref>", wrong: true},
 		{literal: "rzm compounding item --reference <ref>", wrong: true},
+		{literal: "rzm agent code --help 2>&1 | head"},
+		{literal: "rzm agent code execute < script.js --bogus", wrong: true},
+		{literal: "rzm agent code execute <script.js --bogus", wrong: true},
+		{literal: "rzm agent code execute <<'JS' 2>&1 >>log --bogus", wrong: true},
 	} {
 		require.Equal(t, tc.wrong, check(tc.literal) != "", "check(%q) = %q", tc.literal, check(tc.literal))
 	}
@@ -242,17 +246,22 @@ func invokesRzm(text string) bool {
 
 // shellCommands splits a command line into the words of each command,
 // honoring quotes. Pipes and lists (`|`, `||`, `&&`, `;`, `&`) separate
-// commands, a redirect ends its command's words, and a comment ends the line.
-// Leading variable assignments are dropped.
+// commands, a redirect's operator and target word are dropped, and a comment
+// ends the line. Leading variable assignments are dropped.
 func shellCommands(line string) [][]string {
 	var commands [][]string
 	var words []string
 	var word strings.Builder
-	inWord, redirected := false, false
+	inWord, target := false, false
 	var quote rune
 	flush := func() {
-		if inWord && !redirected && (len(words) > 0 || !shellAssignment.MatchString(word.String())) {
-			words = append(words, word.String())
+		if inWord {
+			switch {
+			case target:
+				target = false
+			case len(words) > 0 || !shellAssignment.MatchString(word.String()):
+				words = append(words, word.String())
+			}
 		}
 		word.Reset()
 		inWord = false
@@ -262,7 +271,7 @@ func shellCommands(line string) [][]string {
 		if len(words) > 0 {
 			commands = append(commands, words)
 		}
-		words, redirected = nil, false
+		words, target = nil, false
 	}
 	runes := []rune(line)
 	for i := 0; i < len(runes); i++ {
@@ -282,11 +291,19 @@ func shellCommands(line string) [][]string {
 			inWord = true
 		case r == ' ' || r == '\t':
 			flush()
+		case r == '<' || r == '>' || r == '&' && i+1 < len(runes) && runes[i+1] == '>':
+			// A file descriptor written against the operator (`2>`) is part of it.
+			if inWord && word.Len() > 0 && strings.Trim(word.String(), "0123456789") == "" {
+				word.Reset()
+				inWord = false
+			}
+			flush()
+			for i+1 < len(runes) && strings.ContainsRune("<>&|", runes[i+1]) {
+				i++
+			}
+			target = true
 		case strings.ContainsRune("|&;", r):
 			end()
-		case r == '<' || r == '>':
-			flush()
-			redirected = true
 		case r == '#' && !inWord:
 			end()
 			return commands
