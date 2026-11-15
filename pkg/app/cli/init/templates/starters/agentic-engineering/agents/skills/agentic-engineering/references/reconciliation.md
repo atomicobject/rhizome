@@ -11,4 +11,4 @@ Closed efforts are historical record: append post-closure-prefixed notes rather 
 
 Separate mechanical clarification from a product or policy change. Record an already-approved change; ask for the accountable decision only when one has not been made. Effort-specific rationale stays in execution notes.
 
-For workspace frozen membership, inspect the explicit `frozen-scope` material and its focused frozen sections. Keep governing links, entry mentions, and a different log snapshot separate. Missing selectors or incomplete section evidence leave authority unknown. Deduplicate canonical source reads when scope and log share a file.
+For a workspace effort's frozen membership, read [Author the chosen form](effort-setup.md#author-the-chosen-form) before deciding which scope is frozen. That section owns the selection rules and incomplete-evidence cases.

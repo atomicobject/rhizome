@@ -11,12 +11,12 @@ reference-kind: assessment
 status: draft
 assessment-date: [PLACEHOLDER: YYYY-MM-DD of this run]
 path: [PLACEHOLDER: assessed path, e.g. "." or "wp-includes"]
-embeddings: [PLACEHOLDER: "enabled" or "skipped — no provider configured"]
-# Refresh-mode provenance — left blank on initial assess; populated on every refresh
+embeddings: [PLACEHOLDER: "enabled" or "skipped: <reason from the report warning>"]
 previous-assessment: [PLACEHOLDER: YYYY-MM-DD of prior run, or empty for initial assessment]
+# This run's scope, saved on every assessment as the next refresh's baseline.
 previous-scope:
-  languages: [PLACEHOLDER: list of language ids present in prior assessment]
-  top-dirs: [PLACEHOLDER: list of top-level dirs that had >0 indexed files in prior assessment]
+  languages: [PLACEHOLDER: list of language ids present in this assessment]
+  top-dirs: [PLACEHOLDER: list of top-level dirs with >0 indexed files in this assessment]
 ---
 ```
 
@@ -29,7 +29,7 @@ previous-scope:
 - **Documentation coverage**: [PLACEHOLDER: doc_coverage percent]% of significant files documented
 - **Top hotspot**: [PLACEHOLDER: file path with highest authority score]
 - **Complexity outliers**: [PLACEHOLDER: count of functions >5x median complexity]
-- **Embeddings**: [PLACEHOLDER: "enabled" or "skipped — code_similarity report unavailable"]
+- **Embeddings**: [PLACEHOLDER: "enabled" or "skipped: <reason from the report warning>"]
 
 [PLACEHOLDER: One paragraph executive narrative — what kind of codebase this is, where the documentation investment should go, what jumps out from the four reports.]
 
@@ -96,7 +96,7 @@ Why: [PLACEHOLDER: one-line rationale — usually "contains N of the top-5 prior
 [PLACEHOLDER: Listed scope changes since `previous-assessment`. Examples:
 - "New since last assessment: PHP code added under wp-includes (574 files)"
 - "Removed since last assessment: ts code under wp-content/themes/twentynineteen"
-- "Configuration changed: code.php.roots expanded from [wp-content] to [wp-includes, wp-admin, wp-content]"]
+- "Scope drift cannot be determined because the prior assessment has no complete scope baseline."]
 
 ## Next Steps
 

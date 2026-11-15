@@ -52,11 +52,10 @@ Rhizome's pages are dense, flat, and quiet, and a view built from the kit's defa
 - Charts and bars use `--series-1` through `--series-8` (`Diagram` and `BarList` already do). Reserve teal (`series: "link"`) for linked or connected amounts, and never use red for a category.
 - While loading, show the shape of what is coming: `Section` does, and a `Skeleton` sized like its content does elsewhere. An empty section is one line, and a disclosure or panel whose count is zero is not rendered at all.
 - The light and dark themes come from the kit and follow the operating system. Use the theme classes (`bg-background`, `bg-sunk`, `text-foreground`, `text-muted-foreground`, `text-faint`, `text-link`, `text-risk`, `border`) or tokens, never hex colors or a per-view theme.
-- Keep each remembered choice in `useViewPreference`, so the host's "Reset to shared" can clear it.
 
 ## Remember personal choices
 
-Use `useViewPreference` for meaningful display choices such as filters, selected row type, and stable expansion controls. Supply defaults from the definition's `configuration`, validate values, and write only in response to interaction. The kit scopes preferences to the current view and concrete type, interface, group, node, or standalone context, with an optional stable authored widget `slot` nested within the host instance. A widget slot supplements the inherited host identity; it never replaces it. Reusing one generic view does not merge its subjects' settings. Do not construct browser-storage keys or persist drag state, menus, focus, scroll, temporary search, or camera motion.
+Use `useViewPreference` for meaningful display choices such as filters, selected row type, and stable expansion controls, so the host's "Reset to shared" can clear them. Supply defaults from the definition's `configuration`, validate values, and write only in response to interaction. The kit scopes preferences to the current view and concrete type, interface, group, node, or standalone context, with an optional stable authored widget `slot` nested within the host instance. A widget slot supplements the inherited host identity; it never replaces it. Reusing one generic view does not merge its subjects' settings. Do not construct browser-storage keys or persist drag state, menus, focus, scroll, temporary search, or camera motion.
 
 Personal overrides live in ignored repository-local SQLite, survive reloads and server restarts, and remain separate from shared YAML and staged Markdown edits. Reset removes overrides so current authored defaults apply. Show loading, pending writes, errors, and retry; a failed write is not saved. Read [Personal view preferences](references/kit-api.md#personal-view-preferences) for the React and subscribed HTML APIs and the board example for an interaction using them.
 
@@ -83,7 +82,7 @@ Leave it out when:
 
 - it restates a list or count already on the page, such as a timeline of the meetings listed below it;
 - the data is too sparse to show a shape, such as mostly zeros or fewer than about five points;
-- its series are hard to distinguish. Name xychart series so Pele shows a legend, and keep one color per category across the page.
+- its series are hard to distinguish. Name xychart series so Pele shows a legend.
 - the user acts on the records. Ranking, editing, and triage stay as rows; a chart is for reading.
 - its categories have long labels in a narrow panel. A horizontal bar chart drops labels that wrap past their row, so use `BarList` instead; its labels can also open notes.
 
