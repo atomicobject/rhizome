@@ -487,3 +487,79 @@ func TestServiceCancelledApprovalClearsPending(t *testing.T) {
 	fake.session.turnResults <- nil
 	require.NoError(t, <-session.sendResult)
 }
+
+// sendAndFinish sends one message and completes its turn.
+func sendAndFinish(t *testing.T, ctx context.Context, service *Service, fake *fakeHarness, sessionID, content string) {
+	t.Helper()
+	_, err := service.SendMessage(ctx, sessionID, content)
+	require.NoError(t, err)
+	require.Equal(t, content, <-fake.session.turns)
+	fake.session.events <- harness.Event{Kind: harness.EventTurnCompleted}
+	fake.session.turnResults <- nil
+	require.Eventually(t, func() bool { return !service.turnRunning(sessionID) }, 5*time.Second, time.Millisecond)
+}
+
+func TestServiceAppliesTheChosenModelToAnOpenSessionFromItsNextTurn(t *testing.T) {
+	saved := func(model, effort string) Settings {
+		return Settings{Harness: harness.KindCodex, Harnesses: map[harness.Kind]HarnessSettings{harness.KindCodex: {Model: model, Effort: effort}}}
+	}
+	env := setTestSettings(t, saved("", ""))
+	ctx := vaultconfig.WithEnv(context.Background(), env)
+	fake := newFakeHarness()
+	fake.status.Models = []harness.ModelOption{
+		{ID: "gpt-test", Efforts: []string{"low", "high"}, DefaultEffort: "low", Default: true},
+		{ID: "gpt-other", Efforts: []string{"medium"}, DefaultEffort: "medium"},
+	}
+	service, err := NewService(ctx, t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, service.Close()) })
+	created, err := service.CreateSession(ctx, "Switch models")
+	require.NoError(t, err)
+
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "first")
+	options := <-fake.starts
+	require.Equal(t, [2]string{"gpt-test", "low"}, [2]string{options.Model, options.Effort}, "nothing chosen runs the default model at its default effort")
+	require.Equal(t, [2]string{"gpt-test", "low"}, <-fake.session.models)
+
+	_, err = SaveSettings(env, saved("gpt-test", "high"))
+	require.NoError(t, err)
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "second")
+	require.Equal(t, [2]string{"gpt-test", "high"}, <-fake.session.models)
+
+	_, err = SaveSettings(env, saved("gpt-other", "high"))
+	require.NoError(t, err)
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "third")
+	require.Equal(t, [2]string{"gpt-other", "medium"}, <-fake.session.models, "an effort the new model lacks becomes its default")
+	require.Empty(t, fake.starts, "the open process switched models without restarting")
+}
+
+func TestServiceResumesAnOpenSessionInANewProcessWhenThePermissionModeChanges(t *testing.T) {
+	mode := func(permission harness.PermissionMode) Settings {
+		return Settings{Harness: harness.KindCodex, Harnesses: map[harness.Kind]HarnessSettings{harness.KindCodex: {PermissionMode: permission}}}
+	}
+	env := setTestSettings(t, mode(harness.PermissionAuto))
+	ctx := vaultconfig.WithEnv(context.Background(), env)
+	fake := newFakeHarness()
+	fake.session.SessionID = "thread-1"
+	service, err := NewService(ctx, t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, service.Close()) })
+	created, err := service.CreateSession(ctx, "Change mode")
+	require.NoError(t, err)
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "first")
+	require.Equal(t, harness.PermissionAuto, (<-fake.starts).PermissionMode)
+
+	_, err = SaveSettings(env, mode(harness.PermissionApprovalRequired))
+	require.NoError(t, err)
+	first := fake.session
+	fake.session = newFakeSession()
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "second")
+	restarted := <-fake.starts
+	require.Equal(t, harness.PermissionApprovalRequired, restarted.PermissionMode)
+	require.Equal(t, "thread-1", restarted.Resume, "the new process continues the conversation")
+	select {
+	case <-first.stopped:
+	default:
+		t.Fatal("the old process was not stopped")
+	}
+}

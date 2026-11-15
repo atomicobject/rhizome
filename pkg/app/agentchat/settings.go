@@ -29,7 +29,7 @@ func LoadSettings(env vaultconfig.Env) (Settings, error) {
 		}
 		settings.Harnesses[harness.Kind(key)] = HarnessSettings{
 			Model: value.Model, Effort: value.Effort,
-			PermissionMode: harness.PermissionMode(value.PermissionMode),
+			PermissionMode: harness.PermissionMode(value.PermissionMode), Disabled: value.Disabled,
 		}
 	}
 	return normalizeSettings(settings), nil
@@ -43,7 +43,7 @@ func SaveSettings(env vaultconfig.Env, settings Settings) (Settings, error) {
 	}
 	for kind, value := range settings.Harnesses {
 		agent.Harnesses[string(kind)] = repoconfig.AgentHarnessConfig{
-			Model: value.Model, Effort: value.Effort, PermissionMode: string(value.PermissionMode),
+			Model: value.Model, Effort: value.Effort, PermissionMode: string(value.PermissionMode), Disabled: value.Disabled,
 		}
 	}
 	if err := repoconfig.UpdateCliConfig(env, func(cfg *repoconfig.CliConfig) error {
