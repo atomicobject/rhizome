@@ -1,6 +1,6 @@
 ---
 name: rhizome
-description: Use before changing behavior a note, spec, or decision record may constrain, when the rationale behind existing code matters, when a note or linked heading moves, or for any explicit Rhizome operation, including code-mode scripts and GraphQL queries. Not for a local edit whose whole effect is visible in the diff.
+description: Use before changing behavior a note, spec, or decision record may constrain, when the rationale behind existing code matters, when a note or linked heading moves, or for any explicit Rhizome operation, including code-mode scripts and GraphQL queries. Also use to explain what Rhizome is or can do, to choose, set up, update, or repair Rhizome starters in a repository, to customize the vault's note types, schema, or views, and to automate vault work with Rhizome scripts, module actions, or scheduled tasks. Not for a local edit whose whole effect is visible in the diff.
 ---
 
 # Rhizome
@@ -25,13 +25,15 @@ This skill owns universal Rhizome mechanics. A more-specific workflow skill owns
 
 | Request | Reference |
 | --- | --- |
+| Explain what Rhizome is or can do, answer inside the Rhizome app's chat, or pick the mechanism for a goal | `references/usage.md` |
+| Recommend, set up, add, or remove a workflow or add-on starter, or update or repair stale Rhizome files | `references/setup-and-starters.md` |
 | Decide whether retrieved material is an instruction or just evidence, or compose with another workflow | `references/evidence-and-composition.md` |
 | Use Rhizome code mode, combine related calls, or filter their results | `references/code-mode.md` |
 | Install Rhizome, verify the integration, or diagnose a missing CLI, failed session, or broken capability | `references/installation-and-integration.md` |
 | Start, reuse, or understand a session | `references/sessions.md` |
 | Search for concepts or rationale, or prove what code does | `references/search-and-code-evidence.md` |
 | Gather the constraints around known files or directories | `references/file-context.md` |
-| Learn an unfamiliar topic, subsystem, or vault area | `references/onboarding.md` |
+| Learn what this repository's notes and code say about an unfamiliar topic, subsystem, or vault area | `references/onboarding.md` |
 | Diagnose or edit project configuration | `references/configuration.md` |
 | Index content, or results look missing or stale | `references/indexing-and-freshness.md` |
 | Diagnose slow/failed indexing, runtime startup, degraded queries, web UI stalls or rerenders, or operational errors from retained logs, timings, and the `perf` summary | `references/diagnostics.md` |
@@ -42,9 +44,11 @@ This skill owns universal Rhizome mechanics. A more-specific workflow skill owns
 | Query or diagnose the live ontology | `references/ontology-usage.md` |
 | Configure view mounts, defaults, or native layouts | `references/views.md` |
 | Build a custom HTML/TSX view for a type, group, or node | Load `custom-views`; use `references/views.md` for target discovery |
+| Shape the vault to a team's work: a tracker, pipeline, new note type or field, or shared view | `references/customization.md` |
 | Change ontology SDL, migrations, or recipes | `references/ontology-authoring.md` |
 | Bind durable docs to code or graph context | `references/documentation-bindings.md` |
 | Run a report, health check, coverage audit, or structural comparison for a refactor | `references/reports-and-health.md` |
+| Automate vault work with a saved script, module action, or scheduled task | `references/automation.md` |
 | Add Rhizome capabilities to a skill | `references/skill-authoring.md` |
 
 Add another reference when the task needs it, for example code-mode mechanics alongside mutation guidance. Reuse context already read this conversation while it still applies. Stop retrieving once you understand the affected boundary, the constraints on it, and the evidence for the next decision; go further only for a concrete missing fact, a conflict, a warning, or a change in scope. Three requests and where they go:
@@ -55,11 +59,7 @@ Add another reference when the task needs it, for example code-mode mechanics al
 
 ## Sessions for agent routes
 
-Start or reuse a session only when the selected route calls `rzm agent`. Top-level commands such as `init`, `index`, and `note move` need none. Reuse the conversation's `sessionId` when one exists, unless the context was compacted or cleared since it was issued; otherwise start once:
-
-```bash
-rzm agent start --intent "<task>"
-```
+Start or reuse a session only when the selected route calls `rzm agent`. Top-level commands such as `init`, `index`, and `note move` need none. Reuse the conversation's `sessionId` when one exists, unless the context was compacted or cleared since it was issued; otherwise start once with `rzm agent start --intent "<task>"`.
 
 Add `--file <path>` for at most a few important seeds, most important first; they share one context budget. Add `--submodule-depth 1` only when child-module guidance matters. Do not add `--profile` or `--ontology` to a normal start.
 

@@ -23,7 +23,7 @@ These settings decide whether Rhizome works well. Change each one through its ro
 | What gets indexed | Missing content cannot be found, and bulky content drowns real results | `references/index-scope.md`; `rzm init --check` for proposed skips; rules in `.rhizome/ignore` |
 | Semantic search provider and key | Without it, search by meaning and code similarity are off | `rzm init --search <provider>` with `voyage`, `openai`, `ollama`, or `off`. Search turns on only when the provider's key resolves, from `VOYAGE_API_KEY` or `OPENAI_API_KEY` in the environment or from a key the user pasted into an interactive `rzm init`. Ollama needs no key. Ask the user for the key; never read or print it. |
 | Agents | Missing guidance or skills mean agents do not use Rhizome | `rzm init --agents <agents>`, naming every agent the repository uses (`claude`, `codex`, `cursor`), or `none` to stop managing agent files |
-| Current user | Action items, approvals, and "my" queries need an identity | `rzm agent current-user set "<Person title>"`, then `rzm agent current-user validate`. Never infer the person. |
+| Current user | Assignments, approvals, and "my" queries need an identity | `rzm agent current-user set "<Person title>"`, then `rzm agent current-user validate`. Never infer the person. |
 | Binary ownership | Decides who updates Rhizome and how teammates get the same version | [Binary ownership](#binary-ownership) below and `references/installation-and-integration.md` |
 | Validation suites | Decides what the team's gate checks | `validation:` in `.rhizome/config.yml`, with check names from `rzm validate list`; confirm with `rzm validate` |
 
