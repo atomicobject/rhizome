@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-11-15-15-45
 name: Chat agent and model picker
 created-at: 2026-11-15T20:45:00Z
-status: active
+status: complete
 summary: Choose the chat agent, model, reasoning effort, and permission mode from the composer, show sign-in help in the conversation, and turn agents on or off in Settings.
 aliases: [EFF-2026-11-15-15-45]
 governing-specs:
@@ -33,7 +33,7 @@ Deliver [[in-app-chat#^SPEC-0140-US5]] and [[in-app-chat#^SPEC-0140-US6]] on top
 - [x] A signed-out or missing agent shows a notice in the conversation with a copyable command, Check again, and Use the previous model instead, and holds Send while keeping the draft.
 - [x] Settings → Rhizome on this Mac → Chat shows each agent's status with an on/off switch; a turned-off agent never resolves and its models leave the picker.
 - [x] The setup card, the Agent page rail settings, and the old composer availability text are removed.
-- [ ] Independent review findings fixed.
+- [x] Independent review findings fixed.
 
 ## Plan
 
@@ -68,6 +68,7 @@ Built on `t3/chat-agent-model-picker`.
 - The web E2E agent journey found the picker opening while invisible, so ⌘3 never reached it; fixed.
 - The Claude driver crossed the file-size limit; control requests moved to `pkg/harness/claude/control.go`.
 - Review fixes (Greptile and GPT-6.1 Sol): a send waits for the choice it shows to save; a turn for an agent turned off in Settings is refused before its message is stored; the composer and the Settings switch each write only their own fields inside one locked rewrite of user configuration; a Claude model change and a turn never overlap; and a model change Claude never answers stops the session after five seconds, so the next turn resumes in a new process.
+- Greptile's second pass (4/5) found a failed choice save blocking every later send and the picker overflowing short windows; both fixed in `2610b42c2`, with a test shown to fail before the fix.
 
 ## Compounding Follow-ups
 
@@ -77,9 +78,9 @@ Built on `t3/chat-agent-model-picker`.
 ## Closure Checklist
 
 - [x] Approved scope delivered or deviations recorded.
-- [ ] Independent review completed and accepted findings fixed.
-- [ ] Delivery branch and commit recorded.
+- [x] Independent review completed and accepted findings fixed.
+- [x] Delivery branch and commit recorded.
 
 ## Status
 
-Active on `t3/chat-agent-model-picker`; review in progress.
+Complete on `t3/chat-agent-model-picker` for [PR #151](https://github.com/atomicobject/rhizome/pull/151), stacked on [PR #149](https://github.com/atomicobject/rhizome/pull/149) and left open and unmerged for Drew. Human-only checks remain as follow-ups: a live turn on each real CLI after a model change, and a click-through in the installed desktop app.
