@@ -19,6 +19,7 @@ const agent: ChatAgent = {
   newChat: false,
   choose: vi.fn(),
   saved: () => Promise.resolve(true),
+  startsNewChat: () => false,
   recheck: vi.fn(),
 };
 

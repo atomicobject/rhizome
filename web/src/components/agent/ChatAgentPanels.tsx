@@ -50,7 +50,7 @@ function placement(trigger: HTMLElement | null, width: number): CSSProperties {
     bottom: window.innerHeight - frame.top + 8,
     width: fits,
     // A short window or a tall draft leaves less room above the composer.
-    maxHeight: Math.max(160, frame.top - 16),
+    maxHeight: Math.max(0, frame.top - 16),
   };
 }
 

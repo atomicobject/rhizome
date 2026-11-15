@@ -140,11 +140,12 @@ export function AgentWorkspace({
     // cannot create another session and send the message twice.
     submitting.current = true;
     setError("");
-    // A choice of another agent starts a new chat with it.
-    let sessionID = agent.newChat ? "" : selectedID;
 
     try {
       if (!(await agent.saved())) return;
+
+      // A choice of another agent starts a new chat with it.
+      let sessionID = agent.startsNewChat() ? "" : selectedID;
 
       if (!sessionID) {
         const created = await createAgentSession(trimmed.slice(0, 48));

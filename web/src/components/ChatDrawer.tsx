@@ -258,7 +258,7 @@ export function ChatPanel() {
       if (!(await agent.saved())) return;
 
       // A choice of another agent starts a new chat with it.
-      let target = agent.newChat ? "" : sessionID;
+      let target = agent.startsNewChat() ? "" : sessionID;
 
       if (!target) {
         const created = await createAgentSession(message.slice(0, 48));

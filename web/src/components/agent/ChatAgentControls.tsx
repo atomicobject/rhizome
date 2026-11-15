@@ -139,8 +139,27 @@ export function useChatAgent(session?: Pick<AgentSession, "harness"> | null) {
         if (saving.get(queryClient) === pending) saving.delete(queryClient);
       });
     },
-    /** Waits until the choice shown is saved; false when its save failed, which the notice reports. */
-    saved: () => saving.get(queryClient) ?? Promise.resolve(true),
+    /**
+     * Waits until the latest choice is saved, including one made while waiting;
+     * false when its save failed, which the notice reports.
+     */
+    saved: async () => {
+      let ok = true;
+
+      for (let pending = saving.get(queryClient); pending; pending = saving.get(queryClient)) {
+        ok = await pending;
+
+        if (saving.get(queryClient) === pending) break;
+      }
+
+      return ok;
+    },
+    /** Whether the next message starts a new chat, read after `saved` from the saved choice. */
+    startsNewChat: () => {
+      const saved = currentChoice(queryClient.getQueryData<AgentSettingsResponse>(key) ?? response);
+
+      return Boolean(session?.harness && saved && session.harness !== saved.harness);
+    },
     recheck: () => recheck.mutate(),
   };
 }
