@@ -81,6 +81,7 @@ Built on `t3/chat-agent-model-picker`.
 - Greptile's twelfth pass (4/5) found a message going to the chat created for an agent the user switched away from while it opened, and ⇧⌘E both opening Reasoning and starting a Notes edit session; both composers now open a chat for the agent chosen meanwhile, and ⇧⌘E opens Reasoning only from the chat composer while Notes ignores it there. Each has a test shown to fail before the fix.
 - Greptile's thirteenth pass found a chat resumed in a new Claude process after a permission-mode change repeating `turn-1`, so the browser merged the new turn into an earlier one, and the Agent page giving no way to stop a message still waiting for its choice to save; agent chat now prefixes each process's turn ids with a generation of its own, and the Agent page shows Stop in place of Send while a message waits, which cancels it with no chat created, nothing sent, and the draft kept. Each has a test shown to fail before the fix.
 - Greptile's fourteenth pass (4/5) found the Agent page sending to a chat opened by link before its agent was known; it now reads the open chat before choosing the target, as the chat pane does, with a test shown to fail before the fix.
+- Greptile's fifteenth pass (4/5) found a message reusing a replacement process another window started, with that window's permission mode, while its own old process stopped; the service now checks the process found after stopping again and replaces any idle one with other permissions, with a test shown to fail before the fix.
 
 ## Compounding Follow-ups
 

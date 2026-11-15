@@ -355,9 +355,11 @@ func (s *Service) beginTurn(session Session, settings Settings) (*liveSession, *
 	}
 	s.mu.Lock()
 	live := s.live[session.ID]
-	if live != nil && !live.starting && !live.running && live.permissionMode != configured.PermissionMode {
-		// A permission mode is a launch option (Claude Code cannot switch to
-		// full access mid-session), so a changed one resumes in a new process.
+	// A permission mode is a launch option (Claude Code cannot switch to full
+	// access mid-session), so a changed one resumes in a new process. Another
+	// window may start its own replacement while this one stops, so the
+	// process found afterwards is checked again before it is reused.
+	for live != nil && !live.starting && !live.running && live.permissionMode != configured.PermissionMode {
 		delete(s.live, session.ID)
 		s.mu.Unlock()
 		if err := stopLiveSession(live); err != nil {

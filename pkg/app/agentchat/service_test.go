@@ -69,6 +69,8 @@ type fakeSession struct {
 	modelGate chan struct{}
 	// respondHook, when set, runs before Respond records the decision.
 	respondHook func()
+	// stopHook, when set, runs as Stop begins.
+	stopHook func()
 }
 
 func (f *fakeSession) ID() string { return f.SessionID }
@@ -113,6 +115,9 @@ func (f *fakeSession) Respond(requestID string, decision harness.Decision) error
 }
 func (f *fakeSession) Events() <-chan harness.Event { return f.events }
 func (f *fakeSession) Stop() error {
+	if f.stopHook != nil {
+		f.stopHook()
+	}
 	f.stopOnce.Do(func() { close(f.stopped); close(f.events) })
 	return nil
 }
@@ -581,6 +586,58 @@ func TestServiceAppliesTheChosenModelToAnOpenSessionFromItsNextTurn(t *testing.T
 	sendAndFinish(t, ctx, service, fake, created.Session.ID, "third")
 	require.Equal(t, [2]string{"gpt-other", "medium"}, <-fake.session.models, "an effort the new model lacks becomes its default")
 	require.Empty(t, fake.starts, "the open process switched models without restarting")
+}
+
+func TestServiceDoesNotReuseAnotherWindowsReplacementWithOtherPermissions(t *testing.T) {
+	mode := func(permission harness.PermissionMode) Settings {
+		return Settings{Harness: harness.KindCodex, Harnesses: map[harness.Kind]HarnessSettings{harness.KindCodex: {PermissionMode: permission}}}
+	}
+	env := setTestSettings(t, mode(harness.PermissionAuto))
+	ctx := vaultconfig.WithEnv(context.Background(), env)
+	fake := newFakeHarness()
+	service, err := NewService(ctx, t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, service.Close()) })
+	created, err := service.CreateSession(ctx, "Two windows")
+	require.NoError(t, err)
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "first")
+	<-fake.starts
+
+	_, err = SaveChoice(env, mode(harness.PermissionApprovalRequired))
+	require.NoError(t, err)
+	// While the old process stops, another window starts an idle replacement
+	// launched in full access.
+	other := newFakeSession()
+	page, err := newPageRelay(service.ctx)
+	require.NoError(t, err)
+	ready, drained := make(chan struct{}), make(chan struct{})
+	close(ready)
+	close(drained)
+	fake.session.stopHook = func() {
+		service.mu.Lock()
+		service.live[created.Session.ID] = &liveSession{
+			session: other, page: page, ready: ready, drained: drained,
+			pending: make(map[string]struct{}), permissionMode: harness.PermissionFullAccess,
+		}
+		service.mu.Unlock()
+	}
+	fake.session = newFakeSession()
+	_, err = service.SendMessage(ctx, created.Session.ID, "second")
+	require.NoError(t, err)
+	select {
+	case <-other.turns:
+		t.Fatal("the message ran on another window's full-access process")
+	case turn := <-fake.session.turns:
+		require.Equal(t, "second", turn)
+	case <-time.After(5 * time.Second):
+		t.Fatal("the message never started")
+	}
+	require.Equal(t, harness.PermissionApprovalRequired, (<-fake.starts).PermissionMode, "the message starts a process with its own permissions")
+	select {
+	case <-other.stopped:
+	default:
+		t.Fatal("the replacement with other permissions was not stopped")
+	}
 }
 
 func TestServiceResumesAnOpenSessionInANewProcessWhenThePermissionModeChanges(t *testing.T) {
