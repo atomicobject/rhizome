@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createAgentSession,
   deleteAgentSession,
+  getAgentSession,
   listAgentSessions,
   respondToAgentApproval,
 } from "../api/internalAgentClient";
@@ -150,10 +151,23 @@ export function AgentWorkspace({
     setError("");
 
     try {
+      // The open chat's agent decides whether it can take the message, so a
+      // chat still loading is read first.
+      const open = selectedID
+        ? await queryClient
+            .ensureQueryData({
+              queryKey: queryKeys.agent.session(selectedID),
+              queryFn: ({ signal }) => getAgentSession(selectedID, { signal }),
+            })
+            .catch(() => undefined)
+        : undefined;
+
+      // Then the latest choice, including one made while the chat was read.
       if (!(await agent.saved()) || !live()) return;
 
-      // A choice of another agent starts a new chat with it.
-      let sessionID = agent.startsNewChat() ? "" : selectedID;
+      // A choice of another agent starts a new chat with it, and so does an
+      // open chat that could not be read, since its agent is unknown.
+      let sessionID = !open || agent.startsNewChat(open.session.harness) ? "" : selectedID;
 
       // An agent chosen while the chat opened gets a chat of its own.
       while (!sessionID) {

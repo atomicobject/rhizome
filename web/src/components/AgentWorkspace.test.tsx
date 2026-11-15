@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { AgentEvent } from "../api/types";
 import { withFakeEventSource } from "../test/fakeEventSource";
 import { deferredReply, withFakeFetch } from "../test/fakeFetch";
@@ -294,6 +294,60 @@ describe("AgentWorkspace", () => {
     expect(http.count("POST", "/api/agent/sessions")).toBe(0);
     expect(http.count("POST", `/api/agent/sessions/${current.id}/messages`)).toBe(0);
     expect(screen.getByLabelText("Message")).toHaveValue("hello");
+  });
+
+  it("starts a chat for the chosen agent when the open chat is still loading", async () => {
+    const response = settingsWith(readyStatus);
+
+    response.harnesses.push({
+      kind: "claude",
+      status: {
+        ...readyStatus,
+        models: [{ id: "opus", displayName: "Opus 5.5", efforts: ["high"], default: true }],
+      },
+    });
+
+    const current = session();
+    const created = session({ id: "created", harness: "claude", title: "hello" });
+    const loading = deferredReply<{ session: typeof current; messages: []; events: [] }>();
+    const listing = deferredReply<{ sessions: (typeof current)[] }>();
+
+    // A link opens the chat before the session list or the chat has loaded.
+    window.history.replaceState({}, "", `/agent?session=${current.id}`);
+    onTestFinished(() => window.history.replaceState({}, "", "/"));
+
+    http
+      .json("GET", "/api/agent/settings", response)
+      .json("PUT", "/api/agent/settings", {
+        ...response,
+        settings: {
+          harness: "claude",
+          harnesses: {
+            ...response.settings.harnesses,
+            claude: { model: "opus", permissionMode: "approval-required" },
+          },
+        },
+        resolved: { harness: "claude", model: "opus", reason: "configured" },
+      })
+      .on("GET", "/api/agent/sessions", () => listing.promise)
+      .on("GET", `/api/agent/sessions/${current.id}`, () => loading.promise)
+      .json("POST", "/api/agent/sessions", { session: created })
+      .json("GET", "/api/agent/sessions/created", { session: created, messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/created/messages", { session: created })
+      .json("POST", `/api/agent/sessions/${current.id}/messages`, { session: current });
+
+    render(<AgentWorkspace />);
+    fireEvent.click(await screen.findByRole("button", { name: "GPT Standard · Medium" }));
+    fireEvent.click(screen.getByRole("option", { name: /Opus 5.5/ }));
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "hello" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    loading.resolve({ session: current, messages: [], events: [] });
+    listing.resolve({ sessions: [current] });
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/created/messages")).toBe(1));
+    expect(http.count("POST", `/api/agent/sessions/${current.id}/messages`)).toBe(0);
   });
 
   it("renders approval details, posts a decision, and disables the controls", async () => {
