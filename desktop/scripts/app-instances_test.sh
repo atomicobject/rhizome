@@ -33,6 +33,17 @@ fail() {
   exit 1
 }
 
+echo "launched_pids excludes exited processes from a platform snapshot"
+(
+  (exit 0) &
+  exited=$!
+  wait "$exited"
+  # A snapshot can outlive its process while another copy remains alive.
+  osascript() { printf '%s\n' "$exited" "$$"; }
+  pids="$(launched_pids "$bundle_id")"
+  [[ "$pids" == "$$" ]] || fail "expected only live PID $$, got: $pids"
+)
+
 # A windowless app that writes <bundle>.quit when it quits normally;
 # --stubborn refuses to quit and ignores SIGTERM.
 cat >"$tmp/fake.swift" <<'SWIFT'
