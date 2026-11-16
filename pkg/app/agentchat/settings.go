@@ -8,7 +8,10 @@ import (
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
-var harnessOrder = []harness.Kind{harness.KindCodex, harness.KindClaude}
+// harnessOrder is the order agents are probed and reported, and the order a
+// new person's chat falls back through: Claude Code first, so chat starts on
+// Opus when Claude Code is ready and on Sol otherwise.
+var harnessOrder = []harness.Kind{harness.KindClaude, harness.KindCodex}
 
 func DefaultSettings() Settings {
 	return normalizeSettings(Settings{})

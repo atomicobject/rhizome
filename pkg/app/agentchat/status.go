@@ -57,6 +57,7 @@ func probeStatus(ctx context.Context, kind harness.Kind, driver harness.Harness)
 	defer cancel()
 	status, err := driver.Status(ctx)
 	status.Kind = kind
+	status.Models = curateModels(kind, status.Models)
 	if err != nil {
 		status.LastError = err.Error()
 	}

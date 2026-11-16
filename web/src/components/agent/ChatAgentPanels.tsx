@@ -19,6 +19,7 @@ import {
   effortFor,
   effortRows,
   HARNESS_LABELS,
+  hasMoreModels,
   modelFor,
   type ModelRow,
   PERMISSION_MODES,
@@ -114,7 +115,8 @@ export function ModelPicker({
 }: Omit<PanelProps, "choice"> & { choice?: ChatChoice; reasoning: boolean }) {
   const { response } = agent;
   const [query, setQuery] = useState("");
-  const groups = agentGroups(response, query);
+  const [all, setAll] = useState(false);
+  const groups = agentGroups(response, query, { all, chosen: choice });
   const rows = groups.flatMap((group) => group.rows);
   const isCurrent = (row: ModelRow) => row.harness === choice?.harness && row.id === choice.model;
   const [active, setActive] = useState(() => Math.max(0, rows.findIndex(isCurrent)));
@@ -309,6 +311,20 @@ export function ModelPicker({
           </div>
         ) : null}
       </div>
+      {!query && hasMoreModels(response) ? (
+        <button
+          type="button"
+          className="chat-model-picker__more"
+          aria-expanded={all}
+          onClick={() => {
+            setAll(!all);
+            setActive(0);
+            search.current?.focus();
+          }}
+        >
+          {all ? "Show fewer models" : "Show all models"}
+        </button>
+      ) : null}
     </div>,
     document.body,
   );

@@ -113,7 +113,8 @@ func TestResolveHarness(t *testing.T) {
 	readyCodex := HarnessStatus{Kind: harness.KindCodex, Status: Status{Installed: true, LoggedIn: true}}
 	readyClaude := HarnessStatus{Kind: harness.KindClaude, Status: Status{Installed: true, LoggedIn: true}}
 	require.Equal(t, ResolvedHarness{Harness: harness.KindClaude, Reason: "configured"}, resolveHarness(Settings{Harness: harness.KindClaude}, nil))
-	require.Equal(t, ResolvedHarness{Harness: harness.KindCodex, Reason: "first available"}, resolveHarness(DefaultSettings(), []HarnessStatus{readyClaude, readyCodex}))
+	require.Equal(t, ResolvedHarness{Harness: harness.KindClaude, Reason: "first available"}, resolveHarness(DefaultSettings(), []HarnessStatus{readyClaude, readyCodex}))
+	require.Equal(t, ResolvedHarness{Harness: harness.KindCodex, Reason: "first available"}, resolveHarness(DefaultSettings(), []HarnessStatus{{Kind: harness.KindClaude, Status: Status{Installed: true}}, readyCodex}), "a signed-out Claude Code falls back to Codex")
 	require.Equal(t, ResolvedHarness{Reason: "none available"}, resolveHarness(DefaultSettings(), []HarnessStatus{{Kind: harness.KindCodex}}))
 
 	offered := HarnessStatus{Kind: harness.KindCodex, Status: Status{Installed: true, LoggedIn: true, Models: []harness.ModelOption{{ID: "gpt-test"}}}}

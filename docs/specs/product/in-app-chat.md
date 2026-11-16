@@ -3,7 +3,7 @@ type: ProductSpec
 id: SPEC-0140
 summary: An AI chat in the app's right pane, in every section, that knows what the person is looking at, reads the page on demand, and acts through the Codex or Claude harness with few permission prompts.
 spec-status: active
-last-updated: 2026-11-15
+last-updated: 2026-11-16
 aliases: [SPEC-0140]
 ---
 
@@ -94,7 +94,8 @@ The pane and the Agent page show the same sessions. The Agent page is the expand
 #### Acceptance Criteria
 
 - The pane and the Agent page share one composer control. Beside Send, a ghost button reads the model and the effort ("Opus 5.5 · High"), and its tooltip names the agent too. Clicking it or pressing ⇧⌘M (Ctrl+Shift+M elsewhere) opens a popover above the composer, about 430 pixels wide, that floats over the page when the pane is narrower. It holds only a search field, one list of models grouped under "Claude Code" and then "Codex", and a Reasoning column for the chosen model's efforts.
-- The list shows every model of each agent that is on, from the agent's status, with a faint "⌘1" to "⌘9" beside the first nine. An agent that is signed out or not installed still lists its models, or itself when it reports none, and shows only a faint "· signed out" or "· not installed" after its heading. Search filters by model or agent name; ↑ and ↓ move, Enter or ⌘1 to ⌘9 chooses, → and ← move between the models and Reasoning, and Escape closes.
+- The list shows the latest model of each featured family, from the agent's status: Opus, Fable, and Sonnet for Claude Code, and Sol, Astra, and Terra for Codex, read from model names such as "Opus 5.5" or "GPT-6.1-Sol". The chosen model shows too. A "Show all models" button under the list shows every model the agent offers and becomes "Show fewer models"; a typed search covers every model. An agent whose names match no featured family lists all its models. A faint "⌘1" to "⌘9" sits beside the first nine rows.
+- With nothing saved, chat runs Claude Code on its latest Opus when Claude Code is ready, and otherwise Codex on its latest Sol. The latest model of an agent's first featured family is its default, whatever the CLI names, and the permission mode defaults to Auto. An agent that is signed out or not installed still lists its models, or itself when it reports none, and shows only a faint "· signed out" or "· not installed" after its heading. Search filters by model or agent name; ↑ and ↓ move, Enter or ⌘1 to ⌘9 chooses, → and ← move between the models and Reasoning, and Escape closes.
 - Reasoning lists the chosen model's efforts and checks the current one. When the agent names a default effort (Codex), that row is marked "Default"; when it does not (Claude Code), a first "Default" row leaves the effort to the agent. In the composer, ⇧⌘E opens the picker with focus in Reasoning; elsewhere ⇧⌘E stays the Notes shortcut that starts editing.
 - A menu beside the picker ("Auto ⌄"), also on ⇧⌘A, offers Ask first, Auto, Accept edits, and Full access, each with a one-line description, as far as the agent's capabilities list them.
 - A choice saves `agent.harness` and that agent's model, effort, and permission mode, which every new chat uses; there is no other default control. It changes nothing else, so a page holding older settings cannot undo a newer choice or turn an agent back on. A message sent while the choice is saving waits for it, so it runs the choice the composer shows. Choosing a model keeps the current effort when the new model offers it.

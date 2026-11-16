@@ -695,6 +695,8 @@ export type AgentModelOption = {
   /** The effort the agent uses when none is chosen; Claude Code reports none. */
   defaultEffort?: string;
   default?: boolean;
+  /** The latest of a family the picker lists before "Show all models". */
+  featured?: boolean;
 };
 
 export type AgentHarnessCapabilities = {

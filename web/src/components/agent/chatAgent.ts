@@ -155,18 +155,41 @@ export type ModelRow = { harness: AgentHarnessKind; id: string; label: string };
 
 export type AgentGroup = { harness: AgentHarnessKind; readiness: Readiness; rows: ModelRow[] };
 
-/** The picker's list: each agent that is on, with its models matching the search. */
-export function agentGroups(response: AgentSettingsResponse, query = ""): AgentGroup[] {
+/** Whether some agent offers models that only "Show all models" lists. */
+export const hasMoreModels = (response: AgentSettingsResponse) =>
+  enabledAgents(response).some((harness) => {
+    const models = statusOf(response, harness)?.models ?? [];
+
+    return models.some((model) => model.featured) && models.some((model) => !model.featured);
+  });
+
+/**
+ * The picker's list: each agent that is on, with its models matching the
+ * search. Unless `all` is set or a search is typed, an agent lists only its
+ * featured models and the chosen one; an agent with none featured lists all.
+ */
+export function agentGroups(
+  response: AgentSettingsResponse,
+  query = "",
+  { all = true, chosen }: { all?: boolean; chosen?: ChatChoice } = {},
+): AgentGroup[] {
   const needle = query.trim().toLowerCase();
 
   return enabledAgents(response).flatMap((harness) => {
     const status = statusOf(response, harness);
-    const models = status?.models ?? [];
+    const offered = status?.models ?? [];
+
+    const curated =
+      all || needle || !offered.some((model) => model.featured)
+        ? offered
+        : offered.filter(
+            (model) => model.featured || (chosen?.harness === harness && chosen.model === model.id),
+          );
 
     // An agent that reported no models, such as one not installed, still
     // offers itself, on its default model.
-    const rows = models.length
-      ? models.map((model) => ({ harness, id: model.id, label: model.displayName || model.id }))
+    const rows = curated.length
+      ? curated.map((model) => ({ harness, id: model.id, label: model.displayName || model.id }))
       : [{ harness, id: "", label: HARNESS_LABELS[harness] }];
 
     const agentMatches = HARNESS_LABELS[harness].toLowerCase().includes(needle);

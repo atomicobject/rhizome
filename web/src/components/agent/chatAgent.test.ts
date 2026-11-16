@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AgentSettingsResponse } from "../../api/types";
 import { capabilities, readyStatus, settingsWith } from "../AgentWorkspace.test-support";
-import { agentGroups, blockerFor, currentChoice } from "./chatAgent";
+import { agentGroups, blockerFor, currentChoice, hasMoreModels } from "./chatAgent";
 
 function both(): AgentSettingsResponse {
   const response = settingsWith(readyStatus);
@@ -31,6 +31,37 @@ describe("chat's agent choice", () => {
     expect(
       agentGroups(both(), "codex").flatMap((group) => group.rows.map((row) => row.label)),
     ).toEqual(["GPT Standard", "GPT Fast"]);
+  });
+
+  it("lists featured models and the chosen one until all are shown or a search is typed", () => {
+    const response = settingsWith({
+      ...readyStatus,
+      models: [
+        { id: "sol", displayName: "GPT-6.1-Sol", featured: true, default: true },
+        { id: "old-sol", displayName: "GPT-6-Sol" },
+        { id: "luna", displayName: "GPT-6-Luna" },
+      ],
+    });
+
+    const labels = (query = "", all = false) =>
+      agentGroups(response, query, { all, chosen: currentChoice(response) }).flatMap((group) =>
+        group.rows.map((row) => row.label),
+      );
+
+    expect(hasMoreModels(response)).toBe(true);
+    expect(labels()).toEqual(["GPT-6.1-Sol"]);
+    expect(labels("", true)).toEqual(["GPT-6.1-Sol", "GPT-6-Sol", "GPT-6-Luna"]);
+    expect(labels("luna")).toEqual(["GPT-6-Luna"]);
+
+    response.settings.harnesses.codex.model = "luna";
+    expect(labels()).toEqual(["GPT-6.1-Sol", "GPT-6-Luna"]);
+  });
+
+  it("lists every model of an agent with none featured", () => {
+    expect(hasMoreModels(both())).toBe(false);
+    expect(
+      agentGroups(both(), "", { all: false }).flatMap((group) => group.rows.map((r) => r.label)),
+    ).toEqual(["Claude Code", "GPT Standard", "GPT Fast"]);
   });
 
   it("blocks with nothing installed, and says so differently when every agent is off", () => {
