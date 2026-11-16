@@ -119,15 +119,18 @@ export function useChatAgent(session?: Pick<AgentSession, "harness"> | null) {
       if (pendingChoices(queryClient) === 1) await store(next);
     },
     // A later choice still saving keeps the composer; its own reply, or its
-    // own failure, settles it.
+    // own failure, settles it. Otherwise it reads what the server holds, in
+    // case the save landed and only its reply was lost, and shows that.
     onError: async () => {
       if (pendingChoices(queryClient) !== 1) return;
 
+      const next = await getAgentSettings().catch(() => undefined);
+
+      if (next) confirmed.set(queryClient, next);
+
       const last = confirmed.get(queryClient);
 
-      if (last) await store(last);
-
-      await queryClient.invalidateQueries({ queryKey: key });
+      if (last && pendingChoices(queryClient) === 1) await store(last);
     },
     onSettled: () => unsaved.set(queryClient, pendingChoices(queryClient) - 1),
   });

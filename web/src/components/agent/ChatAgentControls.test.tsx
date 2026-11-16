@@ -172,6 +172,37 @@ describe("chat's agent picker", () => {
     expect(screen.getByRole("button", { name: "Opus 5.5 · High" })).toBeVisible();
   });
 
+  it("restores what the server holds after a save whose reply was lost", async () => {
+    let readable = true;
+
+    http
+      .on("PUT", "/api/agent/settings", (request) => {
+        response = { ...response, settings: decodeJSONBody(request, isSettingsBody).settings };
+
+        return jsonReply({ error: "reply lost" }, 500);
+      })
+      .on("GET", "/api/agent/settings", () =>
+        readable ? jsonReply(response) : jsonReply({ error: "busy" }, 500),
+      );
+    render(<Composer />);
+    fireEvent.click(within(await openPicker()).getByRole("option", { name: /Sonnet 5.5/ }));
+    expect(await screen.findByRole("button", { name: "Sonnet 5.5 · High" })).toBeVisible();
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    // The server now holds Sonnet but rejects the next save outright.
+    http.on("PUT", "/api/agent/settings", () => jsonReply({ error: "busy" }, 500));
+    readable = false;
+    fireEvent.click(screen.getByRole("button", { name: "Sonnet 5.5 · High" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Choose a model" })).getByRole("option", {
+        name: /Opus 5.5/,
+      }),
+    );
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(2));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect(screen.getByRole("button", { name: "Sonnet 5.5 · High" })).toBeVisible();
+  });
+
   it("groups each agent's models, Claude Code first, with a faint note for a signed-out one", async () => {
     render(<Composer />);
     const picker = await openPicker();
