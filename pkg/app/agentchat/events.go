@@ -34,6 +34,9 @@ func (s *Service) drainEvents(sessionID string, kind harness.Kind, live *liveSes
 		if incoming.SessionID != "" || incoming.TurnID != "" {
 			_ = s.store.UpdateSessionHarness(s.ctx, sessionID, kind, incoming.SessionID, incoming.TurnID)
 		}
+		if incoming.TurnID != "" {
+			incoming.TurnID = live.generation + ":" + incoming.TurnID
+		}
 		if incoming.Kind == harness.EventAssistantTextDelta {
 			s.mu.Lock()
 			if live.turn != nil {

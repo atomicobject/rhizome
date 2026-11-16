@@ -22,6 +22,11 @@ type Harness interface {
 type Session interface {
 	ID() string
 	SendTurn(context.Context, string) error
+	// SetModel switches the model and reasoning effort from the next turn on,
+	// and fails while a turn runs. An empty value asks for the CLI's default:
+	// Claude Code restores it, while Codex keeps the session's current value,
+	// so callers pass a concrete model and effort when they know one.
+	SetModel(ctx context.Context, model, effort string) error
 	Interrupt(context.Context) error
 	Respond(string, Decision) error
 	Events() <-chan Event
@@ -169,7 +174,10 @@ type ModelOption struct {
 	ID          string   `json:"id"`
 	DisplayName string   `json:"displayName"`
 	Efforts     []string `json:"efforts,omitempty"`
-	Default     bool     `json:"default,omitempty"`
+	// DefaultEffort is the effort the CLI uses when none is chosen, empty
+	// when the CLI does not report it (Claude Code).
+	DefaultEffort string `json:"defaultEffort,omitempty"`
+	Default       bool   `json:"default,omitempty"`
 }
 
 type Capabilities struct {

@@ -71,9 +71,7 @@ The pane and the Agent page show the same sessions. The Agent page is the expand
 - A harness permission mode `auto` maps to Claude's `--permission-mode auto` and to Codex's automatic approval reviewer. It is the default for chat sessions; a stored explicit mode is kept.
 - Commands, file edits, and tool calls show as one line each. In auto mode their detail says auto mode allowed them.
 - An escalated action shows a card with Allow and Deny, and Allow for this chat where the harness supports it. Once decided, the card collapses to one line.
-- The composer names the harness, the model, and the permission mode, and offers Stop while a turn runs.
-- Without a harness that can run, the pane and the Agent page show a setup card instead of inviting a message. It lists Claude Code and Codex, each ready with its version and account, signed out with the sign-in command to copy, or not installed with a link to the install steps, and choosing one saves it as chat's harness. Check again probes the harnesses afresh rather than reading the cached status.
-- On first use, with nothing chosen and both harnesses ready, the same card asks the person to pick one. With one ready harness, chat uses it without asking.
+- The composer offers Stop while a turn runs.
 
 ### US4 - Continue on the Agent page
 
@@ -87,8 +85,38 @@ The pane and the Agent page show the same sessions. The Agent page is the expand
 - Open in Agent shows that session on the Agent page. New chat starts over in the pane and leaves the old session on the Agent page.
 - A session deleted on the Agent page starts the pane over.
 
+### US5 - Choose the agent and model in the chat
+
+- id:: ^SPEC-0140-US5
+- summary:: One picker beside Send chooses the coding agent, its model, and its reasoning effort, a menu beside it chooses the permission mode, and a notice in the conversation says what to do when the chosen agent cannot run.
+- status:: ready
+
+#### Acceptance Criteria
+
+- The pane and the Agent page share one composer control. Beside Send, a ghost button reads the model and the effort ("Opus 5.5 · High"), and its tooltip names the agent too. Clicking it or pressing ⇧⌘M (Ctrl+Shift+M elsewhere) opens a popover above the composer, about 430 pixels wide, that floats over the page when the pane is narrower. It holds only a search field, one list of models grouped under "Claude Code" and then "Codex", and a Reasoning column for the chosen model's efforts.
+- The list shows every model of each agent that is on, from the agent's status, with a faint "⌘1" to "⌘9" beside the first nine. An agent that is signed out or not installed still lists its models, or itself when it reports none, and shows only a faint "· signed out" or "· not installed" after its heading. Search filters by model or agent name; ↑ and ↓ move, Enter or ⌘1 to ⌘9 chooses, → and ← move between the models and Reasoning, and Escape closes.
+- Reasoning lists the chosen model's efforts and checks the current one. When the agent names a default effort (Codex), that row is marked "Default"; when it does not (Claude Code), a first "Default" row leaves the effort to the agent. In the composer, ⇧⌘E opens the picker with focus in Reasoning; elsewhere ⇧⌘E stays the Notes shortcut that starts editing.
+- A menu beside the picker ("Auto ⌄"), also on ⇧⌘A, offers Ask first, Auto, Accept edits, and Full access, each with a one-line description, as far as the agent's capabilities list them.
+- A choice saves `agent.harness` and that agent's model, effort, and permission mode, which every new chat uses; there is no other default control. It changes nothing else, so a page holding older settings cannot undo a newer choice or turn an agent back on. A message sent while the choice is saving waits for it, so it runs the choice the composer shows. Choosing a model keeps the current effort when the new model offers it.
+- An open conversation with the same agent runs the new model and effort from its next turn: Claude Code switches through `set_model` and `apply_flag_settings`, and Codex through the next `turn/start`. A new permission mode resumes the conversation in a new process before its next turn. When the chosen agent differs from the open conversation's, a muted line above the composer reads "Sends in a new chat with Codex", and the next message starts that chat.
+- When the chosen agent is signed out or not installed, a notice sits in the conversation above the composer: "Codex is signed out. Run `codex login` in Terminal." with the command in a chip with a copy button, or "Codex isn't installed." with a How to install link. With no agent installed it names both with their install links. It offers Check again, which probes the agents afresh, and "Use Opus 5.5 instead" when a working choice preceded it. Send waits while the notice shows, and the draft stays. A saved choice whose agent cannot run shows the notice as soon as chat opens.
+- With nothing chosen, chat uses the first agent that is ready, without asking.
+
+### US6 - Turn agents on or off on this Mac
+
+- id:: ^SPEC-0140-US6
+- summary:: Rhizome Desktop's Settings → Rhizome on this Mac → Chat shows each agent's status and a switch that hides it from the picker.
+- status:: ready
+
+#### Acceptance Criteria
+
+- Each agent has one row: its name, a status mark, and one plain line (Ready; Signed out with the command to run; or Not installed with How to install), and an on/off switch. Detected agents are on until turned off; a missing agent's switch is off and disabled. Check again probes the agents afresh.
+- Turning an agent off stores `agent.harnesses.<kind>.disabled: true` and changes nothing else, hides its models from the picker, and keeps chat from ever resolving it; chat falls back to the first enabled agent that is ready. A chat already open on that agent refuses its next message with "Codex is turned off in Settings." Open pages read the change at once.
+
 ## Requirements
 
 - The pane and the Agent page share one implementation of a session's thread, stream, and sending.
 - The page-text relay authenticates the tool with a random per-session token held in memory, and the relay itself keeps no page text. The tool's result is part of the session transcript, bounded like any tool output, as a file the agent reads is.
 - Context fields are bounded and validated at the HTTP boundary.
+- A turn runs on the model and effort saved for its session's agent. A saved model the agent no longer offers falls back to its default, and an effort the model lacks falls back to the model's default.
+- A turn never waits on a fresh status probe: an open process reuses the cached status, and only a new process probes.

@@ -1,9 +1,9 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { AgentEvent, AgentSessionResponse } from "../api/types";
+import type { AgentEvent, AgentSessionResponse, AgentSettingsResponse } from "../api/types";
 import { withFakeEventSource } from "../test/fakeEventSource";
-import { deferredReply, withFakeFetch } from "../test/fakeFetch";
+import { deferredReply, jsonReply, withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { capabilities, readyStatus, session, settingsWith } from "./AgentWorkspace.test-support";
 import { ChatDrawer } from "./ChatDrawer";
@@ -75,8 +75,10 @@ describe("Chat in the right pane", () => {
     render(<ChatDrawer />);
 
     const pane = screen.getByRole("complementary", { name: "Chat" });
-    expect(await within(pane).findByText(/Codex · GPT Standard/)).toBeVisible();
-    expect(within(pane).getByText("Auto")).toBeVisible();
+    expect(
+      await within(pane).findByRole("button", { name: "GPT Standard · Default" }),
+    ).toBeVisible();
+    expect(within(pane).getByRole("button", { name: "Auto" })).toBeVisible();
 
     const composer = within(pane).getByRole("textbox", { name: "Message" });
     fireEvent.change(composer, { target: { value: "Explain this graph" } });
@@ -102,6 +104,383 @@ describe("Chat in the right pane", () => {
     sources.latest().emitJSON(event(2, "turn-completed", { turnId: "t1" }), "agent_event");
     expect(await within(pane).findByRole("button", { name: "Send" })).toBeVisible();
     expect(within(pane).queryByRole("button", { name: "Stop" })).toBeNull();
+  });
+
+  it("holds a message until the permission mode chosen just before it is saved", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+    const saving = deferredReply<AgentSettingsResponse>();
+    http
+      .on("PUT", "/api/agent/settings", () => saving.promise)
+      .json("GET", "/api/agent/sessions/agt-1", { session: session(), messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    fireEvent.click(await within(pane).findByRole("button", { name: "Auto" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Ask first/ }));
+    const composer = within(pane).getByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "Delete the drafts" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+
+    const asked = settingsWith(readyStatus);
+    asked.settings.harnesses.codex = { model: "gpt-standard", permissionMode: "approval-required" };
+    saving.resolve(asked);
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(1));
+  });
+
+  it("drops a waiting message when New chat is pressed", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+    const saving = deferredReply<AgentSettingsResponse>();
+    http
+      .on("PUT", "/api/agent/settings", () => saving.promise)
+      .json("GET", "/api/agent/sessions/agt-1", { session: session(), messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    fireEvent.click(await within(pane).findByRole("button", { name: "Auto" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Ask first/ }));
+    const composer = within(pane).getByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "Delete the drafts" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+
+    fireEvent.click(within(pane).getByRole("button", { name: "New chat" }));
+    saving.resolve(settingsWith(readyStatus));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+    expect(within(pane).getByRole("button", { name: "Send" })).toBeVisible();
+  });
+
+  it("cancels a message still waiting for its choice to save when Stop is pressed", async () => {
+    const saving = deferredReply<AgentSettingsResponse>();
+    http
+      .on("PUT", "/api/agent/settings", () => saving.promise)
+      .json("POST", "/api/agent/sessions", { session: session() })
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    fireEvent.click(await within(pane).findByRole("button", { name: "Auto" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Ask first/ }));
+    const composer = within(pane).getByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "Delete the drafts" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+
+    fireEvent.click(within(pane).getByRole("button", { name: "Stop" }));
+    expect(await within(pane).findByRole("button", { name: "Send" })).toBeVisible();
+
+    const asked = settingsWith(readyStatus);
+    asked.settings.harnesses.codex = { model: "gpt-standard", permissionMode: "approval-required" };
+    saving.resolve(asked);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions")).toBe(0);
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+    expect(composer).toHaveValue("Delete the drafts");
+    expect(within(pane).getByRole("button", { name: "Send" })).toBeVisible();
+  });
+
+  it("does not open a chat whose creation finished after Stop", async () => {
+    const creating = deferredReply<{ session: ReturnType<typeof session> }>();
+    http
+      .on("POST", "/api/agent/sessions", () => creating.promise)
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    const composer = await within(pane).findByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "Delete the drafts" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions")).toBe(1));
+
+    fireEvent.click(within(pane).getByRole("button", { name: "Stop" }));
+    creating.resolve({ session: session() });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(window.localStorage.getItem(SESSION_KEY)).toBeNull();
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+    expect(composer).toHaveValue("Delete the drafts");
+  });
+
+  it("starts a new chat for another agent chosen while the saved chat loads", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+
+    const loading = deferredReply<{
+      session: ReturnType<typeof session>;
+      messages: [];
+      events: [];
+    }>();
+
+    const both = settingsWith(readyStatus);
+
+    both.harnesses.push({
+      kind: "claude",
+      status: {
+        ...readyStatus,
+        models: [{ id: "opus", displayName: "Opus 5.5", efforts: ["high"], default: true }],
+      },
+    });
+    const created = session({ id: "created", harness: "claude" });
+    http
+      .json("GET", "/api/agent/settings", both)
+      .on("GET", "/api/agent/sessions/agt-1", () => loading.promise)
+      .json("PUT", "/api/agent/settings", {
+        ...both,
+        settings: {
+          harness: "claude",
+          harnesses: {
+            ...both.settings.harnesses,
+            claude: { model: "opus", permissionMode: "approval-required" },
+          },
+        },
+        resolved: { harness: "claude", model: "opus", reason: "configured" },
+      })
+      .json("POST", "/api/agent/sessions", { session: created })
+      .json("GET", "/api/agent/sessions/created", { session: created, messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/created/messages", { session: created })
+      .json("POST", "/api/agent/sessions/agt-1/messages", { session: session() });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    fireEvent.click(await within(pane).findByRole("button", { name: /GPT Standard/ }));
+    fireEvent.click(screen.getByRole("option", { name: /Opus 5.5/ }));
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+    const composer = within(pane).getByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "Summarize this" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+    loading.resolve({ session: session(), messages: [], events: [] });
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/created/messages")).toBe(1));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+  });
+
+  it("starts a new chat when the open chat cannot be read", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+
+    const created = session({ id: "created" });
+
+    http
+      .on("GET", "/api/agent/sessions/agt-1", () => jsonReply({ error: "unavailable" }, 500))
+      .json("POST", "/api/agent/sessions", { session: created })
+      .json("GET", "/api/agent/sessions/created", { session: created, messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/created/messages", { session: created })
+      .json("POST", "/api/agent/sessions/agt-1/messages", { session: session() });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    const composer = await within(pane).findByRole("textbox", { name: "Message" });
+
+    fireEvent.change(composer, { target: { value: "Summarize this" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/created/messages")).toBe(1));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+  });
+
+  it("waits for a choice made while the open chat loads", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+
+    const loading = deferredReply<AgentSessionResponse>();
+    const saving = deferredReply<AgentSettingsResponse>();
+
+    http
+      .on("GET", "/api/agent/sessions/agt-1", () => loading.promise)
+      .on("PUT", "/api/agent/settings", () => saving.promise)
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    const composer = await within(pane).findByRole("textbox", { name: "Message" });
+
+    fireEvent.change(composer, { target: { value: "Delete the drafts" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    fireEvent.click(await within(pane).findByRole("button", { name: "Auto" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Ask first/ }));
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+
+    loading.resolve({ session: session(), messages: [], events: [] });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+
+    const asked = settingsWith(readyStatus);
+
+    asked.settings.harnesses.codex = { model: "gpt-standard", permissionMode: "approval-required" };
+    saving.resolve(asked);
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(1));
+  });
+
+  it("opens a chat for the agent chosen while the first chat was opening", async () => {
+    const both = settingsWith(readyStatus);
+
+    both.harnesses.push({
+      kind: "claude",
+      status: {
+        ...readyStatus,
+        models: [{ id: "opus", displayName: "Opus 5.5", efforts: ["high"], default: true }],
+      },
+    });
+
+    const opening = deferredReply<AgentSessionResponse>();
+    const claudeChat = session({ id: "claude-chat", harness: "claude" });
+    let creates = 0;
+
+    http
+      .json("GET", "/api/agent/settings", both)
+      .on("POST", "/api/agent/sessions", () =>
+        creates++ === 0 ? opening.promise : jsonReply({ session: claudeChat }),
+      )
+      .json("PUT", "/api/agent/settings", {
+        ...both,
+        settings: {
+          harness: "claude",
+          harnesses: {
+            ...both.settings.harnesses,
+            claude: { model: "opus", permissionMode: "approval-required" },
+          },
+        },
+        resolved: { harness: "claude", model: "opus", reason: "configured" },
+      })
+      .json("GET", "/api/agent/sessions/claude-chat", {
+        session: claudeChat,
+        messages: [],
+        events: [],
+      })
+      .json("POST", "/api/agent/sessions/claude-chat/messages", { session: claudeChat })
+      .json("POST", "/api/agent/sessions/agt-1/messages", { session: session() });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    const composer = await within(pane).findByRole("textbox", { name: "Message" });
+
+    fireEvent.change(composer, { target: { value: "Summarize this" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions")).toBe(1));
+    fireEvent.click(within(pane).getByRole("button", { name: /GPT Standard/ }));
+    fireEvent.click(screen.getByRole("option", { name: /Opus 5.5/ }));
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+
+    opening.resolve({ session: session(), messages: [], events: [] });
+    await waitFor(() =>
+      expect(http.count("POST", "/api/agent/sessions/claude-chat/messages")).toBe(1),
+    );
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+  });
+
+  it("sends again after a choice failed to save", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+    const saving = deferredReply<AgentSettingsResponse>();
+    http
+      .on("PUT", "/api/agent/settings", () => saving.promise)
+      .json("GET", "/api/agent/sessions/agt-1", { session: session(), messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    fireEvent.click(await within(pane).findByRole("button", { name: "Auto" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Ask first/ }));
+    const composer = within(pane).getByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "Delete the drafts" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+
+    saving.reject(new Error("offline"));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+    expect(composer).toHaveValue("Delete the drafts");
+
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(1));
+  });
+
+  it("holds a waiting message for a choice made while it waits", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+    const saves = [deferredReply<AgentSettingsResponse>(), deferredReply<AgentSettingsResponse>()];
+    let put = 0;
+    http
+      .on("PUT", "/api/agent/settings", () => saves[put++]!.promise)
+      .json("GET", "/api/agent/sessions/agt-1", { session: session(), messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    fireEvent.click(await within(pane).findByRole("button", { name: "Auto" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Accept edits/ }));
+    const composer = within(pane).getByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "Delete the drafts" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+
+    fireEvent.click(within(pane).getByRole("button", { name: "Accept edits" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Ask first/ }));
+    const edits = settingsWith(readyStatus);
+    edits.settings.harnesses.codex = { model: "gpt-standard", permissionMode: "auto-accept-edits" };
+    saves[0]!.resolve(edits);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+
+    const asked = settingsWith(readyStatus);
+    asked.settings.harnesses.codex = { model: "gpt-standard", permissionMode: "approval-required" };
+    saves[1]!.resolve(asked);
+    await waitFor(() => expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(1));
+  });
+
+  it("keeps a waiting message when the choice made meanwhile needs sign-in", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+    const saves = [deferredReply<AgentSettingsResponse>(), deferredReply<AgentSettingsResponse>()];
+    let put = 0;
+    http
+      .on("PUT", "/api/agent/settings", () => saves[put++]!.promise)
+      .json("GET", "/api/agent/sessions/agt-1", { session: session(), messages: [], events: [] })
+      .json("POST", "/api/agent/sessions/agt-1/messages", {
+        session: session({ turnRunning: true }),
+      });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    fireEvent.click(await within(pane).findByRole("button", { name: "Auto" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Accept edits/ }));
+    const composer = within(pane).getByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "Delete the drafts" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await waitFor(() => expect(http.count("PUT", "/api/agent/settings")).toBe(1));
+
+    fireEvent.click(within(pane).getByRole("button", { name: "Accept edits" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Ask first/ }));
+    const edits = settingsWith(readyStatus);
+    edits.settings.harnesses.codex = { model: "gpt-standard", permissionMode: "auto-accept-edits" };
+    saves[0]!.resolve(edits);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+
+    const signedOut = settingsWith({ ...readyStatus, loggedIn: false });
+    signedOut.settings.harnesses.codex = {
+      model: "gpt-standard",
+      permissionMode: "approval-required",
+    };
+    saves[1]!.resolve(signedOut);
+    expect(await within(pane).findByText(/Codex is signed out/)).toBeVisible();
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(http.count("POST", "/api/agent/sessions/agt-1/messages")).toBe(0);
+    expect(composer).toHaveValue("Delete the drafts");
   });
 
   it("shows each agent action as one line and asks only for escalations", async () => {
@@ -214,7 +593,7 @@ describe("Chat in the right pane", () => {
     render(<ChatDrawer />);
 
     const composer = await screen.findByRole("textbox", { name: "Message" });
-    await screen.findByText(/Codex · GPT Standard/);
+    await screen.findByRole("button", { name: "GPT Standard · Default" });
     fireEvent.change(composer, { target: { value: "Explain this graph" } });
     fireEvent.keyDown(composer, { key: "Enter" });
     fireEvent.keyDown(composer, { key: "Enter" });
@@ -232,14 +611,14 @@ describe("Chat in the right pane", () => {
         session: session({ turnRunning: true }),
       });
     const first = render(<ChatDrawer />);
-    await screen.findByText(/Codex · GPT Standard/);
+    await screen.findByRole("button", { name: "GPT Standard · Default" });
     const composer = screen.getByRole("textbox", { name: "Message" });
     fireEvent.change(composer, { target: { value: "first question" } });
     fireEvent.keyDown(composer, { key: "Enter" });
     first.unmount();
 
     render(<ChatDrawer />);
-    await screen.findByText(/Codex · GPT Standard/);
+    await screen.findByRole("button", { name: "GPT Standard · Default" });
     const again = screen.getByRole("textbox", { name: "Message" });
     fireEvent.change(again, { target: { value: "a newer thought" } });
     fireEvent.keyDown(again, { key: "Enter" });
@@ -276,7 +655,7 @@ describe("Chat in the right pane", () => {
     expect(composer).toHaveValue("half a thought");
   });
 
-  it("offers the setup card instead of a composer when no coding agent is installed", async () => {
+  it("explains a missing agent above the composer, keeping the draft and holding Send", async () => {
     http.json("GET", "/api/agent/settings", {
       ...settingsWith({
         ...readyStatus,
@@ -288,42 +667,38 @@ describe("Chat in the right pane", () => {
 
     const pane = screen.getByRole("complementary", { name: "Chat" });
 
-    const card = await within(pane).findByRole("region", { name: "Set up chat" });
-    expect(within(card).getByRole("radio", { name: "Codex" })).toBeDisabled();
-    expect(within(card).getByRole("radio", { name: "Claude Code" })).toBeDisabled();
-    expect(within(pane).getByRole("textbox", { name: "Message" })).toBeDisabled();
-    // Neither the raw error nor a harness that cannot run reads as the footer's agent.
-    expect(within(pane).getByText(/harness not installed/)).not.toBeVisible();
-    expect(within(pane).queryByText(/Codex ·/)).toBeNull();
+    expect(await within(pane).findByText(/Codex isn't installed/)).toBeVisible();
+    expect(within(pane).getByRole("link", { name: "How to install" })).toHaveAttribute(
+      "href",
+      "https://github.com/openai/codex",
+    );
+    const composer = within(pane).getByRole("textbox", { name: "Message" });
+    fireEvent.change(composer, { target: { value: "keep me" } });
+    expect(composer).toHaveValue("keep me");
+    expect(within(pane).getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(within(pane).queryByText(/harness not installed/)).toBeNull();
+    expect(within(pane).queryByRole("button", { name: /What changed|look at first/ })).toBeNull();
   });
 
-  it("asks once which harness to use when both are ready and none is chosen", async () => {
-    const both = settingsWith(readyStatus);
-    both.settings.harness = undefined;
-    both.resolved = { harness: "codex", reason: "first available" };
-    both.harnesses = [
-      { kind: "codex", status: readyStatus },
-      { kind: "claude", status: readyStatus },
-    ];
-    const chosen = structuredClone(both);
-    chosen.settings.harness = "claude";
-    chosen.resolved = { harness: "claude", reason: "configured" };
-    http.json("GET", "/api/agent/settings", both).json("PUT", "/api/agent/settings", chosen);
+  it("shows the sign-in notice as soon as a chosen agent is signed out, and checks again", async () => {
+    const signedOut = settingsWith({ ...readyStatus, loggedIn: false, loginHint: "codex login" });
+    http.on("GET", "/api/agent/settings", (request) =>
+      jsonReply(request.query.has("refresh") ? settingsWith(readyStatus) : signedOut),
+    );
     render(<ChatDrawer />);
 
     const pane = screen.getByRole("complementary", { name: "Chat" });
-
-    const card = await within(pane).findByRole("region", {
-      name: "Choose a coding agent for chat",
+    const notice = await within(pane).findByText(/Codex is signed out/);
+    expect(notice).toHaveTextContent("Codex is signed out. Run codex login in Terminal.");
+    expect(within(pane).getByRole("button", { name: "Copy codex login" })).toBeVisible();
+    fireEvent.change(within(pane).getByRole("textbox", { name: "Message" }), {
+      target: { value: "hello" },
     });
+    expect(within(pane).getByRole("button", { name: "Send" })).toBeDisabled();
 
-    expect(within(pane).getByRole("textbox", { name: "Message" })).toBeEnabled();
-
-    fireEvent.click(within(card).getByRole("radio", { name: "Claude Code" }));
-
-    expect(await within(pane).findByText(/Claude Code · GPT Standard/)).toBeVisible();
-    expect(within(pane).queryByRole("region", { name: /coding agent/ })).toBeNull();
-    expect(within(pane).getByText("Ask about what you're looking at.")).toBeVisible();
+    fireEvent.click(within(pane).getByRole("button", { name: "Check again" }));
+    await waitFor(() => expect(within(pane).queryByText(/signed out/)).toBeNull());
+    expect(within(pane).getByRole("button", { name: "Send" })).toBeEnabled();
   });
 
   it("just works with the one ready harness when none is chosen", async () => {
@@ -339,7 +714,7 @@ describe("Chat in the right pane", () => {
 
     const pane = screen.getByRole("complementary", { name: "Chat" });
     expect(await within(pane).findByText("Ask about what you're looking at.")).toBeVisible();
-    expect(within(pane).queryByRole("region", { name: /chat/i })).toBeNull();
+    expect(within(pane).queryByRole("status")).toBeNull();
   });
 
   it("names the harness default when the saved model is no longer offered", async () => {
@@ -350,7 +725,9 @@ describe("Chat in the right pane", () => {
     render(<ChatDrawer />);
 
     const pane = screen.getByRole("complementary", { name: "Chat" });
-    expect(await within(pane).findByText(/Codex · GPT Standard/)).toBeVisible();
+    expect(
+      await within(pane).findByRole("button", { name: "GPT Standard · Medium" }),
+    ).toBeVisible();
     expect(within(pane).queryByText(/fake/)).toBeNull();
   });
 });

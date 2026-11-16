@@ -556,7 +556,8 @@ describe("AppShell", () => {
       await send({ command: "section", section: "ontology" });
       await send({ command: "pane" });
       const pane = await screen.findByRole("complementary", { name: "Chat" });
-      expect(await within(pane).findByText(/Codex · GPT Standard/)).toBeVisible();
+      const picker = await within(pane).findByRole("button", { name: "GPT Standard · Medium" });
+      expect(picker).toHaveAttribute("title", expect.stringMatching(/^Codex · /));
 
       http.json("GET", "/api/agent/settings", {
         ...before,
@@ -565,7 +566,9 @@ describe("AppShell", () => {
         harnesses: [...before.harnesses, { kind: "claude", status: readyStatus }],
       });
       await send({ command: "agent-settings" });
-      expect(await within(pane).findByText(/Claude Code · GPT Standard/)).toBeVisible();
+      await waitFor(() =>
+        expect(picker).toHaveAttribute("title", expect.stringMatching(/^Claude Code · /)),
+      );
     });
 
     it("switches sections, searches, and opens issues on app commands", async () => {

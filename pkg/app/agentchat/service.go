@@ -20,6 +20,17 @@ var (
 	ErrNotFound = errors.New("agent session not found")
 )
 
+var harnessLabels = map[harness.Kind]string{harness.KindClaude: "Claude Code", harness.KindCodex: "Codex"}
+
+// turnedOff refuses a turn for an agent turned off in Settings, in words the
+// composer shows as they are.
+type turnedOff harness.Kind
+
+func (e turnedOff) Error() string {
+	return harnessLabels[harness.Kind(e)] + " is turned off in Settings."
+}
+func (turnedOff) Unwrap() error { return ErrConflict }
+
 const statusCacheTTL = 30 * time.Second
 
 const defaultSessionStartupTimeout = 60 * time.Second
@@ -30,7 +41,16 @@ type statusCacheEntry struct {
 }
 
 type turnState struct {
-	assistant strings.Builder
+	// The model and effort the turn runs on, from the chat settings at send.
+	model  string
+	effort string
+	// ctx covers the model change and the harness turn. Stop cancels it
+	// only before SendTurn, when the harness has no turn to interrupt.
+	ctx         context.Context
+	cancel      context.CancelFunc
+	started     bool
+	interrupted bool
+	assistant   strings.Builder
 	// The message item the last delta belonged to; a turn's separate
 	// messages, such as a progress note and its answer, become paragraphs.
 	assistantItem string
@@ -48,6 +68,12 @@ type liveSession struct {
 	stopOnce      sync.Once
 	drainOnce     sync.Once
 	page          *pageRelay
+	// The process's permission mode, fixed at launch.
+	permissionMode harness.PermissionMode
+	// generation prefixes the process's turn ids in stored events. A process
+	// numbers its turns from one, so a chat resumed in a new process would
+	// otherwise repeat an earlier turn's id.
+	generation string
 }
 
 type chatStore interface {
@@ -138,8 +164,9 @@ func (s *Service) Settings(ctx context.Context) (SettingsResponse, error) {
 	return settingsResponse(settings, s.harnessStatuses(ctx)), nil
 }
 
-func (s *Service) SaveSettings(ctx context.Context, settings Settings) (SettingsResponse, error) {
-	saved, err := SaveSettings(vaultconfig.FromContext(s.ctx), settings)
+// SaveChoice stores the composer's choice; see the package function.
+func (s *Service) SaveChoice(ctx context.Context, settings Settings) (SettingsResponse, error) {
+	saved, err := SaveChoice(vaultconfig.FromContext(s.ctx), settings)
 	if err != nil {
 		return SettingsResponse{}, err
 	}
@@ -152,11 +179,11 @@ func resolveHarness(settings Settings, statuses []HarnessStatus) ResolvedHarness
 		byKind[item.Kind] = item.Status
 	}
 	resolved := ResolvedHarness{Reason: "none available"}
-	if settings.Harness != "" {
+	if settings.Harness != "" && !settings.Harnesses[settings.Harness].Disabled {
 		resolved = ResolvedHarness{Harness: settings.Harness, Reason: "configured"}
 	} else {
 		for _, kind := range harnessOrder {
-			if status, ok := byKind[kind]; ok && status.Installed && status.LoggedIn {
+			if status, ok := byKind[kind]; ok && status.Installed && status.LoggedIn && !settings.Harnesses[kind].Disabled {
 				resolved = ResolvedHarness{Harness: kind, Reason: "first available"}
 				break
 			}
@@ -181,6 +208,36 @@ func effectiveModel(model string, installed bool, offered []harness.ModelOption)
 		return model
 	}
 	return ""
+}
+
+// turnModel is the model and effort a turn runs, as concrete values wherever
+// the harness reports them: the configured model or else the harness default,
+// and the configured effort when that model offers it or else its default.
+func turnModel(configured HarnessSettings, status harness.Status) (string, string) {
+	if !status.Installed {
+		// Not probed yet, or missing so the start fails anyway: the saved
+		// choice came from an offered list.
+		return configured.Model, configured.Effort
+	}
+	model := effectiveModel(configured.Model, status.Installed, status.Models)
+	var option *harness.ModelOption
+	for i := range status.Models {
+		if status.Models[i].ID == model || model == "" && status.Models[i].Default {
+			option = &status.Models[i]
+			break
+		}
+	}
+	if option == nil {
+		return model, configured.Effort
+	}
+	effort := configured.Effort
+	if effort != "" && len(option.Efforts) > 0 && !slices.Contains(option.Efforts, effort) {
+		effort = ""
+	}
+	if effort == "" {
+		effort = option.DefaultEffort
+	}
+	return option.ID, effort
 }
 
 func (s *Service) CreateSession(ctx context.Context, title string) (SessionResponse, error) {
@@ -272,6 +329,7 @@ func (s *Service) SendMessage(ctx context.Context, sessionID, content string, vi
 		return SendMessageResponse{}, err
 	}
 	if _, err := s.store.AddMessage(s.ctx, sessionID, "user", content, viewContext); err != nil {
+		turn.cancel()
 		s.finishTurn(sessionID, live, turn)
 		return SendMessageResponse{}, err
 	}
@@ -286,27 +344,38 @@ func (s *Service) SendMessage(ctx context.Context, sessionID, content string, vi
 	return SendMessageResponse{Session: updated}, nil
 }
 
-func (s *Service) sendTurn(session Session, live *liveSession, turn *turnState, content string) {
-	if err := live.session.SendTurn(s.ctx, content); err != nil {
-		if s.finishTurn(session.ID, live, turn) && s.ctx.Err() == nil {
-			s.persistHarnessError(session.ID, session.Harness, err)
-		}
-	}
-}
-
 func (s *Service) beginTurn(session Session, settings Settings) (*liveSession, *turnState, error) {
+	driver := s.harnesses[session.Harness]
+	if driver == nil {
+		return nil, nil, fmt.Errorf("harness %q is unavailable", session.Harness)
+	}
+	configured := settings.Harnesses[session.Harness]
+	if configured.Disabled {
+		return nil, nil, turnedOff(session.Harness)
+	}
 	s.mu.Lock()
 	live := s.live[session.ID]
+	// A permission mode is a launch option (Claude Code cannot switch to full
+	// access mid-session), so a changed one resumes in a new process. Another
+	// window may start its own replacement while this one stops, so the
+	// process found afterwards is checked again before it is reused.
+	for live != nil && !live.starting && !live.running && live.permissionMode != configured.PermissionMode {
+		delete(s.live, session.ID)
+		s.mu.Unlock()
+		if err := stopLiveSession(live); err != nil {
+			return nil, nil, err
+		}
+		s.mu.Lock()
+		live = s.live[session.ID]
+	}
 	if live != nil && (live.starting || live.running) {
 		s.mu.Unlock()
 		return nil, nil, fmt.Errorf("%w: a turn is already running", ErrConflict)
 	}
+	// A running process reuses the cached probe, even an expired one, so a
+	// turn never waits on a fresh one; starting a process probes as before.
+	model, effort := turnModel(configured, s.status[session.Harness].status)
 	if live == nil {
-		driver := s.harnesses[session.Harness]
-		if driver == nil {
-			s.mu.Unlock()
-			return nil, nil, fmt.Errorf("harness %q is unavailable", session.Harness)
-		}
 		page, err := newPageRelay(s.ctx)
 		if err != nil {
 			s.mu.Unlock()
@@ -316,16 +385,15 @@ func (s *Service) beginTurn(session Session, settings Settings) (*liveSession, *
 		live = &liveSession{
 			page: page, ready: make(chan struct{}), drained: make(chan struct{}), starting: true,
 			startupCancel: cancelStartup, pending: make(map[string]struct{}),
+			permissionMode: configured.PermissionMode, generation: newID(""),
 		}
 		s.live[session.ID] = live
 		origin := s.pageRelayOrigin
 		s.mu.Unlock()
 
-		configured := settings.Harnesses[session.Harness]
-		status := s.harnessStatus(s.ctx, session.Harness, driver)
+		model, effort = turnModel(configured, s.harnessStatus(s.ctx, session.Harness, driver))
 		options := harness.SessionOptions{
-			Cwd: s.vaultPath, Model: effectiveModel(session.Model, status.Installed, status.Models),
-			Effort:         configured.Effort,
+			Cwd: s.vaultPath, Model: model, Effort: effort,
 			PermissionMode: configured.PermissionMode, Resume: session.HarnessSessionID,
 			Instructions: chatInstructions,
 		}
@@ -365,7 +433,8 @@ func (s *Service) beginTurn(session Session, settings Settings) (*liveSession, *
 		close(live.ready)
 		go s.drainEvents(session.ID, session.Harness, live)
 	}
-	turn := &turnState{}
+	turnCtx, cancelTurn := context.WithCancel(s.ctx)
+	turn := &turnState{model: model, effort: effort, ctx: turnCtx, cancel: cancelTurn}
 	live.running = true
 	live.turn = turn
 	s.mu.Unlock()

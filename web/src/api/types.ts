@@ -667,6 +667,8 @@ export type AgentHarnessSettings = {
   model?: string;
   effort?: string;
   permissionMode: AgentPermissionMode;
+  /** Turned off in Settings → Chat: its models leave the picker and chat never uses it. */
+  disabled?: boolean;
 };
 
 export type AgentSettings = {
@@ -690,6 +692,8 @@ export type AgentModelOption = {
   id: string;
   displayName: string;
   efforts?: string[];
+  /** The effort the agent uses when none is chosen; Claude Code reports none. */
+  defaultEffort?: string;
   default?: boolean;
 };
 

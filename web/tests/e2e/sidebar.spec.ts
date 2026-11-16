@@ -57,7 +57,7 @@ test("shows the same sidebar in every section and keeps it collapsed across them
     { name: "Notes", rail: "Notes navigation" },
     { name: "Ontology", rail: "Ontology navigation" },
     { name: "Explorer", rail: "Vault files" },
-    { name: "Agent", rail: "Agent sessions and settings" },
+    { name: "Agent", rail: "Agent sessions" },
   ];
 
   for (const section of sections) {

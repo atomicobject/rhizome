@@ -11,6 +11,8 @@ type HarnessSettings struct {
 	Model          string                 `json:"model,omitempty" yaml:"model,omitempty"`
 	Effort         string                 `json:"effort,omitempty" yaml:"effort,omitempty"`
 	PermissionMode harness.PermissionMode `json:"permissionMode" yaml:"permission-mode"`
+	// Disabled hides the agent's models from chat, which never resolves it.
+	Disabled bool `json:"disabled,omitempty" yaml:"disabled,omitempty"`
 }
 
 type Settings struct {

@@ -46,17 +46,20 @@ func (d *Driver) Status(ctx context.Context) (harness.Status, error) {
 		status.LastError = err.Error()
 		return status, nil
 	}
-	if account.Account == nil {
-		return status, nil
+	if account.Account != nil {
+		status.LoggedIn = true
+		status.Account = account.Account.Email
+		if status.Account == "" {
+			status.Account = account.Account.Type
+		}
 	}
-	status.LoggedIn = true
-	status.Account = account.Account.Email
-	if status.Account == "" {
-		status.Account = account.Account.Type
-	}
+	// Codex lists its bundled models signed out too, so a person can choose
+	// one before signing in; only a signed-in failure to list them is an error.
 	models, err := client.models(ctx)
 	if err != nil {
-		status.LastError = err.Error()
+		if status.LoggedIn {
+			status.LastError = err.Error()
+		}
 		return status, nil
 	}
 	for _, model := range models.Data {
@@ -68,7 +71,7 @@ func (d *Driver) Status(ctx context.Context) (harness.Status, error) {
 		if displayName == "" {
 			displayName = id
 		}
-		option := harness.ModelOption{ID: id, DisplayName: displayName, Default: model.IsDefault}
+		option := harness.ModelOption{ID: id, DisplayName: displayName, DefaultEffort: model.DefaultReasoningEffort, Default: model.IsDefault}
 		for _, effort := range model.SupportedReasoningEfforts {
 			if effort.ReasoningEffort != "" {
 				option.Efforts = append(option.Efforts, effort.ReasoningEffort)

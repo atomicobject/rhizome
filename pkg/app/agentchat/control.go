@@ -65,10 +65,21 @@ func (s *Service) Interrupt(ctx context.Context, sessionID string) error {
 	s.mu.Lock()
 	live := s.live[sessionID]
 	running := live != nil && live.running
+	beforeStart := running && !live.turn.started
+	if beforeStart {
+		live.turn.interrupted = true
+		live.turn.cancel()
+	}
 	s.mu.Unlock()
 	if !running {
 		return fmt.Errorf("%w: no turn is running", ErrConflict)
 	}
+	if beforeStart {
+		// sendTurn records the interrupt and the turn's end, in that order.
+		return nil
+	}
+	// ponytail: a Stop in the microseconds between started and the harness
+	// registering its turn gets the harness's "no running turn" error.
 	if err := live.session.Interrupt(ctx); err != nil {
 		return err
 	}
@@ -82,4 +93,44 @@ func (s *Service) Interrupt(ctx context.Context, sessionID string) error {
 		s.publishPersistenceError(event, err)
 	}
 	return err
+}
+
+func (s *Service) sendTurn(session Session, live *liveSession, turn *turnState, content string) {
+	defer turn.cancel()
+	err := live.session.SetModel(turn.ctx, turn.model, turn.effort)
+	s.mu.Lock()
+	interrupted := turn.interrupted
+	turn.started = !interrupted
+	s.mu.Unlock()
+	if interrupted {
+		s.endInterruptedTurn(session.ID, live, turn)
+		return
+	}
+	if err == nil {
+		err = live.session.SendTurn(turn.ctx, content)
+	}
+	if err != nil {
+		if s.finishTurn(session.ID, live, turn) && s.ctx.Err() == nil {
+			s.persistHarnessError(session.ID, session.Harness, err)
+		}
+	}
+}
+
+// endInterruptedTurn ends a turn stopped before its harness turn started,
+// with the events a harness interrupt would leave.
+func (s *Service) endInterruptedTurn(sessionID string, live *liveSession, turn *turnState) {
+	if !s.finishTurn(sessionID, live, turn) || s.ctx.Err() != nil {
+		return
+	}
+	// Its own turn id, so a client gathering this turn's reply does not
+	// collect every earlier turn's text.
+	turnID := fmt.Sprintf("stopped-%d", time.Now().UnixNano())
+	for _, event := range []Event{
+		{SessionID: sessionID, Type: "interrupt-requested", Result: &EventResult{Status: "requested", TurnID: turnID}},
+		{SessionID: sessionID, Type: string(harness.EventTurnCompleted), Result: &EventResult{Status: "interrupted", TurnID: turnID}},
+	} {
+		if err := s.persistAndPublish(s.ctx, event); err != nil {
+			s.publishPersistenceError(event, err)
+		}
+	}
 }

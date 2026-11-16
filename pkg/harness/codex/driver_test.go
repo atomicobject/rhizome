@@ -61,6 +61,30 @@ func TestHandshakeAndTurnTranscript(t *testing.T) {
 	require.Equal(t, "hello", turn.Input[0].Text)
 }
 
+func TestSetModelOverridesTheNextTurnStart(t *testing.T) {
+	script := codexHandshake()
+	session, err := testDriver(script).StartSession(context.Background(), harness.SessionOptions{Cwd: "/tmp/project", Model: "gpt-test", Effort: "high"})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = session.Stop() })
+	require.NoError(t, session.SetModel(context.Background(), "gpt-other", "low"))
+
+	done := make(chan error, 1)
+	go func() { done <- session.SendTurn(context.Background(), "one") }()
+	require.Eventually(t, func() bool { return script.WriteCount() >= 4 }, time.Second, time.Millisecond)
+	require.ErrorIs(t, session.SetModel(context.Background(), "gpt-test", "high"), harness.ErrTurnStart, "a running turn keeps its model")
+	script.Push(`{"jsonrpc":"2.0","id":3,"result":{"turn":{"id":"turn_1","status":"inProgress"}}}`)
+	script.Push(`{"jsonrpc":"2.0","method":"turn/started","params":{"threadId":"thr_1","turn":{"id":"turn_1","status":"inProgress"}}}`)
+	script.Push(`{"jsonrpc":"2.0","method":"turn/completed","params":{"threadId":"thr_1","turn":{"id":"turn_1","status":"completed"}}}`)
+	require.NoError(t, <-done)
+
+	var message rpcMessage
+	require.NoError(t, json.Unmarshal([]byte(script.Writes()[3]), &message))
+	require.Equal(t, "turn/start", message.Method)
+	var turn turnStartParams
+	require.NoError(t, json.Unmarshal(message.Params, &turn))
+	require.Equal(t, [2]string{"gpt-other", "low"}, [2]string{turn.Model, turn.Effort})
+}
+
 func TestUnknownNotificationDoesNotAbortTurn(t *testing.T) {
 	script := harnesstest.NewScriptedIO(
 		`{"jsonrpc":"2.0","id":1,"result":{"userAgent":"codex-cli/0.154.0"}}`,

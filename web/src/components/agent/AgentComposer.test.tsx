@@ -1,7 +1,27 @@
 import { createRef } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { settingsWith, readyStatus } from "../AgentWorkspace.test-support";
 import { AgentComposer } from "./AgentComposer";
+import type { ChatAgent } from "./ChatAgentControls";
+import { currentChoice } from "./chatAgent";
+
+const response = settingsWith(readyStatus);
+
+const agent: ChatAgent = {
+  response,
+  choice: currentChoice(response),
+  blocker: undefined,
+  readError: null,
+  error: null,
+  checking: false,
+  fallback: undefined,
+  newChat: false,
+  choose: vi.fn(),
+  saved: () => Promise.resolve(true),
+  startsNewChat: () => false,
+  recheck: vi.fn(),
+};
 
 const props = {
   runningID: "",
@@ -13,23 +33,19 @@ const props = {
   busy: false,
   blocked: false,
   readOnly: false,
-  disabledReason: "",
-  harness: "claude" as const,
-  status: undefined,
+  agent,
 };
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("AgentComposer", () => {
-  it.each([
-    ["MacIntel", "⌘"],
-    ["Linux x86_64", "Ctrl"],
-  ])("shows the %s shortcut in keycaps", (platform, modifier) => {
-    vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
+  it("names the chosen model and effort beside Send", () => {
     render(<AgentComposer {...props} />);
-    expect(screen.getByText(modifier).tagName).toBe("KBD");
-    expect(screen.getByText("↵").tagName).toBe("KBD");
-    expect(screen.getByText(/to send/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "GPT Standard · Medium" })).toHaveAttribute(
+      "title",
+      expect.stringContaining("Codex · GPT Standard · Medium"),
+    );
+    expect(screen.getByRole("button", { name: "Ask first" })).toBeVisible();
   });
 
   it("uses the standard disabled button until a message can be sent", () => {

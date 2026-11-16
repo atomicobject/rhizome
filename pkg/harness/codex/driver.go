@@ -182,6 +182,21 @@ func (s *session) threadParams() threadParams {
 	}
 }
 
+// SetModel changes the model and effort the next turn/start overrides, which
+// Codex keeps for later turns (verified against codex-cli 0.169.0's schema).
+func (s *session) SetModel(_ context.Context, model, effort string) error {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+	if s.stopped {
+		return harness.Phase(harness.ErrTransportClosed, errors.New("session stopped"))
+	}
+	if s.running {
+		return harness.Phase(harness.ErrTurnStart, errors.New("turn already running"))
+	}
+	s.options.Model, s.options.Effort = model, effort
+	return nil
+}
+
 func (s *session) SendTurn(ctx context.Context, prompt string) error {
 	s.dispatchMu.Lock()
 	s.stateMu.Lock()
@@ -223,9 +238,12 @@ func (s *session) SendTurn(ctx context.Context, prompt string) error {
 		}
 	}
 	approval, sandbox := permissionConfig(s.options.PermissionMode)
+	s.stateMu.Lock()
+	model, effort := s.options.Model, s.options.Effort
+	s.stateMu.Unlock()
 	started, err := s.startTurn(turnCtx, turnStartParams{
 		ThreadID: threadID, Input: []userInput{{Type: "text", Text: prompt}},
-		Model: s.options.Model, Effort: s.options.Effort, Cwd: s.cwd,
+		Model: model, Effort: effort, Cwd: s.cwd,
 		ApprovalPolicy: approval, SandboxPolicy: sandboxPolicy(sandbox),
 		ApprovalsReviewer: approvalsReviewer(s.options.PermissionMode),
 	})

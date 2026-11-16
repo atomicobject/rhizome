@@ -1,7 +1,5 @@
 import type { AgentSession } from "../../api/types";
-import { HARNESS_LABELS } from "./AgentSetup";
-import { AgentSettingsPanel } from "./AgentSettingsPanel";
-import type { AgentSettingsResponse } from "../../api/types";
+import { HARNESS_LABELS } from "./chatAgent";
 
 const formatter = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 
@@ -13,13 +11,10 @@ type Props = {
   loading: boolean;
   error: boolean;
   deleteConfirmID: string;
-  settings: AgentSettingsResponse;
-  settingsSaving: boolean;
   onSelect: (id: string) => void;
   onNew: () => void;
   onDelete: (id: string) => void;
   onRetry: () => void;
-  onSettingsChange: (settings: AgentSettingsResponse["settings"]) => void;
 };
 
 export function AgentSessionRail({
@@ -28,16 +23,13 @@ export function AgentSessionRail({
   loading,
   error,
   deleteConfirmID,
-  settings,
-  settingsSaving,
   onSelect,
   onNew,
   onDelete,
   onRetry,
-  onSettingsChange,
 }: Props) {
   return (
-    <aside className="agent-workspace__rail" aria-label="Agent sessions and settings">
+    <aside className="agent-workspace__rail" aria-label="Agent sessions">
       <div className="agent-workspace__rail-head">
         <h1>Agent</h1>
         <button type="button" className="button" onClick={onNew}>
@@ -106,12 +98,6 @@ export function AgentSessionRail({
           ))
         )}
       </div>
-      <AgentSettingsPanel
-        settings={settings.settings}
-        statuses={settings.harnesses}
-        saving={settingsSaving}
-        onChange={onSettingsChange}
-      />
     </aside>
   );
 }

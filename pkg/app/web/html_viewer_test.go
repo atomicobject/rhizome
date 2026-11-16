@@ -362,7 +362,7 @@ func TestApplicationHostGuardProtectsActualReadAndAgentSettingsRoutes(t *testing
 	configRoot := t.TempDir()
 	configFile := filepath.Join(configRoot, "config.yml")
 	env.CLIConfigFile = configFile
-	_, err := agentchat.SaveSettings(env, agentchat.Settings{Harness: harness.KindClaude})
+	_, err := agentchat.SaveChoice(env, agentchat.Settings{Harness: harness.KindClaude})
 	if err != nil {
 		t.Fatal(err)
 	}

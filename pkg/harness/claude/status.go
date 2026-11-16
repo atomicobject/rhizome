@@ -41,21 +41,20 @@ func (d *Driver) Status(ctx context.Context) (harness.Status, error) {
 		status.LastError = err.Error()
 		return status, nil
 	}
-	account := response.Response.Account
-	if account == nil || strings.TrimSpace(account.Email) == "" && strings.TrimSpace(account.SubscriptionType) == "" {
-		return status, nil
-	}
-	status.LoggedIn = true
-	status.Account = account.Email
-	if status.Account == "" {
-		status.Account = account.SubscriptionType
+	// Claude Code lists its models signed out too, so a person can choose one
+	// before signing in. "default" points at a model rather than being one.
+	defaultModel := ""
+	for _, model := range response.Response.Models {
+		if model.Value == "default" {
+			defaultModel = model.ResolvedModel
+		}
 	}
 	for _, model := range response.Response.Models {
 		id := model.Value
 		if id == "" {
 			id = model.ResolvedModel
 		}
-		if id == "" {
+		if id == "" || id == "default" {
 			continue
 		}
 		displayName := model.DisplayName
@@ -65,7 +64,30 @@ func (d *Driver) Status(ctx context.Context) (harness.Status, error) {
 		if displayName == "" {
 			displayName = id
 		}
-		status.Models = append(status.Models, harness.ModelOption{ID: id, DisplayName: displayName, Efforts: append([]string(nil), model.SupportedEffortLevels...), Default: model.IsDefault})
+		isDefault := model.IsDefault || defaultModel != "" && model.ResolvedModel == defaultModel
+		if isDefault {
+			defaultModel = ""
+		}
+		status.Models = append(status.Models, harness.ModelOption{ID: id, DisplayName: displayName, Efforts: append([]string(nil), model.SupportedEffortLevels...), Default: isDefault})
+	}
+	account := response.Response.Account
+	if account == nil {
+		return status, nil
+	}
+	// An API key (Claude Code 2.1.325 reports its apiKeySource) or a cloud
+	// provider such as Bedrock signs in without an account email.
+	provider, apiKey := account.APIProvider, account.APIKeySource
+	if provider == "firstParty" {
+		provider = ""
+	}
+	if apiKey == "none" {
+		apiKey = ""
+	}
+	for _, label := range []string{account.Email, account.SubscriptionType, provider, apiKey} {
+		if strings.TrimSpace(label) != "" {
+			status.LoggedIn, status.Account = true, label
+			return status, nil
+		}
 	}
 	return status, nil
 }

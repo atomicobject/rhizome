@@ -42,6 +42,12 @@ type Turn struct {
 	Prompt string
 }
 
+// ModelChange is one SetModel call.
+type ModelChange struct {
+	Model  string
+	Effort string
+}
+
 type Response struct {
 	RequestID string
 	Decision  harness.Decision
@@ -51,6 +57,7 @@ type Session struct {
 	mu          sync.Mutex
 	events      chan harness.Event
 	Turns       []Turn
+	Models      []ModelChange
 	Responses   []Response
 	Interrupted bool
 	Stopped     bool
@@ -73,6 +80,13 @@ func (s *Session) SendTurn(_ context.Context, prompt string) error {
 	defer s.mu.Unlock()
 	s.Turns = append(s.Turns, Turn{Prompt: prompt})
 	return s.SendError
+}
+
+func (s *Session) SetModel(_ context.Context, model, effort string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Models = append(s.Models, ModelChange{Model: model, Effort: effort})
+	return nil
 }
 
 func (s *Session) Interrupt(context.Context) error {

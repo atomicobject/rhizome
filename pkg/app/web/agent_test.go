@@ -85,7 +85,7 @@ func TestAgentMessageEndpointReturnsAcceptedAndTurnSurvivesRequest(t *testing.T)
 	root := filepath.Join(t.TempDir(), "config")
 	file := filepath.Join(root, "config.yml")
 	env.CLIConfigFile = file
-	_, err := agentchat.SaveSettings(env, agentchat.Settings{Harness: harness.KindCodex})
+	_, err := agentchat.SaveChoice(env, agentchat.Settings{Harness: harness.KindCodex})
 	require.NoError(t, err)
 
 	fakeSession := harnesstest.NewSession()
@@ -185,7 +185,7 @@ func TestAgentEventsHonorsLastEventIDAndWritesSSEIDs(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "config")
 	file := filepath.Join(root, "config.yml")
 	env.CLIConfigFile = file
-	_, err := agentchat.SaveSettings(env, agentchat.Settings{Harness: harness.KindCodex})
+	_, err := agentchat.SaveChoice(env, agentchat.Settings{Harness: harness.KindCodex})
 	require.NoError(t, err)
 
 	fakeSession := harnesstest.NewSession()

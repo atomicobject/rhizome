@@ -1,27 +1,19 @@
 import { AgentComposer } from "./agent/AgentComposer";
 import { ExamplePrompts } from "./agent/ExamplePrompts";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createAgentSession,
   deleteAgentSession,
-  getAgentSettings,
+  getAgentSession,
   listAgentSessions,
   respondToAgentApproval,
-  saveAgentSettings,
 } from "../api/internalAgentClient";
 import { queryKeys } from "../api/queryKeys";
 import type { AgentApprovalDecision, AgentSession, AgentSessionsResponse } from "../api/types";
-import {
-  AGENT_SETTINGS_SCOPE,
-  AgentSetup,
-  chatModelLabel,
-  needsHarnessChoice,
-  useStoreAgentSettings,
-} from "./agent/AgentSetup";
-import { emptySettingsResponse } from "./agent/AgentSettingsPanel";
+import { useChatAgent } from "./agent/ChatAgentControls";
 import { AgentSessionRail } from "./agent/AgentSessionRail";
-import { AgentStatusHeader, harnessBlocked } from "./agent/AgentStatusHeader";
+import { AgentStatusHeader } from "./agent/AgentStatusHeader";
 import { AgentTimeline } from "./agent/AgentTimeline";
 import { useAgentThread } from "./agent/useAgentThread";
 import { WorkbenchSidebar } from "./WorkbenchSidebar";
@@ -50,16 +42,17 @@ export function AgentWorkspace({
   const [deleteConfirmID, setDeleteConfirmID] = useState("");
   const threadRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
-  const submitting = useRef(false);
+  // The submit in flight, by id, held from the first keypress until its send
+  // returns, so a second submit cannot create another session or send twice.
+  const submitting = useRef(0);
+  const submits = useRef(0);
+  // Whether that submit still waits for its choice to save or its chat to
+  // open; Stop then cancels it, since there is no turn to interrupt.
+  const [waiting, setWaiting] = useState(false);
 
   const sessionsQuery = useQuery({
     queryKey: queryKeys.agent.sessions(),
     queryFn: ({ signal }) => listAgentSessions({ signal }),
-  });
-
-  const settingsQuery = useQuery({
-    queryKey: queryKeys.agent.settings(),
-    queryFn: ({ signal }) => getAgentSettings({ signal }),
   });
 
   const { sessionQuery, messages, events, isSending, sendingID, send } = useAgentThread(
@@ -68,7 +61,6 @@ export function AgentWorkspace({
   );
 
   const sessions = sessionsQuery.data?.sessions ?? [];
-  const settingsResponse = settingsQuery.data ?? emptySettingsResponse;
 
   const selectedSession =
     sessionQuery.data?.session.id === selectedID
@@ -88,13 +80,7 @@ export function AgentWorkspace({
     [queryClient],
   );
 
-  const storeSettings = useStoreAgentSettings();
-
-  const settingsMutation = useMutation({
-    mutationFn: saveAgentSettings,
-    scope: AGENT_SETTINGS_SCOPE,
-    onSuccess: storeSettings,
-  });
+  const agent = useChatAgent(selectedSession);
 
   useEffect(() => {
     if (sessions.length > 0) setSelectedID((current) => current || sessions[0]?.id || "");
@@ -118,7 +104,16 @@ export function AgentWorkspace({
     return () => document.removeEventListener("pointerdown", reset);
   }, [deleteConfirmID]);
 
+  // Stop, or opening another conversation, drops a message still waiting
+  // for its choice to save, and keeps its draft.
+  const cancelWaiting = () => {
+    submitting.current = 0;
+    setWaiting(false);
+  };
+
   const startSession = async () => {
+    cancelWaiting();
+
     try {
       const response = await createAgentSession("Rhizome agent chat");
       setSessions((current) => [response.session, ...current]);
@@ -157,65 +152,79 @@ export function AgentWorkspace({
       selectedSession?.readOnly
     )
       return;
-    // Held across a new session's creation, so a second submit in that wait
-    // cannot create another session and send the message twice.
-    submitting.current = true;
+    const id = ++submits.current;
+    const live = () => submitting.current === id;
+
+    submitting.current = id;
+    setWaiting(true);
     setError("");
-    let sessionID = selectedID;
 
     try {
-      if (!sessionID) {
+      // The open chat's agent decides whether it can take the message, so a
+      // chat still loading is read first.
+      const open = selectedID
+        ? await queryClient
+            .ensureQueryData({
+              queryKey: queryKeys.agent.session(selectedID),
+              queryFn: ({ signal }) => getAgentSession(selectedID, { signal }),
+            })
+            .catch(() => undefined)
+        : undefined;
+
+      // Then the latest choice, including one made while the chat was read.
+      if (!(await agent.saved()) || !live()) return;
+
+      // A choice of another agent starts a new chat with it, and so does an
+      // open chat that could not be read, since its agent is unknown.
+      let sessionID = !open || agent.startsNewChat(open.session.harness) ? "" : selectedID;
+
+      // An agent chosen while the chat opened gets a chat of its own.
+      while (!sessionID) {
         const created = await createAgentSession(trimmed.slice(0, 48));
-        sessionID = created.session.id;
+
         setSessions((current) => [created.session, ...current]);
-        setSelectedID(sessionID);
+
+        if (!(await agent.saved()) || !live()) return;
+
+        if (!agent.startsNewChat(created.session.harness)) sessionID = created.session.id;
       }
 
-      setDraft("");
+      setSelectedID(sessionID);
+
+      // A permission mode or model chosen while the chat opened is saved
+      // before the message runs on it.
+      if (!(await agent.saved()) || !live()) return;
+
+      setWaiting(false);
+      // Text typed while the message waited stays for the next one.
+      setDraft((current) => (current.trim() === trimmed ? "" : current));
       await send(sessionID, trimmed);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      submitting.current = false;
+      if (live()) {
+        submitting.current = 0;
+        setWaiting(false);
+      }
     }
   };
 
-  const harness =
-    selectedSession?.harness ||
-    settingsResponse.settings.harness ||
-    settingsResponse.resolved.harness;
+  const harness = selectedSession?.harness || agent.choice?.harness;
 
-  const status = settingsResponse.harnesses.find((item) => item.kind === harness)?.status;
-
-  const model = chatModelLabel(settingsResponse, harness, selectedSession ?? undefined);
+  const status = agent.response.harnesses.find((item) => item.kind === harness)?.status;
 
   const busy = isSending || Boolean(selectedSession?.turnRunning);
 
-  // Until settings load, the harness is unknown rather than missing.
-  const blocked =
-    !selectedSession?.readOnly && settingsQuery.isSuccess && harnessBlocked(harness, status);
+  const blocked = !selectedSession?.readOnly && Boolean(agent.blocker);
 
-  const disabledReason = selectedSession?.readOnly
-    ? "This pre-harness session is read-only."
-    : busy
-      ? "A turn is running. Interrupt it before sending another message."
-      : "";
-
-  const readError = [sessionsQuery.error, settingsQuery.error, sessionQuery.error].find(Boolean);
+  const readError = [sessionsQuery.error, agent.readError, sessionQuery.error].find(Boolean);
 
   const visibleError =
     error || (readError instanceof Error ? readError.message : readError ? String(readError) : "");
 
   const empty = messages.length === 0 && events.length === 0;
 
-  // Blocked, or on first use with more than one harness ready, so the person
-  // picks once. A session keeps the harness it began with.
-  const setup =
-    settingsQuery.isSuccess &&
-    !selectedSession?.readOnly &&
-    (blocked || (!selectedSession && empty && needsHarnessChoice(settingsResponse)));
-
-  const showExamples = empty && !setup && !selectedSession?.readOnly;
+  const showExamples = empty && !blocked && !selectedSession?.readOnly;
 
   return (
     <main className="workspace workbench agent-workspace">
@@ -226,24 +235,19 @@ export function AgentWorkspace({
           loading={sessionsQuery.isPending}
           error={sessionsQuery.isError}
           deleteConfirmID={deleteConfirmID}
-          settings={settingsResponse}
-          settingsSaving={settingsMutation.isPending}
           onSelect={(id) => {
+            if (id !== selectedID) cancelWaiting();
+
             setDeleteConfirmID("");
             setSelectedID(id);
           }}
           onNew={startSession}
           onDelete={deleteSession}
           onRetry={() => sessionsQuery.refetch()}
-          onSettingsChange={(settings) => {
-            settingsMutation.mutate(settings, {
-              onError: (cause) => setError(cause instanceof Error ? cause.message : String(cause)),
-            });
-          }}
         />
       </WorkbenchSidebar>
       <section
-        className={`workbench__panel agent-thread${showExamples || (setup && empty) ? " agent-thread--empty" : ""}`}
+        className={`workbench__panel agent-thread${showExamples ? " agent-thread--empty" : ""}`}
         aria-label="Agent chat"
       >
         <AgentStatusHeader
@@ -251,7 +255,6 @@ export function AgentWorkspace({
           harness={harness}
           status={status}
           messageCount={messages.length}
-          model={model}
         />
         {selectedSession?.readOnly ? (
           <p className="agent-error" role="status">
@@ -259,7 +262,6 @@ export function AgentWorkspace({
           </p>
         ) : null}
         <div className="agent-thread__body" ref={threadRef}>
-          {setup ? <AgentSetup response={settingsResponse} blocked={blocked} /> : null}
           {showExamples ? (
             <ExamplePrompts
               onPick={(text) => {
@@ -302,9 +304,8 @@ export function AgentWorkspace({
           busy={busy}
           blocked={blocked}
           readOnly={Boolean(selectedSession?.readOnly)}
-          disabledReason={disabledReason}
-          harness={harness}
-          status={status}
+          agent={agent}
+          onStop={waiting ? cancelWaiting : undefined}
         />
       </section>
     </main>

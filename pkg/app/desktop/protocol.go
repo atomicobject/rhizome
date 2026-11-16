@@ -29,9 +29,9 @@ type Request struct {
 	Key              string                       `json:"key,omitempty"`
 	Provider         string                       `json:"provider,omitempty"`
 	Preference       string                       `json:"preference,omitempty"`
-	// Harness and Model choose the chat agent; a nil Model keeps its saved model.
+	// Harness and Enabled turn a chat agent on or off.
 	Harness string      `json:"harness,omitempty"`
-	Model   *string     `json:"model,omitempty"`
+	Enabled *bool       `json:"enabled,omitempty"`
 	Edits   *ScopeEdits `json:"edits,omitempty"`
 	// Restart makes open replace a live headless runtime with a fresh one.
 	Restart bool `json:"restart,omitempty"`

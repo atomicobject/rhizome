@@ -55,21 +55,22 @@ fn chat_settings_decode_the_shell_contract() {
         serde_json::from_value::<Action>(json!({"operation":"chat-settings"})).unwrap(),
         Action::ChatSettings
     ));
-    let Action::ChatSettingsSet { harness, model } = serde_json::from_value(
-        json!({"operation":"chat-settings-set","harness":"claude","model":""}),
+    let Action::ChatSettingsSet { harness, enabled } = serde_json::from_value(
+        json!({"operation":"chat-settings-set","harness":"claude","enabled":false}),
     )
     .unwrap() else {
         panic!("unexpected action");
     };
-    assert_eq!((harness.as_str(), model.as_deref()), ("claude", Some("")));
-    let Action::ChatSettingsSet { model, .. } =
-        serde_json::from_value(json!({"operation":"chat-settings-set","harness":"codex"})).unwrap()
-    else {
-        panic!("unexpected action");
-    };
-    assert_eq!(model, None, "an omitted model keeps the saved one");
+    assert_eq!((harness.as_str(), enabled), ("claude", false));
+    assert!(
+        serde_json::from_value::<Action>(
+            json!({"operation":"chat-settings-set","harness":"codex"})
+        )
+        .is_err(),
+        "a switch names its new state"
+    );
     assert!(serde_json::from_value::<Action>(
-        json!({"operation":"chat-settings-set","harness":"codex","key":"synthetic-provider-secret"})
+        json!({"operation":"chat-settings-set","harness":"codex","enabled":true,"key":"synthetic-provider-secret"})
     )
     .is_err());
     assert!(

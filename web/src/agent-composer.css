@@ -1,5 +1,5 @@
-/* The composer is one framed field: the message, then a bar with the
-   send hint or availability note at the left and Send at the right. */
+/* The composer is one framed field: the message, then a bar with the agent
+   controls at the left and Send at the right. */
 .agent-composer {
   padding: var(--sp-3) var(--agent-inline) var(--sp-5);
 }
@@ -53,16 +53,6 @@
   border-radius: var(--r-sm);
   background: var(--surface-sunk);
   font: 12px / 1 var(--font-mono);
-}
-
-.agent-availability {
-  color: var(--text);
-  font-size: var(--fs-sm);
-}
-
-.agent-availability code {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
 }
 
 .agent-inline-event {
@@ -147,4 +137,350 @@
 .agent-thread__head .status-mark {
   font: inherit;
   color: inherit;
+}
+
+/* The agent controls (SPEC-0140): the model and reasoning picker and the
+   permission mode menu, as ghost buttons in the composer bar. */
+.chat-agent-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chat-agent-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chat-agent-trigger:hover,
+.chat-agent-trigger[aria-expanded="true"] {
+  background: var(--bg-tint);
+  color: var(--text);
+}
+
+.chat-agent-trigger__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-agent-trigger__sep {
+  color: var(--text-faint);
+}
+
+.chat-agent-trigger svg {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  opacity: 0.7;
+}
+
+/* Floats above the composer, over the page when the pane is narrower. */
+.chat-agent-popover {
+  position: fixed;
+  z-index: 50;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-size: var(--fs-base);
+}
+
+.chat-model-picker__search {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.chat-model-picker__search svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--text-faint);
+}
+
+.chat-model-picker__search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: 400 var(--fs-base) var(--font-sans);
+}
+
+.chat-model-picker__search input::placeholder {
+  color: var(--text-faint);
+}
+
+.chat-model-picker {
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-model-picker__columns {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+}
+
+.chat-model-picker__list {
+  max-height: min(360px, 50vh);
+  padding: 6px;
+  overflow-y: auto;
+}
+
+.chat-model-picker__efforts {
+  padding: 6px;
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+}
+
+.chat-model-picker__heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  color: var(--text-muted);
+  font: 500 var(--fs-sm) / 1 var(--font-sans);
+}
+
+.chat-model-picker__list [role="group"] + [role="group"] {
+  margin-top: 4px;
+}
+
+.chat-model-picker__state {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+.chat-model-picker__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--r-md);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chat-model-picker__row.is-active {
+  background: var(--selection);
+}
+
+.chat-model-picker__row[aria-selected="true"] {
+  font-weight: 600;
+}
+
+.chat-model-picker__check {
+  flex: none;
+  width: 12px;
+  margin-left: -2px;
+}
+
+.chat-model-picker__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-model-picker__key,
+.chat-model-picker__default {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.chat-model-picker__empty {
+  margin: 0;
+  padding: 6px 10px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.chat-model-picker__effort {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  font: 400 var(--fs-base) var(--font-sans);
+  cursor: pointer;
+}
+
+.chat-model-picker__effort:hover,
+.chat-model-picker__effort:focus-visible,
+.chat-mode-menu__item:hover,
+.chat-mode-menu__item:focus-visible {
+  background: var(--selection);
+  outline: none;
+}
+
+.chat-model-picker__effort[aria-checked="true"],
+.chat-mode-menu__item[aria-checked="true"] .chat-mode-menu__label {
+  font-weight: 600;
+}
+
+.chat-mode-menu {
+  padding: 6px;
+  overflow-y: auto;
+}
+
+.chat-mode-menu__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 12px;
+  gap: 1px 12px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  font: 400 var(--fs-base) / 1.35 var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-mode-menu__description {
+  grid-column: 1;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.chat-mode-menu__check {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+/* Why a message cannot send, in the conversation just above the composer. */
+.chat-notice {
+  margin: 0 0 var(--sp-3);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-tint);
+  font-size: var(--fs-sm);
+}
+
+.chat-notice__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.chat-notice__row > svg {
+  transform: translateY(1px);
+}
+
+.chat-notice p {
+  margin: 0;
+  color: var(--text);
+}
+
+.chat-notice a,
+.chat-notice__fallback {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: var(--link-line);
+  text-underline-offset: 2px;
+}
+
+.chat-notice__command {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 2px 0 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  vertical-align: 1px;
+}
+
+.chat-notice__command code {
+  font: 500 var(--fs-xs) var(--font-mono);
+}
+
+.chat-notice__command button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.chat-notice__command button:hover {
+  color: var(--text);
+}
+
+.chat-notice__command svg {
+  width: 12px;
+  height: 12px;
+}
+
+.chat-notice__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 0 17px;
+}
+
+.chat-notice__actions .button {
+  height: 26px;
+  padding: 0 9px;
+}
+
+.chat-notice__fallback {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 500 var(--fs-sm) var(--font-sans);
+  cursor: pointer;
+}
+
+.chat-agent-hint {
+  margin: 0 0 var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.chat-agent-hint--error {
+  margin-top: var(--sp-2);
+  color: var(--accent-ink);
 }

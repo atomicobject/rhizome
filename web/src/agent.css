@@ -33,7 +33,8 @@
   font-size: var(--fs-sm);
 }
 
-.agent-workspace button:not(.button) {
+/* The composer's agent controls and notice style their own buttons. */
+.agent-workspace button:not(.button, .agent-composer button) {
   border: 1px solid var(--border-strong);
   border-radius: var(--r);
   background: var(--surface);
@@ -41,12 +42,12 @@
   cursor: pointer;
 }
 
-.agent-workspace button:not(.button):hover {
+.agent-workspace button:not(.button, .agent-composer button):hover {
   border-color: var(--text-faint);
   background: var(--bg-tint);
 }
 
-.agent-workspace button:not(.button):disabled {
+.agent-workspace button:not(.button, .agent-composer button):disabled {
   cursor: default;
   opacity: 0.55;
 }
@@ -175,68 +176,6 @@
   font-weight: 700;
 }
 
-/* Harness settings: one labelled 28px control per row, full sidebar width,
-   so long model names and modes never clip. */
-.agent-settings {
-  display: grid;
-  gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-4) var(--sp-5) 18px;
-  border-top: 1px solid var(--chrome-raised);
-}
-
-.agent-model-controls {
-  display: grid;
-  gap: var(--sp-3);
-}
-
-.agent-settings label {
-  display: grid;
-  gap: var(--sp-1);
-  color: var(--chrome-muted);
-  font: var(--label-font);
-}
-
-.agent-settings select {
-  width: 100%;
-}
-
-/* Reasoning effort and permission mode: one compact disclosure under Harness
-   and Model, its summary naming the active permission. */
-.agent-session-settings > summary {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-1);
-  height: 28px;
-  margin-left: -4px;
-  color: var(--chrome-muted);
-  font: var(--label-font);
-  list-style: none;
-  cursor: pointer;
-}
-
-.agent-session-settings > summary::-webkit-details-marker {
-  display: none;
-}
-
-.agent-session-settings > summary:hover {
-  color: var(--chrome-text);
-}
-
-.agent-session-settings__active {
-  min-width: 0;
-  margin-left: auto;
-  overflow: hidden;
-  color: var(--chrome-muted);
-  font-size: 13px;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.agent-session-settings[open] > .agent-model-controls {
-  margin-top: var(--sp-2);
-}
-
 .agent-thread {
   min-width: 0;
   min-height: 0;
@@ -266,16 +205,6 @@
    page never opens on a void above them. */
 .agent-thread--empty .agent-thread__body {
   flex: 2 1 0;
-}
-
-/* The setup card is taller than the questions, so the body keeps its height
-   and the card sits on the composer. */
-.agent-thread--empty .agent-thread__body:has(> .agent-setup) {
-  flex: 2 0 auto;
-}
-
-.agent-thread__body > .agent-setup {
-  margin-top: auto;
 }
 
 .agent-thread--empty::after {
@@ -394,131 +323,6 @@
   color: var(--accent-ink);
   background: var(--accent-soft);
   border-top: 1px solid var(--accent-line);
-}
-
-/* The chat setup card (AgentSetup): one row per coding agent, beside chat in
-   the right pane and on the Agent page. */
-.agent-setup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-4);
-  padding: var(--sp-5);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  color: var(--text);
-  font-size: var(--fs-base);
-  line-height: 1.45;
-}
-
-.agent-setup h3 {
-  margin: 0;
-  font-size: var(--fs-md);
-  font-weight: 600;
-}
-
-.agent-setup__lead {
-  margin: -6px 0 0;
-  color: var(--text-muted);
-}
-
-.agent-setup__rows {
-  display: grid;
-  gap: var(--sp-2);
-}
-
-.agent-setup__row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 2px var(--sp-3);
-  padding: var(--sp-3) var(--sp-4);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-}
-
-.agent-setup__row.is-chosen {
-  border-color: var(--border-strong);
-  background: var(--surface-sunk);
-}
-
-.agent-setup__choice {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.agent-setup__choice input {
-  margin: 0;
-}
-
-.agent-setup__choice:has(input:disabled) {
-  color: var(--text-muted);
-  cursor: default;
-}
-
-.agent-setup__about {
-  color: var(--text-faint);
-  font-size: var(--fs-sm);
-  white-space: nowrap;
-}
-
-/* The state and details line up under the name, past the radio. */
-.agent-setup__state,
-.agent-setup__details {
-  grid-column: 1 / -1;
-  padding-left: 21px;
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-}
-
-.agent-setup__command {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  margin-top: 2px;
-}
-
-.agent-setup__state code,
-.agent-setup__details code {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-}
-
-.agent-setup__state a {
-  color: var(--link);
-}
-
-.agent-setup__state .button {
-  min-height: 0;
-  padding: 0 var(--sp-2);
-  font-size: var(--fs-sm);
-}
-
-.agent-setup__details summary {
-  width: fit-content;
-  color: var(--text-faint);
-  cursor: pointer;
-}
-
-.agent-setup__details code {
-  display: block;
-  margin-top: 2px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.agent-setup__foot {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-}
-
-.agent-setup__error {
-  color: var(--accent-ink);
-  font-size: var(--fs-sm);
 }
 
 .assistant-table {

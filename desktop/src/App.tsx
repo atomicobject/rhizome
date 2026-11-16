@@ -35,6 +35,7 @@ import { PageSections, PageTools } from "./PageControls";
 import { RepositorySettings } from "./RepositorySettings";
 import { Settings, type SettingsTab } from "./Settings";
 import { providerAccessChanged } from "./ProviderAccess";
+import { chatSettingsChanged } from "./ChatSettings";
 import { SetupSheet } from "./SetupSheet";
 import { UpgradeSheet, type UpgradeMode } from "./UpgradeSheet";
 import { Notice, OpenStatus } from "./Status";
@@ -761,6 +762,8 @@ export function App() {
         providerAccessChanged();
       } else if (message.type === "provider-access-changed") {
         providerAccessChanged();
+      } else if (message.type === "chat-settings-changed") {
+        chatSettingsChanged();
       } else if (message.type === "command") {
         const { command } = message;
         // A finder draws above the window, so it would cover what any other command shows.

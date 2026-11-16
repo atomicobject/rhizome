@@ -46,6 +46,8 @@ type AgentHarnessConfig struct {
 	Model          string `json:"model,omitempty" yaml:"model,omitempty"`
 	Effort         string `json:"effort,omitempty" yaml:"effort,omitempty"`
 	PermissionMode string `json:"permissionMode,omitempty" yaml:"permission-mode,omitempty"`
+	// Disabled hides the agent from chat; detected agents are on by default.
+	Disabled bool `json:"disabled,omitempty" yaml:"disabled,omitempty"`
 }
 
 // ObsidianVaultConfig models Obsidian's own vault configuration file.

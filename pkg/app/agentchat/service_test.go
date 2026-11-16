@@ -59,20 +59,25 @@ type fakeSession struct {
 	SessionID   string
 	events      chan harness.Event
 	turns       chan string
+	models      chan [2]string
 	turnResults chan error
 	interrupts  chan struct{}
 	responses   chan approvalResponse
 	stopped     chan struct{}
 	stopOnce    sync.Once
+	// modelGate, when set, holds SetModel until it closes or ctx ends.
+	modelGate chan struct{}
 	// respondHook, when set, runs before Respond records the decision.
 	respondHook func()
+	// stopHook, when set, runs as Stop begins.
+	stopHook func()
 }
 
 func (f *fakeSession) ID() string { return f.SessionID }
 
 func newFakeSession() *fakeSession {
 	return &fakeSession{
-		events: make(chan harness.Event, 32), turns: make(chan string, 4), turnResults: make(chan error, 4),
+		events: make(chan harness.Event, 32), turns: make(chan string, 4), models: make(chan [2]string, 8), turnResults: make(chan error, 4),
 		interrupts: make(chan struct{}, 4), responses: make(chan approvalResponse, 4), stopped: make(chan struct{}),
 	}
 }
@@ -88,6 +93,18 @@ func (f *fakeSession) SendTurn(ctx context.Context, prompt string) error {
 		return errors.New("stopped")
 	}
 }
+func (f *fakeSession) SetModel(ctx context.Context, model, effort string) error {
+	f.models <- [2]string{model, effort}
+	if f.modelGate == nil {
+		return nil
+	}
+	select {
+	case <-f.modelGate:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
 func (f *fakeSession) Interrupt(context.Context) error { f.interrupts <- struct{}{}; return nil }
 func (f *fakeSession) Respond(requestID string, decision harness.Decision) error {
 	if f.respondHook != nil {
@@ -98,6 +115,9 @@ func (f *fakeSession) Respond(requestID string, decision harness.Decision) error
 }
 func (f *fakeSession) Events() <-chan harness.Event { return f.events }
 func (f *fakeSession) Stop() error {
+	if f.stopHook != nil {
+		f.stopHook()
+	}
 	f.stopOnce.Do(func() { close(f.stopped); close(f.events) })
 	return nil
 }
@@ -335,7 +355,7 @@ func TestServiceCompletionSerializesAssistantBeforeNextUserMessage(t *testing.T)
 func requireCommandTimelineDetails(t *testing.T, event Event) {
 	t.Helper()
 	require.NotNil(t, event.Result)
-	require.Equal(t, "turn-1", event.Result.TurnID)
+	require.Regexp(t, `^[0-9a-f]+:turn-1$`, event.Result.TurnID, "the harness turn id under its process generation")
 	require.Equal(t, "item-1", event.Result.ItemID)
 	require.Equal(t, "go test", event.Result.Command)
 	require.Equal(t, harness.PhaseFailed, event.Result.Phase)
@@ -376,6 +396,45 @@ func TestServiceApprovalAndInterruptRoundTrips(t *testing.T) {
 	}
 	require.NotNil(t, approval)
 	require.True(t, approval.Result.AllowForSession)
+}
+
+func TestServiceStopDuringModelChangeEndsTurnWithoutSending(t *testing.T) {
+	env := setTestSettings(t, Settings{Harness: harness.KindCodex})
+	ctx := vaultconfig.WithEnv(context.Background(), env)
+	fake := newFakeHarness()
+	fake.session.modelGate = make(chan struct{})
+	service, err := NewService(ctx, t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, service.Close()) })
+	created, err := service.CreateSession(ctx, "Stop while changing model")
+	require.NoError(t, err)
+	sessionID := created.Session.ID
+	events, unsubscribe := service.Subscribe(sessionID)
+	t.Cleanup(unsubscribe)
+	_, err = service.SendMessage(ctx, sessionID, "work")
+	require.NoError(t, err)
+	<-fake.session.models
+
+	require.NoError(t, service.Interrupt(ctx, sessionID))
+
+	deadline := time.After(time.Second)
+	for completed := false; !completed; {
+		select {
+		case event := <-events:
+			completed = event.Type == string(harness.EventTurnCompleted)
+		case <-deadline:
+			t.Fatal("Stop did not end the turn waiting on the model change")
+		}
+	}
+	require.False(t, service.turnRunning(sessionID))
+	persisted, err := service.EventsAfter(ctx, sessionID, 0)
+	require.NoError(t, err)
+	require.Equal(t, []string{"interrupt-requested", string(harness.EventTurnCompleted)}, eventTypes(persisted))
+	require.Equal(t, "interrupted", persisted[1].Result.Status)
+	require.NotEmpty(t, persisted[1].Result.TurnID, "a stopped turn has its own id, so a client does not gather earlier turns' replies into it")
+	require.Equal(t, persisted[0].Result.TurnID, persisted[1].Result.TurnID)
+	require.Empty(t, fake.session.turns, "no harness turn starts")
+	require.Empty(t, fake.session.interrupts, "the harness has no turn to interrupt")
 }
 
 func TestServiceRetryingErrorKeepsTurnRunningUntilCompletion(t *testing.T) {
@@ -459,7 +518,7 @@ func setTestSettings(t *testing.T, settings Settings) vaultconfig.Env {
 	root := filepath.Join(t.TempDir(), "config")
 	file := filepath.Join(root, "config.yml")
 	env.CLIConfigFile = file
-	_, err := SaveSettings(env, settings)
+	_, err := SaveChoice(env, settings)
 	require.NoError(t, err)
 	return env
 }
@@ -481,4 +540,167 @@ func TestServiceCancelledApprovalClearsPending(t *testing.T) {
 	fake.session.events <- harness.Event{Kind: harness.EventTurnCompleted, TurnID: "turn-1"}
 	fake.session.turnResults <- nil
 	require.NoError(t, <-session.sendResult)
+}
+
+// sendAndFinish sends one message and completes its turn.
+func sendAndFinish(t *testing.T, ctx context.Context, service *Service, fake *fakeHarness, sessionID, content string) {
+	t.Helper()
+	_, err := service.SendMessage(ctx, sessionID, content)
+	require.NoError(t, err)
+	require.Equal(t, content, <-fake.session.turns)
+	// Each process numbers its turns from one, as Claude Code does.
+	fake.session.events <- harness.Event{Kind: harness.EventTurnCompleted, TurnID: "turn-1"}
+	fake.session.turnResults <- nil
+	require.Eventually(t, func() bool { return !service.turnRunning(sessionID) }, 5*time.Second, time.Millisecond)
+}
+
+func TestServiceAppliesTheChosenModelToAnOpenSessionFromItsNextTurn(t *testing.T) {
+	saved := func(model, effort string) Settings {
+		return Settings{Harness: harness.KindCodex, Harnesses: map[harness.Kind]HarnessSettings{harness.KindCodex: {Model: model, Effort: effort}}}
+	}
+	env := setTestSettings(t, saved("", ""))
+	ctx := vaultconfig.WithEnv(context.Background(), env)
+	fake := newFakeHarness()
+	fake.status.Models = []harness.ModelOption{
+		{ID: "gpt-test", Efforts: []string{"low", "high"}, DefaultEffort: "low", Default: true},
+		{ID: "gpt-other", Efforts: []string{"medium"}, DefaultEffort: "medium"},
+	}
+	service, err := NewService(ctx, t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, service.Close()) })
+	created, err := service.CreateSession(ctx, "Switch models")
+	require.NoError(t, err)
+
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "first")
+	options := <-fake.starts
+	require.Equal(t, [2]string{"gpt-test", "low"}, [2]string{options.Model, options.Effort}, "nothing chosen runs the default model at its default effort")
+	require.Equal(t, [2]string{"gpt-test", "low"}, <-fake.session.models)
+
+	_, err = SaveChoice(env, saved("gpt-test", "high"))
+	require.NoError(t, err)
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "second")
+	require.Equal(t, [2]string{"gpt-test", "high"}, <-fake.session.models)
+
+	_, err = SaveChoice(env, saved("gpt-other", "high"))
+	require.NoError(t, err)
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "third")
+	require.Equal(t, [2]string{"gpt-other", "medium"}, <-fake.session.models, "an effort the new model lacks becomes its default")
+	require.Empty(t, fake.starts, "the open process switched models without restarting")
+}
+
+func TestServiceDoesNotReuseAnotherWindowsReplacementWithOtherPermissions(t *testing.T) {
+	mode := func(permission harness.PermissionMode) Settings {
+		return Settings{Harness: harness.KindCodex, Harnesses: map[harness.Kind]HarnessSettings{harness.KindCodex: {PermissionMode: permission}}}
+	}
+	env := setTestSettings(t, mode(harness.PermissionAuto))
+	ctx := vaultconfig.WithEnv(context.Background(), env)
+	fake := newFakeHarness()
+	service, err := NewService(ctx, t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, service.Close()) })
+	created, err := service.CreateSession(ctx, "Two windows")
+	require.NoError(t, err)
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "first")
+	<-fake.starts
+
+	_, err = SaveChoice(env, mode(harness.PermissionApprovalRequired))
+	require.NoError(t, err)
+	// While the old process stops, another window starts an idle replacement
+	// launched in full access.
+	other := newFakeSession()
+	page, err := newPageRelay(service.ctx)
+	require.NoError(t, err)
+	ready, drained := make(chan struct{}), make(chan struct{})
+	close(ready)
+	close(drained)
+	fake.session.stopHook = func() {
+		service.mu.Lock()
+		service.live[created.Session.ID] = &liveSession{
+			session: other, page: page, ready: ready, drained: drained,
+			pending: make(map[string]struct{}), permissionMode: harness.PermissionFullAccess,
+		}
+		service.mu.Unlock()
+	}
+	fake.session = newFakeSession()
+	_, err = service.SendMessage(ctx, created.Session.ID, "second")
+	require.NoError(t, err)
+	select {
+	case <-other.turns:
+		t.Fatal("the message ran on another window's full-access process")
+	case turn := <-fake.session.turns:
+		require.Equal(t, "second", turn)
+	case <-time.After(5 * time.Second):
+		t.Fatal("the message never started")
+	}
+	require.Equal(t, harness.PermissionApprovalRequired, (<-fake.starts).PermissionMode, "the message starts a process with its own permissions")
+	select {
+	case <-other.stopped:
+	default:
+		t.Fatal("the replacement with other permissions was not stopped")
+	}
+}
+
+func TestServiceResumesAnOpenSessionInANewProcessWhenThePermissionModeChanges(t *testing.T) {
+	mode := func(permission harness.PermissionMode) Settings {
+		return Settings{Harness: harness.KindCodex, Harnesses: map[harness.Kind]HarnessSettings{harness.KindCodex: {PermissionMode: permission}}}
+	}
+	env := setTestSettings(t, mode(harness.PermissionAuto))
+	ctx := vaultconfig.WithEnv(context.Background(), env)
+	fake := newFakeHarness()
+	fake.session.SessionID = "thread-1"
+	service, err := NewService(ctx, t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, service.Close()) })
+	created, err := service.CreateSession(ctx, "Change mode")
+	require.NoError(t, err)
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "first")
+	require.Equal(t, harness.PermissionAuto, (<-fake.starts).PermissionMode)
+
+	_, err = SaveChoice(env, mode(harness.PermissionApprovalRequired))
+	require.NoError(t, err)
+	first := fake.session
+	fake.session = newFakeSession()
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "second")
+	restarted := <-fake.starts
+	require.Equal(t, harness.PermissionApprovalRequired, restarted.PermissionMode)
+	require.Equal(t, "thread-1", restarted.Resume, "the new process continues the conversation")
+	select {
+	case <-first.stopped:
+	default:
+		t.Fatal("the old process was not stopped")
+	}
+	events, err := service.EventsAfter(ctx, created.Session.ID, 0)
+	require.NoError(t, err)
+	var turnIDs []string
+	for _, event := range events {
+		if event.Type == string(harness.EventTurnCompleted) {
+			turnIDs = append(turnIDs, event.Result.TurnID)
+		}
+	}
+	require.Len(t, turnIDs, 2)
+	require.NotEqual(t, turnIDs[0], turnIDs[1], "each process's turn-1 is its own turn, so the browser does not merge them")
+}
+
+func TestServiceRefusesATurnForAnAgentTurnedOffInSettings(t *testing.T) {
+	env := setTestSettings(t, Settings{Harness: harness.KindCodex})
+	ctx := vaultconfig.WithEnv(context.Background(), env)
+	fake := newFakeHarness()
+	service, err := NewService(ctx, t.TempDir(), map[harness.Kind]harness.Harness{harness.KindCodex: fake})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, service.Close()) })
+	created, err := service.CreateSession(ctx, "Turned off")
+	require.NoError(t, err)
+	sendAndFinish(t, ctx, service, fake, created.Session.ID, "first")
+
+	_, err = SetHarnessDisabled(env, harness.KindCodex, true)
+	require.NoError(t, err)
+	_, err = service.SendMessage(ctx, created.Session.ID, "second")
+	require.ErrorIs(t, err, ErrConflict)
+	require.EqualError(t, err, "Codex is turned off in Settings.")
+
+	require.Empty(t, fake.session.turns, "the open process ran no turn")
+	thread, err := service.GetSession(ctx, created.Session.ID)
+	require.NoError(t, err)
+	require.Len(t, thread.Messages, 1, "the refused message was not stored")
+	require.False(t, thread.Session.TurnRunning)
 }

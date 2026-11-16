@@ -273,26 +273,6 @@
   min-height: 48px;
 }
 
-.chat-composer__agent {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  color: var(--text-faint);
-  font-size: var(--fs-sm);
-  cursor: help;
-}
-
-.chat-composer__mode {
-  height: 20px;
-  padding: 0 7px;
-  border-radius: 10px;
-  background: var(--surface-strong);
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  font-weight: 500;
-  line-height: 20px;
-}
-
 /* Something the agent did or read on its own: one quiet line, no card. */
 .chat-activity {
   display: flex;
@@ -409,10 +389,4 @@
 
 .chat-drawer__empty a {
   color: var(--link);
-}
-
-/* The setup card sits above the composer, like the empty state. */
-.chat-drawer__log > .agent-setup {
-  margin-top: auto;
-  padding: var(--sp-4);
 }
