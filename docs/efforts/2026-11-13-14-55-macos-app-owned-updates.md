@@ -3,7 +3,7 @@ type: EffortNote
 id: EFF-2026-11-13-14-55
 name: macOS app-owned updates
 created-at: 2026-11-13T20:00:13Z
-status: active
+status: complete
 summary: Preserve the installed app and CLI paths while allowing user-owned macOS apps to update Contents under a protected parent.
 aliases: [EFF-2026-11-13-14-55]
 governing-specs:
@@ -34,7 +34,7 @@ Implement the macOS installation adapter in `desktop/src-tauri/src/updater/`. Pr
 - [x] Resolve the app-instance gate failure from the 2026-11-16 refresh.
 - [x] Record signed standard-account A to B to C results and Drew's accepted deviation. The no-password requirement did not pass.
 - [x] Independent source reviews completed at 9/10 from Opus, Astra, and Sol on the preserved implementation.
-- [ ] Current-head Greptile approval and CI after the final branch refresh.
+- [x] Source head `cd74e85c4ef5adc3d5cddf5b417f76ca3bfe94a1` passed Greptile 5/5 and CI after the final branch refresh.
 
 ## Plan Approval
 
@@ -110,6 +110,8 @@ Implementation is published in [PR #145](https://github.com/atomicobject/rhizome
 - 2026-11-16T13:41:57Z [validation] On `184b445ed79884209eeff0b7e94f974c23f141b1`, `PATH=/Users/colthorp/.cargo/bin:/Users/colthorp/.local/share/mise/installs/go/1.27.4/bin:$PATH GOROOT=/Users/colthorp/.local/share/mise/installs/go/1.27.4 GOCACHE="$PWD/.gocache" go test -tags fts5 ./pkg/app/agentchat/... ./pkg/harness/...` passes with fresh results. `npm run test --prefix web -- src/components/agent/ChatAgentControls.test.tsx src/components/agent/chatAgent.test.ts` passes 23 tests, `npm run typecheck --prefix web` passes, and `bash desktop/scripts/app-instances_test.sh` passes, including stale-PID rejection and normal, forced, installed, and stray app checks. Logs are `go-focused.log`, `web-focused.log`, `web-typecheck.log`, and `app-instances.log` in that evidence directory. The earlier successful full desktop gate and build remain retained evidence for unchanged desktop inputs, not new full runs.
 - 2026-11-16T13:41:57Z [review] The retained `/private/tmp/pr145-app-instance-fix/greptile.json` records confidence 5/5 with no comments for prior head `cd469792c1aa39dee0962baef1973deca2354045`. This does not substitute for final-head review. After this evidence edit, `./scripts/rzm validate` and `./scripts/rzm validate frozen-scope-drift` both pass with zero issues; `git diff --check` passes. Final-head Greptile will run after publication; CI must pass on that same published head. Parent owns CI monitoring and closure. No merge, app installation, further manual acceptance, account change, or TCC change is authorized or performed.
 
+- 2026-11-16T14:57:30Z [closure] Drew authorized merging when ready after accepting the manual-test limitation. Source head `cd74e85c4ef5adc3d5cddf5b417f76ca3bfe94a1` passed independent premerge verification with PASS+NOTES and Greptile 5/5 with no comments. GitHub reports CLEAN and MERGEABLE with 24 successful checks and two intentional skips. CI run `43878365485` attempt 2 resolved the earlier Go proxy dependency-download failure. All implementation and automated repair work is complete; the signed no-password result remains failed and explicitly accepted as a delivery deviation. This closure-only commit preserves all runtime code and requires documentation validation and final-head checks before merging PR #145.
+
 ## Deviations
 
 SPEC-0122 frozen-scope-drift acknowledged via EFF-2026-11-13-14-55 on 2026-11-16. The spec now records the existing permission-denial fallback and this accepted delivery exception. The frozen scope and original intended delivery above remain unchanged.
@@ -129,9 +131,9 @@ No new compounding mechanism is proposed. Preserve the protected-parent and fail
 - [x] Local gate outcomes recorded after the final branch refresh, including the failed app-instance gate.
 - [x] Final documentation and frozen-scope validation pass.
 - [x] Resolve the app-instance gate failure.
-- [ ] Current-head Greptile 5/5 with no unresolved comments and green CI.
+- [x] Source head `cd74e85c4ef5adc3d5cddf5b417f76ca3bfe94a1` passed Greptile 5/5 with no comments, independent PASS+NOTES, and green CI.
 - [x] Root created [PR #145](https://github.com/atomicobject/rhizome/pull/145), which remains open and unmerged.
 
 ## Status
 
-Active pending final-head Greptile and CI after the rebase onto `8ee17081a37c32033760e5a64585c1f93e3ac4f1`. The local gate failure is resolved, and the implementation is delivered in PR #145 with Drew's accepted manual-testing deviation. No more manual acceptance is required for this preparation pass. Parent owns review, CI, and closure after those results are recorded. No merge or release is authorized by this update.
+Complete with Drew's accepted manual-testing deviation. PR #145 carries the implementation, regression fixes, and this closure record. Source review and CI passed at `cd74e85c4ef5adc3d5cddf5b417f76ca3bfe94a1`; the closure-only commit must pass its final checks before the authorized merge. Password-free updates were not demonstrated, and the observed B to C administrator prompt remains a known limitation. Merging does not publish a release.
