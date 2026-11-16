@@ -44,6 +44,7 @@ instance_holders() {
 # PIDs of the copies the platform knows as launched apps: LaunchServices by
 # bundle identifier on macOS, the single-instance holder on Linux.
 launched_pids() {
+  local pid
   if [[ "$APP_OS" != Darwin ]]; then
     instance_holders "$1"
     return
@@ -52,7 +53,10 @@ launched_pids() {
     ObjC.import("AppKit");
     return ObjC.unwrap($.NSRunningApplication.runningApplicationsWithBundleIdentifier(argv[0]))
       .map((app) => app.processIdentifier).join("\n");
-  }' "$1" | awk '/^[0-9]+$/'
+  }' "$1" | awk '/^[0-9]+$/' | while read -r pid; do
+    # LaunchServices can still list a process after wait_exited observes its exit.
+    if kill -0 "$pid" 2>/dev/null; then echo "$pid"; fi
+  done
 }
 
 # The executable a PID runs, followed on macOS by its arguments. A Linux

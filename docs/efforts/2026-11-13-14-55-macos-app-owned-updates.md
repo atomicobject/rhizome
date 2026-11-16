@@ -31,7 +31,7 @@ Implement the macOS installation adapter in `desktop/src-tauri/src/updater/`. Pr
 - [x] Atomically swap only Contents in eligible user-owned bundles.
 - [x] Preserve root, CLI path, lifecycle, rollback copy, and failure reporting.
 - [x] Complete focused regression checks and the original desktop gates.
-- [ ] Resolve the app-instance gate failure from the 2026-11-16 refresh.
+- [x] Resolve the app-instance gate failure from the 2026-11-16 refresh.
 - [x] Record signed standard-account A to B to C results and Drew's accepted deviation. The no-password requirement did not pass.
 - [x] Independent source reviews completed at 9/10 from Opus, Astra, and Sol on the preserved implementation.
 - [ ] Current-head Greptile approval and CI after the final branch refresh.
@@ -102,6 +102,10 @@ Implementation is published in [PR #145](https://github.com/atomicobject/rhizome
 
 - 2026-11-16T13:25:52Z [validation] Final `./scripts/rzm validate` and `./scripts/rzm validate frozen-scope-drift` both exit 0 with zero issues or errors after the documentation edits. Logs are `/private/tmp/pr145-ready-20261116/validate.log` and `frozen-scope-drift.log`. `git diff --check` passes.
 
+- 2026-11-16T13:34:00Z [diagnosis] A bounded probe reproduced the stubborn-app failure on its first attempt. After SIGKILL, `app_pids` and raw LaunchServices both returned PID 85796 while `kill -0` reported it absent, `ps` returned no process, and socket-holder plus installed/stray executable scans were empty. `stop_app` had completed its kernel exit wait; `launched_pids` then accepted an exited PID from LaunchServices. This proves the failure mechanism in the new reproduction. The original PID 63994 was not instrumented, so its precise state remains unobserved. The probe and output are `/private/tmp/pr145-app-instance-fix/stubborn-probe.sh` and `stubborn-probe.log`.
+- 2026-11-16T13:34:00Z [change] `launched_pids` now checks each macOS launch PID with the same `kill -0` predicate used by `wait_exited`. The deterministic regression supplies a reaped child PID and the live test-shell PID through the platform boundary. Before the fix it fails with both PIDs; after the fix it returns only the live PID. The failing test was committed first as `c86bcdef3`. Logs are `/private/tmp/pr145-app-instance-fix/regression-red.log` and `regression-green.log`. The full focused app-instance script passes, including normal quits, the socket holder, forced termination, and installed/stray verification. Linux behavior, timeouts, retries, and skips are unchanged.
+- 2026-11-16T13:34:43Z [validation] The corrected source passes `PATH=/Users/colthorp/.cargo/bin:/Users/colthorp/.local/share/mise/installs/go/1.27.4/bin:$PATH GOROOT=/Users/colthorp/.local/share/mise/installs/go/1.27.4 make desktop-check` with exit 0. It runs 208 frontend tests, seven build-configuration tests, and 161 native tests with the existing opt-in signed fixture ignored; typechecks, formatting, sidecar builds, Clippy, and the complete app-instance script pass. Log is `/private/tmp/pr145-app-instance-fix/desktop-check.log`. The pre-existing frontend unused-parameter warning remains. Build-generated tracked HTML was restored to its initial content. Bash syntax checks and ShellCheck with Bash/source resolution pass for the helper and both platform tests; SC2329 is excluded because the new boundary stub is called indirectly. Final documentation and frozen-scope validation pass with zero issues in `validate.log` and `frozen-scope-drift.log` in the same evidence directory. No app install, account change, GUI-session change, push, or additional manual acceptance was performed. The parent owns independent review and CI for the new head.
+
 ## Deviations
 
 SPEC-0122 frozen-scope-drift acknowledged via EFF-2026-11-13-14-55 on 2026-11-16. The spec now records the existing permission-denial fallback and this accepted delivery exception. The frozen scope and original intended delivery above remain unchanged.
@@ -120,10 +124,10 @@ No new compounding mechanism is proposed. Preserve the protected-parent and fail
 - [x] Drew accepted the recorded manual-acceptance deviation on 2026-11-16.
 - [x] Local gate outcomes recorded after the final branch refresh, including the failed app-instance gate.
 - [x] Final documentation and frozen-scope validation pass.
-- [ ] Resolve the app-instance gate failure.
+- [x] Resolve the app-instance gate failure.
 - [ ] Current-head Greptile 5/5 with no unresolved comments and green CI.
 - [x] Root created [PR #145](https://github.com/atomicobject/rhizome/pull/145), which remains open and unmerged.
 
 ## Status
 
-Active pending current-head verification and the unresolved local app-instance gate failure. The implementation is delivered in PR #145 with Drew's accepted manual-testing deviation. No more manual acceptance is required for this preparation pass. Keep the effort active until the app-instance failure is resolved, final validation passes, and current-head Greptile and CI are recorded. Then close it on this PR under repository release policy. No merge or release is authorized by this update.
+Active pending current-head Greptile and CI for the app-instance correction. The local gate failure is resolved, and the implementation is delivered in PR #145 with Drew's accepted manual-testing deviation. No more manual acceptance is required for this preparation pass. Parent owns review, CI, and closure after those results are recorded. No merge or release is authorized by this update.
