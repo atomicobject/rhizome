@@ -2,32 +2,17 @@
 
 ## [Unreleased]
 
-- Chat's model picker lists the latest model of each family by default: Opus, Fable, and Sonnet for Claude Code, and Sol, Astra, and Terra for Codex, plus the chosen model. "Show all models" under the list, or a search, finds the rest. New chats start on the latest Opus when Claude Code is ready, otherwise on the latest Sol, in Auto mode.
+## [v0.53.0] - 2026-11-16
 
-- Agents can now explain Rhizome and help a person set it up and shape it. The `rhizome` skill gains four references: what Rhizome is and what each view offers, recommending and installing starters, customizing note types, schema, and views, and automating vault work with scripts, module actions, and scheduled tasks. `rzm init --check --json` gives every workflow and add-on a `fit` and `cautions` and marks optional add-ons, and first-time setup, including Rhizome Desktop's setup sheet, now lists optional add-ons such as AO KB knowledge and Compounding, unchecked. The in-app chat sends questions about Rhizome to the skill, and the chat and Agent page render tables.
-
-- Rhizome and starter skills use clearer completion checks and shared guidance. Assessment workflows handle missing embeddings and save scope baselines, and assumption workflows retrieve every page and resolve accountable owners before declaring completion.
-
-- Chat chooses its agent, model, reasoning, and permission mode in the chat itself. Beside Send, one picker ("Opus 5.5 · High", or ⇧⌘M) lists Claude Code's and Codex's models with search, ⌘1–⌘9, and a Reasoning column (⇧⌘E), and a menu beside it (⇧⌘A) offers Ask first, Auto, Accept edits, and Full access. A choice is the default for new chats, and an open conversation with the same agent switches model and effort from its next turn; choosing the other agent sends the next message in a new chat. When the chosen agent is signed out or not installed, a notice above the composer gives the command to copy or the install link, with Check again and a way back to the previous model, and Send waits. Rhizome Desktop's Settings → Chat shows each agent's status with a switch that hides it from the picker. This replaces the chat setup card and the Agent page's harness selects.
-
-- Chat finds Claude Code and Codex when Rhizome Desktop starts the runtime: the harness falls back to the login shell's PATH plus Homebrew and `~/.local/bin`, keeping an explicit PATH first. Both agents list their models while signed out, and Claude Code signed in with an API key or a cloud provider counts as signed in. A saved model the agent no longer offers falls back to its default. Settings closes on Escape and no longer shifts between tabs.
-
-- Chat beside what you're looking at: the right pane gains a Chat tab in every section, toggled from the top bar (and Rhizome Desktop's toolbar), `]`, or ⌥⌘B, with ⌘B now toggling the left sidebar. Each message carries the note, view, or type on screen, the agent can read the page's visible text with a `page_text` tool, and the conversation continues on the Agent page. Chat sessions default to a new `auto` permission mode (Claude auto mode, Codex Approve for me), so routine actions show as one line and only escalations ask. Rhizome Desktop's View menu moves the sidebar shortcut from ⌃⌘S to ⌘B and adds Show Chat.
-
-- The Notes sidebar has a Files panel docked at its bottom: the vault's folders and note files as an expandable tree, with the open note selected and its folders opened. Clicking a note opens it, and the panel's height and collapsed state are remembered. It replaces the Folder panel and stays below an experience's panel.
-
-- Valid empty required link lists no longer block ontology publication. HTTP GraphQL queries and query recipes reject an unpublished schema change instead of reporting a complete empty result.
-
-- Init recovers verified legacy ownership from Git history and exposes unresolved file upgrades with diffs and explicit `--take` and `--keep` choices. Deferred upgrades remain visible after automatic updates, and desktop choices are rejected if the reviewed files change before applying.
-
-- Starter upgrades preserve verified ownership from legacy workflow fingerprints, so unchanged flat schemas move into modules and receive current features while retaining adopted identifier allocation. Modified or unrecorded schemas remain untouched.
-
-- On macOS, user-owned apps can update by atomically replacing Contents under a protected Applications folder, with validated fallback and rollback recovery.
-
-- Live indexing embeds changed notes in groups, preserves independent results when another file changes, and bounds cancellation of in-flight embedding calls.
-
-- Upgrading a repository's Rhizome now updates the agent files `rzm init` generates. In Rhizome Desktop, the "Update to X" offer opens a review of the pin and file changes, then installs the new version, refreshes skills and managed guidance with it, and restarts the runtime, with Retry for a failed step and a copyable commit command. When a worktree's generated files are behind the Rhizome it runs, the toolbar offers "Update Rhizome files". `rzm update` runs the new executable's `rzm init` whenever it changes the Rhizome the current repository runs.
-- The README and user guides now start from Rhizome Desktop: install the app, add a repository, connect Claude Code or Codex, and check that the agent can reach Rhizome. Terminal and scripted use moved to a new command-line reference, and the compounding guide explains how to turn the add-on on from a repository's Settings tab.
+- Chat beside what you're looking at: the right pane gains a Chat tab in every section (`]` or ⌥⌘B; ⌘B now toggles the left sidebar). Messages carry the note, view, or type on screen, the agent can read the page with `page_text`, and sessions default to a new Auto permission mode with few prompts.
+- Chat chooses its agent, model, reasoning, and permission mode from the composer. The picker shows the latest model of each family, new chats start on the latest Opus (otherwise Sol), and signed-out or missing agents get an in-place notice. Rhizome Desktop finds Claude Code and Codex from the login shell's PATH, and Settings → Chat shows each agent's status.
+- Agents can explain Rhizome, recommend and install starters, customize note types, schema, and views, and automate vault work. First-time setup lists optional add-ons such as AO KB and Compounding.
+- Upgrading a repository's Rhizome refreshes the agent files `rzm init` generates: Desktop's "Update to X" reviews and applies both, the toolbar offers "Update Rhizome files" when they fall behind, and `rzm update` reruns `rzm init`. Legacy upgrades recover verified ownership from Git history and list unverified files with `--take` and `--keep` choices.
+- The live indexer matches `rzm index`, survives interruptions without full recrawls, and embeds changed notes in groups packed to the provider's limits. Index version v1.18.0 repairs code-to-note links once without re-embedding.
+- Delivery loads about 10× faster with nested, parallel reads; spec, effort, and Knowledge site pages also load faster.
+- The Notes sidebar has a Files tree in place of the Folder panel. Delivery's stages are tabs, untyped notes are listable from the Overview, and table titles open their note.
+- Fixes: empty required link lists no longer block ontology publication, and queries reject unpublished schema changes. `rzm init` handles a Codex config with a `[features]` table. User-owned macOS apps can update by replacing their contents in place, with rollback.
+- The README and user guides start from Rhizome Desktop, with a new command-line reference.
 
 ## [v0.52.1] - 2026-11-12
 
