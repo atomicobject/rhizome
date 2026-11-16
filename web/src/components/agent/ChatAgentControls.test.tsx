@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { AgentHarnessKind, AgentSettings, AgentSettingsResponse } from "../../api/types";
+import { queryKeys } from "../../api/queryKeys";
 import { decodeJSONBody, jsonReply, withFakeFetch } from "../../test/fakeFetch";
 import { renderWithQueryClient as render } from "../../test/renderWithQueryClient";
 import { capabilities } from "../AgentWorkspace.test-support";
@@ -282,6 +283,42 @@ describe("chat's agent picker", () => {
     });
     await waitFor(() => expect(screen.queryByText(/signed out/)).toBeNull());
     expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
+  });
+
+  it("moves to Reasoning with ⇧⌘E from the open picker's search", async () => {
+    render(<Composer />);
+    const search = within(await openPicker()).getByRole("combobox", { name: "Search models" });
+
+    act(() => {
+      fireEvent.keyDown(search, { key: "E", code: "KeyE", shiftKey: true, ctrlKey: true });
+    });
+
+    expect(
+      within(screen.getByRole("radiogroup", { name: "Reasoning" })).getByRole("radio", {
+        name: "High",
+      }),
+    ).toHaveFocus();
+  });
+
+  it("keeps a choice still saving when a background read answers first", async () => {
+    let reply: (() => void) | undefined;
+
+    http.on("PUT", "/api/agent/settings", (request) => {
+      const settings = decodeJSONBody(request, isSettingsBody).settings;
+
+      return new Promise((resolve) => {
+        reply = () => resolve(jsonReply({ ...response, settings }));
+      });
+    });
+    const { queryClient } = render(<Composer />);
+    fireEvent.click(within(await openPicker()).getByRole("option", { name: /Sonnet 5.5/ }));
+    await waitFor(() => expect(reply).toBeDefined());
+
+    // Another window's Settings change reloads settings while the save waits.
+    await act(() => queryClient.refetchQueries({ queryKey: queryKeys.agent.settings() }));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect(screen.getByRole("button", { name: /^Sonnet 5.5/ })).toBeVisible();
+    reply!();
   });
 
   it("opens on Reasoning with ⇧⌘E and saves the effort chosen there", async () => {

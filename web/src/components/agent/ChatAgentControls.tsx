@@ -75,9 +75,16 @@ export function useChatAgent(session?: Pick<AgentSession, "harness"> | null) {
     queryFn: async ({ signal }) => {
       const next = await getAgentSettings({ signal });
 
-      if (pendingChoices(queryClient) === 0) confirmed.set(queryClient, next);
+      if (pendingChoices(queryClient) === 0) {
+        confirmed.set(queryClient, next);
 
-      return next;
+        return next;
+      }
+
+      // A choice still saving stays on screen; its save settles the settings.
+      const shown = queryClient.getQueryData<AgentSettingsResponse>(key);
+
+      return shown ? { ...next, settings: shown.settings } : next;
     },
     // A harness that was busy or slow to answer its probe may answer later.
     refetchInterval: (state) => (state.state.data?.resolved.harness ? false : 15_000),

@@ -262,9 +262,11 @@ export function blockerFor(
 }
 
 /**
- * Whether a key press comes from a chat composer. There ⇧⌘E opens Reasoning;
- * elsewhere it stays the Notes shortcut that starts editing.
+ * Whether a key press comes from a chat composer or one of its popovers. There
+ * ⇧⌘E opens Reasoning; elsewhere it stays the Notes shortcut that starts editing.
  */
 export function inChatComposer(target: EventTarget | null): boolean {
-  return target instanceof Element && target.closest(".agent-composer") !== null;
+  return (
+    target instanceof Element && target.closest(".agent-composer, .chat-agent-popover") !== null
+  );
 }
