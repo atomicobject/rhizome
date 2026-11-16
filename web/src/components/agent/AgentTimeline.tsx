@@ -344,13 +344,10 @@ function EventItem({
 }
 
 export function AgentTimeline({
-  available = true,
   messages,
   events,
   onApproval,
 }: {
-  /** False while no harness can take a turn, so the empty state does not invite one. */
-  available?: boolean;
   messages: AgentMessage[];
   events: AgentEvent[];
   onApproval: (requestID: string, decision: AgentApprovalDecision) => Promise<void>;
@@ -359,17 +356,8 @@ export function AgentTimeline({
 
   const decisions = useMemo(() => approvalOutcomes(events), [events]);
 
-  // An empty thread that can take a turn says so beside the composer.
-  if (groups.length === 0) {
-    return available ? null : (
-      <div className="agent-empty" role="status">
-        <p>
-          <b>No messages yet.</b> Chat needs a coding harness; the note beside Send says how to set
-          one up.
-        </p>
-      </div>
-    );
-  }
+  // An empty thread shows the starting questions or the setup card instead.
+  if (groups.length === 0) return null;
 
   return groups.map((group) => {
     const deltas = streamedText(group);

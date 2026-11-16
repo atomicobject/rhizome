@@ -16,6 +16,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/harness"
 	"github.com/atomicobject/rhizome/pkg/harness/internal/processlog"
+	"github.com/atomicobject/rhizome/pkg/loginpath"
 	"github.com/atomicobject/rhizome/pkg/proctree"
 )
 
@@ -56,8 +57,9 @@ type Transport[M any] struct {
 	sessionID  string
 }
 
-// Start inherits the caller's environment, minus Rhizome's repository
-// delegation bypass, and owns the child until Close.
+// Start inherits the caller's environment, with PATH extended by the login
+// shell's, minus Rhizome's repository delegation bypass, and owns the child
+// until Close.
 func Start[M any](ctx context.Context, vendor, binary string, args []string, cwd string, env ...[]string) (*Transport[M], error) {
 	if err := ctx.Err(); err != nil {
 		return nil, harness.Phase(harness.ErrSpawn, err)
@@ -116,14 +118,17 @@ func Start[M any](ctx context.Context, vendor, binary string, args []string, cwd
 	return t, nil
 }
 
-// inheritedEnviron drops the delegation bypass that runtimes and delegated
+// inheritedEnviron extends PATH with the login shell's entries, so the tools and MCP servers
+// an agent spawns resolve even when the desktop app started the runtime with
+// a bare one. It drops the delegation bypass that runtimes and delegated
 // processes carry. An agent's bare `rzm` must resolve the repository's pinned
 // binary; with the bypass it runs whatever is first on PATH, whose build
 // mismatch would replace the runtime hosting the agent.
 func inheritedEnviron() []string {
-	return slices.DeleteFunc(os.Environ(), func(kv string) bool {
+	env := slices.DeleteFunc(os.Environ(), func(kv string) bool {
 		return strings.HasPrefix(kv, "RZM_SKIP_REPO_DELEGATE=") || strings.HasPrefix(kv, "RZM_REPO_DELEGATED=")
 	})
+	return loginpath.WithPath(env, loginpath.Extend(os.Getenv("PATH")))
 }
 
 // New connects a typed JSON stream without spawning a process.

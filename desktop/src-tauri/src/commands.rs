@@ -103,6 +103,15 @@ pub enum Action {
     ProviderKeyClear {
         provider: String,
     },
+    ChatSettings,
+    ChatSettingsSet {
+        harness: String,
+        model: Option<String>,
+    },
+    /// Opens a chat agent's install guide; the shell cannot open arbitrary URLs.
+    OpenChatInstall {
+        harness: String,
+    },
     TeamStatus,
     TeamSignIn,
     TeamCancel,
@@ -441,6 +450,45 @@ pub async fn desktop_request(
                 .broadcast(&json!({"type": "provider-access-changed"}));
             app.state::<Presence>().rediscover();
             result
+        }
+        Action::ChatSettings => {
+            bridge::call(
+                &state.directory,
+                Request {
+                    operation: "chat-settings",
+                    ..Request::default()
+                },
+                bridge::TIMEOUT,
+            )
+            .await
+        }
+        Action::ChatSettingsSet { harness, model } => {
+            let result = crate::credentials::update(
+                &state.directory,
+                Request {
+                    operation: "chat-settings-set",
+                    harness: Some(&harness),
+                    model: model.as_deref(),
+                    ..Request::default()
+                },
+                &state.global,
+            )
+            .await;
+            if result.is_ok() {
+                crate::page::agent_settings_changed(&app);
+            }
+            result
+        }
+        Action::OpenChatInstall { harness } => {
+            let url = match harness.as_str() {
+                "claude" => "https://docs.anthropic.com/en/docs/claude-code/setup",
+                "codex" => "https://github.com/openai/codex",
+                _ => return Err("Choose Claude Code or Codex.".to_string().into()),
+            };
+            app.opener()
+                .open_url(url, None::<&str>)
+                .map_err(|e| e.to_string())?;
+            Ok(Value::Null)
         }
         Action::TeamStatus => crate::team::status(&state.directory).await,
         Action::TeamSignIn => {

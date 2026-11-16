@@ -261,15 +261,21 @@
   gap: var(--sp-5);
 }
 
-.agent-empty {
-  max-width: 78ch;
-}
-
 /* An empty thread lifts the starting questions and the composer together
    to about 40% of the panel's height (free space 2 above : 3 below), so the
    page never opens on a void above them. */
 .agent-thread--empty .agent-thread__body {
   flex: 2 1 0;
+}
+
+/* The setup card is taller than the questions, so the body keeps its height
+   and the card sits on the composer. */
+.agent-thread--empty .agent-thread__body:has(> .agent-setup) {
+  flex: 2 0 auto;
+}
+
+.agent-thread__body > .agent-setup {
+  margin-top: auto;
 }
 
 .agent-thread--empty::after {
@@ -330,11 +336,6 @@
   color: var(--text-muted);
 }
 
-.agent-empty p {
-  margin: 0;
-  color: var(--muted);
-}
-
 .agent-message {
   flex: 0 0 auto;
   max-width: min(78ch, 100%);
@@ -393,6 +394,131 @@
   color: var(--accent-ink);
   background: var(--accent-soft);
   border-top: 1px solid var(--accent-line);
+}
+
+/* The chat setup card (AgentSetup): one row per coding agent, beside chat in
+   the right pane and on the Agent page. */
+.agent-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-base);
+  line-height: 1.45;
+}
+
+.agent-setup h3 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.agent-setup__lead {
+  margin: -6px 0 0;
+  color: var(--text-muted);
+}
+
+.agent-setup__rows {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.agent-setup__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.agent-setup__row.is-chosen {
+  border-color: var(--border-strong);
+  background: var(--surface-sunk);
+}
+
+.agent-setup__choice {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.agent-setup__choice input {
+  margin: 0;
+}
+
+.agent-setup__choice:has(input:disabled) {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.agent-setup__about {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+/* The state and details line up under the name, past the radio. */
+.agent-setup__state,
+.agent-setup__details {
+  grid-column: 1 / -1;
+  padding-left: 21px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.agent-setup__command {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: 2px;
+}
+
+.agent-setup__state code,
+.agent-setup__details code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.agent-setup__state a {
+  color: var(--link);
+}
+
+.agent-setup__state .button {
+  min-height: 0;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
+.agent-setup__details summary {
+  width: fit-content;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.agent-setup__details code {
+  display: block;
+  margin-top: 2px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.agent-setup__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.agent-setup__error {
+  color: var(--accent-ink);
+  font-size: var(--fs-sm);
 }
 
 .assistant-table {

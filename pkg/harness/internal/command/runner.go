@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 
 	"github.com/atomicobject/rhizome/pkg/harness/internal/processlog"
+	"github.com/atomicobject/rhizome/pkg/loginpath"
 )
 
 type Spec struct {
@@ -32,7 +33,18 @@ type OSRunner struct {
 	Label string
 }
 
-func (OSRunner) LookPath(name string) (string, error) { return exec.LookPath(name) }
+// LookPath resolves name on PATH, then on the login shell's PATH, since a
+// runtime the desktop app starts has a bare one.
+func (OSRunner) LookPath(name string) (string, error) {
+	if path, err := exec.LookPath(name); err == nil {
+		return path, nil
+	}
+	path, err := loginpath.Look(name)
+	if err != nil {
+		return "", err
+	}
+	return exec.LookPath(path)
+}
 
 func (r OSRunner) Run(ctx context.Context, spec Spec) (Result, error) {
 	cmd := exec.CommandContext(ctx, spec.Path, spec.Args...)
@@ -46,9 +58,7 @@ func (r OSRunner) Run(ctx context.Context, spec Spec) (Result, error) {
 		return err
 	}
 	cmd.Dir = spec.Dir
-	if len(spec.Env) > 0 {
-		cmd.Env = append(os.Environ(), spec.Env...)
-	}
+	cmd.Env = append(loginpath.WithPath(os.Environ(), loginpath.Extend(os.Getenv("PATH"))), spec.Env...)
 	cmd.Stdin = spec.Stdin
 	var stdout bytes.Buffer
 	var stderr tailBuffer

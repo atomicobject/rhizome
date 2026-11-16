@@ -46,3 +46,14 @@ func TestVersionProbeCachesCompletedFailure(t *testing.T) {
 	}
 	require.Len(t, runner.commands, 1)
 }
+
+func TestForgetVersionSeesAnUpgradedCLI(t *testing.T) {
+	runner := &fakeRunner{results: []command.Result{{Stdout: "0.140.0"}, {Stdout: "0.154.0"}}}
+	driver := &Driver{runner: runner}
+	_, err := driver.checkedVersion(context.Background(), "fake-version")
+	require.ErrorIs(t, err, harness.ErrInitialize)
+	driver.ForgetVersion()
+	version, err := driver.checkedVersion(context.Background(), "fake-version")
+	require.NoError(t, err)
+	require.Equal(t, "0.154.0", version)
+}

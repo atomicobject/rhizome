@@ -43,7 +43,7 @@ export function settingsWith(status: AgentHarnessStatus): AgentSettingsResponse 
         claude: { permissionMode: "approval-required" },
       },
     },
-    resolved: { harness: "codex", reason: "configured" },
+    resolved: { harness: "codex", model: "gpt-standard", reason: "configured" },
     harnesses: [{ kind: "codex", status }],
   };
 }

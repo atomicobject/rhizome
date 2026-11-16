@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { THEMES } from "../../web/src/lib/themes";
+import { ChatSettings } from "./ChatSettings";
 import { ProviderAccess } from "./ProviderAccess";
 import type { ProviderRuntime } from "./ProviderRoutes";
 import {
@@ -221,6 +222,13 @@ export function Settings({
   const [integrationError, setIntegrationError] = useState("");
   const [integrationNotice, setIntegrationNotice] = useState("");
   useEffect(() => setPath(selected ?? ""), [selected]);
+  useEffect(() => {
+    const close = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) onClose();
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [onClose]);
   async function removeIntegration() {
     setRemovingIntegration(true);
     setIntegrationError("");
@@ -340,6 +348,7 @@ export function Settings({
         repositories={providerRuntimes}
         onRestart={onProviderRestart}
       />
+      <ChatSettings />
       <Diagnostics />
       {developmentBuilds.length > 0 && (
         <div className="development-builds">

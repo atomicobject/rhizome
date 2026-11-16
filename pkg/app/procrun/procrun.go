@@ -1,8 +1,7 @@
 // Package procrun runs a repository's own commands for scheduled task checks
 // ([[scheduled-tasks|SPEC-0127]]) and module actions
-// ([[module-actions|SPEC-0131]]): in their own process tree, with the login
-// shell's PATH, bounded stdout, and every descendant killed when the command
-// ends or its context does. It also builds and reads `rzm agent code execute`
+// ([[module-actions|SPEC-0131]]): in their own process tree, with bounded
+// stdout, and every descendant killed when the command ends or its context does. It also builds and reads `rzm agent code execute`
 // invocations for code-mode scripts.
 package procrun
 
@@ -11,14 +10,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
-	"os"
 	"os/exec"
-	"path/filepath"
-	"runtime"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/proctree"
@@ -77,74 +70,6 @@ func (l *limitWriter) Write(p []byte) (int, error) {
 	}
 	l.n -= len(p)
 	return l.w.Write(p)
-}
-
-var (
-	loginPathOnce  sync.Once
-	loginPathValue string
-)
-
-// LoginPath is PATH as the person's login shell sets it. A runtime started
-// by the desktop app or launchd has a bare PATH, and version-manager shims
-// fail without their environment.
-func LoginPath() string {
-	loginPathOnce.Do(func() {
-		loginPathValue = os.Getenv("PATH")
-		if runtime.GOOS == "windows" {
-			return
-		}
-		shell := os.Getenv("SHELL")
-		if shell == "" {
-			shell = "/bin/sh"
-			if _, err := os.Stat("/bin/zsh"); err == nil && runtime.GOOS == "darwin" {
-				shell = "/bin/zsh"
-			}
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		// A profile may print to stdout; the marker finds PATH after it.
-		const marker = "__RZM_LOGIN_PATH__"
-		out, err := exec.CommandContext(ctx, shell, "-lc", `printf '`+marker+`%s' "$PATH"`).Output()
-		if i := strings.LastIndex(string(out), marker); err == nil && i >= 0 {
-			if path := strings.TrimSpace(string(out[i+len(marker):])); path != "" {
-				loginPathValue = path
-			}
-		}
-	})
-	return loginPathValue
-}
-
-// LookLoginPath finds a command the way the login shell would. Names with a
-// path separator are left for exec to resolve against the command's Dir.
-func LookLoginPath(name string) (string, error) {
-	if strings.ContainsRune(name, '/') || strings.ContainsRune(name, filepath.Separator) {
-		return name, nil
-	}
-	if runtime.GOOS == "windows" {
-		// The login PATH is the process PATH there, and LookPath adds PATHEXT.
-		if path, err := exec.LookPath(name); err == nil {
-			return path, nil
-		}
-		return "", fmt.Errorf("command %q is not on PATH", name)
-	}
-	for _, dir := range filepath.SplitList(LoginPath()) {
-		candidate := filepath.Join(dir, name)
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() && info.Mode()&0o111 != 0 {
-			return candidate, nil
-		}
-	}
-	return "", fmt.Errorf("command %q is not on the login shell's PATH", name)
-}
-
-// WithPath returns env with PATH replaced by path.
-func WithPath(env []string, path string) []string {
-	out := make([]string, 0, len(env)+1)
-	for _, kv := range env {
-		if !strings.HasPrefix(kv, "PATH=") {
-			out = append(out, kv)
-		}
-	}
-	return append(out, "PATH="+path)
 }
 
 // CodeModeCommand runs code through `rzm agent code execute` in dir with

@@ -5,7 +5,7 @@ import type { AgentEvent, AgentSessionResponse } from "../api/types";
 import { withFakeEventSource } from "../test/fakeEventSource";
 import { deferredReply, withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
-import { readyStatus, session, settingsWith } from "./AgentWorkspace.test-support";
+import { capabilities, readyStatus, session, settingsWith } from "./AgentWorkspace.test-support";
 import { ChatDrawer } from "./ChatDrawer";
 import { setPaneChat } from "./shellPanes";
 
@@ -276,12 +276,82 @@ describe("Chat in the right pane", () => {
     expect(composer).toHaveValue("half a thought");
   });
 
-  it("offers setup instead of a composer when no coding agent is installed", async () => {
-    http.json("GET", "/api/agent/settings", settingsWith({ ...readyStatus, installed: false }));
+  it("offers the setup card instead of a composer when no coding agent is installed", async () => {
+    http.json("GET", "/api/agent/settings", {
+      ...settingsWith({
+        ...readyStatus,
+        installed: false,
+        lastError: "harness not installed: exec: codex",
+      }),
+    });
     render(<ChatDrawer />);
 
-    expect(await screen.findByRole("link", { name: "Set one up on the Agent page" })).toBeVisible();
-    expect(screen.getByRole("textbox", { name: "Message" })).toBeDisabled();
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+
+    const card = await within(pane).findByRole("region", { name: "Set up chat" });
+    expect(within(card).getByRole("radio", { name: "Codex" })).toBeDisabled();
+    expect(within(card).getByRole("radio", { name: "Claude Code" })).toBeDisabled();
+    expect(within(pane).getByRole("textbox", { name: "Message" })).toBeDisabled();
+    // Neither the raw error nor a harness that cannot run reads as the footer's agent.
+    expect(within(pane).getByText(/harness not installed/)).not.toBeVisible();
+    expect(within(pane).queryByText(/Codex ·/)).toBeNull();
+  });
+
+  it("asks once which harness to use when both are ready and none is chosen", async () => {
+    const both = settingsWith(readyStatus);
+    both.settings.harness = undefined;
+    both.resolved = { harness: "codex", reason: "first available" };
+    both.harnesses = [
+      { kind: "codex", status: readyStatus },
+      { kind: "claude", status: readyStatus },
+    ];
+    const chosen = structuredClone(both);
+    chosen.settings.harness = "claude";
+    chosen.resolved = { harness: "claude", reason: "configured" };
+    http.json("GET", "/api/agent/settings", both).json("PUT", "/api/agent/settings", chosen);
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+
+    const card = await within(pane).findByRole("region", {
+      name: "Choose a coding agent for chat",
+    });
+
+    expect(within(pane).getByRole("textbox", { name: "Message" })).toBeEnabled();
+
+    fireEvent.click(within(card).getByRole("radio", { name: "Claude Code" }));
+
+    expect(await within(pane).findByText(/Claude Code · GPT Standard/)).toBeVisible();
+    expect(within(pane).queryByRole("region", { name: /coding agent/ })).toBeNull();
+    expect(within(pane).getByText("Ask about what you're looking at.")).toBeVisible();
+  });
+
+  it("just works with the one ready harness when none is chosen", async () => {
+    const one = settingsWith(readyStatus);
+    one.settings.harness = undefined;
+    one.resolved = { harness: "codex", reason: "first available" };
+    one.harnesses = [
+      { kind: "codex", status: readyStatus },
+      { kind: "claude", status: { installed: false, loggedIn: false, capabilities } },
+    ];
+    http.json("GET", "/api/agent/settings", one);
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    expect(await within(pane).findByText("Ask about what you're looking at.")).toBeVisible();
+    expect(within(pane).queryByRole("region", { name: /chat/i })).toBeNull();
+  });
+
+  it("names the harness default when the saved model is no longer offered", async () => {
+    const stale = settingsWith(readyStatus);
+    stale.settings.harnesses.codex.model = "fake";
+    stale.resolved = { harness: "codex", reason: "configured", model: "" };
+    http.json("GET", "/api/agent/settings", stale);
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    expect(await within(pane).findByText(/Codex · GPT Standard/)).toBeVisible();
+    expect(within(pane).queryByText(/fake/)).toBeNull();
   });
 });
 

@@ -310,6 +310,8 @@ export function AppShell() {
       if (route !== "agent") toggleChatPane();
     } else if (command.command === "task") {
       navigateTasks({ task: command.task });
+    } else if (command.command === "agent-settings") {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.agent.settings() });
     }
   });
 

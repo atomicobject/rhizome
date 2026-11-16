@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -73,6 +74,7 @@ type Service struct {
 	eventWriteMu     sync.Mutex
 	live             map[string]*liveSession
 	status           map[harness.Kind]statusCacheEntry
+	statusGeneration uint64
 	closeOnce        sync.Once
 	closeError       error
 	transientEventID atomic.Int64
@@ -133,8 +135,7 @@ func (s *Service) Settings(ctx context.Context) (SettingsResponse, error) {
 	if err != nil {
 		return SettingsResponse{}, err
 	}
-	statuses := s.harnessStatuses(ctx)
-	return SettingsResponse{Settings: settings, Resolved: resolveHarness(settings, statuses), Harnesses: statuses}, nil
+	return settingsResponse(settings, s.harnessStatuses(ctx)), nil
 }
 
 func (s *Service) SaveSettings(ctx context.Context, settings Settings) (SettingsResponse, error) {
@@ -142,25 +143,44 @@ func (s *Service) SaveSettings(ctx context.Context, settings Settings) (Settings
 	if err != nil {
 		return SettingsResponse{}, err
 	}
-	statuses := s.harnessStatuses(ctx)
-	return SettingsResponse{Settings: saved, Resolved: resolveHarness(saved, statuses), Harnesses: statuses}, nil
+	return settingsResponse(saved, s.harnessStatuses(ctx)), nil
 }
 
 func resolveHarness(settings Settings, statuses []HarnessStatus) ResolvedHarness {
-	if settings.Harness != "" {
-		return ResolvedHarness{Harness: settings.Harness, Reason: "configured"}
-	}
 	byKind := make(map[harness.Kind]Status, len(statuses))
 	for _, item := range statuses {
 		byKind[item.Kind] = item.Status
 	}
-	for _, kind := range harnessOrder {
-		status, ok := byKind[kind]
-		if ok && status.Installed && status.LoggedIn {
-			return ResolvedHarness{Harness: kind, Reason: "first available"}
+	resolved := ResolvedHarness{Reason: "none available"}
+	if settings.Harness != "" {
+		resolved = ResolvedHarness{Harness: settings.Harness, Reason: "configured"}
+	} else {
+		for _, kind := range harnessOrder {
+			if status, ok := byKind[kind]; ok && status.Installed && status.LoggedIn {
+				resolved = ResolvedHarness{Harness: kind, Reason: "first available"}
+				break
+			}
 		}
 	}
-	return ResolvedHarness{Reason: "none available"}
+	if resolved.Harness != "" {
+		status := byKind[resolved.Harness]
+		resolved.Model = effectiveModel(settings.Harnesses[resolved.Harness].Model, status.Installed, status.Models)
+	}
+	return resolved
+}
+
+// effectiveModel is the model a turn runs, empty for the harness's default. A
+// stale or mistyped model falls back to the default, but only against a model
+// list: a harness that reported none, because its probe failed or it reported
+// no account, keeps the configured model.
+func effectiveModel(model string, installed bool, offered []harness.ModelOption) string {
+	if !installed {
+		return ""
+	}
+	if len(offered) == 0 || slices.ContainsFunc(offered, func(option harness.ModelOption) bool { return option.ID == model }) {
+		return model
+	}
+	return ""
 }
 
 func (s *Service) CreateSession(ctx context.Context, title string) (SessionResponse, error) {
@@ -172,8 +192,7 @@ func (s *Service) CreateSession(ctx context.Context, title string) (SessionRespo
 	if kind == "" {
 		return SessionResponse{}, errors.New("no installed and logged-in harness is available")
 	}
-	model := settings.Settings.Harnesses[kind].Model
-	session, err := s.store.CreateSession(ctx, title, kind, model)
+	session, err := s.store.CreateSession(ctx, title, kind, settings.Resolved.Model)
 	return SessionResponse{Session: session}, err
 }
 
@@ -303,8 +322,10 @@ func (s *Service) beginTurn(session Session, settings Settings) (*liveSession, *
 		s.mu.Unlock()
 
 		configured := settings.Harnesses[session.Harness]
+		status := s.harnessStatus(s.ctx, session.Harness, driver)
 		options := harness.SessionOptions{
-			Cwd: s.vaultPath, Model: session.Model, Effort: configured.Effort,
+			Cwd: s.vaultPath, Model: effectiveModel(session.Model, status.Installed, status.Models),
+			Effort:         configured.Effort,
 			PermissionMode: configured.PermissionMode, Resume: session.HarnessSessionID,
 			Instructions: chatInstructions,
 		}

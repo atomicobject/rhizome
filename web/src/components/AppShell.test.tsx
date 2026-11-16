@@ -5,6 +5,7 @@ import type { OntologyEditSessionResponse } from "../api/types";
 import { queryKeys } from "../api/queryKeys";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
 import { AppShell } from "./AppShell";
+import { readyStatus, settingsWith } from "./AgentWorkspace.test-support";
 import type { DesktopCommand } from "./desktopHost";
 import { resetPanesForTests } from "./shellPanes";
 import { resetSidebarForTests, SIDEBAR_KEY } from "./sidebarState";
@@ -544,6 +545,27 @@ describe("AppShell", () => {
       await waitFor(() => expect(report().section).toBe("agent"));
       expect(report()).not.toHaveProperty("paneCollapsed");
       expect(screen.queryByRole("complementary", { name: "Chat" })).toBeNull();
+    });
+
+    it("reads the chat settings again when the app's Settings change them", async () => {
+      const before = settingsWith(readyStatus);
+      http
+        .json("GET", "/api/agent/sessions", { sessions: [] })
+        .json("GET", "/api/agent/settings", before);
+      render(<AppShell />);
+      await send({ command: "section", section: "ontology" });
+      await send({ command: "pane" });
+      const pane = await screen.findByRole("complementary", { name: "Chat" });
+      expect(await within(pane).findByText(/Codex · GPT Standard/)).toBeVisible();
+
+      http.json("GET", "/api/agent/settings", {
+        ...before,
+        settings: { ...before.settings, harness: "claude" },
+        resolved: { harness: "claude", reason: "configured" },
+        harnesses: [...before.harnesses, { kind: "claude", status: readyStatus }],
+      });
+      await send({ command: "agent-settings" });
+      expect(await within(pane).findByText(/Claude Code · GPT Standard/)).toBeVisible();
     });
 
     it("switches sections, searches, and opens issues on app commands", async () => {

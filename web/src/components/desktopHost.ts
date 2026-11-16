@@ -35,7 +35,9 @@ export type DesktopCommand =
   /** Shows the right pane on Chat, or hides it when Chat shows (⌥⌘B). */
   | { command: "chat" }
   /** Opens a task's page, after a click on its notification. */
-  | { command: "task"; task: string };
+  | { command: "task"; task: string }
+  /** The chat settings changed in the app's Settings, so the page reads them again. */
+  | { command: "agent-settings" };
 
 /** A task item that needs the person, for the Dock badge and notifications. */
 export type DesktopTaskItem = {
@@ -125,7 +127,8 @@ function readCommand(event: Event): DesktopCommand | null {
     command === "shortcuts" ||
     command === "find" ||
     command === "pane" ||
-    command === "chat"
+    command === "chat" ||
+    command === "agent-settings"
   )
     return { command };
 

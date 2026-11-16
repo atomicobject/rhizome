@@ -279,6 +279,16 @@ pub fn set_sidebar(app: &AppHandle, collapsed: bool) -> Result<(), String> {
     .map_err(|error| error.to_string())
 }
 
+/// Tells every window's page that the chat settings changed.
+pub fn agent_settings_changed(app: &AppHandle) {
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        for window in handle.windows().values() {
+            send_setting(window, &Command::AgentSettings {});
+        }
+    });
+}
+
 /// Applies a page's report that the user toggled its sidebar, unless the app
 /// already holds that state.
 pub fn sidebar_reported(app: &AppHandle, collapsed: bool) {
@@ -339,6 +349,10 @@ pub enum Command {
     Task {
         task: String,
     },
+    /// Tells the page that Settings changed the chat agent, so it reads the
+    /// chat settings again. Only the app sends it.
+    #[serde(skip_deserializing, rename = "agent-settings")]
+    AgentSettings {},
 }
 
 impl Command {
@@ -764,6 +778,10 @@ mod tests {
             .unwrap(),
             r#"window.dispatchEvent(new CustomEvent('rhizome:desktop', { detail: {"command":"task","task":"docs-drift"} }))"#
         );
+        assert_eq!(
+            Command::AgentSettings {}.script().unwrap(),
+            r#"window.dispatchEvent(new CustomEvent('rhizome:desktop', { detail: {"command":"agent-settings"} }))"#
+        );
         for invalid in [
             json!({"command": "pane", "collapsed": true}),
             json!({"command": "chat", "tab": "chat"}),
@@ -774,6 +792,8 @@ mod tests {
             json!({"command": "theme", "theme": "indigo"}),
             // Nor can it open a task; the app does after a notification click.
             json!({"command": "task", "task": "docs-drift"}),
+            // Nor tell pages the chat settings changed; the app does after a save.
+            json!({"command": "agent-settings"}),
             json!({"command": "section", "section": "settings"}),
             json!({"command": "navigate", "url": "https://example.com"}),
             json!({"command": "search"}),

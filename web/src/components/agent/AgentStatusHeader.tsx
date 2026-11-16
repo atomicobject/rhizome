@@ -1,19 +1,17 @@
 import { StatusMark } from "../StatusMark";
-import { useState } from "react";
 import { DisclosureChevron } from "../DisclosureChevron";
 import type { AgentHarnessKind, AgentHarnessStatus, AgentSession } from "../../api/types";
+import { CopyCommand, HARNESS_LABELS } from "./AgentSetup";
 
 type Props = {
   session: AgentSession | null;
   harness: AgentHarnessKind | undefined;
   status: AgentHarnessStatus | undefined;
-  resolutionReason: string;
   messageCount: number;
   model: string | undefined;
 };
 
-const harnessName = (kind?: AgentHarnessKind) =>
-  kind === "claude" ? "Claude" : kind === "codex" ? "Codex" : "No harness";
+const harnessName = (kind: AgentHarnessKind) => HARNESS_LABELS[kind];
 
 const installHint = (kind?: AgentHarnessKind) =>
   kind === "claude" ? "Install Claude Code to use chat." : "Install the Codex CLI to use chat.";
@@ -28,14 +26,7 @@ export function harnessBlocked(
   return !harness || (status !== undefined && !status.installed);
 }
 
-export function AgentStatusHeader({
-  session,
-  harness,
-  status,
-  resolutionReason,
-  messageCount,
-  model,
-}: Props) {
+export function AgentStatusHeader({ session, harness, status, messageCount, model }: Props) {
   let state = "Checking harness status…";
 
   if (session?.readOnly) {
@@ -50,9 +41,9 @@ export function AgentStatusHeader({
     } else {
       state = "Ready";
     }
-  } else if (!harness) {
-    state = resolutionReason;
   }
+
+  const shown = session?.harness || harness;
 
   // The version and account are diagnostics: behind a disclosure, and the
   // version only when the state line does not already name it.
@@ -71,8 +62,16 @@ export function AgentStatusHeader({
           </span>
         ) : null}
         <span className="view-header__about">
-          {harnessName(session?.harness || harness)} · {model ? `${model} · ` : ""}
-          {state === "Ready" ? <StatusMark tone="success" label={state} /> : state}
+          {shown ? (
+            <>
+              {harnessName(shown)} · {model ? `${model} · ` : ""}
+              {state === "Ready" ? <StatusMark tone="success" label={state} /> : state}
+            </>
+          ) : session?.readOnly ? (
+            state
+          ) : (
+            "Chat not set up"
+          )}
         </span>
         {details.length ? (
           <div className="view-header__actions">
@@ -105,8 +104,8 @@ export function AgentStatusHeader({
 }
 
 /**
- * Why chat is unavailable and what to do next, beside the composer. Renders
- * nothing while the harness is ready or its status is still loading.
+ * How to sign in to an installed harness, beside the composer. A missing or
+ * unchosen harness has the setup card instead, so this renders nothing then.
  */
 export function AgentAvailability({
   harness,
@@ -115,47 +114,17 @@ export function AgentAvailability({
   harness: AgentHarnessKind | undefined;
   status: AgentHarnessStatus | undefined;
 }) {
-  const [copied, setCopied] = useState(false);
+  if (!harness || !status?.installed || status.loggedIn) return null;
 
-  if (!harness)
-    return (
-      <span className="agent-availability">
-        No coding harness is available. Install Claude Code or the Codex CLI, then reload.
-      </span>
-    );
-
-  if (!status) return null;
-
-  if (!status.installed)
-    return (
-      <span className="agent-availability">
-        {installHint(harness)}
-        {status.lastError ? <span className="agent-muted"> {status.lastError}</span> : null}
-      </span>
-    );
-
-  if (!status.loggedIn && !status.lastError && status.loginHint) {
-    const hint = status.loginHint;
-
-    return (
-      <span className="agent-availability">
-        Log in to {harnessName(harness)}: <code>{hint}</code>{" "}
-        <button
-          type="button"
-          className="button button--ghost"
-          onClick={async () => {
-            await navigator.clipboard?.writeText(hint);
-            setCopied(true);
-          }}
-        >
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </span>
-    );
-  }
-
-  if (!status.loggedIn)
-    return <span className="agent-availability">Log in to {harnessName(harness)} to chat.</span>;
-
-  return null;
+  return (
+    <span className="agent-availability">
+      {status.loginHint && !status.lastError ? (
+        <>
+          Sign in to {harnessName(harness)}: <CopyCommand command={status.loginHint} />
+        </>
+      ) : (
+        `Sign in to ${harnessName(harness)} to chat.`
+      )}
+    </span>
+  );
 }

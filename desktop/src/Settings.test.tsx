@@ -7,6 +7,8 @@ vi.mock("./api", async (original) => ({
   ...(await original<typeof import("./api")>()),
   request: vi.fn(),
 }));
+// ChatSettings.test.tsx covers the chat section and its own requests.
+vi.mock("./ChatSettings", () => ({ ChatSettings: () => null }));
 const call = vi.mocked(request);
 beforeEach(() => {
   call.mockReset();
@@ -234,4 +236,11 @@ it("chooses the app-wide appearance and theme", () => {
   expect(within(themes).getByLabelText("Graphite")).toBeChecked();
   fireEvent.click(within(themes).getByLabelText("Spruce"));
   expect(base.onAppearance).toHaveBeenCalledWith({ theme: "spruce" });
+});
+
+it("closes on Escape like Done", () => {
+  const onClose = vi.fn();
+  render(<Settings {...props()} onClose={onClose} />);
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(onClose).toHaveBeenCalledOnce();
 });

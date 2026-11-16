@@ -410,3 +410,9 @@
 .chat-drawer__empty a {
   color: var(--link);
 }
+
+/* The setup card sits above the composer, like the empty state. */
+.chat-drawer__log > .agent-setup {
+  margin-top: auto;
+  padding: var(--sp-4);
+}

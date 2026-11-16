@@ -12,12 +12,8 @@ import {
 } from "../api/internalAgentClient";
 import { ApiError } from "../api/client";
 import { queryKeys } from "../api/queryKeys";
-import type {
-  AgentApprovalDecision,
-  AgentHarnessKind,
-  AgentPermissionMode,
-  AgentViewContext,
-} from "../api/types";
+import type { AgentApprovalDecision, AgentPermissionMode, AgentViewContext } from "../api/types";
+import { AgentSetup, chatModelLabel, HARNESS_LABELS, needsHarnessChoice } from "./agent/AgentSetup";
 import { emptySettingsResponse } from "./agent/AgentSettingsPanel";
 import { harnessBlocked } from "./agent/AgentStatusHeader";
 import { useAgentThread } from "./agent/useAgentThread";
@@ -175,8 +171,6 @@ const MODE_LABELS: Record<AgentPermissionMode, { label: string; title: string }>
   "full-access": { label: "Full access", title: "Every action runs without asking." },
 };
 
-const HARNESS_LABELS: Record<AgentHarnessKind, string> = { claude: "Claude", codex: "Codex" };
-
 function openInAgent(sessionID: string) {
   window.history.pushState({}, "", `/agent?session=${encodeURIComponent(sessionID)}`);
   notifyLocationChange();
@@ -240,18 +234,18 @@ export function ChatPanel() {
   const status = settings.harnesses.find((item) => item.kind === harness)?.status;
   const blocked = settingsQuery.isSuccess && harnessBlocked(harness, status);
   const mode = harness ? settings.settings.harnesses[harness].permissionMode : "auto";
-  const modelID = session?.model || (harness ? settings.settings.harnesses[harness].model : "");
-  const models = status?.models ?? [];
-
-  const model = modelID
-    ? models.find((option) => option.id === modelID)?.displayName || modelID
-    : (models.find((option) => option.default) ?? models[0])?.displayName;
+  const model = chatModelLabel(settings, harness, session);
 
   // The store holds a send from the first keypress until it returns, so a
   // second Enter, even from a pane mounted meanwhile, cannot start a second
   // session or turn.
   const running = sending || thread.isSending || thread.turnRunning;
   const empty = thread.messages.length === 0 && thread.events.length === 0;
+
+  // Blocked, or on first use with more than one harness ready, so the person
+  // picks once. A started conversation keeps the harness it began with.
+  const setup =
+    settingsQuery.isSuccess && (blocked || (!sessionID && empty && needsHarnessChoice(settings)));
 
   // A session deleted on the Agent page, which archives it, starts over.
   useEffect(() => {
@@ -350,23 +344,8 @@ export function ChatPanel() {
           pinned.current = element.scrollHeight - element.scrollTop - element.clientHeight < 24;
         }}
       >
-        {blocked ? (
-          <div className="chat-drawer__empty" role="status">
-            <p>
-              Chat needs Codex or Claude Code.{" "}
-              <a
-                href="/agent"
-                onClick={(event) => {
-                  event.preventDefault();
-                  window.history.pushState({}, "", "/agent");
-                  notifyLocationChange();
-                }}
-              >
-                Set one up on the Agent page
-              </a>
-              .
-            </p>
-          </div>
+        {setup ? (
+          <AgentSetup response={settings} blocked={blocked} />
         ) : empty && !(sessionID && thread.sessionQuery.isPending) ? (
           <div className="chat-drawer__empty">
             <p>Ask about what you're looking at.</p>
@@ -418,11 +397,15 @@ export function ChatPanel() {
             }}
           />
           <div className="agent-composer__bar">
-            <span className="chat-composer__agent" title={MODE_LABELS[mode].title}>
-              {harness ? HARNESS_LABELS[harness] : "No agent"}
-              {model ? ` · ${model}` : ""}{" "}
-              <span className="chat-composer__mode">{MODE_LABELS[mode].label}</span>
-            </span>
+            {blocked || !harness ? (
+              <span />
+            ) : (
+              <span className="chat-composer__agent" title={MODE_LABELS[mode].title}>
+                {HARNESS_LABELS[harness]}
+                {model ? ` · ${model}` : ""}{" "}
+                <span className="chat-composer__mode">{MODE_LABELS[mode].label}</span>
+              </span>
+            )}
             {running ? (
               <button type="button" className="button" onClick={() => void stop()}>
                 Stop

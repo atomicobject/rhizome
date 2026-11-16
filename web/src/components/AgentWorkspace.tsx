@@ -12,6 +12,13 @@ import {
 } from "../api/internalAgentClient";
 import { queryKeys } from "../api/queryKeys";
 import type { AgentApprovalDecision, AgentSession, AgentSessionsResponse } from "../api/types";
+import {
+  AGENT_SETTINGS_SCOPE,
+  AgentSetup,
+  chatModelLabel,
+  needsHarnessChoice,
+  useStoreAgentSettings,
+} from "./agent/AgentSetup";
 import { emptySettingsResponse } from "./agent/AgentSettingsPanel";
 import { AgentSessionRail } from "./agent/AgentSessionRail";
 import { AgentStatusHeader, harnessBlocked } from "./agent/AgentStatusHeader";
@@ -81,10 +88,12 @@ export function AgentWorkspace({
     [queryClient],
   );
 
+  const storeSettings = useStoreAgentSettings();
+
   const settingsMutation = useMutation({
     mutationFn: saveAgentSettings,
-    scope: { id: "agent-settings" },
-    onSuccess: (response) => queryClient.setQueryData(queryKeys.agent.settings(), response),
+    scope: AGENT_SETTINGS_SCOPE,
+    onSuccess: storeSettings,
   });
 
   useEffect(() => {
@@ -178,14 +187,7 @@ export function AgentWorkspace({
 
   const status = settingsResponse.harnesses.find((item) => item.kind === harness)?.status;
 
-  const modelID =
-    selectedSession?.model || (harness && settingsResponse.settings.harnesses[harness].model);
-
-  const models = status?.models ?? [];
-
-  const model = modelID
-    ? models.find((option) => option.id === modelID)?.displayName || modelID
-    : (models.find((option) => option.default) ?? models[0])?.displayName;
+  const model = chatModelLabel(settingsResponse, harness, selectedSession ?? undefined);
 
   const busy = isSending || Boolean(selectedSession?.turnRunning);
 
@@ -204,8 +206,16 @@ export function AgentWorkspace({
   const visibleError =
     error || (readError instanceof Error ? readError.message : readError ? String(readError) : "");
 
-  const showExamples =
-    messages.length === 0 && events.length === 0 && !blocked && !selectedSession?.readOnly;
+  const empty = messages.length === 0 && events.length === 0;
+
+  // Blocked, or on first use with more than one harness ready, so the person
+  // picks once. A session keeps the harness it began with.
+  const setup =
+    settingsQuery.isSuccess &&
+    !selectedSession?.readOnly &&
+    (blocked || (!selectedSession && empty && needsHarnessChoice(settingsResponse)));
+
+  const showExamples = empty && !setup && !selectedSession?.readOnly;
 
   return (
     <main className="workspace workbench agent-workspace">
@@ -233,14 +243,13 @@ export function AgentWorkspace({
         />
       </WorkbenchSidebar>
       <section
-        className={`workbench__panel agent-thread${showExamples ? " agent-thread--empty" : ""}`}
+        className={`workbench__panel agent-thread${showExamples || (setup && empty) ? " agent-thread--empty" : ""}`}
         aria-label="Agent chat"
       >
         <AgentStatusHeader
           session={selectedSession}
           harness={harness}
           status={status}
-          resolutionReason={settingsResponse.resolved.reason}
           messageCount={messages.length}
           model={model}
         />
@@ -250,6 +259,7 @@ export function AgentWorkspace({
           </p>
         ) : null}
         <div className="agent-thread__body" ref={threadRef}>
+          {setup ? <AgentSetup response={settingsResponse} blocked={blocked} /> : null}
           {showExamples ? (
             <ExamplePrompts
               onPick={(text) => {
@@ -259,7 +269,6 @@ export function AgentWorkspace({
             />
           ) : null}
           <AgentTimeline
-            available={!blocked}
             messages={messages}
             events={events}
             onApproval={async (requestID, decision: AgentApprovalDecision) => {
