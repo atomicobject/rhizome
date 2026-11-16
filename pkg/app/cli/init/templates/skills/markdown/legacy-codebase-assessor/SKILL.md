@@ -1,12 +1,9 @@
 ---
 name: legacy-codebase-assessor
 description: >-
-  Use when running a structured assessment of a legacy codebase. Orchestrates the
-  four Rhizome assessment reports (doc_coverage, hotspots, complexity, optionally
-  code_similarity), diagnoses scope problems before running, and writes a
-  synthesis findings note that seeds the next steps in the engagement workflow.
-  Two modes: assess (initial run on a freshly-indexed repo) and refresh (re-run
-  on an already-assessed vault).
+  Assess an indexed legacy codebase or refresh an earlier assessment to
+  prioritize documentation work. Diagnose index scope, run assessment reports,
+  and synthesize a findings note.
 ---
 
 # Legacy Codebase Assessor
@@ -20,19 +17,12 @@ Turn a freshly-indexed legacy codebase into a structured assessment in one invoc
 3. Synthesizes the JSON outputs into a `docs/assessment/findings-summary.md` note
 4. Seeds the next skill in the chain: per-priority-file `assumption-tracker` type candidates and a named starting subsystem for documentation work
 
-## When to use
-
-- After `rzm init` + `rzm index` have completed on a legacy codebase, when the engineer needs the structured assessment report set
-- When picking up an engagement that was already assessed and re-running against the current index (use `mode=refresh`)
-- Whenever the user says "assess this codebase", "run the assessment reports", "produce the findings note", or "start a legacy codebase engagement"
-
 ## Non-goals
 
-- Does not run `rzm init` or `rzm index` — these remain user-driven CLI steps per the engagement workflow contract
+- Does not run `rzm init` or `rzm index` — these remain user-driven CLI steps per the engagement workflow contract; this skill starts after both have completed
 - Does not flag uncertainties during the documentation that follows the assessment — that is `assumption-tracker --mode flag`
-- Does not package client deliverables — that is `client-harness-builder`, the final step of the engagement workflow
+- Does not write client-facing artifacts — its output is internal AO assessment material, and client deliverables are `client-harness-builder`'s job
 - Does not modify the indexer or the report CLI; consumes the existing `rzm agent start` and `rzm agent report` surfaces
-- Does not block on missing embeddings — `code_similarity` is skipped with a warning when an embedding provider is unconfigured; the other three reports run regardless
 
 ## Operating mode
 
@@ -73,7 +63,7 @@ If `mode` is not specified by the user, default to `assess`.
 SESSION_ID=$(rzm agent start --profile code | jq -r .sessionId)
 ```
 
-Capture `$SESSION_ID` and use it for all subsequent calls.
+Capture `$SESSION_ID` and use it, with the same `<path>`, for every report call in this invocation. Do not re-enter `rzm agent start` per report.
 
 ### Step 2 — Diagnose scope BEFORE running reports
 
@@ -116,7 +106,7 @@ Then attempt `code_similarity`:
 rzm agent report --session-id "$SESSION_ID" --op code_similarity --path "<path>"
 ```
 
-If `code_similarity` returns a "no embedding provider configured" error, **continue without failing**. Capture the omission in the synthesis note's preamble: *"code_similarity skipped — no embedding provider configured."*
+`code_similarity` is the only embedding-dependent report. A successful response can carry a warning that no code similarity embeddings are available. When that warning is present, record `code_similarity` as skipped and preserve the warning's reason; the other three reports still stand. Empty result lists alone do not establish missing embeddings or provider configuration. Handle other report errors as failures and report the evidence gap.
 
 Optionally run vault-health for additional signal:
 
@@ -135,16 +125,16 @@ Parse the four JSON outputs and populate the synthesis note using the structure 
 - **Suggested starting subsystem**: the directory containing the most top-5 files; named explicitly so the next skill in the chain has a starting point
 - **Handoff line**: parametrized next-step prompt naming `assumption-tracker --mode flag` and the suggested subsystem
 
-Write the note to `docs/assessment/findings-summary.md` (create the `docs/assessment/` directory if missing). The frontmatter MUST include `previous-assessment` and `previous-scope` blocks (left empty in assess mode; populated by refresh mode) so re-runs can pick up cleanly.
+Write the note to `docs/assessment/findings-summary.md` (create the `docs/assessment/` directory if missing). In both modes, record this run's indexed languages and top-level directories in `previous-scope`, the baseline the next refresh will read. Leave `previous-assessment` empty on the initial assessment; on refresh, record the prior note's `assessment-date`.
 
 ### Step 5 — Refresh-mode branch
 
 If `mode=refresh`:
 
 1. Read `docs/assessment/findings-summary.md`. If absent, error: "no prior assessment found — use `mode=assess` for the first run."
-2. Extract the prior `path` and `previous-scope` (indexed roots + embeddings status) from frontmatter.
+2. Extract the prior `assessment-date`, `path`, and `previous-scope` (`languages` and `top-dirs`) before replacing the note.
 3. Run Step 2 (scope diagnostic) against the current index.
-4. **Compare**: list any languages or top-level directories that are now in the index but weren't in the prior `previous-scope`. Emit a scope-drift warning: *"New since last assessment: PHP code added under wp-includes"* (or similar). Same for shrinkage.
+4. **Compare** the current languages and top-level directories with the saved baseline. Report additions and removals. If an older note has no complete baseline, state that scope drift cannot be determined for this refresh; an absent baseline is not an empty scope.
 5. Run Step 3 (reports) using the prior `path`.
 6. Run Step 4 (synthesis), overwriting the prior `findings-summary.md`. The new note's frontmatter records the previous assessment date in `previous-assessment` and the current scope in `previous-scope`. Refresh compares scope only; it does not compare findings between runs.
 
@@ -161,15 +151,11 @@ When it is unavailable, end with:
 ## Guardrails
 
 - **Diagnose before reporting.** Run Step 2 before any report. On a partial index the reports return JSON that reads as "the codebase has no signal" when the real cause is missing scope.
-- **Single session, single path.** All four `rzm agent report` calls in one invocation use the same `$SESSION_ID` and `<path>`. Do not re-enter `rzm agent start` per report.
-- **Embeddings missing is a warning, not a failure.** `code_similarity` is the only embedding-dependent report. If it fails because of provider config, log "skipped" in the findings note's preamble and keep going.
 - **Assumption types use the established four-type vocabulary.** The findings note seeds candidate types from `assumption-tracker`'s contract (`business-logic`, `schema`, `integration`, `process`). Do not invent new types here.
-- **Optional means checked.** Never emit an `assumption-tracker` command unless that skill is installed in the active harness; use the direct handoff above when it is absent.
-- **Never write client-facing artifacts from this skill.** Output is internal AO assessment material. Client deliverables are `client-harness-builder`'s job.
-- **Refresh mode requires a prior assessment.** If `docs/assessment/findings-summary.md` doesn't exist, fail with a redirect to assess mode rather than silently degrading.
+- **Optional means checked.** Emit an `assumption-tracker` command only when that skill is installed in the active harness; otherwise use the direct handoff in Step 6.
+- **Refresh mode requires a prior assessment.** Fail with the Step 5 redirect to assess mode rather than silently degrading.
 
 ## Reference notes
 
 - `references/findings-template.md` — the synthesis note structure populated by Step 4
-- When the `action-items` starter is installed, use its `assumption-tracker` skill for the four-type assumption vocabulary and flag-mode procedure used after assessment
 - See [`client-harness-builder`](../client-harness-builder/SKILL.md) for the final-stage engagement skill that packages validated documentation for client handoff

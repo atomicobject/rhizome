@@ -1,6 +1,8 @@
 id: action-items
 name: Action items
 description: "Track #action-item commitments in notes, with assignees and due dates"
+fit: "Notes that hold commitments as checkboxes with an owner or a due date, such as meeting notes, follow-ups, and review findings, in a notes vault or beside a delivery workflow. It also ships the assumption-tracker skill, which records legacy-codebase assessment assumptions as action items."
+cautions: "Assignees must resolve to Person notes, so people need notes before items can be assigned to them."
 requires:
   - core
 installedAssetTypes:

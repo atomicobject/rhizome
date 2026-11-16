@@ -19,7 +19,7 @@ rzm agent start \
   --file docs/authentication.md
 ```
 
-`--file` is repeatable, but every seed shares the same packed-context budget. Keep the set small, order the most important seed first, and prefer a directory over a blanket list of its trivial files. Add `--submodule-depth 1` only when immediate child-module docs matter. Normal startup does not need `--profile` or `--ontology`.
+Choose seeds and flags using [Sessions for agent routes](../SKILL.md#sessions-for-agent-routes), and prefer a directory over a blanket list of its trivial files.
 
 Keep ordinary code start minimal. Explicit rich selectors such as `--ontology`, `--profile vault`, context-note selectors, note targets, and graph options add only bounded enrichment read from the existing unified index. Start never crawls, repairs, refreshes, or writes that index. When required enrichment is missing, stale, or incompatible, the response retains the minimal root, ancestor, and target guidance and adds a structured warning whose remediation names the appropriate `rzm index` command.
 
@@ -34,4 +34,4 @@ Do not restart merely to change the query. A new session is appropriate when the
 
 ## Discover current commands
 
-`rzm agent start` returns the code-operation catalog used by `code-mode.md` and a pointer to the detailed CLI surface. Call `rzm agent surface` later only when exact flags, examples, command membership, or capability state are needed. Treat it as authoritative for `rzm agent` plus its sole top-level exception, `note-move`; use current top-level help or project docs for every other command family.
+`rzm agent start` returns the code-operation catalog used by `code-mode.md` and a pointer to the detailed CLI surface. Use [Sessions for agent routes](../SKILL.md#sessions-for-agent-routes) to decide when to call `rzm agent surface` and which commands it is authoritative for.

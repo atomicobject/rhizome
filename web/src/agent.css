@@ -338,7 +338,7 @@
 
 .agent-message {
   flex: 0 0 auto;
-  max-width: 78ch;
+  max-width: min(78ch, 100%);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   padding: var(--sp-5);
@@ -519,4 +519,26 @@
 .agent-setup__error {
   color: var(--accent-ink);
   font-size: var(--fs-sm);
+}
+
+.assistant-table {
+  margin: 0 0 var(--sp-3);
+  overflow-x: auto;
+}
+
+.assistant-table table {
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.assistant-table :is(th, td) {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.assistant-table th {
+  background: var(--bg-tint);
+  font-weight: 600;
 }

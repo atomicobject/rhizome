@@ -79,7 +79,7 @@ func (s *Server) publicGraphQLBody(ctx context.Context, generation string, cache
 		return graphQLResponseBody(ontologyquery.Result{Errors: errs}, generation)
 	}
 	// Readiness admission runs for every request, hit or miss.
-	store, exactSnapshot, err := s.waitForPreparedQuery(ctx, prepared)
+	store, exactSnapshot, err := s.waitForPreparedQuery(ctx, defs, prepared)
 	if err != nil {
 		return nil, err
 	}

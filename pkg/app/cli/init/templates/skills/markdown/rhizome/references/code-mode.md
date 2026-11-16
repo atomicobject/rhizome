@@ -21,14 +21,14 @@ Describe unfamiliar operation inputs together in one `code describe` call. Reuse
 
 Use a saved recipe for a matching workflow question, and `rzm.ontologyQuery` for a custom structured question. Put filters, sorting, field selection, and related records in GraphQL; use JavaScript to coordinate calls and format the result. Conceptual or untyped content uses semantic search; symbol and reference evidence uses the code operations.
 
-`rzm.ontologyQuerySchema({ type, depth: 1 })` returns the selected type and one hop of related output types, including interface implementations. Inputs, enums, and scalars needed by the included definitions come with them. For known types, use `types: ["Effort", "SpecLike"]` instead of `type` to fetch a combined fragment in one call. Both selectors use the current vault's names.
+`rzm.ontologyQuerySchema({ type, depth: 1 })` returns the selected type and one hop of related output types, including interface implementations. Inputs, enums, and scalars needed by the included definitions come with them. For known types, use `types: ["Project", "Decision"]` instead of `type` to fetch a combined fragment in one call. Both selectors use the current vault's names.
 
 `depth` defaults to 0 and allows at most 2 hops. Selected discovery defaults to 32,768 schema bytes and at most 32 output types; `maxBytes` can raise the byte budget up to 131,072. Inspect `includedTypes`, `referencedTypes`, `limits`, and `truncated`. If a budget stops expansion, `limitReasons` names it and `referencedTypes` lists the frontier to request next. Absent `truncated` means false; absent `limitReasons` means no budget stopped expansion. Definitions are kept whole. A requested selection that cannot fit returns an error. Omitting both selectors preserves full-schema discovery.
 
-For example, in a vault with Agentic Engineering, fetch efforts and their directly related types:
+For example, in a vault whose schema declares a `Project` type that links to `Decision` notes (illustrative names; substitute the current vault's), fetch the type and its directly related types:
 
 ```js
-const result = await rzm.ontologyQuerySchema({ type: "Effort", depth: 1 });
+const result = await rzm.ontologyQuerySchema({ type: "Project", depth: 1 });
 return result.ok ? result.payload : result;
 ```
 
@@ -36,9 +36,9 @@ Then query the discovered fields in one request:
 
 ```js
 const result = await rzm.ontologyQuery({ query: `{
-  effort(first: 20, sort: [{field: "createdAt", direction: asc}]) {
-    __typename id name createdAt
-    governingSpecs { __typename id summary }
+  project(first: 20, sort: [{field: "updatedAt", direction: asc}]) {
+    __typename title path updatedAt
+    decisions { __typename title summary }
   }
 }` });
 return result.ok ? result.payload : result;

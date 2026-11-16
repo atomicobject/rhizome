@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
 
 import type { AgentApprovalDecision, AgentEvent, AgentViewContext } from "../../api/types";
 import { humanizeName } from "../../lib/labels";
@@ -10,6 +9,7 @@ import {
   streamedText,
 } from "../agent/AgentTimeline";
 import type { AgentMessage } from "../../api/types";
+import { AssistantMarkdown } from "../markdown/AssistantMarkdown";
 import { CONTEXT_KIND_LABELS, sameContext } from "./viewContext";
 
 export function Icon({ d, strokeWidth = 1.4 }: { d: string; strokeWidth?: number }) {
@@ -281,7 +281,7 @@ export function ChatTimeline({
                     key={`message-${message.id}`}
                     className="chat-message chat-message--assistant"
                   >
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                    <AssistantMarkdown>{message.content}</AssistantMarkdown>
                   </div>
                 );
 
@@ -307,7 +307,7 @@ export function ChatTimeline({
             })}
             {deltas && !stored ? (
               <div className="chat-message chat-message--assistant is-streaming">
-                <ReactMarkdown>{deltas}</ReactMarkdown>
+                <AssistantMarkdown>{deltas}</AssistantMarkdown>
               </div>
             ) : null}
           </div>

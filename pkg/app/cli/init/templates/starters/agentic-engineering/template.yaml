@@ -1,6 +1,8 @@
 id: agentic-engineering
 name: Agentic Engineering
 description: "Shape specs, select delivery slices, and resume or finish efforts with the Delivery experience and repository workflow skills"
+fit: "A code repository where a team ships changes and wants written intended behavior, bounded plans, and verification evidence; build manifests, tests, CI, and existing design or requirements documents are good signs. Not for a notes vault with no delivery work, or a team that keeps another agent workflow."
+cautions: "Writes about 30 team-owned files under docs/, keeping any existing file at those paths, including engineering policy docs whose bracketed placeholder commands the team fills in before delegating work."
 requires:
   - core
 activatesByDefault:

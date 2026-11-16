@@ -3,7 +3,7 @@ type: ExperienceSpec
 id: SPEC-0118
 summary: "Rhizome Desktop sets up an unconfigured worktree from one review sheet backed by rzm init's machine-readable report, lets a person change a set-up repository's workflow, add-ons, agents, and search provider from a Settings tab, and gives every repository a page for administering what gets indexed, including rules inherited from .gitignore."
 spec-status: active
-last-updated: 2026-11-12
+last-updated: 2026-11-15
 aliases:
   - SPEC-0118
 ---
@@ -111,7 +111,8 @@ The app does not reimplement setup. Each step runs the Rhizome executable that o
   - the project root, its name, and `configured: false`
   - the docs, code, and skip findings as display text
   - the workflow choices with labels, descriptions, and the recommended choice
-  - the add-on starters with labels, descriptions, and which workflows activate each by default
+  - the add-on starters, optional add-ons included and marked optional but not enabled unless chosen, with labels, descriptions, and which workflows activate each by default
+  - for each workflow choice and add-on, the repository signals that suggest it (`fit`) and its cautions (`cautions`) when its starter declares them, and the sorted type names its starters' module ontologies declare (`types`), including the starters they require
   - for each of Claude Code, Codex, and Cursor: whether it would be enabled and why (repository marker or installed command)
   - each search provider's label and readiness, the name of the key it needs, whether team keys are offered, and the recommended provider
   - ignored nested repository candidates

@@ -31,7 +31,7 @@ rzm init --add-addon compounding
 rzm agent current-user set "<your Person note title>"
 ```
 
-Compounding is an optional add-on. In Rhizome Desktop, open **Settings**, choose the repository's tab, check **Compounding** under **Add-ons**, and choose **Apply changes**; then commit the files it lists. First-time setup in the app doesn't offer it, so add it after setup. You can also run the commands above, or ask your agent to. In a terminal, turn it on in the settings menu's Add-ons section (`e` on a first run, `s` on a rerun), which also offers to turn hooks on. In an existing repository, `--add-addon compounding` adds it and preserves the other add-on choices. For a new Agentic Engineering repository, use `rzm init --workflow agentic-engineering --addons action-items,compounding`; `--addons` replaces the first-run default add-on list.
+Compounding is an optional add-on. In Rhizome Desktop, open **Settings**, choose the repository's tab, check **Compounding** under **Add-ons**, and choose **Apply changes**; then commit the files it lists. First-time setup in the app lists it unchecked below the workflow choices. You can also run the commands above, or ask your agent to. In a terminal, turn it on in the settings menu's Add-ons section (`e` on a first run, `s` on a rerun), which also offers to turn hooks on. In an existing repository, `--add-addon compounding` adds it and preserves the other add-on choices. For a new Agentic Engineering repository, use `rzm init --workflow agentic-engineering --addons action-items,compounding`; `--addons` replaces the first-run default add-on list.
 
 The skill needs Node 20 or later. Approval records the reviewer, so `rzm agent current-user validate` must resolve to a `Person` note.
 

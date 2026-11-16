@@ -1,6 +1,6 @@
 ---
 name: action-items
-description: Use whenever an agent wants to create, find, query, summarize, update, complete, assign, review, or otherwise handle action items. Not for effort closure checklists, spec coverage checklists, or quality-gate checklists.
+description: Use whenever creating, finding, updating, completing, assigning, reviewing, or summarizing action items, including "my action items" questions. Not for effort closure, spec coverage, or quality-gate checklists, which the effort and spec workflow skills own.
 ---
 
 # Action Items
@@ -10,7 +10,6 @@ description: Use whenever an agent wants to create, find, query, summarize, upda
 - Before answering "my action items", "what do I owe", "show my todos", or similar, run `rzm agent current-user validate`.
 - If current-user state is missing, unresolved, or not a `Person`, stop and guide the user to create/select a `Person` note, then run `rzm agent current-user set "<Person title>"`.
 - Never infer the current user from chat context, OS username, Git author, vault name, or prose.
-- Do not use this skill for effort closure checklists, spec coverage checklists, or quality-gate checklists. Those are owned by the effort/spec workflow skills.
 
 ## Creating Or Modifying
 

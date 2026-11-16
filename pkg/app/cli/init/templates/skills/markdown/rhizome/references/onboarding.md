@@ -6,6 +6,6 @@ Start or reuse one session with a precise intent. Pick only the surfaces that fi
 
 Use code-symbol tools for exact proof and read structured warnings before claiming coverage. When sources disagree, apply the core evidence-authority rule: newer material is not automatically governing. Distinguish approved intent from observed behavior and state material uncertainty.
 
-Keep ordinary code start minimal. Add rich selectors only when onboarding needs their bounded existing-index enrichment. Start never crawls, repairs, refreshes, or writes the index; if enrichment is missing, stale, or incompatible, retain the minimal guidance and follow the structured warning's recommended `rzm index` command before relying on the richer packet.
+Keep ordinary code start minimal, and add rich selectors only when onboarding needs their bounded existing-index enrichment. [Sessions](sessions.md) describes what start returns when that enrichment is missing, stale, or incompatible; follow the structured warning's recommended `rzm index` command before relying on the richer packet.
 
 Answer around how the area works, where its boundaries live, important invariants, failure modes, and good next reading. Mention retrieval degradation only when it materially limits confidence. If onboarding is preparation for a larger task, hand control back to the skill that owns that task.

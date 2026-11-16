@@ -2,7 +2,7 @@
 type: ReferenceDoc
 reference-kind: guide
 summary: "Install Rhizome Desktop, set up a repository or join one your team already uses, connect a coding agent, find your way around the app, and configure optional providers."
-last-verified: 2026-11-13
+last-verified: 2026-11-15
 status: active
 ---
 
@@ -68,7 +68,7 @@ Choose **Add Repository…** and pick the repository's root folder. Adding a rep
 | Row | What it shows and lets you change |
 | --- | --- |
 | **Found** | How many notes and which code languages Rhizome found. Rhizome indexes all Markdown, so docs you add later are indexed too. **Skip** suggests bulky checked-in content to leave out, such as vendored code or minified bundles. **What gets indexed…** opens the full list of rules, including the ones inherited from `.gitignore`. |
-| **Workflow** | **Agentic Engineering** (recommended), **Agentic Engineering with domain modeling**, or **Search and agent guidance only**. [Choosing a starter](choosing-your-starter.md) compares them. Below the choices, check the add-ons you want, such as **Action items**. |
+| **Workflow** | **Agentic Engineering** (recommended), **Agentic Engineering with domain modeling**, or **Search and agent guidance only**. [Choosing a starter](choosing-your-starter.md) compares them. Below the choices, check the add-ons you want, such as **Action items**. Optional add-ons, such as **Compounding**, start unchecked. |
 | **Agents** | **Claude Code**, **Codex**, and **Cursor**. Rhizome preselects the agents it finds in the repository or on your computer. `AGENTS.md` and the shared skills in `.agents/` are always written, and most agents read them. |
 | **Search** | The semantic search provider: **Voyage AI** (recommended), **OpenAI**, **Ollama**, or **Off**. When a key is needed, paste it here. It is saved in your user configuration, never in the repository. Leave it empty to set up without semantic search and add a key later. Keyword search works either way. |
 | **Writes** | Every file setup will create or change. |
@@ -188,7 +188,7 @@ To change a repository's search provider, use its Settings tab, described next.
 Open **Settings** and choose the repository's tab, or right-click the repository name in the toolbar and choose **Repository Settings…**. The tab shows:
 
 - **Rhizome version.** **Pinned version** is what everyone on the team runs. **The app's Rhizome** or **Another executable…** changes only this computer and leaves the pin alone.
-- **Workflow**, **Add-ons**, **Agents**, and **Search**, with the current choices. Every add-on is listed here, including optional ones such as **Compounding** that first-time setup doesn't offer. Change any of them, review the files the change writes, and choose **Apply changes**. Each changed row has **Undo** until you apply.
+- **Workflow**, **Add-ons**, **Agents**, and **Search**, with the current choices. Every add-on is listed here, including optional ones such as **Compounding** and **AO KB knowledge**. Change any of them, review the files the change writes, and choose **Apply changes**. Each changed row has **Undo** until you apply. **AO KB knowledge** is for a repository whose root is an AO KB's root, with `.kb/config/vault.md`; after you apply it, a notice in the workspace walks through the rest of its setup. [AO KB guide](<../../../pkg/app/cli/init/templates/starters/ao-kb/repo/docs/reference/guides/ao-kb.md>)
 - **What gets indexed**, with **Edit rules…** to change it.
 
 Commit the files the tab lists after applying, so your team gets the same change.

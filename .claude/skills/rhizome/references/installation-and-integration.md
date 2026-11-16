@@ -80,13 +80,13 @@ For Rhizome-managed ownership:
 4. The active harness has the managed `rhizome` skill.
 5. A minimal project-launcher `agent start --intent "verify Rhizome integration"` succeeds.
 
-For code-mode use, inspect the session start response's `runtime` connection check. `connected` establishes reachability, `starting` reports startup in progress, and `access_denied` requires permission recovery before retrieval. A separate verification query is unnecessary. Follow `references/code-mode.md` for permission recovery.
+For code-mode use, interpret the start response's `runtime` field using [Sessions for agent routes](../SKILL.md#sessions-for-agent-routes); a separate verification query is unnecessary. `access_denied` requires permission recovery before retrieval, as described in [Code mode](code-mode.md).
 
 Report runtime integration as `ready` only after the relevant ownership-mode layers and requested capability work together. For the Rhizome-managed installer path, structural status uses `present` when the managed block and skill have the expected shape, `init-required` when both are absent and initialization still needs user consent, and `incomplete` when only part of the structural surface exists. Say whether the problem is a missing skill, missing launcher or externally selected CLI, uninitialized project, unresolved configuration, failed session, or unavailable capability. Do not imitate an integrated experience with generic commands.
 
 ## Troubleshoot setup
 
-Diagnose with `rzm init --check`, `rzm index --status`, and `rzm index --explain`, which write nothing. Run `rzm init` only with the user's consent, after showing them the change list from `rzm init --check`, because `rzm init` makes every change that list names.
+Diagnose with `rzm init --check`, `rzm index --status`, and `rzm index --explain`, which write nothing. Before any `rzm init` in the table, show its `--check` change list and confirm that existing authorization covers those changes. Ask for consent when it does not. [Initialize only with consent](#initialize-only-with-consent) owns the repair and pin-change rules.
 
 | Symptom | Route |
 | --- | --- |
