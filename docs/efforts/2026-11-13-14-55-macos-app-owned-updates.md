@@ -30,9 +30,11 @@ Implement the macOS installation adapter in `desktop/src-tauri/src/updater/`. Pr
 - [x] Validate every replacement before fallback or installed mutation.
 - [x] Atomically swap only Contents in eligible user-owned bundles.
 - [x] Preserve root, CLI path, lifecycle, rollback copy, and failure reporting.
-- [x] Complete focused regression checks and desktop gates.
-- [ ] Signed standard-account A to B to C acceptance from both app and CLI.
-- [ ] Independent final review and current-head Greptile approval.
+- [x] Complete focused regression checks and the original desktop gates.
+- [ ] Resolve the app-instance gate failure from the 2026-11-16 refresh.
+- [x] Record signed standard-account A to B to C results and Drew's accepted deviation. The no-password requirement did not pass.
+- [x] Independent source reviews completed at 9/10 from Opus, Astra, and Sol on the preserved implementation.
+- [ ] Current-head Greptile approval and CI after the final branch refresh.
 
 ## Plan Approval
 
@@ -54,7 +56,7 @@ An existing installation updates in place with at most one further administrator
 
 ## Actual Delivered
 
-Implementation is published in [PR #145](https://github.com/atomicobject/rhizome/pull/145) and rebased locally for root review, but is not release-ready. The new adapter validates the archive, identity/version, and Apple-anchored current-team requirement before fallback. Eligible installs exchange Contents, strictly verify, and atomically roll back on failure. Failed rollback retains the old Contents in a unique private directory under `~/Library/Application Support/<identifier>/recovery/`. If that move fails, the error names the kept staging copy and warns about macOS temporary cleanup. Post-commit cleanup is best effort. The CLI and existing lifecycle stay unchanged. Verification results follow in Execution Notes.
+Implementation is published in [PR #145](https://github.com/atomicobject/rhizome/pull/145). Drew accepted the incomplete manual acceptance as a delivery deviation on 2026-11-16 and requested merge preparation without more manual testing. Current-head review and CI still govern merge readiness. The new adapter validates the archive, identity/version, and Apple-anchored current-team requirement before fallback. Eligible installs exchange Contents, strictly verify, and atomically roll back on failure. Failed rollback retains the old Contents in a unique private directory under `~/Library/Application Support/<identifier>/recovery/`. If that move fails, the error names the kept staging copy and warns about macOS temporary cleanup. Post-commit cleanup is best effort. The CLI and existing lifecycle stay unchanged. Signed A to B and B to C installs succeeded, but the B to C run used full-bundle fallback and requested administrator authorization. This effort does not establish password-free updates for new users. Verification results follow in Execution Notes.
 
 ## Execution Notes
 
@@ -88,9 +90,25 @@ Implementation is published in [PR #145](https://github.com/atomicobject/rhizome
 - 2026-11-14T02:02:40Z [validation] The initial context-shard lookup could not authenticate to the configured service. Host runtime access later completed the local EffortNote authoring-guide query and document validation. No credential file or value was read. Existing Git hooks remain enabled. The only new commit after replay updates this effort; generated HTML changes from the local builds were excluded. No broad Go gate was repeated for the changelog-only conflict. Prior CI is retained as prior-head evidence, while CI and review for the rebased head remain root's next steps.
 - 2026-11-14T02:02:40Z [handoff] `git ls-remote` confirms main is still `9eebbcc238da34441ce7e1b0ee76c1cd3b504a9c` and the published PR branch is still `5112f1a5df99a6e6757bf7b388b8c442931d7a7f`. The local branch is `t3/macos-app-update-adapter`. Root should inspect the rebase and this evidence-only commit before deciding whether to publish. No push, merge, auto-merge, primary-checkout edit, or GUI session change occurred.
 
+- 2026-11-16T13:23:38Z [resume] Drew requested merge preparation and accepted no further manual testing: "Let's just let it ride and we'll see if it fixes the problem for new users." This authorizes branch refresh, truthful documentation, local gates, review, and publication. It does not authorize merge, release, app installation, account changes, or TCC changes.
+- 2026-11-16T13:23:38Z [validation] Signed Developer ID and notarized A to B and B to C installs completed under standard UID 503 in `/Applications`. Installed version, signature, ownership, and CLI-link checks passed. A to B authentication count is unknown because Drew revised the initial no-password observation to possible Touch ID authorization. Drew reported restart success but did not explicitly confirm both repository windows restored. The B to C root inode changed from `544204617` to `544226748`, confirming full-bundle replacement rather than a preserved root. Native `authd` records confirm an administrator dialog with an expired cached credential. Retained evidence is `/private/tmp/rhizome-update-permissions-v0521/acceptance/observed-a-to-b.json`, `observed-b-to-c.json`, and `pr145-b-to-c-diagnosis-20261116.md` in that directory.
+- 2026-11-16T13:23:38Z [learning] The diagnostic report records a Ghostty App Management notification immediately before elevation. The fixture's direct Python GUI launcher is a probable contributor, not a proven cause. The exact fallback branch remains unknown. A temporary LaunchServices launcher correction is test infrastructure only and is not part of this branch. The separate "Update Rhizome Files" 404 uses unpublished synthetic CLI versions 0.52.2 and 0.52.3 and does not establish an app-updater regression. Fixture runtime repair evidence is `acceptance/signed-43752192740/fixture-runtime-diagnosis.md` under the same evidence root.
+- 2026-11-16T13:23:38Z [decision] Drew accepted deferral of the incomplete no-password, normal-launch attribution, and complete window-restoration acceptance. The failed B to C requirement remains failed; it is not reclassified as passed. Repository release policy permits delivery covered by a recorded deviation. Current-head Greptile and CI are still required and are not waived.
+- 2026-11-16T13:23:38Z [validation] Fetched main at `721d1281b893f2ac69e27955b69476b2cd313181` and remote PR head at `b8d5d8c3b77765dc94e2516762bddf01ef6b5c83`. Main added seven commits, including desktop chat settings and window reporting. No updater or restart-lifecycle overlap required a design choice. Rebased all four commits without conflicts to `c9dbcee8e3c424d6198391e07a9ea9d48fbbd737`; `git range-diff` reports identical patches for each. Direct tree comparison confirms unchanged updater source, tests, and Cargo files. Earlier 9/10 source reviews and 5/5 Greptile are retained prior-head evidence. No local review log was available for those historical ratings beyond the existing PR record and root's report.
+
+- 2026-11-16T13:25:31Z [validation] On rebased source `c9dbcee8e3c424d6198391e07a9ea9d48fbbd737`, `make desktop-deps` exits 0. With `PATH=/Users/colthorp/.cargo/bin:/Users/colthorp/.local/share/mise/installs/go/1.27.4/bin:$PATH` and `GOROOT=/Users/colthorp/.local/share/mise/installs/go/1.27.4`, `make desktop-check` passes 208 frontend tests, seven build-configuration tests, and 161 native tests with one existing opt-in signed fixture ignored. Typechecks, formatting, sidecar builds, and Clippy with warnings denied pass. The final `desktop/scripts/app-instances_test.sh` step fails with `FAIL: copies still running: 63994` during the stubborn fake-app test, so the overall gate exits 2. This process is absent on later inspection. The helper and test are byte-identical to main and the previously reviewed head. A single instrumented disposable copy passes, which is diagnostic only and does not resolve the original failure. Logs are `/private/tmp/pr145-ready-20261116/desktop-check.log` and `app-instance-diagnosis.log`. No retry, longer wait, skip, or product change is used to mask this failure.
+- 2026-11-16T13:25:31Z [validation] The same toolchain runs `make desktop-build` successfully and creates the development bundle at `desktop/src-tauri/target/release/bundle/macos/Rhizome.app`. The bundle is not installed or launched. Log is `/private/tmp/pr145-ready-20261116/desktop-build.log`. Build-generated tracked HTML was restored to its pre-build content and excluded from this documentation change.
+- 2026-11-16T13:25:31Z [validation] Reviewed the complete source diff and the integration with main's chat/window changes. No source or dependency patch changed during the rebase, and no source changes were needed. Existing independent source approvals remain prior-head evidence. No new reviewer child was run because this lane is explicitly a leaf. Current-head Greptile and CI remain required. Local runtime inspection confirms the EffortNote contract; no current person is configured, so the approval frontmatter remains absent.
+
+- 2026-11-16T13:25:52Z [validation] Final `./scripts/rzm validate` and `./scripts/rzm validate frozen-scope-drift` both exit 0 with zero issues or errors after the documentation edits. Logs are `/private/tmp/pr145-ready-20261116/validate.log` and `frozen-scope-drift.log`. `git diff --check` passes.
+
 ## Deviations
 
-Signed standard-user acceptance remains incomplete. Root has verified the dedicated standard GUI account, but this host has no local Developer ID for new signed candidates. The retained public signed fixture exercises same-version replacement, strict signatures, root xattrs, CLI execution and link preservation under a protected temporary parent. It does not establish the one-password transition, App Management permission, relaunch, or restored windows. The required signed A to B to C sequence remains open.
+SPEC-0122 frozen-scope-drift acknowledged via EFF-2026-11-13-14-55 on 2026-11-16. The spec now records the existing permission-denial fallback and this accepted delivery exception. The frozen scope and original intended delivery above remain unchanged.
+
+Drew explicitly accepted delivery with incomplete signed standard-user acceptance on 2026-11-16 and deferred further manual testing. Both signed transitions installed successfully, but B to C requested administrator authorization and replaced the bundle root. A to B authentication count is unknown. Complete restoration of both windows was not explicitly confirmed. The no-password acceptance gate remains failed, and behavior for normally launched new-user installs is unverified.
+
+The direct Python launcher and Ghostty App Management attribution may explain the fallback, but causation and the exact fallback predicate remain unproved. This deviation accepts that uncertainty without changing product code, relaxing signature checks, or claiming the intended one-authorization transition has been demonstrated. The existing signed fixture remains filesystem and signature evidence only. Current-head source review and CI are not waived.
 
 ## Compounding Follow-ups
 
@@ -98,11 +116,14 @@ No new compounding mechanism is proposed. Preserve the protected-parent and fail
 
 ## Closure Checklist
 
-- [ ] All required verification passed or accepted deviations recorded by root.
-- [ ] Signed standard-account acceptance completed.
-- [ ] Independent review, Greptile, and current-head CI complete.
+- [x] Implementation and independent source reviews are complete; the rebased source preserves those patches.
+- [x] Drew accepted the recorded manual-acceptance deviation on 2026-11-16.
+- [x] Local gate outcomes recorded after the final branch refresh, including the failed app-instance gate.
+- [x] Final documentation and frozen-scope validation pass.
+- [ ] Resolve the app-instance gate failure.
+- [ ] Current-head Greptile 5/5 with no unresolved comments and green CI.
 - [x] Root created [PR #145](https://github.com/atomicobject/rhizome/pull/145), which remains open and unmerged.
 
 ## Status
 
-Active. PR #145 is open and unmerged. The local rebase preserves the reviewed updater source and awaits root inspection before any push. The standard GUI account is ready. Signed A to B to C acceptance, review of the rebase delta, current-head Greptile, and CI for the rebased head remain outstanding. Readiness and acceptance remain unchecked. Full Stop prohibits merging and auto-merge; this lane stops before pushing.
+Active pending current-head verification and the unresolved local app-instance gate failure. The implementation is delivered in PR #145 with Drew's accepted manual-testing deviation. No more manual acceptance is required for this preparation pass. Keep the effort active until the app-instance failure is resolved, final validation passes, and current-head Greptile and CI are recorded. Then close it on this PR under repository release policy. No merge or release is authorized by this update.
