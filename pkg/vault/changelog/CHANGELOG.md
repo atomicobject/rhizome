@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [v0.53.0] - 2026-11-16
+
+- Chat beside what you're looking at: the right pane gains a Chat tab in every section (`]` or ⌥⌘B; ⌘B now toggles the left sidebar). Messages carry the note, view, or type on screen, the agent can read the page with `page_text`, and sessions default to a new Auto permission mode with few prompts.
+- Chat chooses its agent, model, reasoning, and permission mode from the composer. The picker shows the latest model of each family, new chats start on the latest Opus (otherwise Sol), and signed-out or missing agents get an in-place notice. Rhizome Desktop finds Claude Code and Codex from the login shell's PATH, and Settings → Chat shows each agent's status.
+- Agents can explain Rhizome, recommend and install starters, customize note types, schema, and views, and automate vault work. First-time setup lists optional add-ons such as AO KB and Compounding.
+- Upgrading a repository's Rhizome refreshes the agent files `rzm init` generates: Desktop's "Update to X" reviews and applies both, the toolbar offers "Update Rhizome files" when they fall behind, and `rzm update` reruns `rzm init`. Legacy upgrades recover verified ownership from Git history and list unverified files with `--take` and `--keep` choices.
+- The live indexer matches `rzm index`, survives interruptions without full recrawls, and embeds changed notes in groups packed to the provider's limits. Index version v1.18.0 repairs code-to-note links once without re-embedding.
+- Delivery loads about 10× faster with nested, parallel reads; spec, effort, and Knowledge site pages also load faster.
+- The Notes sidebar has a Files tree in place of the Folder panel. Delivery's stages are tabs, untyped notes are listable from the Overview, and table titles open their note.
+- Fixes: empty required link lists no longer block ontology publication, and queries reject unpublished schema changes. `rzm init` handles a Codex config with a `[features]` table. User-owned macOS apps can update by replacing their contents in place, with rollback.
+- The README and user guides start from Rhizome Desktop, with a new command-line reference.
+
 ## [v0.52.1] - 2026-11-12
 
 - Experiences: a folder of custom views with an `experience.yml` runs as one site, in one long-lived frame per window that keeps each tab's page, with an optional Notes sidebar panel. Custom views can render Markdown with `@rhizome/kit/markdown`, keep their params across tab switches and reloads, and come first in the view switcher.
