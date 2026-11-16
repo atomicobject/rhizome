@@ -100,8 +100,14 @@ export function clearChatDraftIf(sent: string) {
   if (current().draft === sent) update({ draft: "" });
 }
 
-/** Starts over: the next message opens a new session. The old one stays on the Agent page. */
-export const startNewChat = () => update({ sessionID: "", draft: "" });
+/**
+ * Starts over: the next message opens a new session, and one still waiting to
+ * send is dropped. The old session stays on the Agent page.
+ */
+export function startNewChat() {
+  cancelChatSend();
+  update({ sessionID: "", draft: "" });
+}
 
 /** Forget the cached state; tests call this after changing storage. */
 export function resetChatPaneForTests() {

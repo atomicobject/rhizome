@@ -87,6 +87,7 @@ Built on `t3/chat-agent-model-picker`.
 - Greptile's nineteenth pass (after the eighteenth reached 5/5 and a sidebar E2E was updated for the Agent rail's new name) found a failed save whose settings read also failed leaving the unsaved choice showing, which later sends trusted; a failed save now restores the settings the server last answered with, with a test shown to fail before the fix.
 - Greptile's twentieth pass (4/5) found the read after a failed save not updating those settings, so a save the server took but whose reply was lost could later be undone on screen; the failure now reads and records the server's settings itself, with a test shown to fail before the fix.
 - Greptile's twenty-first pass (4/5) found a background settings read, such as one prompted by another window's Settings, putting the older choice back on screen while a choice saved, and ⇧⌘E from inside the open picker starting a Notes edit because the picker renders outside the composer; a read now keeps a choice still saving, and the picker's popovers count as the composer. Each has a test shown to fail before the fix.
+- Greptile's twenty-second pass reached 5/5 with one non-blocking note, fixed anyway: opening another conversation on the Agent page while a message waited pulled the page back to the old one; it now drops the waiting message and keeps the draft, and the chat pane's New chat drops one too instead of sending it to the old chat, each with a test shown to fail before the fix.
 
 ## Compounding Follow-ups
 

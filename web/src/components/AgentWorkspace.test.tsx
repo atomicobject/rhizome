@@ -296,6 +296,40 @@ describe("AgentWorkspace", () => {
     expect(screen.getByLabelText("Message")).toHaveValue("hello");
   });
 
+  it("drops a waiting message when another conversation is opened", async () => {
+    const response = settingsWith(readyStatus);
+    const first = session({ id: "first", title: "First chat" });
+    const second = session({ id: "second", title: "Second chat" });
+    const saving = deferredReply<typeof response>();
+    http
+      .json("GET", "/api/agent/settings", response)
+      .on("PUT", "/api/agent/settings", () => saving.promise)
+      .json("GET", "/api/agent/sessions", { sessions: [first, second] });
+
+    for (const item of [first, second]) {
+      http.json("GET", `/api/agent/sessions/${item.id}`, {
+        session: item,
+        messages: [],
+        events: [],
+      });
+    }
+
+    render(<AgentWorkspace />);
+    await screen.findByRole("heading", { name: first.title });
+    fireEvent.click(await screen.findByRole("button", { name: "GPT Standard · Medium" }));
+    fireEvent.click(screen.getByRole("option", { name: /GPT Fast/ }));
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "hello" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Second chat / }));
+    await screen.findByRole("heading", { name: second.title });
+
+    await act(async () => saving.resolve(response));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(screen.getByRole("heading", { name: second.title })).toBeVisible();
+    expect(http.count("POST", `/api/agent/sessions/${first.id}/messages`)).toBe(0);
+    expect(screen.getByLabelText("Message")).toHaveValue("hello");
+  });
+
   it("starts a chat for the chosen agent when the open chat is still loading", async () => {
     const response = settingsWith(readyStatus);
 

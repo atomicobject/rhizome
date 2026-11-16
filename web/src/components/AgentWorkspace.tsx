@@ -104,7 +104,16 @@ export function AgentWorkspace({
     return () => document.removeEventListener("pointerdown", reset);
   }, [deleteConfirmID]);
 
+  // Stop, or opening another conversation, drops a message still waiting
+  // for its choice to save, and keeps its draft.
+  const cancelWaiting = () => {
+    submitting.current = 0;
+    setWaiting(false);
+  };
+
   const startSession = async () => {
+    cancelWaiting();
+
     try {
       const response = await createAgentSession("Rhizome agent chat");
       setSessions((current) => [response.session, ...current]);
@@ -200,11 +209,6 @@ export function AgentWorkspace({
     }
   };
 
-  const cancelWaiting = () => {
-    submitting.current = 0;
-    setWaiting(false);
-  };
-
   const harness = selectedSession?.harness || agent.choice?.harness;
 
   const status = agent.response.harnesses.find((item) => item.kind === harness)?.status;
@@ -232,6 +236,8 @@ export function AgentWorkspace({
           error={sessionsQuery.isError}
           deleteConfirmID={deleteConfirmID}
           onSelect={(id) => {
+            if (id !== selectedID) cancelWaiting();
+
             setDeleteConfirmID("");
             setSelectedID(id);
           }}
