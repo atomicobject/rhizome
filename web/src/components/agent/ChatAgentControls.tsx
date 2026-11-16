@@ -55,6 +55,10 @@ const unsaved = new WeakMap<QueryClient, number>();
 
 const pendingChoices = (queryClient: QueryClient) => unsaved.get(queryClient) ?? 0;
 
+// The settings the server last answered with, which a failed save restores
+// even when the read after it fails too.
+const confirmed = new WeakMap<QueryClient, AgentSettingsResponse>();
+
 export function resetChatAgentForTests() {
   previous = undefined;
 }
@@ -68,7 +72,13 @@ export function useChatAgent(session?: Pick<AgentSession, "harness"> | null) {
 
   const query = useQuery({
     queryKey: key,
-    queryFn: ({ signal }) => getAgentSettings({ signal }),
+    queryFn: async ({ signal }) => {
+      const next = await getAgentSettings({ signal });
+
+      if (pendingChoices(queryClient) === 0) confirmed.set(queryClient, next);
+
+      return next;
+    },
     // A harness that was busy or slow to answer its probe may answer later.
     refetchInterval: (state) => (state.state.data?.resolved.harness ? false : 15_000),
   });
@@ -81,6 +91,7 @@ export function useChatAgent(session?: Pick<AgentSession, "harness"> | null) {
   // A reply lands after cancelling reads still in flight, which began before
   // it and would otherwise land after it with the old choice.
   const store = async (next: AgentSettingsResponse) => {
+    confirmed.set(queryClient, next);
     await queryClient.cancelQueries({ queryKey: key });
     queryClient.setQueryData(key, next);
   };
@@ -102,12 +113,21 @@ export function useChatAgent(session?: Pick<AgentSession, "harness"> | null) {
       );
     },
     onSuccess: async (next) => {
+      // Saves run in order, so this reply is what the server now holds.
+      confirmed.set(queryClient, next);
+
       if (pendingChoices(queryClient) === 1) await store(next);
     },
     // A later choice still saving keeps the composer; its own reply, or its
-    // own failure's read, settles it.
+    // own failure, settles it.
     onError: async () => {
-      if (pendingChoices(queryClient) === 1) await queryClient.invalidateQueries({ queryKey: key });
+      if (pendingChoices(queryClient) !== 1) return;
+
+      const last = confirmed.get(queryClient);
+
+      if (last) await store(last);
+
+      await queryClient.invalidateQueries({ queryKey: key });
     },
     onSettled: () => unsaved.set(queryClient, pendingChoices(queryClient) - 1),
   });

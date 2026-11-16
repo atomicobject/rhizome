@@ -158,6 +158,20 @@ describe("chat's agent picker", () => {
     expect(await screen.findByRole("button", { name: /^Sonnet 5.5/ })).toBeVisible();
   });
 
+  it("goes back to the saved choice when a save fails and settings cannot be read", async () => {
+    http.on("PUT", "/api/agent/settings", () => jsonReply({ error: "busy" }, 500));
+    render(<Composer />);
+    const picker = await openPicker();
+    http.on("GET", "/api/agent/settings", () => jsonReply({ error: "busy" }, 500));
+    const reads = http.count("GET", "/api/agent/settings");
+
+    fireEvent.click(within(picker).getByRole("option", { name: /Sonnet 5.5/ }));
+
+    await waitFor(() => expect(http.count("GET", "/api/agent/settings")).toBe(reads + 1));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect(screen.getByRole("button", { name: "Opus 5.5 · High" })).toBeVisible();
+  });
+
   it("groups each agent's models, Claude Code first, with a faint note for a signed-out one", async () => {
     render(<Composer />);
     const picker = await openPicker();
