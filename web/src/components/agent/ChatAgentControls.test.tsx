@@ -257,7 +257,15 @@ describe("chat's agent picker", () => {
       "true",
     );
 
+    // A highlighted row that "Show fewer models" hides leaves Enter choosing the first row.
+    const search = within(picker).getByRole("combobox", { name: "Search models" });
+    fireEvent.mouseMove(within(picker).getByRole("option", { name: /GPT Terra/ }));
     fireEvent.click(within(picker).getByRole("button", { name: "Show fewer models" }));
+    expect(search).toHaveAttribute(
+      "aria-activedescendant",
+      within(picker).getAllByRole("option")[0].id,
+    );
+
     fireEvent.change(within(picker).getByRole("combobox", { name: "Search models" }), {
       target: { value: "opus 5" },
     });

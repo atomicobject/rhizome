@@ -318,6 +318,7 @@ export function ModelPicker({
           aria-expanded={all}
           onClick={() => {
             setAll(!all);
+            setActive(0);
             search.current?.focus();
           }}
         >
