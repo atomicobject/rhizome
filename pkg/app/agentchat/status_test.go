@@ -80,7 +80,7 @@ func TestReportProbesHarnessesTogetherAndResolvesTheConfiguredModel(t *testing.T
 		harness.KindClaude: &rendezvousHarness{started: started, status: ready(harness.ModelOption{ID: "opus"})},
 	})
 	require.NoError(t, err)
-	require.Equal(t, []harness.Kind{harness.KindCodex, harness.KindClaude}, []harness.Kind{response.Harnesses[0].Kind, response.Harnesses[1].Kind})
+	require.Equal(t, []harness.Kind{harness.KindClaude, harness.KindCodex}, []harness.Kind{response.Harnesses[0].Kind, response.Harnesses[1].Kind})
 	for _, item := range response.Harnesses {
 		require.Empty(t, item.Status.LastError, "%s probe waited on the other harness", item.Kind)
 		require.True(t, item.Status.Installed)

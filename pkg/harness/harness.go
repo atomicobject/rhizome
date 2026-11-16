@@ -178,6 +178,8 @@ type ModelOption struct {
 	// when the CLI does not report it (Claude Code).
 	DefaultEffort string `json:"defaultEffort,omitempty"`
 	Default       bool   `json:"default,omitempty"`
+	// Featured marks a model the chat picker lists before "Show all models".
+	Featured bool `json:"featured,omitempty"`
 }
 
 type Capabilities struct {

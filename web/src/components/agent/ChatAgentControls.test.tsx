@@ -233,6 +233,38 @@ describe("chat's agent picker", () => {
     expect(within(picker).getByRole("combobox", { name: "Search models" })).toHaveFocus();
   });
 
+  it("lists the featured models until Show all models, and a search finds every model", async () => {
+    const claude = response.harnesses.find((item) => item.kind === "claude")!.status;
+    claude.models = [
+      { id: "opus", displayName: "Opus 5.5", efforts: ["high"], default: true, featured: true },
+      { id: "sonnet", displayName: "Sonnet 5.5", featured: true },
+      { id: "opus-old", displayName: "Opus 5" },
+    ];
+    render(<Composer />);
+    const picker = await openPicker();
+
+    const names = () =>
+      within(picker)
+        .getAllByRole("option")
+        .map((option) => option.querySelector(".chat-model-picker__name")?.textContent);
+
+    expect(names()).toEqual(["Opus 5.5", "Sonnet 5.5", "GPT Sol", "GPT Terra"]);
+
+    fireEvent.click(within(picker).getByRole("button", { name: "Show all models" }));
+    expect(names()).toEqual(["Opus 5.5", "Sonnet 5.5", "Opus 5", "GPT Sol", "GPT Terra"]);
+    expect(within(picker).getByRole("button", { name: "Show fewer models" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    fireEvent.click(within(picker).getByRole("button", { name: "Show fewer models" }));
+    fireEvent.change(within(picker).getByRole("combobox", { name: "Search models" }), {
+      target: { value: "opus 5" },
+    });
+    expect(names()).toEqual(["Opus 5.5", "Opus 5"]);
+    expect(within(picker).queryByRole("button", { name: /models$/ })).toBeNull();
+  });
+
   it("chooses with ↑/↓ and Enter, keeping an effort the new model offers", async () => {
     render(<Composer />);
     const picker = await openPicker();

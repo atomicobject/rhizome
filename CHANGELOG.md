@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Chat's model picker lists the latest model of each family by default: Opus, Fable, and Sonnet for Claude Code, and Sol, Astra, and Terra for Codex, plus the chosen model. "Show all models" under the list, or a search, finds the rest. New chats start on the latest Opus when Claude Code is ready, otherwise on the latest Sol, in Auto mode.
+
 - Agents can now explain Rhizome and help a person set it up and shape it. The `rhizome` skill gains four references: what Rhizome is and what each view offers, recommending and installing starters, customizing note types, schema, and views, and automating vault work with scripts, module actions, and scheduled tasks. `rzm init --check --json` gives every workflow and add-on a `fit` and `cautions` and marks optional add-ons, and first-time setup, including Rhizome Desktop's setup sheet, now lists optional add-ons such as AO KB knowledge and Compounding, unchecked. The in-app chat sends questions about Rhizome to the skill, and the chat and Agent page render tables.
 
 - Rhizome and starter skills use clearer completion checks and shared guidance. Assessment workflows handle missing embeddings and save scope baselines, and assumption workflows retrieve every page and resolve accountable owners before declaring completion.
