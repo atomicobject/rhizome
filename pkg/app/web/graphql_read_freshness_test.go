@@ -10,11 +10,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
 	embedsqlite "github.com/atomicobject/rhizome/pkg/embeddings/sqlite"
 	ontologyquery "github.com/atomicobject/rhizome/pkg/ontology/query"
 	"github.com/atomicobject/rhizome/pkg/sqliteutil"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
+	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"github.com/stretchr/testify/require"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -115,6 +118,8 @@ func TestGraphQLReadCacheCachesNoteRelationsTheIndexHolds(t *testing.T) {
 		"  stories: StoriesSection @contains(level: H2, heading: \"Stories\")\n  linkedPlans: [Plan!] @neighbors(direction: OUTBOUND, type: \"Plan\")\n  linkingPlans: [Plan!] @neighbors(direction: INBOUND, type: \"Plan\")\n", 1)
 	require.NotEqual(t, string(schema), declared)
 	require.NoError(t, os.WriteFile(schemaFile, []byte(declared), 0o644))
+	_, err = ontologytest.Publish(t.Context(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	require.NoError(t, err)
 
 	query := `query {
 	  plan(first: 10) { path taskLists { path summary } }
@@ -157,6 +162,8 @@ func TestGraphQLReadCacheFollowsBuiltinPrecedenceOverAuthoredFields(t *testing.T
 	declared := strings.Replace(string(schema), "type Plan\n  @node(paths: [\"specs/*/plan.md\"], label: \"Plan\", keyField: \"summary\") {\n", "type Plan\n  @node(paths: [\"specs/*/plan.md\"], label: \"Plan\", keyField: \"summary\") {\n  content: String @field\n", 1)
 	require.NotEqual(t, string(schema), declared)
 	require.NoError(t, os.WriteFile(schemaFile, []byte(declared), 0o644))
+	_, err = ontologytest.Publish(t.Context(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	require.NoError(t, err)
 
 	query := map[string]any{"query": `query { plan(first: 10) { path content } }`}
 	plans, _ := replyData(t, postGraphQL(t, srv, query))["plan"].([]any)
@@ -184,6 +191,8 @@ func TestGraphQLReadCacheTreatsAbstractParentsAsPossibleNotes(t *testing.T) {
 	declared = strings.Replace(declared, "keyField: \"summary\") {\n", "keyField: \"summary\") {\n  content: String @field\n", 1)
 	require.NotEqual(t, string(schema), declared)
 	require.NoError(t, os.WriteFile(schemaFile, []byte(declared), 0o644))
+	_, err = ontologytest.Publish(t.Context(), testkit.NoteMetadataIndexer(t), fixture.vaultDef, &obsidian.Note{}, fixture.intelStore)
+	require.NoError(t, err)
 
 	query := map[string]any{"query": `query { plan(first: 10) { path ... on Trackable { content } } }`}
 	plans, _ := replyData(t, postGraphQL(t, srv, query))["plan"].([]any)

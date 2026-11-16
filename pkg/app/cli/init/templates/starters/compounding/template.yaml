@@ -1,6 +1,8 @@
 id: compounding
 name: Compounding
 description: "Review agent sessions for recurring friction and missing context, and turn each into a fix, a document edit, a guard rule, or a context shard you approve"
+fit: "A repository where people do much of their work through Claude Code or Codex, with many local agent sessions and a team willing to review proposals that turn recurring agent friction into fixes, document edits, guard rules, and context shards. Pair it with action-items so the findings' action items are queryable."
+cautions: "Sends session transcript text to the harness's model provider and to TypeSafe's Jev for screening, which needs a TypeSafe credential, and needs Node 20 or later, a spend budget the person sets, and a Person note for approvals. Its weekly mining task spends up to $10 a run and waits in the Tasks inbox unless set to auto, and its hooks stay off until the person turns them on."
 requires:
   - core
 optionalAddon: true

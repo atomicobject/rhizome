@@ -1,6 +1,6 @@
 # Ontology authoring
 
-Changing `.rhizome/ontology/*.graphql` changes the project's typed-note contract and may require content migration. Treat it as a high-risk route and use any repo-local ontology workflow or subsystem guidance first.
+The schema is every top-level `*.graphql` file in `.rhizome/ontology/` and in each module's `.rhizome/modules/<id>/ontology/`; `rzm ontology validate` lists the files it loaded. Changing one changes the project's typed-note contract and may require content migration. Treat it as a high-risk route and use any repo-local ontology workflow or subsystem guidance first. Edit a type in the file that declares it, and put new types beside the views, recipes, and scripts that use them: a module folder when they form one capability, `.rhizome/ontology/` otherwise.
 
 ## Design from use
 

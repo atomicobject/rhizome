@@ -10,7 +10,7 @@
 !migrations/**
 !modules/
 !modules/**
-modules/*/bindings/refresh.lock/
+modules/*/bindings/refresh.lock
 modules/*/bindings/*.tmp
 modules/*/bindings/*.previous
 modules/*/bindings/index-receipt.json

@@ -11,7 +11,7 @@ Deliverable: one effort that freezes durable links to the exact specs and select
 
 - Use Markdown `EffortNote` for simple work. Use an HTML `EffortWorkspace` folder when a separate plan, append-only work log, or selected materials help. Preserve historical Markdown efforts without conversion.
 - Load `query-recipe run --id runtime-authoring-context --anchor <concrete-type>`. Allocate the concrete type, never the shared `Effort` interface; both forms use the shared `EFF` pool.
-- For `DATETIME`, choose the prospective timestamped entry path first with local wall time (`date +"%Y-%m-%d-%H-%M"`), then call `next-id --type <concrete-type> --path <path>`. For `SEQUENTIAL`, use `next-id --type <concrete-type>`. Follow the live strategy; do not migrate it from this skill.
+- For `DATETIME`, choose the prospective timestamped entry path first with local wall time (`date +"%Y-%m-%d-%H-%M"`), then call `rzm agent next-id --type <concrete-type> --path <path>`. For `SEQUENTIAL`, use `rzm agent next-id --type <concrete-type>`. Follow the live strategy; do not migrate it from this skill.
 - Persist the returned id verbatim in `id` and `aliases`. Keep it stable after moves. Same-minute, repeated-DST-minute, and cross-zone collisions can require deterministic suffixes.
 
 ## Author the chosen form

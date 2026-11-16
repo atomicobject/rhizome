@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
 import type { AgentApprovalDecision, AgentEvent, AgentMessage } from "../../api/types";
 import { isString, type JsonValue } from "../../api/parse";
 import { humanizeName } from "../../lib/labels";
+import { AssistantMarkdown } from "../markdown/AssistantMarkdown";
 
 const timeFormatter = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 
@@ -383,7 +383,7 @@ export function AgentTimeline({
                 <span>{humanizeName(entry.message.role)}</span>
                 <time>{formatTime(entry.message.createdAt)}</time>
               </header>
-              <ReactMarkdown>{entry.message.content}</ReactMarkdown>
+              <AssistantMarkdown>{entry.message.content}</AssistantMarkdown>
             </article>
           ) : (
             <EventItem
@@ -404,7 +404,7 @@ export function AgentTimeline({
               <span>assistant</span>
               <time>streaming</time>
             </header>
-            <ReactMarkdown>{deltas}</ReactMarkdown>
+            <AssistantMarkdown>{deltas}</AssistantMarkdown>
           </article>
         ) : null}
       </section>

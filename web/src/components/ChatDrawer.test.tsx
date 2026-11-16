@@ -515,6 +515,33 @@ describe("Chat in the right pane", () => {
     expect(within(pane).queryByRole("region", { name: "Approval requested" })).toBeNull();
   });
 
+  it("renders a Markdown table in an answer as a table", async () => {
+    window.localStorage.setItem(SESSION_KEY, "agt-1");
+    http.json("GET", "/api/agent/sessions/agt-1", {
+      session: session(),
+      messages: [
+        {
+          id: 1,
+          sessionId: "agt-1",
+          role: "assistant",
+          content: "| Type | Notes |\n| --- | --- |\n| Spec | 3 |",
+          createdAt: "2026-11-14T12:00:00Z",
+        },
+      ],
+      events: [],
+    });
+    render(<ChatDrawer />);
+
+    const pane = screen.getByRole("complementary", { name: "Chat" });
+    const table = await within(pane).findByRole("table");
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((cell) => cell.textContent),
+    ).toEqual(["Type", "Notes"]);
+    expect(within(table).getByRole("cell", { name: "Spec" })).toBeVisible();
+  });
+
   it("answers the agent's page_text request with the section's text, not the chat's", async () => {
     window.localStorage.setItem(SESSION_KEY, "agt-1");
     http

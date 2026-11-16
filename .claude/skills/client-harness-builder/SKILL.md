@@ -1,30 +1,15 @@
 ---
 name: client-harness-builder
 description: >-
-  Use when you need to package Rhizome-assisted documentation into a
-  client-ready agentic harness that works without Rhizome dependencies —
-  producing .claude/commands/ files, CLAUDE.md/AGENTS.md entry points, and
-  a maintenance runbook the client can use standalone.
+  Package validated Rhizome documentation for client handoff as a standalone
+  Claude Code harness with commands, agent entry points, and a maintenance runbook.
 ---
 
 # Client Harness Builder
 
 ## Goal
 
-Turn Rhizome vault documentation into a self-contained Claude Code harness the client can use without installing or knowing about Rhizome. The deliverable is a `client-harness/` directory containing only standard markdown files — no `rzm` commands, no `.rhizome/` references.
-
-## When to use
-
-- When the Rhizome vault has sufficient documentation for one or more codebase modules and you need to produce client-facing Claude Code commands
-- At the end of a documentation sprint to package findings before client handoff
-- When asked to "create client deliverables", "build the harness", or "package the docs" from existing vault notes
-
-## Non-goals
-
-- Do not include any `rzm` commands in output files — the client does not have Rhizome installed
-- Do not reference `.rhizome/` paths, query recipes, or ontology files in any client-facing artifact
-- Do not generate commands for undocumented modules — commands must be grounded in vault content
-- Do not duplicate AO's internal vault notes into `client-harness/` — clients get the finished commands and entry points, not the raw assessment notes
+Turn Rhizome vault documentation into a self-contained Claude Code harness the client can use without installing or knowing about Rhizome. The deliverable is a `client-harness/` directory containing only standard markdown files: no `rzm` commands, no `.rhizome/` references.
 
 ## Operating mode
 
@@ -71,13 +56,14 @@ Turn Rhizome vault documentation into a self-contained Claude Code harness the c
      maintenance-runbook.md
    ```
 
+7. **Check the harness before handoff.** It is done when all required files exist, every guardrail below holds, every `@` target resolves in the intended client repository layout, and no `[PLACEHOLDER` tokens remain. Check that each open `#assumption` item noted in step 1 appears in its module's command as a `[REQUIRES CLARIFICATION: ...]` marker. The team-contact `[TBD]` from step 5 may remain until handoff.
+
 ## Guardrails
 
-- **No `rzm` in output** — every generated file must work for a developer who has never heard of Rhizome
-- **No `.rhizome/` references** — do not reference vault config, query recipes, or ontology files in any client artifact
-- **Commands must be grounded** — only write commands for areas with vault documentation; mark undocumented areas as `[Not yet documented — add to documentation backlog]`
-- **Separate harness from internal work** — `client-harness/` is the delivery surface; AO's vault notes stay in `docs/`; do not mix them
-- **Flag known gaps** — if an assumption item (`#assumption`) was flagged for a module, note it in the relevant command as `[REQUIRES CLARIFICATION: <brief description>]`
+- **No Rhizome in output** — every generated file must work for a developer who has never heard of Rhizome: no `rzm` commands, and no references to `.rhizome/` paths, vault config, query recipes, or ontology files
+- **Commands must be grounded** — write commands only for areas with vault documentation; mark undocumented areas as `[Not yet documented — add to documentation backlog]`
+- **Separate harness from internal work** — `client-harness/` is the delivery surface and gets the finished commands and entry points; AO's vault and assessment notes stay in `docs/` and are not copied into it
+- **Flag known gaps** — carry each open assumption item (`#assumption`) for a packaged module into its command as `[REQUIRES CLARIFICATION: <brief description>]`
 
 ## Reference notes
 
@@ -85,5 +71,4 @@ Turn Rhizome vault documentation into a self-contained Claude Code harness the c
 - `references/update-module-docs.md` — starting template for a module documentation update command
 - `references/generate-arch-overview.md` — starting template for an architecture overview command
 - When the active harness exposes `assumption-tracker`, use it for ActionItem-backed assumption flagging and synthesis; otherwise do not imply that optional phase is installed
-- See `legacy-codebase-assessor` for the upstream assessment that identifies what to document before this skill packages it for the client
-- Engagement workflow chain with the `action-items` starter: `legacy-codebase-assessor` (assess) → `assumption-tracker` (flag during documentation) → `client-harness-builder` (this skill — package for client handoff). Without action-items, assessment/documentation hands off directly here. Use this skill after the vault has validated documentation, not before.
+- Engagement workflow chain with the `action-items` starter: `legacy-codebase-assessor` (assess, identifying what to document) → `assumption-tracker` (flag during documentation) → `client-harness-builder` (this skill — package for client handoff). Without action-items, assessment/documentation hands off directly here. Use this skill after the vault has validated documentation, not before.

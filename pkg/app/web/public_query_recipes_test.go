@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/atomicobject/rhizome/internal/testkit"
+	ontologytest "github.com/atomicobject/rhizome/internal/testkit/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/queryrecipe"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
@@ -65,7 +67,11 @@ func TestPublicOntologyQueryUsesSharedRuntimeCapabilities(t *testing.T) {
 	store, err := semdb.Open(filepath.Join(root, "db.sqlite"))
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
-	srv := &Server{cfg: Config{VaultPath: root, VaultDef: obsidian.VaultDefinition{Path: root}}, runtime: &Runtime{IntelStore: store}}
+	vaultDef := obsidian.VaultDefinition{Path: root}
+	indexer := testkit.NoteMetadataIndexer(t)
+	_, err = ontologytest.Publish(t.Context(), indexer, vaultDef, &obsidian.Note{}, store)
+	require.NoError(t, err)
+	srv := &Server{cfg: Config{VaultPath: root, VaultDef: vaultDef}, runtime: &Runtime{IntelStore: store}, noteMetadata: indexer}
 	result, err := srv.executeOntologyQueryOperation(context.Background(), `{
  ontology {authoringGuide(type:"Project") {available}}
  code {testsForCode(path:"pkg/thing.go") {available tests {path}}}
