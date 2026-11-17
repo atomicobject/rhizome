@@ -2,6 +2,9 @@ package query
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"os"
 	"path/filepath"
 	"testing"
@@ -59,4 +62,43 @@ type MapOfContent @node(paths: ["MOCs/**/*.md"]) { title: String }
 	require.Nil(t, authored["node"])
 	require.Nil(t, result.Data["note"])
 	require.NotEqual(t, "MapOfContent", indexed["node"].(map[string]any)["__typename"], "exact: MOCs/ does not select mocs/")
+}
+
+func TestCaseAliasNodeBatchPrefetchesCanonicalHostsTogether(t *testing.T) {
+	notes := make(map[string]string)
+	refs := make([]string, 25)
+	for i := range refs {
+		notes[fmt.Sprintf("mocs/%02d.md", i)] = "# MOC\n"
+		refs[i] = fmt.Sprintf("MOCs/%02d.md", i)
+	}
+	env := newConfiguredQueryTestEnv(t, `type MapOfContent @node(paths: ["mocs/*.md"]) { title: String }`, notes, []string{"**/*.md"})
+	if !rootFoldsCase(t, env.root, "mocs", "MOCs") {
+		t.Skip("requires filesystem case aliases")
+	}
+	var firstReads int
+	for _, count := range []int{1, len(refs)} {
+		encoded, err := json.Marshal(refs[:count])
+		require.NoError(t, err)
+		prepared, errs := Prepare(env.execSchema, fmt.Sprintf(`{ nodes(refs: %s, first: %d) { items { ref { notePath } error { code } } } }`, encoded, count))
+		require.Empty(t, errs)
+		deps := env.deps(nil)
+		load := deps.ExactNoteMetadataRows
+		reads := 0
+		deps.ExactNoteMetadataRows = func(ctx context.Context, paths []string) (map[string]semdb.NoteMetadataRow, error) {
+			reads++
+			return load(ctx, paths)
+		}
+		result := Execute(context.Background(), deps, env.schema, prepared)
+		require.Empty(t, result.Errors)
+		items := result.Data["nodes"].(map[string]any)["items"].([]any)
+		require.Len(t, items, count)
+		for _, item := range items {
+			require.Nil(t, item.(map[string]any)["error"])
+		}
+		if count == 1 {
+			firstReads = reads
+		} else {
+			require.Equal(t, firstReads, reads, "case aliases must not add per-host metadata reads")
+		}
+	}
 }
