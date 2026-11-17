@@ -107,6 +107,7 @@ type Service struct {
 	startupTimeout   time.Duration
 	pageRelayOrigin  string
 	pageTimeout      time.Duration
+	problems         func() []string
 }
 
 func NewService(ctx context.Context, vaultPath string, harnesses map[harness.Kind]harness.Harness) (*Service, error) {
@@ -333,7 +334,7 @@ func (s *Service) SendMessage(ctx context.Context, sessionID, content string, vi
 		s.finishTurn(sessionID, live, turn)
 		return SendMessageResponse{}, err
 	}
-	go s.sendTurn(session, live, turn, turnText(content, viewContext))
+	go s.sendTurn(session, live, turn, turnText(content, viewContext, s.currentProblems()))
 	updated, err := s.store.GetSession(s.ctx, sessionID)
 	if err != nil {
 		return SendMessageResponse{}, err

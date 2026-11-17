@@ -28,3 +28,16 @@ func TestStarterReadinessIsUngatedAndGETNeverRunsSetup(t *testing.T) {
 	require.Equal(t, 202, w.Code)
 	require.Equal(t, 1, owner.runs)
 }
+
+func TestStarterProblemsReportOnlyNoticesThatNeedTheUser(t *testing.T) {
+	problems := starterProblems([]modulereadiness.Snapshot{
+		{Module: "ao-kb", Title: "AO Knowledge Base", State: modulereadiness.Failed, Reason: "ao-kb/index: exit status 1"},
+		{Module: "demo", State: modulereadiness.Blocked},
+		{Module: "busy", State: modulereadiness.Working, Reason: "indexing"},
+		{Module: "done", State: modulereadiness.Ready},
+	})
+	require.Equal(t, []string{
+		"AO Knowledge Base (module ao-kb): setup failed. ao-kb/index: exit status 1",
+		"demo (module demo): setup blocked",
+	}, problems)
+}

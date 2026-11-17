@@ -40,7 +40,42 @@ func (v *ViewContext) Validate() error {
 	return nil
 }
 
-func turnText(content string, v *ViewContext) string {
+// SetProblems names the source of user-visible problems that each turn reports
+// to the agent.
+func (s *Service) SetProblems(problems func() []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.problems = problems
+}
+
+func (s *Service) currentProblems() []string {
+	s.mu.Lock()
+	problems := s.problems
+	s.mu.Unlock()
+	if problems == nil {
+		return nil
+	}
+	return problems()
+}
+
+// problemsBlock lists the setup failures the app is showing the user, so the
+// agent can explain a banner without asking for its text.
+func problemsBlock(problems []string) string {
+	if len(problems) == 0 {
+		return ""
+	}
+	block := "[Rhizome problems] The app is showing the user these problems:"
+	for _, problem := range problems {
+		if runes := []rune(problem); len(runes) > 2000 {
+			problem = string(runes[:2000]) + "…"
+		}
+		block += "\n- " + strings.ReplaceAll(problem, "\n", "\n  ")
+	}
+	return block + "\n\n"
+}
+
+func turnText(content string, v *ViewContext, problems []string) string {
+	content = problemsBlock(problems) + content
 	if v == nil {
 		return content
 	}

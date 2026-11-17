@@ -98,8 +98,9 @@ func TestPageRelayTimeoutAndStop(t *testing.T) {
 
 func TestViewContextTurnText(t *testing.T) {
 	view := &ViewContext{Kind: "note", Title: "Backlink Decision", Path: "notes/decisions/backlink-decision.md", Route: "/notes?note=notes/decisions/backlink-decision.md", Detail: "Decision details"}
-	require.Equal(t, "[Rhizome view] Note \"Backlink Decision\" · notes/decisions/backlink-decision.md\nRoute: /notes?note=notes/decisions/backlink-decision.md\nDetail: Decision details\n\nExplain this.", turnText("Explain this.", view))
-	require.Equal(t, "  original text  ", turnText("  original text  ", nil))
+	require.Equal(t, "[Rhizome view] Note \"Backlink Decision\" · notes/decisions/backlink-decision.md\nRoute: /notes?note=notes/decisions/backlink-decision.md\nDetail: Decision details\n\nExplain this.", turnText("Explain this.", view, nil))
+	require.Equal(t, "  original text  ", turnText("  original text  ", nil, nil))
+	require.Equal(t, "[Rhizome problems] The app is showing the user these problems:\n- AO KB (module ao-kb): setup failed. index failed\n  node ref did not resolve\n\nWhy?", turnText("Why?", nil, []string{"AO KB (module ao-kb): setup failed. index failed\nnode ref did not resolve"}))
 }
 
 func TestChatInstructionsRouteRhizomeQuestionsToSkill(t *testing.T) {
@@ -127,6 +128,8 @@ func TestChatSessionPageOptionsAndRawMessage(t *testing.T) {
 	require.NoError(t, err)
 	defer service.Close()
 	require.NoError(t, service.SetPageRelayOrigin("http://127.0.0.1:12345"))
+	problems := []string{"AO KB (module ao-kb): setup failed"}
+	service.SetProblems(func() []string { return problems })
 	created, err := service.CreateSession(ctx, "Context")
 	require.NoError(t, err)
 	view := &ViewContext{Kind: "note", Title: "A", Route: "/notes"}
@@ -142,7 +145,7 @@ func TestChatSessionPageOptionsAndRawMessage(t *testing.T) {
 	require.Equal(t, []string{"page_text"}, page.AutoApproveTools)
 	require.Contains(t, page.Env[0], "http://127.0.0.1:12345/api/agent/sessions/"+created.Session.ID+"/page-relay")
 	require.GreaterOrEqual(t, len(strings.TrimPrefix(page.Env[1], "RHIZOME_PAGE_RELAY_TOKEN=")), 32)
-	require.Equal(t, turnText("  explain this  ", view), <-fake.session.turns)
+	require.Equal(t, turnText("  explain this  ", view, problems), <-fake.session.turns)
 	stored, err := service.GetSession(ctx, created.Session.ID)
 	require.NoError(t, err)
 	require.Equal(t, "  explain this  ", stored.Messages[0].Content)
