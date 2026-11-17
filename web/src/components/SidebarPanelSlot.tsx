@@ -13,6 +13,7 @@ import {
   type RefObject,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -130,6 +131,15 @@ export function SidebarPanelSlot({
   // A different panel (or none) starts in split; cover is never remembered.
   useEffect(() => setCover(false), [panel?.identity]);
 
+  // Replacing the panel removes whatever had focus in its body (opening a
+  // spec from Files shows Delivery), so focus moves to the new panel's title.
+  const focusInBody = useRef(false);
+
+  useLayoutEffect(() => {
+    if (focusInBody.current && document.activeElement === document.body) titleRef.current?.focus();
+    focusInBody.current = false;
+  }, [panel?.identity]);
+
   const state: PanelState | null = !panel
     ? null
     : minimised.value
@@ -226,6 +236,16 @@ export function SidebarPanelSlot({
           <div
             ref={bodyRef}
             className="sidebar-panel__body"
+            onFocus={() => (focusInBody.current = true)}
+            onBlur={(event) => {
+              const { target } = event;
+
+              if (event.currentTarget.contains(event.relatedTarget)) return;
+              // An element the swap removed blurs too; only one still on the page lost focus.
+              queueMicrotask(() => {
+                if (target.isConnected) focusInBody.current = false;
+              });
+            }}
             hidden={state === "minimised"}
             inert={state === "minimised" ? true : undefined}
           >

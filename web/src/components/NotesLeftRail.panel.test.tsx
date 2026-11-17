@@ -140,23 +140,35 @@ describe("the sidebar panel", () => {
 
     const shared = { ...props(), vaultKey: "/vault", frames, panelServices };
 
-    const view = render(
-      <NotesLeftRail
-        {...shared}
-        activePanel={{
-          panel: { kind: "view", viewId: delivery.id, experienceKey: "delivery" },
-          context: { kind: "type", type: "Plan" },
-        }}
-      />,
-    );
+    const deliveryPanel: NotesLeftRailProps["activePanel"] = {
+      panel: { kind: "view", viewId: delivery.id, experienceKey: "delivery" },
+      context: { kind: "type", type: "Plan" },
+    };
+
+    const view = render(<NotesLeftRail {...shared} activePanel={notePanel} />);
+    const file = await screen.findByRole("button", { name: "second-plan.md" });
+
+    // Focus that already left Files stays where it went.
+    file.focus();
+    file.blur();
+    await Promise.resolve();
+    view.rerender(<NotesLeftRail {...shared} activePanel={deliveryPanel} />);
+    expect(await screen.findByRole("button", { name: "Delivery" })).not.toHaveFocus();
+    view.rerender(<NotesLeftRail {...shared} activePanel={notePanel} />);
+
+    // Opening a spec from Files swaps in its panel, whose title takes focus.
+    (await screen.findByRole("button", { name: "second-plan.md" })).focus();
+    view.rerender(<NotesLeftRail {...shared} activePanel={deliveryPanel} />);
 
     const panels = () =>
       screen
         .getAllByRole("region", { name: /panel$/ })
         .map((region) => region.getAttribute("aria-label"));
 
-    await screen.findByRole("region", { name: "Delivery panel" });
+    const region = await screen.findByRole("region", { name: "Delivery panel" });
+
     expect(panels()).toEqual(["Delivery panel"]);
+    expect(within(region).getByRole("button", { name: "Delivery" })).toHaveFocus();
 
     // Leaving the experience gives the slot back to Files.
     view.rerender(<NotesLeftRail {...shared} activePanel={notePanel} />);
