@@ -235,6 +235,9 @@ func NewServer(ctx context.Context, cfg Config, assets fs.FS) (*Server, error) {
 		return nil, err
 	}
 	s.agentService = agentService
+	if cfg.ModuleReadiness != nil {
+		agentService.SetProblems(func() []string { return starterProblems(cfg.ModuleReadiness.Snapshot()) })
+	}
 	s.reads = s.newReadCache()
 	s.finder = finder.NewLive(s.loadFinderCatalog, finderRebuildDelay)
 	s.lastReady = status

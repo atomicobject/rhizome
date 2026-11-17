@@ -1,8 +1,10 @@
 package web
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -11,6 +13,30 @@ import (
 )
 
 type ModuleReadiness = modulereadiness.API
+
+// starterProblems describes the setup notices that ask the user to act, in the
+// words the app's banner uses.
+func starterProblems(snapshots []modulereadiness.Snapshot) []string {
+	labels := map[modulereadiness.State]string{
+		modulereadiness.Failed:        "setup failed",
+		modulereadiness.Blocked:       "setup blocked",
+		modulereadiness.RequiredInput: "setup needs your input",
+	}
+	var problems []string
+	for _, item := range snapshots {
+		label, ok := labels[item.State]
+		if !ok {
+			continue
+		}
+		title := cmp.Or(item.Title, item.Module)
+		problem := fmt.Sprintf("%s (module %s): %s", title, item.Module, label)
+		if item.Reason != "" {
+			problem += ". " + item.Reason
+		}
+		problems = append(problems, problem)
+	}
+	return problems
+}
 
 func (s *Server) handleStarterReadiness(w http.ResponseWriter, r *http.Request) {
 	owner := s.cfg.ModuleReadiness

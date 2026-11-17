@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the agent surface: rzm agent * command family, agentapi in-process bridge, contextpack budgeting, answer packets, presentation packing."
 reference-kind: guide
-last-verified: 2026-11-14
+last-verified: 2026-11-17
 code-paths:
   - pkg/app/agentchat
   - pkg/app/agentapi
@@ -136,7 +136,7 @@ compression configuration. See [credential policy](../../engineering/secrets.md)
 
 ## In-app chat context and page reads
 
-`POST /api/agent/sessions/{id}/messages` accepts `{content, context?}`. A context contains `kind`, `title`, `route`, and optional `path`, `viewId`, and `detail`. The HTTP boundary admits kinds `note`, `view`, `type`, `group`, `ontology`, `notes`, and `section`. Title is required and limited to 200 runes. Route is required, starts with `/`, and is limited to 2048 bytes. Path and viewId are each limited to 1024 bytes. Detail is limited to 2000 runes. Invalid context returns 400. Message content is persisted verbatim with nullable JSON context. Only the harness turn gets the `[Rhizome view]` prefix.
+`POST /api/agent/sessions/{id}/messages` accepts `{content, context?}`. A context contains `kind`, `title`, `route`, and optional `path`, `viewId`, and `detail`. The HTTP boundary admits kinds `note`, `view`, `type`, `group`, `ontology`, `notes`, and `section`. Title is required and limited to 200 runes. Route is required, starts with `/`, and is limited to 2048 bytes. Path and viewId are each limited to 1024 bytes. Detail is limited to 2000 runes. Invalid context returns 400. Message content is persisted verbatim with nullable JSON context. Only the harness turn gets the `[Rhizome view]` prefix. While a starter module's setup is failed, blocked, or waiting on input, the turn also starts with a `[Rhizome problems]` block that lists each such module with its reason, read from module readiness at send time, so the agent can explain the setup banner the user sees.
 
 `POST /api/agent/sessions/{id}/page-relay` requires the live session's `Authorization: Bearer <token>`. Missing or invalid tokens return 401. It publishes an unpersisted `agent_event` SSE event with `id: 0`, `type: "page-request"`, and `result: {requestId}`. Errors use the existing API error envelope, including its code field. No SSE id header is emitted for this event, so it cannot advance the replay cursor. The relay waits at most 20 seconds. No subscriber returns 502 with `{"error":"The chat isn't open in a Rhizome window, so the page can't be read."}`. Timeout returns 502 with `{"error":"No Rhizome window answered."}`.
 
