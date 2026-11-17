@@ -268,30 +268,28 @@ export const NotesLeftRail = memo(function NotesLeftRail({
   return (
     <aside className="notes-left-rail" aria-label="Notes navigation">
       <DiagnosticRegion name={PANEL_SLOT_REGION}>
-        {/* Files stays docked at the bottom; a custom panel sits above it. */}
+        {/* One bottom panel: the subject's experience panel replaces Files. */}
         <SidebarPanelSlot
           vaultKey={vaultKey}
-          panel={FILES_PANEL}
-          navigation={
-            <SidebarPanelSlot vaultKey={vaultKey} panel={slotPanel} navigation={navigation}>
-              {hostsView && panel?.kind === "view" && context ? (
-                <SidebarPanelView
-                  frames={frames}
-                  view={panelView}
-                  experienceKey={panel.experienceKey}
-                  context={context}
-                  services={panelServices}
-                  active={active}
-                />
-              ) : null}
-            </SidebarPanelSlot>
-          }
+          panel={slotPanel ?? FILES_PANEL}
+          navigation={navigation}
         >
-          <FilesPanel
-            notePath={currentNote}
-            active={active}
-            onOpenNote={panelServices && ((path) => panelServices.onOpenNote(path, "activate"))}
-          />
+          {hostsView && panel?.kind === "view" && context ? (
+            <SidebarPanelView
+              frames={frames}
+              view={panelView}
+              experienceKey={panel.experienceKey}
+              context={context}
+              services={panelServices}
+              active={active}
+            />
+          ) : (
+            <FilesPanel
+              notePath={currentNote}
+              active={active}
+              onOpenNote={panelServices && ((path) => panelServices.onOpenNote(path, "activate"))}
+            />
+          )}
         </SidebarPanelSlot>
       </DiagnosticRegion>
       {frames ? <SidebarPanelFrames frames={frames} /> : null}
