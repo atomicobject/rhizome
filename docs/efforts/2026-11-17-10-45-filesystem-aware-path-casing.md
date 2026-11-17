@@ -27,13 +27,13 @@ Implement the approved filesystem comparison policy in the fresh `fix/filesystem
 
 ## Spec Coverage Checklist
 
-- [ ] R1: observed filesystem behavior selects the comparison policy.
-- [ ] R2: includes, selectors, and specificity agree.
-- [ ] R3: explicit references return actual indexed spelling.
-- [ ] R4: sensitive filesystems retain distinct files and ambiguity.
-- [ ] R5: type names remain case-sensitive.
-- [ ] R6: built-CLI reproduction and focused behavior tests pass.
-- [ ] R7: existing indexes rebuild affected materialization automatically.
+- [x] R1: observed filesystem behavior selects the comparison policy.
+- [x] R2: includes, selectors, and specificity agree.
+- [x] R3: explicit references return actual indexed spelling.
+- [x] R4: sensitive filesystems retain distinct files and ambiguity.
+- [x] R5: type names remain case-sensitive.
+- [x] R6: built-CLI reproduction and focused behavior tests pass.
+- [x] R7: existing indexes rebuild affected materialization automatically.
 
 ## Plan
 
@@ -66,6 +66,15 @@ The filesystem probe also handles relative roots and distinguishes separate hard
 - AO KB verification matched returned canonical paths against authored request spelling. It now verifies successful batch items by `requestedRef`; the node still returns its canonical path. A focused Node test covers this contract.
 - The fresh worktree initially lacked a Rhizome index. Built and indexed it, then loaded live EffortNote and ProductSpec authoring guides and allocated both identifiers through the CLI.
 
+### Final local verification
+
+- Final code revision: `ba8ae708c2439464065363a7fa3c965dcefc1f75`, following the clean rebase onto `83f0e0e0`.
+- `make check` passed. The code portion of `make verify INTEGRATION_PACKAGES='./tests/integration/... -count=1' MIXED_INTEGRATION_PACKAGES='./pkg/vault/cache ./pkg/anchors ./pkg/validate -count=1'` passed, including race-enabled unit tests and fresh integration tests. Browser launch initially failed because the pinned Playwright executables were missing; after `npx playwright install chromium webkit`, `make web-e2e` passed all 339 tests: 166 workspace/WebKit, 92 AO KB, and 81 Agentic Engineering.
+- The final fresh-fixture comparison used the old built CLI and the final built CLI on the same source fixture. The old CLI returned `ao_index_projection_incomplete`; the new CLI returned `indexReady: true`, exposed `_moc.md`, `mocs/riders.md`, and `mocs/routes.md` as MapOfContent nodes, and preserved the original MOC bytes. A post-binding `init` reconciliation followed by `init --check` exited 0. Evidence: `/tmp/casing-final-proof.json` and the fixture logs it identifies.
+- Verbose tests on the mounted case-sensitive APFS volume reported exact matching and passed native-spelling, distinct-file/hardlink, schema, node/query, discovery, and structural-parity checks. Evidence: `/tmp/casing-sensitive-final-verbose.log`. The CLI case-alias regression runs on filesystems that actually support aliases; Linux still exercises the exact policy and distinct-file coverage.
+- Sol approved after four rounds. S1 fixed web readiness, S2 fixed Scope batching, S3 fixed a test assertion, and the fourth round approved G1's GraphQL batch prefetch fix. G1's regression showed 2 versus 26 metadata reads before the fix and constant reads afterward. Greptile's second review scored the complete committed patch 5/5 with no comments. Model usage was not exposed by the delegate reports.
+- The structural golden test retains every structural expectation but compares schema witness fields with the current schema hash, since the witness now incorporates the filesystem policy. Its focused test passed on both APFS modes.
+
 ## Deviations
 
 - Comparison policy is captured per vault root. Mixed-sensitivity mounts or directory settings inside a single vault are not modeled for globs; concrete references still verify each path component. Unicode glob matching uses simple lowercase mapping without normalization or full case folding. Unknown root behavior stays exact.
@@ -75,8 +84,8 @@ The filesystem probe also handles relative roots and distinguishes separate hard
 
 ## Closure Checklist
 
-- [ ] Approved scope delivered or deviations recorded.
-- [ ] Required verification and independent review passed.
+- [x] Approved scope delivered or deviations recorded.
+- [x] Required local verification and independent review passed.
 - [ ] Current-head Greptile is 5/5 and CI is green.
 - [ ] Delivery PR and merge evidence recorded.
 
@@ -86,4 +95,4 @@ None yet.
 
 ## Status
 
-Active on `fix/filesystem-aware-path-casing`.
+Implementation verified on `fix/filesystem-aware-path-casing`. PR CI and normal merge remain release gates; the effort stays active until their evidence is recorded.
