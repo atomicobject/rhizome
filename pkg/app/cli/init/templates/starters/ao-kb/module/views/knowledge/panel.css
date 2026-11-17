@@ -194,6 +194,14 @@ body:has(.akp-panel) {
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
+/* An auto grid track grows to its widest row's unwrapped text, so the panel's grids take the
+   frame's width and their rows truncate instead. */
+.akp-panel,
+.akp-section,
+.akp-list,
+.akp-find {
+  grid-template-columns: minmax(0, 1fr);
+}
 @media (prefers-reduced-motion: reduce) {
   .akp-row,
   .akp-caret {

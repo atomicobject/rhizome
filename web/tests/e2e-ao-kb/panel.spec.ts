@@ -143,6 +143,21 @@ test("on a record page the locator highlights its scope and lists its concepts",
   expect(await frameTag(page)).toBe("kept");
 });
 
+test("a long row truncates instead of widening the panel past the sidebar", async ({ page }) => {
+  await openRecord(page, "concepts/timetable.md", "Timetable");
+  const p = panel(page);
+  await p.getByRole("searchbox", { name: "Find by title" }).fill("a long query ".repeat(20));
+  await expect(p.getByRole("button", { name: /^Search all text for/ })).toBeVisible();
+
+  const overflow = await panelFrame(page).evaluate((frame: HTMLIFrameElement) => {
+    const root = frame.contentDocument!.documentElement;
+
+    return root.scrollWidth - root.clientWidth;
+  });
+
+  expect(overflow).toBe(0);
+});
+
 test("Recent survives the panel frame being evicted and recreated", async ({ page }) => {
   await openRecord(page, "concepts/timetable.md", "Timetable");
   await openRecord(page, "concepts/tickets.md", "Tickets");
