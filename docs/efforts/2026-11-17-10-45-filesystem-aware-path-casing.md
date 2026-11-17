@@ -4,7 +4,7 @@ id: EFF-2026-11-17-10-45
 aliases: [EFF-2026-11-17-10-45]
 name: Filesystem-aware path casing
 created-at: 2026-11-17T15:43:06Z
-status: active
+status: complete
 summary: Repair casing differences across discovery, schema selection, and file references without collapsing distinct files.
 governing-specs:
   - "[[filesystem-aware-path-casing]]"
@@ -75,6 +75,10 @@ The filesystem probe also handles relative roots and distinguishes separate hard
 - Sol approved after four rounds. S1 fixed web readiness, S2 fixed Scope batching, S3 fixed a test assertion, and the fourth round approved G1's GraphQL batch prefetch fix. G1's regression showed 2 versus 26 metadata reads before the fix and constant reads afterward. Greptile's second review scored the complete committed patch 5/5 with no comments. Model usage was not exposed by the delegate reports.
 - The structural golden test retains every structural expectation but compares schema witness fields with the current schema hash, since the witness now incorporates the filesystem policy. Its focused test passed on both APFS modes.
 
+### Independent shipping verification
+
+Claude Opus 5.5 independently rebuilt revision `0549c2cb` and returned PASS+NOTES. Its old/new CLI comparison reproduced the original failure and then passed setup, indexing, canonical MOC queries, byte preservation, and `init --check`. A fresh head-only fixture also passed. On case-sensitive APFS, a vault containing distinct `MOCs/riders.md` and `mocs/riders.md` indexed successfully, selected only the uppercase path as MapOfContent, resolved the lowercase file separately as UntypedNote, and left a third spelling unresolved. Focused tests in seven packages passed on both filesystem modes. No source changed after this verification.
+
 ## Deviations
 
 - Comparison policy is captured per vault root. Mixed-sensitivity mounts or directory settings inside a single vault are not modeled for globs; concrete references still verify each path component. Unicode glob matching uses simple lowercase mapping without normalization or full case folding. Unknown root behavior stays exact.
@@ -86,8 +90,8 @@ The filesystem probe also handles relative roots and distinguishes separate hard
 
 - [x] Approved scope delivered or deviations recorded.
 - [x] Required local verification and independent review passed.
-- [ ] Current-head Greptile is 5/5 and CI is green.
-- [ ] Delivery PR and merge evidence recorded.
+- [x] Greptile is 5/5 and all five required CI checks passed on delivery revision `0549c2cb`. Final-head checks remain a merge gate.
+- [x] Delivery PR recorded: [#159](https://github.com/atomicobject/rhizome/pull/159). Normal merge waits for final-head checks.
 
 ## Compounding Follow-ups
 
@@ -95,4 +99,4 @@ None yet.
 
 ## Status
 
-Implementation verified on `fix/filesystem-aware-path-casing`. PR CI and normal merge remain release gates; the effort stays active until their evidence is recorded.
+Complete scope delivered in [PR #159](https://github.com/atomicobject/rhizome/pull/159). Required CI passed on `0549c2cb`; the final documentation revision must also pass review and CI before normal merge. Post-merge development installation follows the primary-checkout policy and must preserve its unrelated generated asset.
