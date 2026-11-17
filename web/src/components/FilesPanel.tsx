@@ -176,10 +176,12 @@ export function FilesPanel({
             title={row.path}
             onClick={() => (folder ? toggle(row.path, row.open) : onOpenNote(row.path))}
           >
-            <span className="files-panel__caret" aria-hidden="true">
-              {folder ? <DisclosureChevron open={row.open} /> : null}
-            </span>
-            {folder ? null : (
+            {/* A note's icon takes the caret's slot, so it lines up with its folder siblings. */}
+            {folder ? (
+              <span className="files-panel__caret" aria-hidden="true">
+                <DisclosureChevron open={row.open} />
+              </span>
+            ) : (
               <svg
                 className="files-panel__icon"
                 viewBox="0 0 16 16"

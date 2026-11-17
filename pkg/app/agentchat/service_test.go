@@ -669,15 +669,19 @@ func TestServiceResumesAnOpenSessionInANewProcessWhenThePermissionModeChanges(t 
 	default:
 		t.Fatal("the old process was not stopped")
 	}
-	events, err := service.EventsAfter(ctx, created.Session.ID, 0)
-	require.NoError(t, err)
+	// The turn is finalized before its completion event is stored, so wait for the second one.
 	var turnIDs []string
-	for _, event := range events {
-		if event.Type == string(harness.EventTurnCompleted) {
-			turnIDs = append(turnIDs, event.Result.TurnID)
+	require.Eventually(t, func() bool {
+		events, err := service.EventsAfter(ctx, created.Session.ID, 0)
+		require.NoError(t, err)
+		turnIDs = nil
+		for _, event := range events {
+			if event.Type == string(harness.EventTurnCompleted) {
+				turnIDs = append(turnIDs, event.Result.TurnID)
+			}
 		}
-	}
-	require.Len(t, turnIDs, 2)
+		return len(turnIDs) == 2
+	}, 5*time.Second, time.Millisecond)
 	require.NotEqual(t, turnIDs[0], turnIDs[1], "each process's turn-1 is its own turn, so the browser does not merge them")
 }
 

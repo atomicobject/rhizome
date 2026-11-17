@@ -1,10 +1,12 @@
 import { screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { OntologySummaryResponse } from "../api/types";
+import type { OntologySummaryResponse, ViewCatalogEntry } from "../api/types";
 import { withFakeFetch } from "../test/fakeFetch";
 import { renderWithQueryClient as render } from "../test/renderWithQueryClient";
+import { ExperienceFrames } from "./experienceFrames";
 import { NotesLeftRail, type NotesLeftRailProps } from "./NotesLeftRail";
+import type { PanelServices } from "./SidebarPanelView";
 
 // The Notes sidebar's panel slot as the rail holds it (SPEC-0136 R6).
 
@@ -101,5 +103,64 @@ describe("the sidebar panel", () => {
         .getAllByRole("region", { name: /panel$/ })
         .map((region) => region.getAttribute("aria-label")),
     ).toEqual(["Files panel"]);
+  });
+
+  it("replaces Files with an experience panel instead of stacking them", async () => {
+    const source = { kind: "query_recipe", queryRecipe: "delivery" } as const;
+    const mount = { kind: "type", type: "Plan" } as const;
+
+    const delivery: ViewCatalogEntry = {
+      id: "delivery.panel",
+      name: "Delivery",
+      source,
+      mount,
+      defaults: {},
+      variants: {},
+      definition: {
+        apiVersion: "rhizome.view.v1",
+        id: "delivery.panel",
+        name: "Delivery",
+        source,
+        mount,
+        variants: {},
+      },
+    };
+
+    http.json("GET", "/api/v1/views", { views: [delivery] });
+
+    const frames = new ExperienceFrames({
+      fetchInvocation: () => new Promise(() => undefined),
+      fetchGeneration: async () => "g1",
+    });
+
+    const panelServices: PanelServices = {
+      onOpenNote: vi.fn(),
+      onStageOps: vi.fn(async () => undefined),
+    };
+
+    const shared = { ...props(), vaultKey: "/vault", frames, panelServices };
+
+    const view = render(
+      <NotesLeftRail
+        {...shared}
+        activePanel={{
+          panel: { kind: "view", viewId: delivery.id, experienceKey: "delivery" },
+          context: { kind: "type", type: "Plan" },
+        }}
+      />,
+    );
+
+    const panels = () =>
+      screen
+        .getAllByRole("region", { name: /panel$/ })
+        .map((region) => region.getAttribute("aria-label"));
+
+    await screen.findByRole("region", { name: "Delivery panel" });
+    expect(panels()).toEqual(["Delivery panel"]);
+
+    // Leaving the experience gives the slot back to Files.
+    view.rerender(<NotesLeftRail {...shared} activePanel={notePanel} />);
+    await screen.findByRole("region", { name: "Files panel" });
+    expect(panels()).toEqual(["Files panel"]);
   });
 });
