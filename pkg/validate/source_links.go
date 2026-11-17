@@ -142,7 +142,7 @@ func sourceBrokenLinks(ctx context.Context, run RunContext, opts ScanOptions) ([
 	if run.VaultDef.IsCollection() {
 		mode = notediscovery.CollectionVault
 	}
-	discovery, err := notediscovery.Compile(notediscovery.Config{Mode: mode, Includes: run.VaultDef.Includes, Registry: formats.Registry()})
+	discovery, err := notediscovery.Compile(notediscovery.Config{Mode: mode, Includes: run.VaultDef.Includes, Registry: formats.Registry(), Case: paths.CasePolicyFor(run.VaultDef.BasePath())})
 	if err != nil {
 		return nil, err
 	}

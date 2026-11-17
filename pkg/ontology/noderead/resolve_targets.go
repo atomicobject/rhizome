@@ -24,6 +24,7 @@ type inputRef struct {
 func (s *Scope) parseResolveTargets(ctx context.Context, req ResolveRequest) ([]parsedResolveTarget, []NodeResolveDiagnostic, error) {
 	targets := make([]parsedResolveTarget, 0, len(req.Targets))
 	diagnostics := make([]NodeResolveDiagnostic, 0)
+	explicitPositions := make([]int, 0)
 	var cache *obsidian.NotePathCache
 	var cacheErr error
 	notePathCache := func() *obsidian.NotePathCache {
@@ -38,7 +39,9 @@ func (s *Scope) parseResolveTargets(ctx context.Context, req ResolveRequest) ([]
 			continue
 		}
 		if ref, ok := parseNodeRefJSON(input); ok {
-			targets = append(targets, parsedResolveTarget{Input: input, Ref: ref})
+			parsed := parsedResolveTarget{Input: input, Ref: ref}
+			explicitPositions = append(explicitPositions, len(targets))
+			targets = append(targets, parsed)
 			continue
 		}
 		target := unwrapResolveTarget(input)
@@ -47,6 +50,7 @@ func (s *Scope) parseResolveTargets(ctx context.Context, req ResolveRequest) ([]
 		isWikilink := strings.HasPrefix(input, "[[") && strings.HasSuffix(input, "]]")
 		if !isLikelyMarkdownLink(input) && !isWikilink {
 			if parsed, ok := explicitResolveTarget(input, target); ok {
+				explicitPositions = append(explicitPositions, len(targets))
 				targets = append(targets, parsed)
 				continue
 			}
@@ -186,6 +190,9 @@ func (s *Scope) parseResolveTargets(ctx context.Context, req ResolveRequest) ([]
 	}
 	if cacheErr != nil {
 		return nil, nil, cacheErr
+	}
+	if err := s.canonicalizeExplicitTargets(ctx, targets, explicitPositions); err != nil {
+		return nil, nil, err
 	}
 	return targets, diagnostics, ctx.Err()
 }

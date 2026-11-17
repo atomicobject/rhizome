@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- File path selectors and explicit note references follow the vault filesystem's casing behavior. AO KB setup now accepts `mocs` when its schema selects `MOCs`, while returned paths keep their actual spelling and sensitive filesystems retain distinct files.
+
 ## [v0.53.0] - 2026-11-16
 
 - Chat beside what you're looking at: the right pane gains a Chat tab in every section (`]` or ⌥⌘B; ⌘B now toggles the left sidebar). Messages carry the note, view, or type on screen, the agent can read the page with `page_text`, and sessions default to a new Auto permission mode with few prompts.

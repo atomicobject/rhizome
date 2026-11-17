@@ -2,6 +2,7 @@ package noderead
 
 import (
 	"github.com/atomicobject/rhizome/pkg/ontology"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"sync"
@@ -62,6 +63,8 @@ type Scope struct {
 	nodeLinkService     *ontology.NodeLinkService
 	cachedNotePathCache *obsidian.NotePathCache
 	notePathCacheLoaded bool
+	vaultPaths          paths.VaultPaths
+	vaultPathsLoaded    bool
 	relationEntries     []obsidian.NoteEntry
 	relationEntriesErr  error
 	relationEntriesRead bool

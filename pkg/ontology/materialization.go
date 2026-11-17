@@ -51,7 +51,10 @@ import (
 // both ends merges into one edge row instead of keeping whichever host wrote last.
 // v28: an ATX heading needs a space, tab, or line end after its hashes, so a line-start
 // tag such as #todo no longer becomes a heading node.
-const OntologyMaterializationVersion = 28
+// v29: path selectors, admission and source matchers, and selector specificity compare
+// spellings under the vault root filesystem's probed case policy, so notes whose folder
+// casing differs from the schema on a case-insensitive root take their declared type.
+const OntologyMaterializationVersion = 29
 
 // ErrFutureOntologyMaterialization means the persisted ontology projection was
 // produced by a newer materializer than this binary understands.

@@ -3,6 +3,7 @@ package schema
 import (
 	"regexp"
 
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
@@ -108,6 +109,10 @@ type Schema struct {
 	Scalars               map[string]struct{}
 	NoteInterfaceAuthored bool
 	DefaultNoteType       string
+	// PathCase is how this vault root's filesystem compares note path
+	// spellings. Every path selector, admission matcher, source matcher, and
+	// specificity comparison in this schema uses it; type names never do.
+	PathCase paths.CasePolicy
 }
 
 type Guidance struct {
@@ -425,6 +430,7 @@ type NoteMatcher struct {
 	Raw        string
 	PathPrefix string
 	Expression *matchExpression
+	pathCase   paths.CasePolicy
 }
 
 // PreferredIdentifierField returns the first declared preferred identifier.

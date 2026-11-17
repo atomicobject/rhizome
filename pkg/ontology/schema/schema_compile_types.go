@@ -8,7 +8,7 @@ import (
 )
 
 func compileNoteType(def *ast.Definition, doc *ast.Schema, schema *Schema) (*NoteType, error) {
-	admission, admissionErr := compileAdmission(def)
+	admission, admissionErr := compileAdmission(def, schema.PathCase)
 	if admissionErr != nil {
 		return nil, admissionErr
 	}
@@ -60,7 +60,7 @@ func compileNoteType(def *ast.Definition, doc *ast.Schema, schema *Schema) (*Not
 		if err != nil {
 			return nil, compileError(def.Position, "invalid_node_matches", def.Name, "", "invalid @node matches: %v", err)
 		}
-		matchers, err = compileNoteMatchers(paths, matches)
+		matchers, err = compileNoteMatchers(schema.PathCase, paths, matches)
 		if err != nil {
 			return nil, compileError(def.Position, "invalid_node_matcher", def.Name, "", "invalid @node matcher: %v", err)
 		}
@@ -117,7 +117,7 @@ func compileNoteType(def *ast.Definition, doc *ast.Schema, schema *Schema) (*Not
 		if err != nil {
 			return nil, compileError(def.Position, "invalid_source_paths", def.Name, "", "invalid @source paths: %v", err)
 		}
-		sourceMatchers, err := compileNoteMatchers(paths, nil)
+		sourceMatchers, err := compileNoteMatchers(schema.PathCase, paths, nil)
 		if err != nil {
 			return nil, compileError(def.Position, "invalid_source_matcher", def.Name, "", "invalid @source matcher: %v", err)
 		}

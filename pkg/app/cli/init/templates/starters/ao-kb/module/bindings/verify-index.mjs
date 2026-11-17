@@ -50,7 +50,7 @@ export async function verifyKnowledgeIndex(root, query = text => JSON.parse(run(
     if (!Array.isArray(result?.items) || result.pageInfo?.truncated !== false) throw new Error('ao_index_coverage_missing: complete node batch is required');
     const failed = result.items.find(item => item.error);
     if (failed) throw new Error(`ao_index_projection_incomplete: ${failed.requestedRef}: ${failed.error.message}. Check note includes and ignore rules.`);
-    const found = new Set(result.items.filter(item => item.node).map(item => item.ref?.notePath));
+    const found = new Set(result.items.filter(item => item.node).map(item => item.requestedRef));
     const missing = batch.filter(file => !found.has(file));
     if (missing.length) throw new Error(`ao_index_projection_incomplete: ${missing.join(', ')}. Check note includes and ignore rules.`);
   }

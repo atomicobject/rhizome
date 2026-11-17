@@ -836,7 +836,13 @@ func (s *Server) waitForPreparedQuery(ctx context.Context, defs *ontologyDefinit
 		}
 		notePaths, exactNotes = prepared.SelectedNotePaths()
 	}
+	var admitted map[string]struct{}
 	if exactNotes {
+		var err error
+		notePaths, admitted, err = s.canonicalExactNotePaths(notePaths)
+		if err != nil {
+			return nil, nil, err
+		}
 		for _, notePath := range notePaths {
 			if !s.exactNotePathOwned(notePath, links) {
 				exactNotes = false
@@ -904,10 +910,6 @@ func (s *Server) waitForPreparedQuery(ctx context.Context, defs *ontologyDefinit
 				}
 			}
 			if allAccountedFor {
-				admitted := make(map[string]struct{}, len(notePaths))
-				for _, notePath := range notePaths {
-					admitted[notePath] = struct{}{}
-				}
 				return store, &exactNoteReadSnapshot{admittedPaths: admitted, facts: facts}, nil
 			}
 			select {

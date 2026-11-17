@@ -3,6 +3,8 @@ package schema
 import (
 	"path/filepath"
 	"sync"
+
+	"github.com/atomicobject/rhizome/pkg/paths"
 )
 
 // SchemaCache retains one immutable compiled schema per repository root and
@@ -24,7 +26,7 @@ var compiledSchemas SchemaCache
 func LoadSchema(vaultPath string) (*Schema, error) { return compiledSchemas.Load(vaultPath) }
 
 func (c *SchemaCache) Load(vaultPath string) (*Schema, error) {
-	authored, hash, err := readAuthoredSchemaFiles(vaultPath)
+	authored, sourceHash, err := readAuthoredSchemaFiles(vaultPath)
 	if err != nil {
 		return nil, err
 	}
@@ -32,12 +34,14 @@ func (c *SchemaCache) Load(vaultPath string) (*Schema, error) {
 	if err != nil {
 		return nil, err
 	}
+	pathCase := paths.CasePolicyFor(root)
+	hash := schemaHash(sourceHash, pathCase)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if schema := c.byRoot[root]; schema != nil && schema.Hash == hash {
 		return schema, nil
 	}
-	schema, err := compileSchema(vaultPath, authored, hash)
+	schema, err := compileSchema(vaultPath, authored, sourceHash, pathCase)
 	if err != nil {
 		return nil, err
 	}

@@ -16,6 +16,11 @@ func (e *executor) rootNote(ctx context.Context, rawPath string) (*noteRecord, e
 	if err != nil {
 		return nil, err
 	}
+	stored, err := e.loaders.scope.StoredNotePaths(ctx, []string{notePath})
+	if err != nil {
+		return nil, err
+	}
+	notePath = stored[0]
 	row, ok, err := e.resolvedType(ctx, notePath)
 	if err != nil {
 		return nil, err
@@ -82,6 +87,13 @@ func (e *executor) rootNode(ctx context.Context, input string) (*resolvedNode, e
 	}
 	if isCodeNodeKind(ref.Kind) && e.deps.PathOwner != nil && e.deps.PathOwner(ref.NotePath) != PathOwnerCode {
 		return nil, nil
+	}
+	if !isCodeNodeKind(ref.Kind) {
+		stored, err := e.loaders.scope.StoredNotePaths(ctx, []string{ref.NotePath})
+		if err != nil {
+			return nil, err
+		}
+		ref.NotePath = stored[0]
 	}
 	node, err := e.rootNodeFromRef(ctx, ref)
 	if err == nil && node != nil && node.Code == nil && e.noteSourceDeleted(ref.NotePath) {

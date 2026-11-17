@@ -48,6 +48,10 @@ type Config struct {
 	Includes []string
 	Ignore   IgnoreFunc
 	Registry noteformat.Registry
+	// Case is the vault root filesystem's comparison policy for include
+	// paths. Composition probes it with paths.CasePolicyFor; the zero value
+	// compares exactly, which suits synthetic inputs and tests.
+	Case paths.CasePolicy
 }
 
 // Decision describes one exclusive ownership result. Provider is populated
@@ -64,6 +68,7 @@ type Plan struct {
 	includes []string
 	ignore   IgnoreFunc
 	registry noteformat.Registry
+	pathCase paths.CasePolicy
 }
 
 // Compile validates collection include syntax and freezes the configured
@@ -109,6 +114,7 @@ func Compile(cfg Config) (*Plan, error) {
 		includes: includes,
 		ignore:   cfg.Ignore,
 		registry: cfg.Registry,
+		pathCase: cfg.Case,
 	}, nil
 }
 
@@ -185,11 +191,10 @@ func (p *Plan) noteOwns(provider noteformat.Provider, rel paths.RelPath) bool {
 
 func (p *Plan) matchesAnyInclude(rel paths.RelPath, providerExtensions []string) bool {
 	for _, pattern := range p.includes {
-		matched, _ := doublestar.Match(filepath.ToSlash(pattern), rel.String())
-		if matched {
+		if p.pathCase.Match(filepath.ToSlash(pattern), rel.String()) {
 			return true
 		}
-		if matchesClaimedTerminalExtension(pattern, rel, providerExtensions, false) {
+		if matchesClaimedTerminalExtension(p.pathCase, pattern, rel, providerExtensions, false) {
 			return true
 		}
 	}
@@ -198,7 +203,7 @@ func (p *Plan) matchesAnyInclude(rel paths.RelPath, providerExtensions []string)
 
 func (p *Plan) matchesExplicitInclude(rel paths.RelPath, providerExtensions []string) bool {
 	for _, pattern := range p.includes {
-		if MatchesExplicitInclude(pattern, rel, providerExtensions) {
+		if matchesClaimedTerminalExtension(p.pathCase, pattern, rel, providerExtensions, true) {
 			return true
 		}
 	}
@@ -207,11 +212,12 @@ func (p *Plan) matchesExplicitInclude(rel paths.RelPath, providerExtensions []st
 
 // MatchesExplicitInclude reports whether a pattern explicitly authorizes a path
 // using only extensions claimed by its provider. Broad globs do not authorize it.
+// It compares exactly; a compiled Plan applies its vault root's case policy.
 func MatchesExplicitInclude(pattern string, rel paths.RelPath, providerExtensions []string) bool {
-	return matchesClaimedTerminalExtension(pattern, rel, providerExtensions, true)
+	return matchesClaimedTerminalExtension(paths.CaseExact, pattern, rel, providerExtensions, true)
 }
 
-func matchesClaimedTerminalExtension(pattern string, rel paths.RelPath, providerExtensions []string, requireAllClaims bool) bool {
+func matchesClaimedTerminalExtension(pathCase paths.CasePolicy, pattern string, rel paths.RelPath, providerExtensions []string, requireAllClaims bool) bool {
 	path := rel.String()
 	extension := strings.ToLower(filepath.Ext(path))
 	claimed := make(map[string]struct{}, len(providerExtensions))
@@ -232,8 +238,7 @@ func matchesClaimedTerminalExtension(pattern string, rel paths.RelPath, provider
 		return false
 	}
 	normalizedPath := path[:len(path)-len(filepath.Ext(path))] + extension
-	matched, _ := doublestar.Match(normalized, normalizedPath)
-	return matched
+	return pathCase.Match(normalized, normalizedPath)
 }
 
 func extensionsAreClaimed(extensions, claimed map[string]struct{}) bool {

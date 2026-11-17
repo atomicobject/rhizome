@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints and review checklist for the typed GraphQL query layer: SDL-driven execution, SQLite pushdown, and saved query recipes."
 reference-kind: guide
-last-verified: 2026-11-14
+last-verified: 2026-11-17
 code-paths:
   - pkg/ontology/query
   - pkg/ontology/pushdown
@@ -26,6 +26,8 @@ The typed query layer executes read-only GraphQL-shaped queries over the note gr
 Entry points: `query.BuildExecutableSchema`, `query.Prepare` / `PrepareWithVariables`, `query.Execute` (`pkg/ontology/query/schema.go`, `prepare.go`, `execute.go`); `pushdown.Planner` (`pkg/ontology/pushdown/planner.go`); `queryrecipe.NewRegistry` / `Registry.Catalog` / `Run` / `Validate` / `Compile` (`pkg/ontology/queryrecipe/load.go`, `validate.go`, `bind.go`). CLI surfaces: `rzm agent ontology-query` / `ontology-query-schema` (`cmd/agent_ontology.go`, `cmd/ontology_query.go`) and `rzm query-recipe` / `rzm agent query-recipe` (`cmd/query_recipe.go`). MCP: `pkg/app/mcp/tool_ontology.go`. Web/public API: `pkg/app/web/ontology.go`, `public_api.go`.
 
 ## Design constraints
+
+- **Explicit note paths use canonical indexed spelling.** `rootNote` and `rootNode` share `Scope.StoredNotePaths` with node resolution. The requested text stays in `requestedRef`; returned references and note paths retain the indexed directory-entry spelling. AO KB verification associates batch success with `requestedRef`, so canonical casing is not mistaken for missing coverage.
 
 - Serialized canonical node refs in `node(ref:)` and `nodes(refs:)` resolve through the shared node resolver before path classification. JSON path values do not become literal filenames; stale structural selectors remain errors.
 

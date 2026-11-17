@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
 )
@@ -21,7 +22,7 @@ func validateAdmissionLocations(sources []*ast.Source) error {
 	return nil
 }
 
-func compileAdmission(def *ast.Definition) ([]*NoteMatcher, error) {
+func compileAdmission(def *ast.Definition, pathCase paths.CasePolicy) ([]*NoteMatcher, error) {
 	dir := def.Directives.ForName("admit")
 	if dir == nil {
 		return nil, nil
@@ -43,7 +44,7 @@ func compileAdmission(def *ast.Definition) ([]*NoteMatcher, error) {
 	if err != nil {
 		return nil, compileError(dir.Position, "invalid_admit_matcher", def.Name, "", "invalid @admit matches: %v", err)
 	}
-	matchers, err := compileNoteMatchers(nil, matches)
+	matchers, err := compileNoteMatchers(pathCase, nil, matches)
 	if err != nil {
 		return nil, compileError(dir.Position, "invalid_admit_matcher", def.Name, "", "invalid @admit matcher: %v", err)
 	}
