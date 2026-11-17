@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/atomicobject/rhizome/pkg/ontology"
 	"github.com/atomicobject/rhizome/pkg/ontology/readmodel"
+	"github.com/atomicobject/rhizome/pkg/paths"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	"github.com/atomicobject/rhizome/pkg/vault/obsidian"
 	"path/filepath"
@@ -219,4 +220,102 @@ func (s *Scope) buildNotePathCache(ctx context.Context, index *ReadOverlayIndex)
 		return nil, err
 	}
 	return obsidian.BuildNotePathCacheWithAliases(notes, aliases), nil
+}
+
+// StoredNotePaths returns indexed spellings in input order. Exact indexed
+// paths win; alternatives must name the same filesystem entry and be indexed.
+// Membership reads are batched for both committed and preview state.
+func (s *Scope) StoredNotePaths(ctx context.Context, notePaths []string) ([]string, error) {
+	out := append([]string(nil), notePaths...)
+	if s == nil || s.service == nil || len(out) == 0 {
+		return out, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	indexed, err := s.indexedNotePathsLocked(ctx, notePaths)
+	if err != nil {
+		return nil, err
+	}
+	if !s.vaultPathsLoaded {
+		vaultPaths, err := paths.NewVaultPaths(s.service.VaultDef.BasePath())
+		if err != nil {
+			return nil, err
+		}
+		s.vaultPaths, s.vaultPathsLoaded = vaultPaths, true
+	}
+	alternatives := make(map[int]string)
+	candidates := make([]string, 0, len(notePaths))
+	for i, notePath := range notePaths {
+		if indexed[notePath] {
+			continue
+		}
+		spelling, ok := s.vaultPaths.ExistingSpelling(paths.RelPath(notePath))
+		if ok && spelling.String() != notePath {
+			alternatives[i] = spelling.String()
+			candidates = append(candidates, spelling.String())
+		}
+	}
+	indexed, err = s.indexedNotePathsLocked(ctx, candidates)
+	if err != nil {
+		return nil, err
+	}
+	for i, spelling := range alternatives {
+		if indexed[spelling] {
+			out[i] = spelling
+		}
+	}
+	return out, nil
+}
+
+func (s *Scope) indexedNotePathsLocked(ctx context.Context, notePaths []string) (map[string]bool, error) {
+	indexed := make(map[string]bool, len(notePaths))
+	if len(notePaths) == 0 {
+		return indexed, nil
+	}
+	if s.hasOverlay() {
+		records, err := s.recordsForPaths(ctx, notePaths, HydrateSummary)
+		for _, record := range records {
+			indexed[record.Path] = true
+		}
+		return indexed, err
+	}
+	if s.service.Store == nil {
+		return indexed, nil
+	}
+	if err := s.loadPathMetadataLocked(ctx, notePaths); err != nil {
+		return nil, err
+	}
+	for _, notePath := range notePaths {
+		_, indexed[notePath] = s.noteRowByPath[notePath]
+	}
+	return indexed, nil
+}
+
+func (s *Scope) canonicalizeExplicitTargets(ctx context.Context, targets []parsedResolveTarget, positions []int) error {
+	hosts := make([]string, 0, len(positions))
+	selected := make([]int, 0, len(positions))
+	for _, i := range positions {
+		target := targets[i]
+		if target.Ref.NotePath == "" || strings.HasPrefix(string(target.Ref.Kind), "CODE") || strings.HasPrefix(strings.TrimSpace(target.Input), "code:") {
+			continue
+		}
+		hosts = append(hosts, target.Ref.NotePath)
+		selected = append(selected, i)
+	}
+	stored, err := s.StoredNotePaths(ctx, hosts)
+	if err != nil {
+		return err
+	}
+	for i, position := range selected {
+		target := &targets[position]
+		authored := target.Ref.NotePath
+		if target.NotePath == authored {
+			target.NotePath = stored[i]
+		}
+		if strings.HasPrefix(target.SourceLocator, authored) {
+			target.SourceLocator = stored[i] + target.SourceLocator[len(authored):]
+		}
+		target.Ref.NotePath = stored[i]
+	}
+	return nil
 }

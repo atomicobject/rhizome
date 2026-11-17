@@ -3,6 +3,7 @@ package schema
 import (
 	"testing"
 
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
@@ -31,7 +32,7 @@ func TestMatchExpressionOperatorWords(t *testing.T) {
 		t.Run(tc.raw, func(t *testing.T) {
 			expr, err := parseMatchExpression(tc.raw)
 			require.NoError(t, err)
-			require.Equal(t, tc.want, evalMatchExpression(expr, doc))
+			require.Equal(t, tc.want, evalMatchExpression(expr, doc, paths.CaseExact))
 		})
 	}
 }
@@ -87,8 +88,8 @@ func TestQuotedPropertyValuesMatchFrontmatterExactly(t *testing.T) {
 		{"key case", &Subject{Frontmatter: map[string]any{"Products": []any{"alpha"}}}, true, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.quoted, evalMatchExpression(quoted, tc.doc), "quoted")
-			require.Equal(t, tc.unquoted, evalMatchExpression(unquoted, tc.doc), "unquoted")
+			require.Equal(t, tc.quoted, evalMatchExpression(quoted, tc.doc, paths.CaseExact), "quoted")
+			require.Equal(t, tc.unquoted, evalMatchExpression(unquoted, tc.doc, paths.CaseExact), "unquoted")
 		})
 	}
 }
@@ -100,7 +101,7 @@ func TestPropertyMatcherAtoms(t *testing.T) {
 	require.Error(t, err)
 	expr, err := parseMatchExpression("has:products")
 	require.NoError(t, err)
-	require.False(t, evalMatchExpression(expr, &Subject{Inline: map[string][]string{"products": {"alpha"}}}))
+	require.False(t, evalMatchExpression(expr, &Subject{Inline: map[string][]string{"products": {"alpha"}}}, paths.CaseExact))
 	_, comparable := selectorClausesFromExpression(expr)
 	require.False(t, comparable)
 	quoted, err := parseMatchExpression(`products:"alpha"`)
@@ -126,7 +127,7 @@ func TestQuotedPropertyAtomsStayLiteralInExpressions(t *testing.T) {
 		t.Run(selector, func(t *testing.T) {
 			expr, err := parseMatchExpression(selector)
 			require.NoError(t, err)
-			require.True(t, evalMatchExpression(expr, doc))
+			require.True(t, evalMatchExpression(expr, doc, paths.CaseExact))
 		})
 	}
 }

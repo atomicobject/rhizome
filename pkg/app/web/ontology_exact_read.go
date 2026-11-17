@@ -144,3 +144,20 @@ func stringSetLower(values []string) map[string]struct{} {
 	}
 	return out
 }
+
+func (s *Server) canonicalExactNotePaths(notePaths []string) ([]string, map[string]struct{}, error) {
+	vaultPaths, err := paths.NewVaultPaths(s.cfg.VaultPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	canonical := append([]string(nil), notePaths...)
+	admitted := make(map[string]struct{}, 2*len(notePaths))
+	for i, notePath := range notePaths {
+		admitted[notePath] = struct{}{}
+		if spelling, ok := vaultPaths.ExistingSpelling(paths.RelPath(notePath)); ok {
+			canonical[i] = spelling.String()
+		}
+		admitted[canonical[i]] = struct{}{}
+	}
+	return canonical, admitted, nil
+}

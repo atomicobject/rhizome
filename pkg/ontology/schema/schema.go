@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/paths"
 	"github.com/atomicobject/rhizome/pkg/vault/assetroots"
 )
 
@@ -44,7 +45,20 @@ type authoredSchemaFile struct {
 // SchemaSourceHash fingerprints authored SDL without compiling the schema.
 func SchemaSourceHash(vaultPath string) (string, error) {
 	_, hash, err := readAuthoredSchemaFiles(vaultPath)
-	return hash, err
+	if err != nil {
+		return "", err
+	}
+	return schemaHash(hash, paths.CasePolicyFor(vaultPath)), nil
+}
+
+// schemaHash is the persisted schema witness. Path selectors admit different
+// notes under each case policy, so a vault copied to a filesystem with the
+// other policy rematerializes; exact roots keep the authored source hash.
+func schemaHash(sourceHash string, pathCase paths.CasePolicy) string {
+	if pathCase == paths.CaseExact {
+		return sourceHash
+	}
+	return sourceHash + "-case" + pathCase.String()
 }
 
 // readAuthoredSchemaFiles reads the top-level *.graphql files of every
@@ -87,7 +101,7 @@ func readAuthoredSchemaFiles(vaultPath string) ([]authoredSchemaFile, string, er
 	return files, hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-func compileSchema(vaultPath string, authoredFiles []authoredSchemaFile, sourceHash string) (*Schema, error) {
+func compileSchema(vaultPath string, authoredFiles []authoredSchemaFile, sourceHash string, pathCase paths.CasePolicy) (*Schema, error) {
 	dir := OntologyDir(vaultPath)
 	files := make([]string, 0, len(authoredFiles))
 
@@ -150,7 +164,7 @@ func compileSchema(vaultPath string, authoredFiles []authoredSchemaFile, sourceH
 	}
 
 	schema := &Schema{
-		Hash:                  sourceHash,
+		Hash:                  schemaHash(sourceHash, pathCase),
 		Dir:                   dir,
 		Files:                 files,
 		EnumTypes:             make(map[string]*EnumType),
@@ -158,6 +172,7 @@ func compileSchema(vaultPath string, authoredFiles []authoredSchemaFile, sourceH
 		Interfaces:            make(map[string]*InterfaceType),
 		Scalars:               defaultScalarSet(),
 		NoteInterfaceAuthored: noteInterfaceDefined || noteInterfaceExtended,
+		PathCase:              pathCase,
 	}
 
 	names := make([]string, 0, len(doc.Types))

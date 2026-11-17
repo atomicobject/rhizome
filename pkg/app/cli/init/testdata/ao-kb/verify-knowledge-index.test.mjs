@@ -36,3 +36,11 @@ test('knowledge verification rejects unresolved items and truncated batches', as
   }}})), /assertions\/0.md: not indexed/);
   await assert.rejects(verifyKnowledgeIndex(root, async () => ({data: {nodes: {items: [], pageInfo: {truncated: true}}}})), /complete node batch/);
 });
+
+test('knowledge verification accepts a resolved canonical path with different casing', async t => {
+  const root = await fixture(t, 1);
+  await verifyKnowledgeIndex(root, async query => {
+    if (!query.includes('nodes(refs:')) return complete;
+    return {data: {nodes: {items: [{requestedRef: 'assertions/0.md', ref: {notePath: 'Assertions/0.md'}, node: {__typename: 'Assertion'}}], pageInfo: {truncated: false}}}};
+  });
+});

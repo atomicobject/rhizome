@@ -2,7 +2,6 @@ package schema
 
 import (
 	"fmt"
-	"github.com/bmatcuk/doublestar/v4"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -47,13 +46,13 @@ type matchExpression struct {
 	Right *matchExpression
 }
 
-func compileNoteMatchers(pathsList, matches []string) ([]*NoteMatcher, error) {
+func compileNoteMatchers(pathCase paths.CasePolicy, pathsList, matches []string) ([]*NoteMatcher, error) {
 	out := make([]*NoteMatcher, 0, len(pathsList)+len(matches))
 	for _, pattern := range pathsList {
 		if strings.TrimSpace(pattern) == "" {
 			continue
 		}
-		out = append(out, &NoteMatcher{Raw: pattern, PathPrefix: filepath.ToSlash(pattern)})
+		out = append(out, &NoteMatcher{Raw: pattern, PathPrefix: filepath.ToSlash(pattern), pathCase: pathCase})
 	}
 	for _, raw := range matches {
 		raw = strings.TrimSpace(raw)
@@ -64,7 +63,7 @@ func compileNoteMatchers(pathsList, matches []string) ([]*NoteMatcher, error) {
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, &NoteMatcher{Raw: raw, Expression: expr})
+		out = append(out, &NoteMatcher{Raw: raw, Expression: expr, pathCase: pathCase})
 	}
 	return out, nil
 }
@@ -74,10 +73,9 @@ func (m *NoteMatcher) Matches(doc *Subject) bool {
 		return false
 	}
 	if m.Expression != nil {
-		return evalMatchExpression(m.Expression, doc)
+		return evalMatchExpression(m.Expression, doc, m.pathCase)
 	}
-	ok, err := doublestar.Match(m.PathPrefix, filepath.ToSlash(doc.Path))
-	return err == nil && ok
+	return m.pathCase.Match(m.PathPrefix, filepath.ToSlash(doc.Path))
 }
 
 func parseMatchExpression(raw string) (*matchExpression, error) {
@@ -200,31 +198,31 @@ func (p *matchExpressionParser) peekIsOperator(op string) bool {
 	}
 }
 
-func evalMatchExpression(expr *matchExpression, doc *Subject) bool {
+func evalMatchExpression(expr *matchExpression, doc *Subject, pathCase paths.CasePolicy) bool {
 	if expr == nil || doc == nil {
 		return false
 	}
 	switch expr.Type {
 	case matchExprLeaf:
-		return evalMatchInput(expr.Input, doc)
+		return evalMatchInput(expr.Input, doc, pathCase)
 	case matchExprAnd:
-		return evalMatchExpression(expr.Left, doc) && evalMatchExpression(expr.Right, doc)
+		return evalMatchExpression(expr.Left, doc, pathCase) && evalMatchExpression(expr.Right, doc, pathCase)
 	case matchExprOr:
-		return evalMatchExpression(expr.Left, doc) || evalMatchExpression(expr.Right, doc)
+		return evalMatchExpression(expr.Left, doc, pathCase) || evalMatchExpression(expr.Right, doc, pathCase)
 	case matchExprNot:
-		return !evalMatchExpression(expr.Left, doc)
+		return !evalMatchExpression(expr.Left, doc, pathCase)
 	default:
 		return false
 	}
 }
 
-func evalMatchInput(input *matchInput, doc *Subject) bool {
+func evalMatchInput(input *matchInput, doc *Subject, pathCase paths.CasePolicy) bool {
 	if input == nil || doc == nil {
 		return false
 	}
 	switch input.Type {
 	case matchInputFile:
-		return matchSelectorPath(doc.Path, input.Value)
+		return matchSelectorPath(pathCase, doc.Path, input.Value)
 	case matchInputFind:
 		return obsidian.FuzzyMatch(input.Value, doc.Path) || obsidian.FuzzyMatch(input.Value, doc.Title)
 	case matchInputTag:
@@ -260,12 +258,12 @@ func hasTag(tags []string, target string) bool {
 	return false
 }
 
-func matchSelectorPath(notePath, input string) bool {
-	normalizedInputPath := string(paths.Normalize(input))
+func matchSelectorPath(pathCase paths.CasePolicy, notePath, input string) bool {
+	normalizedInputPath := pathCase.Key(string(paths.Normalize(input)))
 	if normalizedInputPath == "*" {
 		return true
 	}
-	normalizedNotePath := string(paths.Normalize(notePath))
+	normalizedNotePath := pathCase.Key(string(paths.Normalize(notePath)))
 	dirPrefix := normalizedInputPath + "/"
 	return normalizedNotePath == normalizedInputPath || strings.HasPrefix(normalizedNotePath, dirPrefix)
 }

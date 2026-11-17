@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bmatcuk/doublestar/v4"
-
 	codeanchor "github.com/atomicobject/rhizome/pkg/anchors"
 	"github.com/atomicobject/rhizome/pkg/noteformat"
 	"github.com/atomicobject/rhizome/pkg/paths"
@@ -44,6 +42,7 @@ type Selector struct {
 	language   func(paths.CodePathRef) codeanchor.Lang
 	ignored    map[string]bool
 	includes   []string
+	pathCase   paths.CasePolicy
 }
 
 func CompileSelector(input SelectorInput) (Selector, error) {
@@ -56,14 +55,16 @@ func CompileSelector(input SelectorInput) (Selector, error) {
 		mode = notediscovery.CollectionVault
 	}
 	matcher := obsidian.LoadVaultIgnoreMatcher(vaultPaths.Root(), input.VaultDefinition.Excludes)
+	pathCase := vaultPaths.Case()
 	plan, err := notediscovery.Compile(notediscovery.Config{
 		Mode: mode, Includes: input.VaultDefinition.Includes, Registry: input.Registry,
 		Ignore: func(rel paths.RelPath) bool { return matcher.IsIgnored(rel.String(), false) },
+		Case:   pathCase,
 	})
 	if err != nil {
 		return Selector{}, err
 	}
-	return Selector{vaultPaths: vaultPaths, plan: plan, matcher: matcher, codeRoots: codeRoots(input.CodeRoots), language: input.CodeLanguage, ignored: defaultIgnoredDirs(), includes: input.VaultDefinition.Includes}, nil
+	return Selector{vaultPaths: vaultPaths, plan: plan, matcher: matcher, codeRoots: codeRoots(input.CodeRoots), language: input.CodeLanguage, ignored: defaultIgnoredDirs(), includes: input.VaultDefinition.Includes, pathCase: pathCase}, nil
 }
 
 func (s Selector) Select(raw paths.RelPath) (Selection, error) {
@@ -146,7 +147,7 @@ func (s Selector) skipDirectory(abs string, name string) (bool, error) {
 // globs never reach hidden directories; obsidian discovery applies the same rule.
 func (s Selector) explicitlyIncluded(dir string) bool {
 	for _, pattern := range s.includes {
-		if strings.HasPrefix(filepath.ToSlash(pattern), dir+"/") {
+		if strings.HasPrefix(s.pathCase.Key(filepath.ToSlash(pattern)), s.pathCase.Key(dir)+"/") {
 			return true
 		}
 	}
@@ -158,7 +159,7 @@ func (s Selector) explicitlyIncluded(dir string) bool {
 func (s Selector) explicitlyIncludesFile(dir, file string) bool {
 	for _, pattern := range s.includes {
 		pattern = filepath.ToSlash(pattern)
-		if matched, _ := doublestar.Match(pattern, file); matched && strings.HasPrefix(pattern, dir+"/") {
+		if s.pathCase.Match(pattern, file) && strings.HasPrefix(s.pathCase.Key(pattern), s.pathCase.Key(dir)+"/") {
 			return true
 		}
 	}

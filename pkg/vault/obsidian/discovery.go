@@ -75,10 +75,15 @@ func LoadVaultHardIgnoreMatcher(root string) *ignore.Matcher {
 
 // NotePathMatchesIncludes reports whether a vault-relative note path is in scope
 // for the vault definition's include globs. Classic vaults include all note paths.
+// Spellings compare under the vault root filesystem's case policy.
 func NotePathMatchesIncludes(cfg VaultDefinition, relPath string) bool {
 	if !cfg.IsCollection() {
 		return true
 	}
+	return notePathMatchesIncludes(cfg, relPath, paths.CasePolicyFor(cfg.BasePath()))
+}
+
+func notePathMatchesIncludes(cfg VaultDefinition, relPath string, pathCase paths.CasePolicy) bool {
 	relPath = filepath.ToSlash(strings.TrimSpace(relPath))
 	if relPath == "" {
 		return false
@@ -88,7 +93,7 @@ func NotePathMatchesIncludes(cfg VaultDefinition, relPath string) bool {
 		includes = []string{"**/*.md"}
 	}
 	for _, pattern := range includes {
-		if !explicitlyIncludesHiddenParents(pattern, relPath) {
+		if !explicitlyIncludesHiddenParents(pattern, relPath, pathCase) {
 			continue
 		}
 		variants := markdownExtensionPatternVariants(pattern)
@@ -96,7 +101,7 @@ func NotePathMatchesIncludes(cfg VaultDefinition, relPath string) bool {
 			variants = []string{pattern}
 		}
 		for _, variant := range variants {
-			if ok, _ := doublestar.Match(filepath.ToSlash(variant), relPath); ok {
+			if pathCase.Match(filepath.ToSlash(variant), relPath) {
 				return true
 			}
 		}
@@ -104,10 +109,11 @@ func NotePathMatchesIncludes(cfg VaultDefinition, relPath string) bool {
 	return false
 }
 
-func explicitlyIncludesHiddenParents(pattern, relPath string) bool {
+func explicitlyIncludesHiddenParents(pattern, relPath string, pathCase paths.CasePolicy) bool {
 	parts := strings.Split(relPath, "/")
+	pattern = pathCase.Key(filepath.ToSlash(pattern))
 	for i, part := range parts[:len(parts)-1] {
-		if strings.HasPrefix(part, ".") && !strings.HasPrefix(filepath.ToSlash(pattern), strings.Join(parts[:i+1], "/")+"/") {
+		if strings.HasPrefix(part, ".") && !strings.HasPrefix(pattern, pathCase.Key(strings.Join(parts[:i+1], "/"))+"/") {
 			return false
 		}
 	}
@@ -118,6 +124,10 @@ func explicitlyIncludesHiddenParents(pattern, relPath string) bool {
 // when ordinary collection includes do not select it.
 func NotePathMatchesSelection(cfg VaultDefinition, relPath string) bool {
 	return ignore.IsSystemContextPath(relPath) || NotePathMatchesIncludes(cfg, relPath)
+}
+
+func notePathMatchesSelection(cfg VaultDefinition, relPath string, pathCase paths.CasePolicy) bool {
+	return ignore.IsSystemContextPath(relPath) || !cfg.IsCollection() || notePathMatchesIncludes(cfg, relPath, pathCase)
 }
 
 // discoverByWalk walks root once, pruning hidden and ignored directories, and
@@ -131,6 +141,7 @@ func discoverByWalk(cfg VaultDefinition, root string) ([]string, error) {
 	}
 	matcher := LoadVaultIgnoreMatcher(root, cfg.Excludes)
 	hardMatcher := LoadVaultHardIgnoreMatcher(root)
+	pathCase := paths.CasePolicyFor(root)
 
 	var results []string
 	err := fs.WalkDir(discoveryFS(root), ".", func(relPath string, d fs.DirEntry, err error) error {
@@ -147,7 +158,7 @@ func discoverByWalk(cfg VaultDefinition, root string) ([]string, error) {
 			if strings.HasPrefix(d.Name(), ".") {
 				explicit := false
 				for _, pattern := range cfg.Includes {
-					if strings.HasPrefix(filepath.ToSlash(pattern), relPath+"/") {
+					if strings.HasPrefix(pathCase.Key(filepath.ToSlash(pattern)), pathCase.Key(relPath)+"/") {
 						explicit = true
 						break
 					}
@@ -171,7 +182,7 @@ func discoverByWalk(cfg VaultDefinition, root string) ([]string, error) {
 		if d.Type()&fs.ModeSymlink != 0 && !symlinkStaysInside(root, relPath) {
 			return nil
 		}
-		if !NotePathMatchesSelection(cfg, relPath) {
+		if !notePathMatchesSelection(cfg, relPath, pathCase) {
 			return nil
 		}
 

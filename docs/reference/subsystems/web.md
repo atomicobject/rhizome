@@ -1,7 +1,7 @@
 ---
 summary: "Browser and public HTTP adapters: provider-aware readiness, shared node reads and edit sessions, and bounded runtime ownership."
 reference-kind: guide
-last-verified: 2026-11-10
+last-verified: 2026-11-17
 code-paths:
   - pkg/app/web
   - pkg/app/graphpresentation
@@ -21,6 +21,8 @@ code-anchors:
 `pkg/app/web.NewServer` composes explorer, public query, configured view, edit-session, and event routes around an explicit vault, metadata provider runtime, and available live capabilities. It owns HTTP admission and response behavior. Domain reads, query execution, source mutation, and persistence retain their existing owners.
 
 ## Design constraints
+
+- Exact query readiness resolves native file spellings before ownership and publication checks. Its immutable snapshot admits both the requested spelling and verified canonical spelling, while facts retain canonical keys. A case alias cannot wait forever for a nonexistent metadata key.
 
 - The optional `@rhizome/kit/markdown` entry owns Markdown rendering, wikilink conversion, GFM checklist parsing, and source-aware document rendering through `MarkdownDocument` and `markdownLinks`; the core kit does not load their parser. Both entries use the same stamped import map and React runtime. The public kit reuses native narrative wikilink conversion and the source-aware preview resolver for inline Markdown links. Authored Markdown versus wikilink syntax stays in the request with its source path; the returned canonical ref supplies navigation. A view iframe URL never supplies relative-link context.
 

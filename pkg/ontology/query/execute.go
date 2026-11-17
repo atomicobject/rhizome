@@ -345,8 +345,10 @@ func (e *executor) resolveNodeBatchSelectionSet(ctx context.Context, field *ast.
 			pathsList = append(pathsList, ref.NotePath)
 		}
 	}
-	if _, err := e.loaders.ontologyTypesByPaths(ctx, pathsList); err == nil {
-		_, _ = e.loaders.recordsForPaths(ctx, pathsList)
+	if canonical, err := e.loaders.scope.StoredNotePaths(ctx, pathsList); err == nil {
+		if _, err := e.loaders.ontologyTypesByPaths(ctx, canonical); err == nil {
+			_, _ = e.loaders.recordsForPaths(ctx, canonical)
+		}
 	}
 	items := make([]nodeBatchItem, 0, len(refs))
 	for _, ref := range refs {

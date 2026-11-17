@@ -89,6 +89,7 @@ type Policy struct {
 	declaration *Declaration
 	err         error
 	links       *paths.SymlinkCache
+	pathCase    paths.CasePolicy
 }
 
 func Load(root string) *Policy {
@@ -96,6 +97,7 @@ func Load(root string) *Policy {
 	policy.vault, policy.err = paths.NewVaultPaths(root)
 	if policy.err == nil {
 		policy.declaration, policy.err = loadDeclaration(root)
+		policy.pathCase = policy.vault.Case()
 	}
 	return policy
 }
@@ -138,12 +140,12 @@ func (p *Policy) Check(affected []string) error {
 			return err
 		}
 		for _, candidate := range []string{path.String(), physical.String()} {
-			if paths.CaseKey(candidate) == paths.CaseKey(DeclarationPath) {
+			if p.pathCase.Equal(candidate, DeclarationPath) {
 				return &Refusal{Path: input, Owner: "source ownership configuration", Reason: "Change source ownership explicitly in repository configuration."}
 			}
 			for _, source := range p.declaration.Sources {
 				for _, pattern := range source.Paths {
-					if matched, _ := doublestar.Match(paths.CaseKey(pattern), paths.CaseKey(candidate)); matched {
+					if p.pathCase.Match(pattern, candidate) {
 						return &Refusal{Path: input, Owner: source.Owner, Reason: source.Reason}
 					}
 				}

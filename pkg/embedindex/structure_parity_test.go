@@ -1,6 +1,7 @@
 package embedindex
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -106,6 +107,15 @@ func TestStructureParityBaseline(t *testing.T) {
 			golden := filepath.Join(fixtures, name+".golden.json")
 			expected, err := os.ReadFile(golden)
 			require.NoError(t, err)
+			var baseline struct {
+				Catalog struct{ Nodes []struct{ SchemaHash string } }
+			}
+			require.NoError(t, json.Unmarshal(expected, &baseline))
+			require.NotEmpty(t, baseline.Catalog.Nodes)
+			// The filesystem policy changes the witness, not this structural baseline.
+			expected = bytes.ReplaceAll(expected,
+				[]byte(`"SchemaHash": "`+baseline.Catalog.Nodes[0].SchemaHash+`"`),
+				[]byte(`"SchemaHash": "`+schema.Hash+`"`))
 			require.Equal(t, string(expected), string(actual))
 		})
 	}

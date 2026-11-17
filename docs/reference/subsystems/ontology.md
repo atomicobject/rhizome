@@ -1,7 +1,7 @@
 ---
 summary: "Design constraints, invariants, and review checklist for the ontology core: schema compile, projection, node catalog, sync, policy, sections, and identifier allocation under pkg/ontology."
 reference-kind: guide
-last-verified: 2026-11-14
+last-verified: 2026-11-17
 code-paths:
   - pkg/ontology
   - pkg/ontology/schema
@@ -39,6 +39,8 @@ The ontology core owns Rhizome's typed note contract: compile GraphQL SDL from `
 Path fields use the common projection, catalog rows, typed reads, filtering, sorting and display. Their capabilities report them as read-only, and edit replay rejects set/unset operations. Authoring skeletons omit them rather than emitting flattened keys. Authored metadata is never rewritten to expose a nested value.
 
 ## Design constraints
+
+- **Path selectors follow the filesystem.** Compiled schema matchers capture `Schema.PathCase` from the vault root. Path globs, file atoms in match expressions, admission, source matching, and specificity use that same value. Case-equivalent selectors tie; only strict refinement selects a winner. Type names and property semantics retain their existing rules. The schema witness includes the case policy, and materialization version 29 refreshes existing classifications through ordinary indexing.
 
 - **Admission narrows static file-backed types.** Optional `@admit(matches: [...])` on a file-backed `@node` type, including through `extend type`, requires one matching admission expression in addition to its existing selectors. It uses the same matcher language and never changes specificity. `Schema.MatchDoc` applies it before returning candidates; selector-free default fallback applies the same condition. Absent admission preserves existing schemas, while an empty list admits nothing. RECORD/embedded types, sections, interfaces and types without `@node` fail with `admit_node_role`; invalid expressions use `invalid_admit_matcher`, and duplicate declarations across type extensions use `duplicate_admit`. Extension bytes participate in the schema hash, so an extension-only edit retypes notes and rebinds unchanged RECORD references on the next publication. Materialization version 24 includes this admission contract.
 

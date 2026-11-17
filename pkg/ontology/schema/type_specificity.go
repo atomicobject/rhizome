@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/bmatcuk/doublestar/v4"
+	"github.com/atomicobject/rhizome/pkg/paths"
 )
 
 type selectorAtomKind string
@@ -31,10 +31,15 @@ type selectorClause struct {
 	Comparable bool
 }
 
+// MostSpecificCandidate returns the one candidate whose matching selectors
+// strictly refine every other candidate's, or "" when none dominates. Path
+// comparisons follow the schema's filesystem case policy, so two selectors
+// that differ only in case under a folding root are equal and never a winner.
 func MostSpecificCandidate(doc *Subject, candidateNames []string, schema *Schema) string {
 	if doc == nil || schema == nil || len(candidateNames) < 2 {
 		return ""
 	}
+	pathCase := schema.PathCase
 
 	clausesByCandidate := make(map[string][]selectorClause, len(candidateNames))
 	for _, name := range candidateNames {
@@ -42,7 +47,7 @@ func MostSpecificCandidate(doc *Subject, candidateNames []string, schema *Schema
 		if noteType == nil {
 			continue
 		}
-		clausesByCandidate[name] = matchingSelectorClauses(noteType, doc)
+		clausesByCandidate[name] = matchingSelectorClauses(noteType, doc, pathCase)
 	}
 
 	winners := make([]string, 0, len(candidateNames))
@@ -52,7 +57,7 @@ func MostSpecificCandidate(doc *Subject, candidateNames []string, schema *Schema
 			if left == right {
 				continue
 			}
-			if !candidateStrictlyRefines(clausesByCandidate[left], clausesByCandidate[right]) {
+			if !candidateStrictlyRefines(clausesByCandidate[left], clausesByCandidate[right], pathCase) {
 				dominatesAll = false
 				break
 			}
@@ -67,7 +72,7 @@ func MostSpecificCandidate(doc *Subject, candidateNames []string, schema *Schema
 	return winners[0]
 }
 
-func matchingSelectorClauses(noteType *NoteType, doc *Subject) []selectorClause {
+func matchingSelectorClauses(noteType *NoteType, doc *Subject, pathCase paths.CasePolicy) []selectorClause {
 	if noteType == nil || doc == nil {
 		return nil
 	}
@@ -77,8 +82,7 @@ func matchingSelectorClauses(noteType *NoteType, doc *Subject) []selectorClause 
 		if pattern == "" {
 			continue
 		}
-		ok, err := doublestar.Match(pattern, filepath.ToSlash(doc.Path))
-		if err != nil || !ok {
+		if !pathCase.Match(pattern, filepath.ToSlash(doc.Path)) {
 			continue
 		}
 		out = append(out, selectorClause{
@@ -105,7 +109,7 @@ func matchingSelectorClauses(noteType *NoteType, doc *Subject) []selectorClause 
 			continue
 		}
 		for _, clause := range clauses {
-			if !selectorClauseMatchesDoc(clause, doc) {
+			if !selectorClauseMatchesDoc(clause, doc, pathCase) {
 				continue
 			}
 			clause.Raw = raw
@@ -195,35 +199,34 @@ func selectorAtomFromInput(input *matchInput) (selectorAtom, bool) {
 	}
 }
 
-func selectorClauseMatchesDoc(clause selectorClause, doc *Subject) bool {
+func selectorClauseMatchesDoc(clause selectorClause, doc *Subject, pathCase paths.CasePolicy) bool {
 	for _, atom := range clause.Atoms {
-		if !selectorAtomMatchesDoc(atom, doc) {
+		if !selectorAtomMatchesDoc(atom, doc, pathCase) {
 			return false
 		}
 	}
 	return true
 }
 
-func selectorAtomMatchesDoc(atom selectorAtom, doc *Subject) bool {
+func selectorAtomMatchesDoc(atom selectorAtom, doc *Subject, pathCase paths.CasePolicy) bool {
 	switch atom.Kind {
 	case selectorAtomPath:
 		if containsGlob(atom.Path) {
-			ok, err := doublestar.Match(atom.Path, filepath.ToSlash(doc.Path))
-			return err == nil && ok
+			return pathCase.Match(atom.Path, filepath.ToSlash(doc.Path))
 		}
-		return matchSelectorPath(doc.Path, atom.Path)
+		return matchSelectorPath(pathCase, doc.Path, atom.Path)
 	case selectorAtomTag:
-		return evalMatchInput(&matchInput{Type: matchInputTag, Value: atom.Value}, doc)
+		return evalMatchInput(&matchInput{Type: matchInputTag, Value: atom.Value}, doc, pathCase)
 	case selectorAtomProperty:
 		return docPropertyHasValue(doc, atom.Property, atom.Value)
 	case selectorAtomFind:
-		return evalMatchInput(&matchInput{Type: matchInputFind, Value: atom.Value}, doc)
+		return evalMatchInput(&matchInput{Type: matchInputFind, Value: atom.Value}, doc, pathCase)
 	default:
 		return false
 	}
 }
 
-func candidateStrictlyRefines(leftClauses, rightClauses []selectorClause) bool {
+func candidateStrictlyRefines(leftClauses, rightClauses []selectorClause, pathCase paths.CasePolicy) bool {
 	if len(leftClauses) == 0 || len(rightClauses) == 0 {
 		return false
 	}
@@ -238,7 +241,7 @@ func candidateStrictlyRefines(leftClauses, rightClauses []selectorClause) bool {
 			if !right.Comparable {
 				continue
 			}
-			if selectorClauseStrictlyRefines(left, right) {
+			if selectorClauseStrictlyRefines(left, right, pathCase) {
 				leftStrict = true
 				break
 			}
@@ -250,7 +253,7 @@ func candidateStrictlyRefines(leftClauses, rightClauses []selectorClause) bool {
 	return anyComparable
 }
 
-func selectorClauseStrictlyRefines(left, right selectorClause) bool {
+func selectorClauseStrictlyRefines(left, right selectorClause, pathCase paths.CasePolicy) bool {
 	if !left.Comparable || !right.Comparable {
 		return false
 	}
@@ -263,7 +266,7 @@ func selectorClauseStrictlyRefines(left, right selectorClause) bool {
 			if used[i] {
 				continue
 			}
-			covered, isStrict := selectorAtomCovers(leftAtom, rightAtom)
+			covered, isStrict := selectorAtomCovers(leftAtom, rightAtom, pathCase)
 			if !covered {
 				continue
 			}
@@ -283,16 +286,16 @@ func selectorClauseStrictlyRefines(left, right selectorClause) bool {
 	return len(left.Atoms) > len(right.Atoms)
 }
 
-func selectorAtomCovers(left, right selectorAtom) (bool, bool) {
+func selectorAtomCovers(left, right selectorAtom, pathCase paths.CasePolicy) (bool, bool) {
 	if left.Kind != right.Kind {
 		return false, false
 	}
 	switch left.Kind {
 	case selectorAtomPath:
-		if left.Path == right.Path {
+		if pathCase.Equal(left.Path, right.Path) {
 			return true, false
 		}
-		if pathSelectorStrictlyRefines(left.Path, right.Path) {
+		if pathSelectorStrictlyRefines(left.Path, right.Path, pathCase) {
 			return true, true
 		}
 		return false, false
@@ -310,9 +313,9 @@ func selectorAtomCovers(left, right selectorAtom) (bool, bool) {
 	}
 }
 
-func pathSelectorStrictlyRefines(left, right string) bool {
-	left = filepath.ToSlash(strings.TrimSpace(left))
-	right = filepath.ToSlash(strings.TrimSpace(right))
+func pathSelectorStrictlyRefines(left, right string, pathCase paths.CasePolicy) bool {
+	left = pathCase.Key(filepath.ToSlash(strings.TrimSpace(left)))
+	right = pathCase.Key(filepath.ToSlash(strings.TrimSpace(right)))
 	if left == "" || right == "" || left == right {
 		return false
 	}
