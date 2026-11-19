@@ -244,7 +244,7 @@ All nine US13 criteria are delivered on `feature/port-research-review-skills`.
 
 Verification on `854437cc` with the pinned toolchain, each read from its own exit status: `make check` 0, `make test-content` 0, `./scripts/rzm validate` 0, `./scripts/rzm validate frozen-scope-drift` 0, `./scripts/rzm init --check` 0. After the documentation fixes in `85d768af`: `./scripts/rzm validate` 0. `make check-full` is left to the pull request's CI.
 
-For a human to check, as the gate skill requires: twenty review fixes changed shipped skill logic and were signed off by Gary Turovsky in two rounds (Execution Notes). The last four of them (`7fe7d575`, `c381d9d3`, `3f669b63`, `0e6d52bb`) were not read by a later reviewer; the Batch 3 scratch runs exercised three of the four behaviors they touch (adoption on policy-driven entry, a hold's ways out were not exercised, closure surfacing was not exercised, `force-past` wording was not exercised). No `force-past` was recorded. No discussion pass is open.
+For a human to check, as the gate skill requires: twenty review fixes changed shipped skill logic and were signed off by Gary Turovsky in two rounds (Execution Notes). The last four of them (`7fe7d575`, `c381d9d3`, `3f669b63`, `0e6d52bb`) were not read by a later reviewer; of the four behaviors they touch, the Batch 3 scratch runs exercised one (adoption only on policy-driven entry) and did not exercise the other three (the ways out of a hold, closure surfacing, and the `force-past` wording in `plan-check`). No `force-past` was recorded. No discussion pass is open.
 
 ## Execution Notes
 
