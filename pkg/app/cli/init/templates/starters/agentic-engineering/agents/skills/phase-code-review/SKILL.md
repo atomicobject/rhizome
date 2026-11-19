@@ -82,26 +82,35 @@ Range reviewed: <base>..<head> (<count> files)
 
 ## Diff scoping
 
-- If a prior phase-review outcome exists, its `reviewed-up-to` SHA is the base.
-- If that SHA is no longer an ancestor of `HEAD`, as after a rebase or squash, use
-  the merge base with the default branch instead:
-  `git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD)"`.
-  When that command fails, ask the user for the default branch name and use the
-  merge base with it. Say in the outcome line that the base is a merge base.
-- A merge base that equals `HEAD`, as when the work is on the default branch
-  itself, proves nothing. Use the parent of the first implementation commit
-  instead; if that cannot be derived, hold the phase and say why. Never record
-  SKIPPED from a merge base that equals `HEAD`.
-- For an adopted effort's first review, the base is the adoption commit.
-- For any other first review, use the parent of the first implementation commit.
-  Derive that commit from durable plan-approval timing and repository history.
-- If no base can be proven, use the merge base with the default branch as above.
-  Ask the user for a branch name, never for a commit, and never invent a range.
+Take the base from the first of these that applies:
+
+1. A prior phase-review outcome's `reviewed-up-to` SHA, when it is still an
+   ancestor of `HEAD`.
+2. For an adopted effort's first review, the adoption commit.
+3. For any other first review, the parent of the first implementation commit,
+   derived from durable plan-approval timing and repository history.
+4. When no implementation commit exists because the phase is uncommitted, `HEAD`:
+   the working tree is the whole phase.
+5. Otherwise, as after a rebase or squash that removed the recorded SHA, the merge
+   base with the default branch:
+   `git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD)"`.
+   When that command fails, ask the user for the default branch name and use the
+   merge base with it. Ask for a branch name, never for a commit, and never
+   invent a range. Say in the outcome line that the base is a merge base.
+
+Then fix the end of the range:
+
+- A merge base that equals `HEAD` with a clean working tree proves nothing, as
+  when committed work sits on the default branch itself. Hold the phase and say
+  why. Never record SKIPPED from a merge base that equals `HEAD`.
 - The range ends at the working tree, not at `HEAD`, whenever the phase or a fix
   from this review is uncommitted: review `git diff <base>` plus the untracked
   files `git status --short` lists, say so in the reviewer's brief, and write
   `reviewed-up-to <HEAD> plus uncommitted changes` in the outcome line. The
   empty-diff check, every re-review, and the gate re-run use that same range.
+- When an earlier outcome covered changes that are still uncommitted, the next
+  review cannot tell them from the new phase: it covers the whole working tree
+  again and says so in its outcome line.
 - Re-review fixes from the same base through the end of the range; do not move the
   base to the prior iteration's endpoint.
 
