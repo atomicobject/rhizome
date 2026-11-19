@@ -1,6 +1,6 @@
 # Closure
 
-Deliverable: a truthful closure state with delivery and closure evidence under `docs/engineering/quality-gates.md`, `docs/engineering/release.md`, and `docs/engineering/review-and-approval.md`. Return to implementation if feature work remains. When `docs/engineering/review-and-approval.md` lists `phase-code-review`, run it for any implementation change, committed or not, that has no recorded outcome covering it, and do not repeat a recorded one; then surface every `requires-human-verification` and `force-past` line and any discussion pass still active, which the user completes or abandons before the effort closes. A workspace effort keeps research and discussion output in its linked plan document.
+Deliverable: a truthful closure state with delivery and closure evidence under `docs/engineering/quality-gates.md`, `docs/engineering/release.md`, and `docs/engineering/review-and-approval.md`. Return to implementation if feature work remains. When `docs/engineering/review-and-approval.md` lists `phase-code-review`, run it for any implementation change, committed or not, that has no recorded outcome covering it, and do not repeat a recorded one. Whatever the policy lists, surface every `requires-human-verification` and `force-past` line and any discussion pass still active, which the user completes or abandons before the effort closes. A workspace effort keeps research and discussion output in its linked plan document.
 
 ## Gather evidence
 
