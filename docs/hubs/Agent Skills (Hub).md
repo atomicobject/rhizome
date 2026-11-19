@@ -51,7 +51,7 @@ The left path is runtime (how a skill triggers and runs); the right path is inst
 
 - **SKILL.md anatomy**: YAML frontmatter (`name`, `description`) + Markdown body (Goal / When to use / Non-goals / Operating mode / steps). The `description` is the router: harnesses match it to the request, so it must name real trigger phrases, not abstract labels.
 - **Progressive disclosure**: keep the body short; push depth into sibling `references/*.md` under the core `rhizome` skill, then load only the reference needed for the current operation.
-- **Routing vs execution**: `agentic-engineering` is the doorway and takes the phase as its argument; `foundation-review` and `ingest-transcript` are the only separate workflow skills. Team policy lives in `docs/engineering/` concern documents, which outrank skill defaults.
+- **Routing vs execution**: `agentic-engineering` is the doorway and takes the phase as its argument; `foundation-review` and `ingest-transcript` are separate workflow skills, and four effort gates (`effort-research`, `effort-discuss`, `plan-check`, `phase-code-review`) are separate skills that apply when `docs/engineering/review-and-approval.md` lists them. Team policy lives in `docs/engineering/` concern documents, which outrank skill defaults.
 - **Retrieval-driven skills**: skill bodies call `rzm agent start` (reuse `sessionId`), then `file-context`, `semantic-query`, `query-recipe`, and `validate` rather than embedding stale repo facts. This keeps skills durable as the repo evolves.
 - **Core vs starter skills**: one base `rhizome` skill ships for every enabled skill surface; template-specific starters layer phase/loop skills on top. Name collisions across bundles are explicit errors, so a starter cannot silently shadow the core skill.
 
@@ -66,6 +66,7 @@ The left path is runtime (how a skill triggers and runs); the right path is inst
 - **`agentic-engineering`**: route broad delivery work to one lazy phase resource; use a thin adapter directly when the phase is already known.
 - **`rhizome`**: start and reuse a session, search, load file context, orient to unfamiliar topics, configure or troubleshoot integration, validate or repair a vault, and route structured-markdown, ontology, mutation, and skill-authoring questions to focused references.
 - **`foundation-review`, `ingest-transcript`**: the two workflow skills that are not router phases. Phases are invoked as `agentic-engineering <phase>`.
+- **`effort-research`, `effort-discuss`, `plan-check`, `phase-code-review`**: the effort gates. A team turns each on by listing it in `docs/engineering/review-and-approval.md`; research and discussion ask the user Run or Skip before planning, plan-check runs before plan approval is requested, and phase review runs after each implementation phase.
 - **Core Rhizome documentation and structural-analysis references**: own reusable code/doc binding and refactor-evidence mechanics without separate workflow skills.
 - **`skill-creator` (when present)**: own general skill creation. Ask whether Rhizome capabilities such as search, GraphQL queries, or query recipes would help; if the user opts in, load the `rhizome` skill-authoring reference.
 

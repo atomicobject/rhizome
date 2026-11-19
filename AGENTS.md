@@ -104,6 +104,9 @@ This starter is Rhizome's repository harness for Agentic Engineering. It routes 
 | Open a bounded multi-phase effort, then design it | `agentic-engineering effort`, then `agentic-engineering plan` |
 | Finish or hand off an effort | `agentic-engineering finish` |
 | A plan requested a formative-phase review | `foundation-review` |
+| Scope is frozen, before planning, when local review policy lists it | `effort-research`, then `effort-discuss` |
+| A plan is drafted or revised, before asking for approval, when local review policy lists it | `plan-check` |
+| An implementation phase is finished, when local review policy lists it | `phase-code-review` |
 | Ingest source material | `ingest-transcript` |
 
 The core `rhizome` skill owns sessions, retrieval, validation, ontology-aware authoring, documentation bindings, and safe mutations.
@@ -114,7 +117,7 @@ Phase names are entry points into one task, not mandatory stops. A clear local t
 
 - The user's request comes first, then the team's policy in [docs/engineering/](docs/engineering/README.md), then skill defaults. Local policy is factored by concern: testing, quality gates, documentation, review and approval, architecture, release.
 - An approved plan is authorization: resolve routine implementation choices and complete every step it covers. Stop for a material decision outside that authority, a destructive action, or a genuine scope change. When a skill makes you stop, name the skill file.
-- Approval continues across phase transitions, review fixes, handoffs, and fresh sessions while scope agrees. Reuse current context and evidence, refreshing only what later changes invalidate.
+- Approval continues across phase transitions, review fixes, handoffs, and fresh sessions while scope agrees. A gate that `docs/engineering/review-and-approval.md` lists is part of the approved work, not a new approval. Reuse current context and evidence, refreshing only what later changes invalidate.
 - Quality-gate commands come from the local document; a bracketed placeholder is a setup gap, never a command to invent.
 - Closed efforts are historical record; new effort-driven work gets a new effort, while a clear local fix remains local.
 
@@ -126,8 +129,12 @@ Phase names are entry points into one task, not mandatory stops. A clear local t
 ## Installed Skills
 
 - `agentic-engineering`: `.agents/skills/agentic-engineering/SKILL.md`
+- `effort-discuss`: `.agents/skills/effort-discuss/SKILL.md`
+- `effort-research`: `.agents/skills/effort-research/SKILL.md`
 - `foundation-review`: `.agents/skills/foundation-review/SKILL.md`
 - `ingest-transcript`: `.agents/skills/ingest-transcript/SKILL.md`
+- `phase-code-review`: `.agents/skills/phase-code-review/SKILL.md`
+- `plan-check`: `.agents/skills/plan-check/SKILL.md`
 <!-- END RZM INIT TEMPLATE BLOCK: agentic-engineering -->
 
 <!-- BEGIN RZM INIT TEMPLATE BLOCK: action-items -->

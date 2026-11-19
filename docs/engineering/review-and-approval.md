@@ -14,7 +14,18 @@ An effort-driven plan needs explicit approval in chat before implementation, rec
 
 ## Pauses
 
-A pause for foundation review is requested by the plan when an early phase fixes APIs, data shape, or ownership that later phases depend on. It is not a standing rule after every phase.
+A pause for foundation review is requested by the plan when an early phase fixes APIs, data shape, or ownership that later phases depend on. Foundation review is not a standing rule after every phase; the gates below are, when listed.
+
+## Gates
+
+An effort passes each gate listed here at the point named. A gate is part of the approved work: it records its outcome in the effort's execution notes and is not repeated for the same scope, plan revision, or reviewed changes. Remove a row to turn that gate off.
+
+| When | Gate | Decided by |
+| --- | --- | --- |
+| After scope freezes or re-freezes, before planning | `effort-research` | The user chooses Run or Skip |
+| After the research decision, before planning | `effort-discuss` | The user chooses Discuss or Skip; silence is not Skip |
+| After a plan is drafted or structurally revised, before asking for approval | `plan-check` | Always runs |
+| After each implementation phase, and once before closure for a single-phase plan | `phase-code-review` | Always runs |
 
 ## Escalation cues
 
@@ -22,4 +33,4 @@ Raise a local task to an effort when it reveals a cross-subsystem contract or da
 
 ## Team extensions
 
-Drew Colthorp approves effort-driven plans; record approval in `plan-approved-by` (the configured current user is a note-backed `Person`). Use an effort for changes to a subsystem invariant, ontology schema semantics, persisted data or SQLite schema, generated init behavior, or what a release publishes and where. Mechanical edits that preserve those contracts, such as a typo in a template or hardening a release script without changing what it publishes, stay local tasks. Use `foundation-review` when a plan's Phase 1 fixes a public API, schema, or ownership boundary that later phases depend on. A pull request is ready to merge only when Greptile scores its current head 5/5 with no unresolved comments, you have reviewed the full diff yourself, and CI is green. Greptile does not review pull requests here on its own: run `greptile review --json` from the branch, commit fixes, and rerun it after every push. Conventional Commits. Stage only what the conversation changed, and never revert, clean, or stash unrelated diffs or untracked files; assume they are in-progress work.
+Drew Colthorp approves effort-driven plans; record approval in `plan-approved-by` (the configured current user is a note-backed `Person`). Use an effort for changes to a subsystem invariant, ontology schema semantics, persisted data or SQLite schema, generated init behavior, or what a release publishes and where. Mechanical edits that preserve those contracts, such as a typo in a template or hardening a release script without changing what it publishes, stay local tasks. Use `foundation-review` when a plan's Phase 1 fixes a public API, schema, or ownership boundary that later phases depend on. `phase-code-review` covers each phase before the next begins; Greptile reviews the whole pull request afterwards, and neither replaces the other. A pull request is ready to merge only when Greptile scores its current head 5/5 with no unresolved comments, you have reviewed the full diff yourself, and CI is green. Greptile does not review pull requests here on its own: run `greptile review --json` from the branch, commit fixes, and rerun it after every push. Conventional Commits. Stage only what the conversation changed, and never revert, clean, or stash unrelated diffs or untracked files; assume they are in-progress work.
