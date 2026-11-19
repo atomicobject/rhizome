@@ -83,7 +83,8 @@ func TestGateSkillsArePortableAndBounded(t *testing.T) {
 			require.Containsf(t, notFor, neighbor, "%s Not for clause must name %s", name, neighbor)
 		}
 
-		for _, want := range []string{"adoption", "created-at", "git log -S", "workspace", "linked plan document"} {
+		listed := "`git log -1 -S'" + name + "' --format=%H -- " + gatePolicyDoc + "`"
+		for _, want := range []string{"adoption", "created-at", listed, "`git log -1 --format=%aI <commit>`", "workspace", "linked plan document"} {
 			require.Containsf(t, body, want, "%s lacks %q", name, want)
 		}
 
