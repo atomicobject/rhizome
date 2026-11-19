@@ -96,6 +96,7 @@ func TestGateSkillsArePortableAndBounded(t *testing.T) {
 		require.Contains(t, skillBodyFromTemplates(t, templateAgenticEngineering, name), "`This effort predates the gate`")
 	}
 	require.Contains(t, skillBodyFromTemplates(t, templateAgenticEngineering, "plan-check"), "is always checked")
+	require.Contains(t, skillBodyFromTemplates(t, templateAgenticEngineering, "plan-check"), "the literal `force-past` term")
 	for _, name := range []string{"effort-research", "effort-discuss", "plan-check"} {
 		require.Contains(t, skillBodyFromTemplates(t, templateAgenticEngineering, name), "when the user asked for the gate, run it and record no adoption")
 	}

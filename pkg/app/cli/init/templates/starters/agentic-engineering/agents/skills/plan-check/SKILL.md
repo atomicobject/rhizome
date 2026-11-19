@@ -106,8 +106,9 @@ PLAN CHECK — ISSUES FOUND — <effort>, iteration <n>
    in that line when the user approves over them. Then re-inspect the effort note
    with the repository's normal validation scope; only findings the plan edits
    introduced belong to this run.
-7. When the user force-pasts a BLOCKER, append a separate `[decision]` line naming
-   the blocker and that approval is requested with it standing.
+7. When the user force-pasts a BLOCKER, append a separate `[decision]` line using
+   the literal `force-past` term and naming the blocker and that approval is
+   requested with it standing. Closure surfaces every such line.
 8. Request plan approval only now. Quote Assumptions Log rows verbatim, or state
    `Assumptions: none.`
 
