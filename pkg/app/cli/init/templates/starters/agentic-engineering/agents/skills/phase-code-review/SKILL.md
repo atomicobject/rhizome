@@ -93,15 +93,20 @@ Range reviewed: <base>..<head> (<count> files)
   Derive that commit from durable plan-approval timing and repository history.
 - If no base can be proven, use the merge base with the default branch as above.
   Ask the user for a branch name, never for a commit, and never invent a range.
-- Re-review fixes from the same base through current `HEAD`; do not move the base to
-  the prior iteration's endpoint.
+- The range ends at the working tree, not at `HEAD`, whenever the phase or a fix
+  from this review is uncommitted: review `git diff <base>` plus the untracked
+  files `git status --short` lists, say so in the reviewer's brief, and write
+  `reviewed-up-to <HEAD> plus uncommitted changes` in the outcome line. The
+  empty-diff check, every re-review, and the gate re-run use that same range.
+- Re-review fixes from the same base through the end of the range; do not move the
+  base to the prior iteration's endpoint.
 
 ## Procedure
 
 1. Resolve the completed phase, effort, frozen scope, and approved plan. Confirm
    phase completion evidence is recorded.
-2. Derive the diff range as above. If it is empty, append the SKIPPED outcome and
-   stop. Otherwise capture the normal Rhizome validation finding count as a
+2. Derive the diff range as above. If it is empty, working tree included, append
+   the SKIPPED outcome and stop. Otherwise capture the normal Rhizome validation finding count as a
    pre-write baseline.
 3. Spawn a fresh-context, read-only reviewer with repository root, artifact paths,
    exact range, and changed-file list. Require all four dimensions and the exact
@@ -134,15 +139,16 @@ Range reviewed: <base>..<head> (<count> files)
    carrying the literal `requires-human-verification`, then continue: this gate is
    part of the approved work and does not wait for sign-off. Closure surfaces every
    such line for a human to check.
-7. Re-review from the same anchor to current `HEAD` with a fresh reviewer. Stop when
+7. Re-review from the same anchor through the end of the range with a fresh
+   reviewer. Stop when
    there are zero blockers. Maximum three iterations per run; stop early if the
    blocker count does not decrease AND the findings are the same ones — a new
    blocker introduced by the previous iteration's own fix is progress, not a stall. On exhaustion/stall, let the user choose a
    different fix, force-past, or hold the phase. User-routed re-entry starts a new
    three-iteration run.
-8. Re-run the phase's gate set on the final `reviewed-up-to` commit before recording
-   the outcome. The fix commits from this review land after the phase's own gate run,
-   so otherwise nothing gates them.
+8. Re-run the phase's gate set on the final reviewed state, committed or not,
+   before recording the outcome. The fixes from this review land after the phase's
+   own gate run, so otherwise nothing gates them.
 9. Append exactly one UTC `[validation]` Execution Note for the run, including
    verdict, iterations, blockers found/fixed, degraded-review notes, and
    `reviewed-up-to <final-head>`. When fixes were left uncommitted, say so after
