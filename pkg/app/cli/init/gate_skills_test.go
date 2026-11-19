@@ -100,7 +100,8 @@ func TestGateSkillsArePortableAndBounded(t *testing.T) {
 	for _, name := range []string{"effort-research", "effort-discuss", "plan-check"} {
 		require.Contains(t, skillBodyFromTemplates(t, templateAgenticEngineering, name), "when the user asked for the gate, run it and record no adoption")
 	}
-	review := skillBodyFromTemplates(t, templateAgenticEngineering, "phase-code-review")
+	// One expected phrase spans a line break; a Windows checkout has CRLF there.
+	review := strings.ReplaceAll(skillBodyFromTemplates(t, templateAgenticEngineering, "phase-code-review"), "\r\n", "\n")
 	require.Contains(t, review, "ask the user once")
 	for _, want := range []string{
 		"adoption commit", "requires-human-verification",
