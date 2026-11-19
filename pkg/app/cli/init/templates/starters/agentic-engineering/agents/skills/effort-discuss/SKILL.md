@@ -17,7 +17,7 @@ project-specific scope, commands, and note structure.
 
 This gate applies when `docs/engineering/review-and-approval.md` lists `effort-discuss`, or when the user asks for it. When the policy does not list it and the user has not asked, do nothing and say nothing about it. A listed gate is part of the approved work, not a new approval of the plan.
 
-**Adoption.** An effort frozen before the gate was listed does not go back through it. Repository history cannot say reliably which efforts those are, so do not infer it from dates or commits. When the effort already has an approved plan and no discussion decision, it predates the gate: append one `[decision]` line to `Execution Notes` naming this gate as adopted and the current `HEAD` as the adoption commit, then continue; discussion does not apply to it. When the effort has no approved plan, present the assessment as usual and offer a third answer beside Discuss and Skip, `This effort predates the gate`, which records the same adoption line and lets planning continue. Record the adoption line once per effort. The user may still ask for a discussion pass on an adopted effort.
+**Adoption.** An effort frozen before the gate was listed does not go back through it. Repository history cannot say reliably which efforts those are, so do not infer it from dates or commits. These adoption rules apply only when the gate was entered because the policy lists it; when the user asked for the gate, run it and record no adoption. When the effort already has an approved plan and no discussion decision, it predates the gate: append one `[decision]` line to `Execution Notes` naming this gate as adopted and the current `HEAD` as the adoption commit, then continue; discussion does not apply to it. When the effort has no approved plan, present the assessment as usual and offer a third answer beside Discuss and Skip, `This effort predates the gate`, which records the same adoption line and lets planning continue. Record the adoption line once per effort.
 
 **Where output goes.** A Markdown effort keeps `### Decision Context` under its `Plan` section and the `[decision]` and `[validation]` lines in `Execution Notes`. A workspace effort keeps `Decision Context` in its linked plan document, and the `[decision]` and `[validation]` lines in the `Execution Notes` section of its Markdown work log. Retrieval returns a workspace plan by path only, so a reader opens the linked plan document. Timestamps are UTC to the second, from `date -u +"%Y-%m-%dT%H:%M:%SZ"` when the line is written.
 
@@ -47,7 +47,8 @@ This gate applies when `docs/engineering/review-and-approval.md` lists `effort-d
 - After the effort's research Run-or-Skip `[decision]` is recorded for the
   current frozen scope — and after the approved research output lands when Run
   was chosen — and before planning. When the policy does not list
-  `effort-research`, the assessment follows scope freeze directly.
+  `effort-research`, the assessment follows scope freeze directly. An adoption
+  line for `effort-research` counts as its decision and is treated as a Skip.
 - An explicit first invocation of this skill by the user counts as choosing
   Discuss; do not ask a redundant Discuss/Skip confirmation. An entry from the
   planning entry check is not the user's choice and always presents the
