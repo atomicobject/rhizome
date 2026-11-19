@@ -88,6 +88,10 @@ Range reviewed: <base>..<head> (<count> files)
   `git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD)"`.
   When that command fails, ask the user for the default branch name and use the
   merge base with it. Say in the outcome line that the base is a merge base.
+- A merge base that equals `HEAD`, as when the work is on the default branch
+  itself, proves nothing. Use the parent of the first implementation commit
+  instead; if that cannot be derived, hold the phase and say why. Never record
+  SKIPPED from a merge base that equals `HEAD`.
 - For an adopted effort's first review, the base is the adoption commit.
 - For any other first review, use the parent of the first implementation commit.
   Derive that commit from durable plan-approval timing and repository history.
