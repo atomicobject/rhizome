@@ -1,13 +1,13 @@
 # Planning
 
-Use `references/batch-plan-template.md` to structure the work around verifiable outcomes. Deliverable: an executable plan written into the effort: current gap, owning modules and contracts, delivery batches, tests, documentation, validation, and explicit batch exits that define completion. Load `query-recipe run --id effort-execution-context`, then `query-recipe run --id frozen-spec-index-pack` for each frozen spec; use `query-recipe run --id frozen-spec-detail-pack` only when the index leaves a contract ambiguous.
+Use `references/batch-plan-template.md` to structure the work around verifiable outcomes. Deliverable: an executable plan written into the effort: current gap, owning modules and contracts, delivery batches, tests, documentation, validation, and explicit batch exits that define completion. Load `query-recipe run --id effort-execution-context`, then `query-recipe run --id frozen-spec-index-pack` for each frozen spec; use `query-recipe run --id frozen-spec-detail-pack` only when the index leaves a contract ambiguous. Check `docs/engineering/review-and-approval.md` before drafting and again before asking for approval: run each gate it lists that has no recorded outcome for the current frozen scope or plan revision (`effort-research`, then `effort-discuss`, before drafting; `plan-check` after a draft or structural revision), and do not repeat a recorded one. A workspace effort keeps research and discussion output in its linked plan document.
 
 Consult `docs/engineering/architecture.md` when placing code or crossing a boundary, `docs/engineering/testing-policy.md` when choosing evidence layers, `docs/engineering/documentation.md` for the documents the change must carry, and `docs/engineering/release.md` when the plan touches branching or shipping.
 
 <!-- rzm:skill-slot id="integration-map.additional-dimensions" mode="extension" -->
 <!-- /rzm:skill-slot -->
 
-Surface each unresolved formative schema, public contract, ownership boundary, or reusable pattern as a named decision with its tension and recommendation. Treat settled decisions as constraints, not questions to reopen. When later phases depend on an unresolved decision, place it in an early decision batch and request a `foundation-review` exit before dependent work; otherwise no pause is implied.
+Surface each unresolved formative schema, public contract, ownership boundary, or reusable pattern as a named decision with its tension and recommendation. Treat settled decisions as constraints, not questions to reopen. When later phases depend on an unresolved decision, place it in an early decision batch and request a `foundation-review` exit before dependent work; otherwise no foundation-review pause is implied.
 
 <!-- rzm:skill-slot id="architecture-decisions.additional-checks" mode="extension" -->
 <!-- /rzm:skill-slot -->

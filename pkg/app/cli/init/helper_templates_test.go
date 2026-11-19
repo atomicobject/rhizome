@@ -69,7 +69,7 @@ func TestAgenticEngineeringSkillTopology(t *testing.T) {
 		actual = append(actual, skill.Name)
 	}
 	sort.Strings(actual)
-	require.Equal(t, []string{"agentic-engineering", "foundation-review", "ingest-transcript"}, actual)
+	require.Equal(t, []string{"agentic-engineering", "effort-discuss", "effort-research", "foundation-review", "ingest-transcript", "phase-code-review", "plan-check"}, actual)
 
 	router := requireSkillTemplate(t, skills, "agentic-engineering")
 	body := string(requireSkillTemplateFile(t, router, "SKILL.md").Content)

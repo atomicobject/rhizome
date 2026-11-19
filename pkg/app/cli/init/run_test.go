@@ -489,7 +489,7 @@ func TestRun_TemplateComplexDomainWithAgenticEngineeringDedupes(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	for _, skill := range []string{"agentic-engineering", "foundation-review", "ingest-transcript"} {
+	for _, skill := range []string{"agentic-engineering", "foundation-review", "ingest-transcript", "effort-research", "effort-discuss", "plan-check", "phase-code-review"} {
 		combinedSkill, err := os.ReadFile(filepath.Join(root, ".agents", "skills", skill, "SKILL.md"))
 		require.NoError(t, err)
 		complexOnlySkill, err := os.ReadFile(filepath.Join(complexOnlyRoot, ".agents", "skills", skill, "SKILL.md"))
@@ -982,7 +982,7 @@ func TestRun_NewRepoDefaultsSharedAgentSkillsOn(t *testing.T) {
 	for _, retired := range retiredCoreSkillNames {
 		require.NoDirExists(t, filepath.Join(root, ".agents", "skills", retired))
 	}
-	for _, name := range []string{"agentic-engineering", "foundation-review", "ingest-transcript"} {
+	for _, name := range []string{"agentic-engineering", "foundation-review", "ingest-transcript", "effort-research", "effort-discuss", "plan-check", "phase-code-review"} {
 		require.NoDirExists(t, filepath.Join(root, ".agents", "skills", name))
 	}
 	for _, path := range []string{
@@ -1219,6 +1219,10 @@ func TestRun_TemplateAgenticEngineeringScaffoldsDocs(t *testing.T) {
 		"agentic-engineering",
 		"foundation-review",
 		"ingest-transcript",
+		"effort-research",
+		"effort-discuss",
+		"plan-check",
+		"phase-code-review",
 	} {
 		require.FileExists(t, filepath.Join(root, ".agents", "skills", name, "SKILL.md"))
 	}
@@ -1590,6 +1594,10 @@ func TestRun_TemplateAgenticEngineeringInstallsBundledClaudeSkills(t *testing.T)
 		"agentic-engineering",
 		"foundation-review",
 		"ingest-transcript",
+		"effort-research",
+		"effort-discuss",
+		"plan-check",
+		"phase-code-review",
 	} {
 		require.FileExists(t, filepath.Join(root, ".claude", "skills", name, "SKILL.md"))
 	}
@@ -1623,7 +1631,7 @@ func TestRun_RerunWithoutTemplatePreservesAgenticEngineeringSkills(t *testing.T)
 	})
 	require.NoError(t, err)
 
-	for _, name := range []string{"agentic-engineering", "foundation-review", "ingest-transcript"} {
+	for _, name := range []string{"agentic-engineering", "foundation-review", "ingest-transcript", "effort-research", "effort-discuss", "plan-check", "phase-code-review"} {
 		require.FileExists(t, filepath.Join(root, ".agents", "skills", name, "SKILL.md"))
 	}
 }

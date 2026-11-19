@@ -22,7 +22,7 @@ Choose the phase, then start with its one reference; load another only when that
 | `compound` | Turn repeated friction into leverage | `references/compounding.md` |
 | `finish` | Close an effort | `references/closure.md`, then `references/closure-report-contract.md` for delegated passes |
 
-Separate skills exist only for distinct workflows: `foundation-review` for a plan-requested pause on formative decisions, and `ingest-transcript` for provenance-bearing source material.
+Separate skills exist only for distinct workflows: `foundation-review` for a plan-requested pause on formative decisions, `ingest-transcript` for provenance-bearing source material, and four effort gates that apply only when `docs/engineering/review-and-approval.md` lists them: `effort-research` and `effort-discuss` after scope freezes, `plan-check` before plan approval is requested, and `phase-code-review` after each implementation phase.
 
 ## Authority
 

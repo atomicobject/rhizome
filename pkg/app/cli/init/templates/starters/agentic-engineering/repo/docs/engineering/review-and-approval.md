@@ -14,7 +14,18 @@ An effort-driven plan needs explicit approval in chat before implementation, rec
 
 ## Pauses
 
-A pause for foundation review is requested by the plan when an early phase fixes APIs, data shape, or ownership that later phases depend on. It is not a standing rule after every phase.
+A pause for foundation review is requested by the plan when an early phase fixes APIs, data shape, or ownership that later phases depend on. Foundation review is not a standing rule after every phase; the gates below are, when listed.
+
+## Gates
+
+An effort passes each gate listed here at the point named. A gate is part of the approved work: it records its outcome in the effort's execution notes and is not repeated for the same scope, plan revision, or commit. Remove a row to turn that gate off.
+
+| When | Gate | Decided by |
+| --- | --- | --- |
+| After scope freezes or re-freezes, before planning | `effort-research` | The user chooses Run or Skip |
+| After the research decision, before planning | `effort-discuss` | The user chooses Discuss or Skip; silence is not Skip |
+| After a plan is drafted or structurally revised, before asking for approval | `plan-check` | Always runs |
+| After each implementation phase, and once before closure for a single-phase plan | `phase-code-review` | Always runs |
 
 ## Escalation cues
 
