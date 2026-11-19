@@ -83,17 +83,21 @@ func TestGateSkillsArePortableAndBounded(t *testing.T) {
 			require.Containsf(t, notFor, neighbor, "%s Not for clause must name %s", name, neighbor)
 		}
 
-		listed := "`git log -S'" + name + "' --format=%H -- " + gatePolicyDoc + "`"
-		parentLacksIt := "`git grep -q '" + name + "' <c>^ -- " + gatePolicyDoc + "`"
-		for _, want := range []string{"adoption", listed, parentLacksIt, "`git cat-file -e <c>^:<effort path>`", "workspace", "linked plan document"} {
+		for _, want := range []string{"**Adoption.**", "do not infer it from dates or commits", "adoption commit", "workspace", "linked plan document"} {
 			require.Containsf(t, body, want, "%s lacks %q", name, want)
 		}
+		require.NotContainsf(t, body, "git log -S", "%s must not infer adoption from history", name)
 
 		rendered := string(requireSkillTemplateFile(t, requireSkillTemplate(t, withDomain, name), "SKILL.md").Content)
 		require.Equalf(t, body, rendered, "%s must render unchanged when complex-domain is installed", name)
 	}
 
+	for _, name := range []string{"effort-research", "effort-discuss"} {
+		require.Contains(t, skillBodyFromTemplates(t, templateAgenticEngineering, name), "`This effort predates the gate`")
+	}
+	require.Contains(t, skillBodyFromTemplates(t, templateAgenticEngineering, "plan-check"), "is not re-checked")
 	review := skillBodyFromTemplates(t, templateAgenticEngineering, "phase-code-review")
+	require.Contains(t, review, "ask the user once")
 	for _, want := range []string{
 		"adoption commit", "requires-human-verification",
 		"`git merge-base HEAD \"$(git symbolic-ref --short refs/remotes/origin/HEAD)\"`",
