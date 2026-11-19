@@ -37,8 +37,10 @@ This gate applies when `docs/engineering/review-and-approval.md` lists `effort-d
 - No pass is complete until the user confirms shared understanding. Question
   exhaustion, a fixed question count, and conversational silence are never
   completion.
-- Stop after recording completion and the recommended next workflow step. Never
-  write implementation code, approve a plan, or silently begin planning.
+- After recording a Skip or a completed pass, continue with planning when the gate
+  was entered from the planning entry check or the user asked for a plan;
+  otherwise stop and name the recommended next step. Never write implementation
+  code or approve a plan from inside a pass.
 
 ## Where this gate sits
 
