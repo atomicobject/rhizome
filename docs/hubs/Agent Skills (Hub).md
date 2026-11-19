@@ -58,15 +58,15 @@ The left path is runtime (how a skill triggers and runs); the right path is inst
 ### Skill source families (template tree)
 
 - **Core (every repo)** — `pkg/app/cli/init/templates/skills/markdown/rhizome/`: one `rhizome` skill for basic operations and focused topic routing.
-- **Starter (per template)** — `pkg/app/cli/init/templates/starters/<template>/agents/skills/`: the Agentic Engineering router, lazy phase references, and two workflow skills; also `complex-domain` and `action-items` starters.
+- **Starter (per template)** — `pkg/app/cli/init/templates/starters/<template>/agents/skills/`: the Agentic Engineering router, lazy phase references, two workflow skills, and four effort gate skills; also `complex-domain` and `action-items` starters.
 - Loaded by `loadSkillTemplates` (core) + `loadStarterSkillTemplates` (per template), merged by `loadAllSkillTemplates` in `pkg/app/cli/init/helper_templates.go`.
 
 ### Built-in skills (when to use which)
 
 - **`agentic-engineering`**: route broad delivery work to one lazy phase resource; use a thin adapter directly when the phase is already known.
 - **`rhizome`**: start and reuse a session, search, load file context, orient to unfamiliar topics, configure or troubleshoot integration, validate or repair a vault, and route structured-markdown, ontology, mutation, and skill-authoring questions to focused references.
-- **`foundation-review`, `ingest-transcript`**: the two workflow skills that are not router phases. Phases are invoked as `agentic-engineering <phase>`.
-- **`effort-research`, `effort-discuss`, `plan-check`, `phase-code-review`**: the effort gates. A team turns each on by listing it in `docs/engineering/review-and-approval.md`; research and discussion ask the user Run or Skip before planning, plan-check runs before plan approval is requested, and phase review runs after each implementation phase.
+- **`foundation-review`, `ingest-transcript`**: workflow skills that are not router phases. Phases are invoked as `agentic-engineering <phase>`.
+- **`effort-research`, `effort-discuss`, `plan-check`, `phase-code-review`**: the effort gates. A team turns each on by listing it in `docs/engineering/review-and-approval.md`; research asks the user Run or Skip and discussion asks Discuss or Skip, both before planning, plan-check runs before plan approval is requested, and phase review runs after each implementation phase.
 - **Core Rhizome documentation and structural-analysis references**: own reusable code/doc binding and refactor-evidence mechanics without separate workflow skills.
 - **`skill-creator` (when present)**: own general skill creation. Ask whether Rhizome capabilities such as search, GraphQL queries, or query recipes would help; if the user opts in, load the `rhizome` skill-authoring reference.
 

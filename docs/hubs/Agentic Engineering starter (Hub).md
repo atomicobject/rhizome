@@ -7,7 +7,7 @@ tags: [type/hub, subsystem/agentic-engineering]
 
 ## Purpose
 
-The Agentic Engineering starter is Rhizome's repository harness for software delivery work. It combines a lean workflow router that takes the phase as an argument, two separate workflow skills, team-owned concern documents under `docs/engineering/`, and the specification-delivery ontology/query substrate.
+The Agentic Engineering starter is Rhizome's repository harness for software delivery work. It combines a lean workflow router that takes the phase as an argument, two separate workflow skills, four effort gate skills that a team turns on in its review policy, team-owned concern documents under `docs/engineering/`, and the specification-delivery ontology/query substrate.
 
 It does not prescribe a complete organizational process. Installed repositories tune their policy in `docs/engineering/`; schema and ontology mechanics stay managed with the core `rhizome` guidance.
 
