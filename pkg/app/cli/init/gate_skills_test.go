@@ -121,7 +121,7 @@ func TestGateSkillsAreTurnedOnByLocalPolicy(t *testing.T) {
 	require.Contains(t, block, "part of the approved work")
 	for _, name := range gateSkillNames {
 		require.Containsf(t, policy, "`"+name+"`", "the policy template must list %s", name)
-		requireOneLineWith(t, router, "the router", "`"+name+"`", gatePolicyDoc)
+		requireOneLineWith(t, router, "the router", "`"+name+"`", gatePolicyDoc, "or the user asks for one")
 		requireOneLineWith(t, block, "the managed block", "`"+name+"`", "review policy lists it")
 	}
 
