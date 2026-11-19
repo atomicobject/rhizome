@@ -250,6 +250,8 @@ Nothing yet.
 - 2026-11-19T20:38:10Z [decision] On the exhausted review run Gary chose "Fix by file history": an effort adopts a gate only if its note already existed in the commit before the gate was listed. Applied in `0d30f57d`, with the two standing warnings and two suggestions in `e29bb120`, `bce4d4d0`, and `e5dd1c26`; a new review run follows. requires-human-verification: `0d30f57d`, `e29bb120`, `e5dd1c26`.
 - 2026-11-19T20:50:56Z [validation] phase-code-review, second run, iteration 1: 1 blocker (the adoption rule again, reached by committing the effort note before the install files), 5 warnings, 2 INFO; reviewed range 3e43dff1..9676a73b.
 - 2026-11-19T20:50:56Z [decision] Gary chose "Ask, don't infer": the gate skills no longer read git history to decide that an effort predates a gate. Applied in `a99166cd`; other findings in `641763c6`, `c0b858c1`, and `fcd235bb`. requires-human-verification: `a99166cd`, `641763c6`, `fcd235bb`.
+- 2026-11-19T21:00:29Z [validation] phase-code-review: Batch 2 PASS on the second run after 2 iterations; 1 blocker found and fixed (adoption inferred from history, replaced by asking), 14 warnings found, 12 fixed, 2 outstanding (an install committed after two uncommitted reviewed phases is re-reviewed in full; closure does not say an adoption line covers changes before its commit), 4 INFO of which 3 fixed. Across both runs: 5 blockers found and fixed, none standing. The five commits `7fe7d575`..`c6dbde1e` fix warnings from the last iteration and were not re-reviewed. Gates re-run on `c6dbde1e` with the pinned toolchain, each read from its own exit status: `make check` 0, `make test-content` 0, `./scripts/rzm validate` 0. reviewed-up-to c6dbde1e.
+- 2026-11-19T21:00:29Z [decision] requires-human-verification: `7fe7d575`, `c381d9d3`, `3f669b63`, `0e6d52bb` change shipped skill logic, with `0d30f57d`, `e29bb120`, `e5dd1c26`, `a99166cd`, `641763c6`, `fcd235bb` from the earlier rounds.
 
 ## Deviations
 
@@ -271,4 +273,4 @@ Nothing yet.
 
 ## Status
 
-Active. Batch 2's first review run ended with one blocker; the user chose the fix and a second review run is under way. Batch 3 has not started.
+Active. Batch 2 passed phase review at `c6dbde1e`. Waiting on the user's sign-off of the review fixes; then Batch 3.
