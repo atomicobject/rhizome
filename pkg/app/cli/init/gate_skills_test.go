@@ -85,7 +85,7 @@ func TestGateSkillsArePortableAndBounded(t *testing.T) {
 
 		listed := "`git log -S'" + name + "' --format=%H -- " + gatePolicyDoc + "`"
 		parentLacksIt := "`git grep -q '" + name + "' <c>^ -- " + gatePolicyDoc + "`"
-		for _, want := range []string{"adoption", "created-at", listed, parentLacksIt, "`git log -1 --format=%aI <commit>`", "workspace", "linked plan document"} {
+		for _, want := range []string{"adoption", listed, parentLacksIt, "`git cat-file -e <c>^:<effort path>`", "workspace", "linked plan document"} {
 			require.Containsf(t, body, want, "%s lacks %q", name, want)
 		}
 
