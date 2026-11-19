@@ -4,7 +4,7 @@ id: EFF-2026-11-19-12-15
 aliases: [EFF-2026-11-19-12-15]
 name: Effort gate skills
 created-at: 2026-11-19T18:15:07Z
-status: active
+status: complete
 plan-approved-by: Gary Turovsky
 summary: Ship effort-research, effort-discuss, plan-check, and phase-code-review in the agentic-engineering starter as gates a team turns on in its review policy.
 governing-specs:
@@ -29,15 +29,15 @@ Out of scope: changing the portal repository; model runs of the routing evaluati
 
 ## Spec Coverage Checklist
 
-- [ ] [[init-starter-workflow#^SPEC-0038-US13-AC1|AC1]]: four skills installed, no repository-specific paths.
-- [ ] [[init-starter-workflow#^SPEC-0038-US13-AC2|AC2]]: policy-activated; new installs list all four; upgrades unchanged.
-- [ ] [[init-starter-workflow#^SPEC-0038-US13-AC3|AC3]]: entry checks in planning, implementation, and closure.
-- [ ] [[init-starter-workflow#^SPEC-0038-US13-AC4|AC4]]: gates are approved work; `requires-human-verification`, `force-past`, and unfinished discussion surface at closure.
-- [ ] [[init-starter-workflow#^SPEC-0038-US13-AC5|AC5]]: adoption rule for efforts frozen earlier.
-- [ ] [[init-starter-workflow#^SPEC-0038-US13-AC6|AC6]]: output homes for both effort forms, validation clean.
-- [ ] [[init-starter-workflow#^SPEC-0038-US13-AC7|AC7]]: init asks before replacing a team's own skill of the same name.
-- [ ] [[init-starter-workflow#^SPEC-0038-US13-AC8|AC8]]: merge-base fallback, commit policy, degraded-review note.
-- [ ] [[init-starter-workflow#^SPEC-0038-US13-AC9|AC9]]: neighbor boundaries in descriptions.
+- [x] [[init-starter-workflow#^SPEC-0038-US13-AC1|AC1]]: four skills installed, no repository-specific paths.
+- [x] [[init-starter-workflow#^SPEC-0038-US13-AC2|AC2]]: policy-activated; new installs list all four; upgrades unchanged.
+- [x] [[init-starter-workflow#^SPEC-0038-US13-AC3|AC3]]: entry checks in planning, implementation, and closure.
+- [x] [[init-starter-workflow#^SPEC-0038-US13-AC4|AC4]]: gates are approved work; `requires-human-verification`, `force-past`, and unfinished discussion surface at closure.
+- [x] [[init-starter-workflow#^SPEC-0038-US13-AC5|AC5]]: adoption rule for efforts frozen earlier.
+- [x] [[init-starter-workflow#^SPEC-0038-US13-AC6|AC6]]: output homes for both effort forms, validation clean.
+- [x] [[init-starter-workflow#^SPEC-0038-US13-AC7|AC7]]: init asks before replacing a team's own skill of the same name.
+- [x] [[init-starter-workflow#^SPEC-0038-US13-AC8|AC8]]: merge-base fallback, commit policy, degraded-review note.
+- [x] [[init-starter-workflow#^SPEC-0038-US13-AC9|AC9]]: neighbor boundaries in descriptions.
 
 ## Plan
 
@@ -230,7 +230,21 @@ A team that installs or upgrades the starter gets four gate skills it can switch
 
 ## Actual Delivered
 
-Nothing yet.
+All nine US13 criteria are delivered on `feature/port-research-review-skills`.
+
+- AC1, AC9: four skills under the starter's `agents/skills/` (`4a44dfb9` and the review fixes through `c6dbde1e`), each with a single-line description that names the policy document and a "Not for" clause. `TestGateSkillsArePortableAndBounded` checks them for paths outside `docs/engineering/`, retired skill names, and rendering with `complex-domain`.
+- AC2: the policy template lists all four in a `## Gates` table; the router, the managed block, and every description make the policy list or a user's request the condition. A fresh scratch install lists them; an install whose policy has no table ran no gate in two scenario runs. This repository lists them (`854437cc`).
+- AC3: `planning.md`, `implementation.md`, and `closure.md` carry entry checks, appended to existing lines so the 200-line reference cap is unchanged. A scenario run with every gate recorded ran none.
+- AC4: phase review records `requires-human-verification` and continues; closure surfaces those lines, `force-past` lines, and an active discussion pass whatever the policy lists. The main-flow scratch run wrote the line and did not stop for sign-off.
+- AC5: delivered as ask-not-infer, per Deviations. Scenario runs: an in-flight effort was asked once whether to adopt; an adopted effort's review started at its adoption commit; a fresh effort was offered `This effort predates the gate` beside Run and Skip.
+- AC6: each skill names its Markdown and workspace homes. Sample gate output left validation unchanged for a workspace effort (Batch 1) and for this note.
+- AC7: `TestSyncAsksBeforeReplacingATeamSkillNamedLikeAGate` covers the four names in both skill folders, asked-and-kept and kept without a terminal. The adoption guide documents `--keep` and its limits.
+- AC8: merge-base fallback, one revertible change per finding, commit only where policy allows, and `degraded: no fresh-context reviewer`, each observed in the main-flow scratch run.
+- Documentation: SPEC-0039, two hubs, three guides, and the changelog (`854437cc`, `85d768af`). Six routing scenarios added, not run against models.
+
+Verification on `854437cc` with the pinned toolchain, each read from its own exit status: `make check` 0, `make test-content` 0, `./scripts/rzm validate` 0, `./scripts/rzm validate frozen-scope-drift` 0, `./scripts/rzm init --check` 0. After the documentation fixes in `85d768af`: `./scripts/rzm validate` 0. `make check-full` is left to the pull request's CI.
+
+For a human to check, as the gate skill requires: twenty review fixes changed shipped skill logic and were signed off by Gary Turovsky in two rounds (Execution Notes). The last four of them (`7fe7d575`, `c381d9d3`, `3f669b63`, `0e6d52bb`) were not read by a later reviewer; the Batch 3 scratch runs exercised three of the four behaviors they touch (adoption on policy-driven entry, a hold's ways out were not exercised, closure surfacing was not exercised, `force-past` wording was not exercised). No `force-past` was recorded. No discussion pass is open.
 
 ## Execution Notes
 
@@ -254,6 +268,8 @@ Nothing yet.
 - 2026-11-19T21:00:29Z [decision] requires-human-verification: `7fe7d575`, `c381d9d3`, `3f669b63`, `0e6d52bb` change shipped skill logic, with `0d30f57d`, `e29bb120`, `e5dd1c26`, `a99166cd`, `641763c6`, `fcd235bb` from the earlier rounds.
 - 2026-11-19T21:01:04Z [decision] Gary Turovsky signed off on the ten review fixes `0d30f57d`, `e29bb120`, `e5dd1c26`, `a99166cd`, `641763c6`, `fcd235bb`, `7fe7d575`, `c381d9d3`, `3f669b63`, `0e6d52bb`, and Batch 3 starts.
 - 2026-11-19T21:06:13Z [validation] Batch 3 tasks 3.1 to 3.5 complete. 3.1: after `make build`, `./scripts/rzm init` added the four skills under `.agents/skills` and `.claude/skills`, updated the router copies, the managed block, and `.rhizome/generated-files.yml`; `./scripts/rzm init --check` exit 0. 3.2: one `grep -q` per gate name on `docs/engineering/review-and-approval.md`, all exit 0. 3.3: `grep -L "plan-check"` over the six documents and `CHANGELOG.md` prints nothing; the adoption guide has `--keep` and `## Gates`; `./scripts/rzm validate` and `./scripts/rzm validate frozen-scope-drift` exit 0. The plan's negative grep on `init-template-architecture.md` still matches line 130, because the corrected sentence keeps the words "only ... `foundation-review`, `ingest-transcript`" and now goes on to name the four gates; the positive check holds, so the pattern was wrong, not the document. SPEC-0038 US13 AC3 and AC5 were reworded to match the recorded deviations. 3.4, against a cloned scratch install with fresh agents following the shipped skills: `plan-check` returned 3 BLOCKERs on a plan with a dropped story and a `|| true` verification (both planted, plus a verification that passed without testing retry), withheld the approval request, and marked its outcome `degraded: no fresh-context reviewer`; a fresh `phase-code-review` reviewer returned a BLOCKER at the planted inverted condition `src/retry.py:11`; the main-flow run, with the recorded `reviewed-up-to` commit absent from history and no agent commit rule, took the merge base with `origin/main` as its base and said so, fixed the blocker, left the fix uncommitted and said why, wrote a `requires-human-verification` line, continued without asking for sign-off, and marked the outcome degraded; a run on an adopted effort took the recorded adoption commit as its base. 3.5, six fresh agents asked what they would do next: in-flight effort with a listed policy asks once whether to adopt or review from the start and runs no pre-plan gate; all gates recorded runs none; freshly frozen effort with a listed policy presents the research assessment with Run, Skip, and `This effort predates the gate` and writes nothing before the answer; unlisted policy, fresh effort, runs no gate and does not mention them; unlisted policy, finished phase, runs no review. Cases (a) and (a2) of the plan were run against the ask-not-infer rule recorded under Deviations.
+- 2026-11-19T21:14:27Z [validation] phase-code-review: Batch 3 PASS after 1 iteration; 0 blockers, 3 warnings and 2 INFO found and fixed in `85d768af` (the policy document can be replaced by `--refresh-docs`; `--keep` is asked about again when a new skill version ships; two hub sentences still counted two workflow skills; discussion asks Discuss or Skip; the pasteable table is now a code block). Generated copies are byte-identical to their templates apart from stripped slot markers. `./scripts/rzm validate` exit 0 after the fixes; reviewed-up-to 85d768af.
+- 2026-11-19T21:14:27Z [validation] Closure: alignment checked criterion by criterion against the evidence in Actual Delivered; no `force-past` line, no open discussion pass, and every `requires-human-verification` line has a recorded sign-off.
 
 ## Deviations
 
@@ -263,16 +279,20 @@ Nothing yet.
 
 ## Closure Checklist
 
-- [ ] Required quality gates pass.
-- [ ] Alignment and actual outcomes are verified.
-- [ ] Specs and documentation are reconciled.
-- [ ] Follow-ups are triaged.
+- [x] Required quality gates pass.
+- [x] Alignment and actual outcomes are verified.
+- [x] Specs and documentation are reconciled.
+- [x] Follow-ups are triaged.
 
 ## Compounding Follow-ups
 
 - Two process-deadline tests fail under the load of a full parallel `make check`: `TestAHandoffIsSupervisedUnderTheSameDeadline` and `TestCredentialCancelStopsOpAndChildWithoutSaving`. Diagnose the deadline against a loaded machine.
 - `TestAOKBLegacySiteData` depends on Node printing nothing to the stream it parses; it fails on Node 23.
+- Init's default answer replaces an unrecorded file at a managed path, a first run can leave `.agents/skills` and `.claude/skills` disagreeing, and the managed block lists a kept team skill as Rhizome's. The adoption guide tells teams how to avoid all three; init itself is unchanged.
+- Run the six new routing scenarios against models (needs separate approval under SPEC-0080 US6).
+- Two phase-review warnings stand: after two uncommitted reviewed phases are committed together, the next review re-reads them; closure does not say an adoption line covers changes before its commit.
+- The gate skills' adoption and diff-scoping rules took five blockers to settle in review. Their only automated checks are literal-text assertions; scripted scenario runs like Batch 3's would catch a regression the assertions cannot.
 
 ## Status
 
-Active. Batch 3's work is done; its final gates and phase review are next, then closure.
+Complete on `feature/port-research-review-skills`. The pull request number is added here once it exists.
