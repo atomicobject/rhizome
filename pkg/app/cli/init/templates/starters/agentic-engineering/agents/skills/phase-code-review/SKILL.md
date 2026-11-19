@@ -92,7 +92,7 @@ Take the base from the first of these that applies:
 4. When no implementation commit exists because the phase is uncommitted, `HEAD`:
    the working tree is the whole phase. In a repository with no commits at all,
    the whole working tree is the range and the outcome line records `no commits`
-   in place of a SHA.
+   in place of a SHA; the review after that starts from the root commit.
 5. Otherwise, as after a rebase or squash that removed the recorded SHA, the merge
    base with the default branch:
    `git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD)"`.
@@ -111,6 +111,9 @@ Then fix the end of the range:
   files `git status --short -uall` lists, say so in the reviewer's brief, and write
   `reviewed-up-to <HEAD> plus uncommitted changes` in the outcome line. The
   empty-diff check, every re-review, and the gate re-run use that same range.
+- Untracked files that the phase did not create, such as install output that was
+  never committed, are not part of the range. Leave them out of the changed-file
+  list and say in the outcome line that they were left out.
 - When an earlier outcome covered changes that are still uncommitted, the next
   review cannot tell them from the new phase: it covers the whole working tree
   again and says so in its outcome line.
