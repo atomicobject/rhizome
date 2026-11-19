@@ -154,7 +154,7 @@ Range reviewed: <base>..<head> (<count> files)
    before recording the outcome. The fixes from this review land after the phase's
    own gate run, so otherwise nothing gates them.
 9. Append exactly one UTC `[validation]` Execution Note for the run, including
-   verdict, iterations, blockers found/fixed, degraded-review notes, and
+   the phase it covers, verdict, iterations, blockers found/fixed, degraded-review notes, and
    `reviewed-up-to <final-head>`. When fixes were left uncommitted, say so after
    the SHA.
 10. A user force-past adds a separate `[decision]` line using the literal
@@ -165,7 +165,7 @@ Range reviewed: <base>..<head> (<count> files)
 Example outcomes:
 
 ```markdown
-- 2026-06-02T15:30:00Z [validation] phase-code-review: PASS after 2 iterations; 2 blockers found and fixed (missing owner filter, inverted retry guard), 1 warning outstanding; reviewed-up-to c47ab19.
+- 2026-06-02T15:30:00Z [validation] phase-code-review: phase 2 PASS after 2 iterations; 2 blockers found and fixed (missing owner filter, inverted retry guard), 1 warning outstanding; reviewed-up-to c47ab19.
 - 2026-06-02T15:32:00Z [validation] phase-code-review: SKIPPED — empty diff for phase 3 (range c47ab19..HEAD contains no changes); reviewed-up-to c47ab19.
 - 2026-06-02T15:41:00Z [decision] phase-code-review: force-past — user accepted 1 remaining BLOCKER (owner-filter fix deferred); phase entered with the blocker standing.
 ```

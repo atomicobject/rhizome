@@ -18,7 +18,7 @@ A pause for foundation review is requested by the plan when an early phase fixes
 
 ## Gates
 
-An effort passes each gate listed here at the point named. A gate is part of the approved work: it records its outcome in the effort's execution notes and is not repeated for the same scope, plan revision, or commit. Remove a row to turn that gate off.
+An effort passes each gate listed here at the point named. A gate is part of the approved work: it records its outcome in the effort's execution notes and is not repeated for the same scope, plan revision, or reviewed changes. Remove a row to turn that gate off.
 
 | When | Gate | Decided by |
 | --- | --- | --- |
