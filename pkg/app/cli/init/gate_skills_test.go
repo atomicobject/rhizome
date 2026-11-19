@@ -101,7 +101,7 @@ func TestGateSkillsArePortableAndBounded(t *testing.T) {
 	for _, want := range []string{
 		"adoption commit", "requires-human-verification",
 		"`git merge-base HEAD \"$(git symbolic-ref --short refs/remotes/origin/HEAD)\"`",
-		"A merge base that equals `HEAD` with a clean working tree", "plus uncommitted changes",
+		"A merge base that equals `HEAD` while the phase has commits", "plus uncommitted changes",
 		"the working tree is the whole phase",
 		"one revertible change per finding", "commit policy", "degraded: no fresh-context reviewer",
 	} {

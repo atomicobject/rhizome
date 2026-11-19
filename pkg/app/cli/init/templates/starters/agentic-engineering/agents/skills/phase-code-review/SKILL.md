@@ -102,9 +102,10 @@ Take the base from the first of these that applies:
 
 Then fix the end of the range:
 
-- A merge base that equals `HEAD` with a clean working tree proves nothing, as
-  when committed work sits on the default branch itself. Hold the phase and say
-  why. Never record SKIPPED from a merge base that equals `HEAD`.
+- A merge base that equals `HEAD` while the phase has commits proves nothing, as
+  when committed work sits on the default branch itself, whatever the working
+  tree holds. Hold the phase and say why. Never record SKIPPED from a merge base
+  that equals `HEAD`.
 - The range ends at the working tree, not at `HEAD`, whenever the phase or a fix
   from this review is uncommitted: review `git diff <base>` plus the untracked
   files `git status --short -uall` lists, say so in the reviewer's brief, and write
