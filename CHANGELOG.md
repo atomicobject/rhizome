@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- The `agentic-engineering` starter installs four effort gate skills: `effort-research`, `effort-discuss`, `plan-check`, and `phase-code-review`. A gate runs only when `docs/engineering/review-and-approval.md` lists it. New installations list all four; an upgraded repository keeps its policy document and behaves as before until it adds the `## Gates` table from the adoption guide or takes the new document with `rzm init --refresh-docs`. A team's own skill with one of these names is kept with `rzm init --keep <path>`.
+- The `agentic-engineering` starter installs four effort gate skills: `effort-research`, `effort-discuss`, `plan-check`, and `phase-code-review`. A gate runs only when `docs/engineering/review-and-approval.md` lists it. New installations list all four; an upgraded repository keeps its policy document and behaves as before until it adds the `## Gates` table from the adoption guide or takes the new document with `rzm init --refresh-docs`. The policy document's Gates table is the only place the workflow reads gate names from, so a team adds its own gate with a skill and a table row. A team's own skill with one of these names is kept with `rzm init --keep <path>`.
 - File path selectors and explicit note references follow the vault filesystem's casing behavior. AO KB setup now accepts `mocs` when its schema selects `MOCs`, while returned paths keep their actual spelling and sensitive filesystems retain distinct files.
 
 ## [v0.53.0] - 2026-11-16

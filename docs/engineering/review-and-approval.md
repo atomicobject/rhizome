@@ -18,7 +18,7 @@ A pause for foundation review is requested by the plan when an early phase fixes
 
 ## Gates
 
-An effort passes each gate listed here at the point named. A gate is part of the approved work: it records its outcome in the effort's execution notes and is not repeated for the same scope, plan revision, or reviewed changes. Remove a row to turn that gate off.
+An effort passes each gate listed here at the point named. A gate is part of the approved work: it records its outcome in the effort's execution notes and is not repeated for the same scope, plan revision, or reviewed changes. The Gate column names the skill to run, and this table is the only place the workflow learns which gates exist: add a row to turn on a gate skill of your own, and remove a row to turn one off. A row naming a skill that is not installed is a setup gap to report, not a gate to improvise.
 
 | When | Gate | Decided by |
 | --- | --- | --- |

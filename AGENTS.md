@@ -104,9 +104,7 @@ This starter is Rhizome's repository harness for Agentic Engineering. It routes 
 | Open a bounded multi-phase effort, then design it | `agentic-engineering effort`, then `agentic-engineering plan` |
 | Finish or hand off an effort | `agentic-engineering finish` |
 | A plan requested a formative-phase review | `foundation-review` |
-| Scope is frozen, before planning, when local review policy lists it | `effort-research`, then `effort-discuss` |
-| A plan is drafted or revised, before asking for approval, when local review policy lists it | `plan-check` |
-| An implementation phase is finished, when local review policy lists it | `phase-code-review` |
+| An effort reaches a point where the local review policy lists a gate | The skill the Gates table in `docs/engineering/review-and-approval.md` names for that point |
 | Ingest source material | `ingest-transcript` |
 
 The core `rhizome` skill owns sessions, retrieval, validation, ontology-aware authoring, documentation bindings, and safe mutations.

@@ -124,21 +124,16 @@ func TestGateSkillsAreTurnedOnByLocalPolicy(t *testing.T) {
 	router := skillBodyFromTemplates(t, templateAgenticEngineering, "agentic-engineering")
 	block := starterTemplateText(t, "agents", "AGENTS.md")
 	require.Contains(t, block, "part of the approved work")
+	requireOneLineWith(t, router, "the router", gatePolicyDoc, "Gates table", "or the user asks for one")
+	requireOneLineWith(t, block, "the managed block", gatePolicyDoc, "Gates table", "lists a gate")
 	for _, name := range gateSkillNames {
 		require.Containsf(t, policy, "`"+name+"`", "the policy template must list %s", name)
-		requireOneLineWith(t, router, "the router", "`"+name+"`", gatePolicyDoc, "or the user asks for one")
-		requireOneLineWith(t, block, "the managed block", "`"+name+"`", "review policy lists it")
 	}
 
 	skill := requireSkillTemplate(t, mustLoadStarterSkills(t), "agentic-engineering")
-	entryChecks := map[string][]string{
-		"planning.md":       {"`effort-research`", "`effort-discuss`", "`plan-check`"},
-		"implementation.md": {"`phase-code-review`"},
-		"closure.md":        {"`phase-code-review`"},
-	}
-	for ref, gates := range entryChecks {
+	for _, ref := range []string{"planning.md", "implementation.md", "closure.md"} {
 		body := string(requireSkillTemplateFile(t, skill, "references/"+ref).Content)
-		requireOneLineWith(t, body, ref, append(gates, gatePolicyDoc, "no recorded outcome", "do not repeat")...)
+		requireOneLineWith(t, body, ref, gatePolicyDoc, "Gates table", "no recorded outcome", "do not repeat")
 	}
 	for _, ref := range []string{"planning.md", "closure.md"} {
 		body := string(requireSkillTemplateFile(t, skill, "references/"+ref).Content)
@@ -151,6 +146,29 @@ func TestGateSkillsAreTurnedOnByLocalPolicy(t *testing.T) {
 
 	harness := starterTemplateText(t, "repo", "docs", "reference", "guides", "harness-capabilities.md")
 	requireOneLineWith(t, harness, "the harness guide", "absence alone needs no ceremony", "outcome line")
+}
+
+// The policy template's Gates table is the registry. Nothing else in the starter
+// names a gate, so a team adds or removes one by editing a table row.
+func TestOnlyThePolicyTemplateAndAGateItselfNameAGate(t *testing.T) {
+	root := filepath.Join("templates", "starters", templateAgenticEngineering)
+	policy := filepath.Join(root, "repo", filepath.FromSlash(gatePolicyDoc))
+	require.NoError(t, filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || path == policy {
+			return err
+		}
+		for _, name := range gateSkillNames {
+			if strings.Contains(path, string(filepath.Separator)+name+string(filepath.Separator)) {
+				return nil
+			}
+		}
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		for _, name := range gateSkillNames {
+			require.NotContainsf(t, string(data), name, "%s names the gate %s", path, name)
+		}
+		return nil
+	}))
 }
 
 // A team may already have its own skill under one of the gate names. Init asks

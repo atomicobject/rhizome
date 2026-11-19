@@ -28,7 +28,7 @@ The four gate skills are installed for every team and do nothing until `docs/eng
 ```markdown
 ## Gates
 
-An effort passes each gate listed here at the point named. A gate is part of the approved work: it records its outcome in the effort's execution notes and is not repeated for the same scope, plan revision, or reviewed changes. Remove a row to turn that gate off.
+An effort passes each gate listed here at the point named. A gate is part of the approved work: it records its outcome in the effort's execution notes and is not repeated for the same scope, plan revision, or reviewed changes. The Gate column names the skill to run, and this table is the only place the workflow learns which gates exist: add a row to turn on a gate skill of your own, and remove a row to turn one off. A row naming a skill that is not installed is a setup gap to report, not a gate to improvise.
 
 | When | Gate | Decided by |
 | --- | --- | --- |
@@ -38,7 +38,7 @@ An effort passes each gate listed here at the point named. A gate is part of the
 | After each implementation phase, and once before closure for a single-phase plan | `phase-code-review` | Always runs |
 ```
 
-Remove a row to leave that gate off. What to expect once they are on:
+Remove a row to leave that gate off. The router, the managed `AGENTS.md` block, and the phase references name no gate; they run whatever this table lists for the point an effort has reached. To add a gate of your own, add a skill and a row that names it and its point. What to expect once the four are on:
 
 - Research and discussion each ask the user one question before planning. Skipping is one answer.
 - `plan-check` and `phase-code-review` each start a fresh reviewer, up to three times per run, and phase review re-runs the phase's quality gates after its fixes. Budget for that time and model cost on every effort.

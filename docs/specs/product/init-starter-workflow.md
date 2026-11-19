@@ -343,6 +343,7 @@ A gate is a check an effort passes at a fixed point: `effort-research` and `effo
 - Init asks before replacing a team's own skill folder that has one of the four names, and can keep it. ^SPEC-0038-US13-AC7
 - Phase review falls back to the merge base with the default branch when its recorded commit is no longer an ancestor of `HEAD`, makes one revertible change per finding and commits it only where the repository's commit policy allows, and says in its outcome when it ran without a fresh-context reviewer. ^SPEC-0038-US13-AC8
 - Each gate's description names the neighboring workflow it is not: a formative-decision review goes to `foundation-review`, and a pull request review does not go to `phase-code-review`. ^SPEC-0038-US13-AC9
+- The Gates table in `docs/engineering/review-and-approval.md` is the only starter file outside a gate's own skill folder that names a gate skill. The router, the managed block, and the phase references run whatever the table lists for the point reached, so a team adds a gate of its own with one skill and one table row. ^SPEC-0038-US13-AC10
 
 ## Requirements
 

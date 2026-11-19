@@ -3,15 +3,15 @@
 version: 1
 written:
   .agents/skills/action-items/SKILL.md: 856cfedcb182b863
-  .agents/skills/agentic-engineering/SKILL.md: 0707e6a1f7978718
+  .agents/skills/agentic-engineering/SKILL.md: 7fdddcb9aa7ce9b1
   .agents/skills/agentic-engineering/references/alignment.md: 7c4406a3ff2b30e6
   .agents/skills/agentic-engineering/references/batch-plan-template.md: 67aa63944d698c68
   .agents/skills/agentic-engineering/references/closure-report-contract.md: b44220b007bf0631
-  .agents/skills/agentic-engineering/references/closure.md: e27fbb4a951dabe7
+  .agents/skills/agentic-engineering/references/closure.md: b90cde456a19f0c1
   .agents/skills/agentic-engineering/references/compounding.md: c644f0774ddc342f
   .agents/skills/agentic-engineering/references/effort-setup.md: 216cc9b5b460c79b
-  .agents/skills/agentic-engineering/references/implementation.md: d32068082d120076
-  .agents/skills/agentic-engineering/references/planning.md: 3be07af63694f4ae
+  .agents/skills/agentic-engineering/references/implementation.md: a06a28243bba6186
+  .agents/skills/agentic-engineering/references/planning.md: 09e883a24261b90d
   .agents/skills/agentic-engineering/references/quality-gates.md: 78ecf29c4b62d5e4
   .agents/skills/agentic-engineering/references/reconciliation.md: 4e3707f37c965252
   .agents/skills/agentic-engineering/references/spec-template.md: 8da172c4ecf7bfbb
@@ -67,15 +67,15 @@ written:
   .agents/skills/rhizome/references/views.md: 26fb7388f96eefbc
   .claude/settings.json#rhizome-sandbox: a17fcf0a2f50e2d4
   .claude/skills/action-items/SKILL.md: 856cfedcb182b863
-  .claude/skills/agentic-engineering/SKILL.md: 0707e6a1f7978718
+  .claude/skills/agentic-engineering/SKILL.md: 7fdddcb9aa7ce9b1
   .claude/skills/agentic-engineering/references/alignment.md: 7c4406a3ff2b30e6
   .claude/skills/agentic-engineering/references/batch-plan-template.md: 67aa63944d698c68
   .claude/skills/agentic-engineering/references/closure-report-contract.md: b44220b007bf0631
-  .claude/skills/agentic-engineering/references/closure.md: e27fbb4a951dabe7
+  .claude/skills/agentic-engineering/references/closure.md: b90cde456a19f0c1
   .claude/skills/agentic-engineering/references/compounding.md: c644f0774ddc342f
   .claude/skills/agentic-engineering/references/effort-setup.md: 216cc9b5b460c79b
-  .claude/skills/agentic-engineering/references/implementation.md: d32068082d120076
-  .claude/skills/agentic-engineering/references/planning.md: 3be07af63694f4ae
+  .claude/skills/agentic-engineering/references/implementation.md: a06a28243bba6186
+  .claude/skills/agentic-engineering/references/planning.md: 09e883a24261b90d
   .claude/skills/agentic-engineering/references/quality-gates.md: 78ecf29c4b62d5e4
   .claude/skills/agentic-engineering/references/reconciliation.md: 4e3707f37c965252
   .claude/skills/agentic-engineering/references/spec-template.md: 8da172c4ecf7bfbb
@@ -227,7 +227,7 @@ written:
   .rhizome/modules/core/ontology/core.graphql: 157ef7679ea0bec5
   .rhizome/modules/core/recipes/core.yaml: b827188339002edb
   AGENTS.md#action-items: b9dee797a18a3bff
-  AGENTS.md#agentic-engineering: 493cb2d06b9dad9f
+  AGENTS.md#agentic-engineering: 18739197b40cdf1b
   AGENTS.md#compounding: 3128aee8be9d37c6
   AGENTS.md#core: 7700941d8ff06922
   AGENTS.md#rhizome: 3b48c48059476248
