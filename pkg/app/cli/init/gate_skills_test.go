@@ -106,7 +106,7 @@ func TestGateSkillsArePortableAndBounded(t *testing.T) {
 		"`git merge-base HEAD \"$(git symbolic-ref --short refs/remotes/origin/HEAD)\"`",
 		"A merge base that equals `HEAD` while the phase has commits", "plus uncommitted changes",
 		"the working tree is the whole phase", "Untracked files that the phase did not create",
-		"`git status --short -uall`", "`no commits`", "root commit",
+		"`git status --short -uall`", "`no commits`", "`git hash-object -t tree /dev/null`", "name\n  the commit the phase started from",
 		"one revertible change per finding", "commit policy", "degraded: no fresh-context reviewer",
 	} {
 		require.Contains(t, review, want)

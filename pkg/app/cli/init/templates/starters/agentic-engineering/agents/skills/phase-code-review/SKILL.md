@@ -86,26 +86,29 @@ Take the base from the first of these that applies:
 
 1. A prior phase-review outcome's `reviewed-up-to` SHA, when it is still an
    ancestor of `HEAD`.
-2. For an adopted effort's first review, the adoption commit.
+2. For an adopted effort's first review, the adoption commit, when it is still an
+   ancestor of `HEAD`.
 3. For any other first review, the parent of the first implementation commit,
-   derived from durable plan-approval timing and repository history.
+   derived from durable plan-approval timing and repository history. When that
+   commit is the root commit, the base is the empty tree, `git hash-object -t tree /dev/null`.
 4. When no implementation commit exists because the phase is uncommitted, `HEAD`:
    the working tree is the whole phase. In a repository with no commits at all,
    the whole working tree is the range and the outcome line records `no commits`
-   in place of a SHA; the review after that starts from the root commit.
+   in place of a SHA; the review after that starts from the empty tree and
+   leaves out what the earlier outcome covered.
 5. Otherwise, as after a rebase or squash that removed the recorded SHA, the merge
    base with the default branch:
    `git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD)"`.
    When that command fails, ask the user for the default branch name and use the
-   merge base with it. Ask for a branch name, never for a commit, and never
-   invent a range. Say in the outcome line that the base is a merge base.
+   merge base with it. Ask for a branch name first, and never invent a range. Say in the outcome line that the base is a merge base.
 
 Then fix the end of the range:
 
 - A merge base that equals `HEAD` while the phase has commits proves nothing, as
   when committed work sits on the default branch itself, whatever the working
-  tree holds. Hold the phase and say why. Never record SKIPPED from a merge base
-  that equals `HEAD`.
+  tree holds. Hold the phase, say why, and offer the user the two ways out: name
+  the commit the phase started from, or force-past. Never record SKIPPED from a
+  merge base that equals `HEAD`.
 - The range ends at the working tree, not at `HEAD`, whenever the phase or a fix
   from this review is uncommitted: review `git diff <base>` plus the untracked
   files `git status --short -uall` lists, say so in the reviewer's brief, and write
