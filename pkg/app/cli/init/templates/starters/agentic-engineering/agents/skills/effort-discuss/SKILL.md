@@ -48,8 +48,10 @@ This gate applies when `docs/engineering/review-and-approval.md` lists `effort-d
   current frozen scope — and after the approved research output lands when Run
   was chosen — and before planning. When the policy does not list
   `effort-research`, the assessment follows scope freeze directly.
-- An explicit first invocation of this skill counts as choosing Discuss; do not
-  ask a redundant Discuss/Skip confirmation.
+- An explicit first invocation of this skill by the user counts as choosing
+  Discuss; do not ask a redundant Discuss/Skip confirmation. An entry from the
+  planning entry check is not the user's choice and always presents the
+  assessment.
 - If the effort has an active pass, explicit invocation resumes it. If the
   latest pass is completed, confirm the user wants to reopen before creating
   another pass, and record the reopen choice and its reason as a `[decision]`;
