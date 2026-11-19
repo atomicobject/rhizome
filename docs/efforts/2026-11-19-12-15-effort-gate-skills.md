@@ -295,4 +295,4 @@ For a human to check, as the gate skill requires: twenty review fixes changed sh
 
 ## Status
 
-Complete on `feature/port-research-review-skills`. The pull request number is added here once it exists.
+Complete on `feature/port-research-review-skills`. Pull request: [#160](https://github.com/atomicobject/rhizome/pull/160).
