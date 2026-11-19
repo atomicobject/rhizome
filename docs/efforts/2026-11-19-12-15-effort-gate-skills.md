@@ -246,10 +246,14 @@ Nothing yet.
 - 2026-11-19T20:22:28Z [learning] `TestAOKBLegacySiteData` fails under Node 23.6 because Node's type-stripping warning is mixed into the JSON it parses; it passes under the pinned Node 22. The worktree's `mise.toml` was not trusted, so the first runs used the shell's Node 23 and had no `golangci-lint`; `mise trust`, `mise install`, and `npm ci` in `web/` fixed that.
 - 2026-11-19T20:35:57Z [validation] phase-code-review: Batch 2 NOT PASSED after 3 iterations (run exhausted); blockers by iteration 1, 2, 1, each a different defect; 4 blockers found, 3 fixed, 1 standing (adoption misjudges an effort created while a freshly installed policy document was still uncommitted, so a first phase review can record SKIPPED and research and discussion can be skipped without the user's choice); 9 warnings found, 7 fixed, 2 standing (routing scenarios S16 and S17 expect gates this repository's policy does not list and this effort would adopt; `effort-research` and `plan-check` lack the "user may still ask" exception); 3 INFO standing. Ten fix commits `89c5e2dc`..`7fbfd338`; reviewed-up-to 7fbfd338. Tests named in plan tasks 2.1 and 2.7 live in `gate_skills_test.go` rather than the files the plan named.
 - 2026-11-19T20:35:57Z [decision] requires-human-verification: the ten review fixes change shipped skill logic (uncommitted review range; adoption commit selection, date, shallow clones, one line per gate; merge base equal to `HEAD`; entry checks keyed on reviewed changes; base for an uncommitted first phase; discussion continuing into planning; who counts as invoking Discuss). The governing copy of the skill requires the user's sign-off before the next phase.
+- 2026-11-19T20:38:10Z [decision] Gary Turovsky signed off on the ten review fixes `89c5e2dc`..`7fbfd338` marked requires-human-verification.
+- 2026-11-19T20:38:10Z [decision] On the exhausted review run Gary chose "Fix by file history": an effort adopts a gate only if its note already existed in the commit before the gate was listed. Applied in `0d30f57d`, with the two standing warnings and two suggestions in `e29bb120`, `bce4d4d0`, and `e5dd1c26`; a new review run follows. requires-human-verification: `0d30f57d`, `e29bb120`, `e5dd1c26`.
 
 ## Deviations
 
-None.
+- Adoption is decided by file history, not by `created-at` as plan task 2.5 and plan decision "adoption keyed on `created-at`" said: an effort adopts only when its note existed in the parent of the commit that listed the gate. Authority: Gary Turovsky's choice after the Batch 2 phase review, recorded in Execution Notes.
+- Each gate records its own adoption line, so an effort older than four gates carries four lines where SPEC-0038 US13-AC5 says "one adoption `[decision]`". Gates can be listed in different commits, so one line per gate is what the rule needs. Same authority; AC5's wording is reconciled at closure.
+- The new tests live in `pkg/app/cli/init/gate_skills_test.go`, not in `helper_templates_test.go` and `file_plan_test.go` as plan tasks 2.1 and 2.7 named.
 
 ## Closure Checklist
 
@@ -265,4 +269,4 @@ None.
 
 ## Status
 
-Active. Batch 2's phase review used its three iterations with one blocker standing. Waiting on the user's choice of fix, force-past, or hold, and on sign-off of the review fixes. Batch 3 has not started.
+Active. Batch 2's first review run ended with one blocker; the user chose the fix and a second review run is under way. Batch 3 has not started.
