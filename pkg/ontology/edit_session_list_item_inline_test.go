@@ -79,6 +79,12 @@ func TestEditSession_ListItemInlinePropertyStaysUnderItem(t *testing.T) {
 			value:    "done",
 		},
 		{
+			name:     "column-0 property from the old writer is not copied",
+			source:   "- **Simpler core** #radar\n  state:: Open.\nupdated:: 2026-11-13\n- **Next** #radar\n",
+			expected: "- **Simpler core** #radar\n  state:: Open.\nupdated:: 2026-11-13\n  triage:: done\n- **Next** #radar\n",
+			value:    "done",
+		},
+		{
 			name:     "trailing spaces at end of file stay on the item line",
 			source:   "- **Simpler core** #radar  ",
 			expected: "- **Simpler core** #radar  \n  triage:: done\n",

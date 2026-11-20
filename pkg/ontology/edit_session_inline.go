@@ -70,8 +70,8 @@ func inlineFieldRemovalRange(content string, span InlineFieldSpan) ByteRange {
 
 // listItemInlineInsert finds where a new inline property goes on a list or checkbox item:
 // on its own line after the item's last line before any child item or any paragraph that a
-// blank line has moved out of the item, indented like the item's last property line, or to
-// the item's content column when it has none.
+// blank line has moved out of the item, indented like the item's last property line that
+// reaches its content column, or to that column when it has none.
 func listItemInlineInsert(content string, span *MarkdownSourceSpan) (int, string, bool) {
 	if span.Shape != ontoschema.EmbeddedSourceShapeListItem && span.Shape != ontoschema.EmbeddedSourceShapeCheckboxItem {
 		return 0, "", false
@@ -108,7 +108,7 @@ func listItemInlineInsert(content string, span *MarkdownSourceSpan) (int, string
 		default:
 			afterBlank = false
 			insertAt = next
-			if fields := scanInlineFieldsInListSegment(trimmed, 0); lineStart > start && len(fields) > 0 && fields[0].KeyRange.Start == 0 {
+			if fields := scanInlineFieldsInListSegment(trimmed, 0); lineStart > start && lead >= column && len(fields) > 0 && fields[0].KeyRange.Start == 0 {
 				indent = line[:lead]
 			}
 		}
