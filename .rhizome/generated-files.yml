@@ -31,14 +31,14 @@ written:
   .agents/skills/custom-views/references/kit-api.md: 8d62f9621602b57b
   .agents/skills/custom-views/references/module-example.md: 0bcc51feb1c7416c
   .agents/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
-  .agents/skills/effort-discuss/SKILL.md: 8482eb5d6766b7f4
-  .agents/skills/effort-research/SKILL.md: 6f9f967925b87544
+  .agents/skills/effort-discuss/SKILL.md: 9cc6450b7555b273
+  .agents/skills/effort-research/SKILL.md: b2e80ab9e34268f1
   .agents/skills/foundation-review/SKILL.md: 3d3ba60505404dd1
   .agents/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
   .agents/skills/legacy-codebase-assessor/SKILL.md: b67d39b8d24aaa99
   .agents/skills/legacy-codebase-assessor/references/findings-template.md: b730dddb3034b614
-  .agents/skills/phase-code-review/SKILL.md: 20898e54d0fd902f
-  .agents/skills/plan-check/SKILL.md: e6870bbb47b01908
+  .agents/skills/phase-code-review/SKILL.md: d875f5a053f294d0
+  .agents/skills/plan-check/SKILL.md: a10dde26362c17fe
   .agents/skills/rhizome/SKILL.md: f3de086ed01c787c
   .agents/skills/rhizome/references/automation.md: f559078a80cb986c
   .agents/skills/rhizome/references/code-mode.md: dbaf97cd8845d9d5
@@ -95,14 +95,14 @@ written:
   .claude/skills/custom-views/references/kit-api.md: 8d62f9621602b57b
   .claude/skills/custom-views/references/module-example.md: 0bcc51feb1c7416c
   .claude/skills/custom-views/references/mounted-example.md: 83539fcb248d5f19
-  .claude/skills/effort-discuss/SKILL.md: 8482eb5d6766b7f4
-  .claude/skills/effort-research/SKILL.md: 6f9f967925b87544
+  .claude/skills/effort-discuss/SKILL.md: 9cc6450b7555b273
+  .claude/skills/effort-research/SKILL.md: b2e80ab9e34268f1
   .claude/skills/foundation-review/SKILL.md: 3d3ba60505404dd1
   .claude/skills/ingest-transcript/SKILL.md: 28e752c8a5e70176
   .claude/skills/legacy-codebase-assessor/SKILL.md: b67d39b8d24aaa99
   .claude/skills/legacy-codebase-assessor/references/findings-template.md: b730dddb3034b614
-  .claude/skills/phase-code-review/SKILL.md: 20898e54d0fd902f
-  .claude/skills/plan-check/SKILL.md: e6870bbb47b01908
+  .claude/skills/phase-code-review/SKILL.md: d875f5a053f294d0
+  .claude/skills/plan-check/SKILL.md: a10dde26362c17fe
   .claude/skills/rhizome/SKILL.md: f3de086ed01c787c
   .claude/skills/rhizome/references/automation.md: f559078a80cb986c
   .claude/skills/rhizome/references/code-mode.md: dbaf97cd8845d9d5

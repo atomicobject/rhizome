@@ -44,12 +44,13 @@ This gate applies when the Gates table in `docs/engineering/review-and-approval.
 
 ## Where this gate sits
 
-- After the `[decision]` of every gate the Gates table lists before this one at
-  the pre-planning point is recorded for the current frozen scope — and after
-  that gate's approved output lands when it ran — and before planning. When the
-  table lists no earlier gate, the assessment follows scope freeze directly. An
-  adoption line for an earlier gate counts as its decision and is treated as a
-  Skip. When an earlier listed gate has no decision yet, run that gate first.
+- After every gate the Gates table lists before this one at the pre-planning
+  point has a completed outcome for the current frozen scope, in whatever form
+  that gate's own skill records one, and before planning. When the table lists
+  no earlier gate, the assessment follows scope freeze directly. An adoption
+  line for an earlier gate counts as its outcome and is treated as a Skip. When
+  an earlier listed gate has no completed outcome yet, run or resume that gate
+  first.
 - A discussion decision covers the current frozen scope while `Execution Notes`
   records no refreeze or scope deviation after it; after one, this gate applies
   again.

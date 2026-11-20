@@ -30,7 +30,9 @@ This gate applies when the Gates table in `docs/engineering/review-and-approval.
 - Read every changed file and the relevant callers/callees. Passing tests and
   compilation are not proof of correctness.
 - No phase builds on unreviewed code. A review records the commit it covered, and
-  the next review begins at that exact anchor.
+  the next review begins at that exact anchor. An outcome that left blockers
+  standing covers nothing: the gate stays open for that phase until a later run
+  ends with zero blockers or the user force-pasts.
 
 ## Review dimensions
 
@@ -84,8 +86,12 @@ Range reviewed: <base>..<head> (<count> files)
 
 Take the base from the first of these that applies:
 
-1. A prior phase-review outcome's `reviewed-up-to` SHA, when it is still an
-   ancestor of `HEAD`.
+1. The `reviewed-up-to` SHA of the latest phase-review outcome that settled its
+   range, when it is still an ancestor of `HEAD`. An outcome settles its range
+   when it ended with zero blockers, was SKIPPED, or is followed by a
+   `force-past` line. An outcome that left blockers standing does not move the
+   base: the next review starts where that one started, so a held phase is
+   reviewed again and never recorded SKIPPED.
 2. For an adopted effort's first review, the adoption commit that this gate's own
    adoption line names, when it is still an ancestor of `HEAD`. When it is not,
    rule 5 applies.

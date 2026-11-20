@@ -86,9 +86,12 @@ response bodies, or copied web prose.
 7. Immediately append one UTC `[decision]` line:
    - `Research run: user-approved; output in Plan > Technical context and Assumptions Log.`
    - or `Research skipped: <reason> (user-approved).`
-   A Skip is complete after this write. A decision covers the current frozen
-   scope while `Execution Notes` records no refreeze or scope deviation after it;
-   after one, this gate applies again.
+   A Skip is complete after this write. A Run is complete only when the
+   `Research complete` line of step 13 follows it: a Run with no such line is
+   unfinished, so resume from step 8 without asking Run or Skip again. A
+   completed decision covers the current frozen scope while `Execution Notes`
+   records no refreeze or scope deviation after it; after one, this gate applies
+   again.
 8. For Run, derive at least one bounded question per frozen story: what must be true
    in the repository or ecosystem for that story to be implementable as frozen?
 9. Investigate each question in authority order. Cover the full frozen story set,
@@ -102,6 +105,9 @@ response bodies, or copied web prose.
     blocked state; degraded semantic/vector recall may continue, but affected
     negative claims are capped at MEDIUM confidence and the confidence line names
     the recall gap.
+13. Append one UTC `[validation]` line: `Research complete: output in Plan >
+    Technical context and Assumptions Log.` Until this line exists the Run is
+    unfinished.
 
 ## Required effort-note output
 

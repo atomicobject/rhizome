@@ -117,19 +117,21 @@ func TestGateSkillsArePortableAndBounded(t *testing.T) {
 		"`git merge-base HEAD \"$(git symbolic-ref --short refs/remotes/origin/HEAD)\"`",
 		"A merge base that equals `HEAD` while the phase has commits", "plus uncommitted changes",
 		"the working tree is the whole phase", "Untracked files that the phase did not create",
-		"`git status --short -uall`", "`no commits`", "`git hash-object -t tree /dev/null`", "name the commit the phase started from", "this gate's own", "never sets a review base",
+		"`git status --short -uall`", "`no commits`", "`git hash-object -t tree /dev/null`", "name the commit the phase started from", "this gate's own", "never sets a review base", "left blockers standing does not move the",
 		"quality-gate re-run",
 		"one revertible change per finding", "commit policy", "degraded: no fresh-context reviewer",
 	} {
 		require.Contains(t, review, want)
 	}
 	check := skillBodyFromTemplates(t, templateAgenticEngineering, "plan-check")
-	for _, want := range []string{"degraded: no fresh-context reviewer", "`plan <hash>`", "a line with no hash covers none", "carried forward to plan"} {
+	for _, want := range []string{"degraded: no fresh-context reviewer", "`plan <hash>`", "a line with no hash covers none", "stopped with blockers standing covers none", "carried forward to plan"} {
 		require.Contains(t, check, want)
 	}
 	for _, name := range []string{"effort-research", "effort-discuss"} {
 		require.Contains(t, skillBodyFromTemplates(t, templateAgenticEngineering, name), "records no refreeze or scope deviation after it")
 	}
+	require.Contains(t, skillBodyFromTemplates(t, templateAgenticEngineering, "effort-research"), "a Run with no such line is")
+	require.Contains(t, skillBodyFromTemplates(t, templateAgenticEngineering, "effort-discuss"), "has a completed outcome for the current frozen scope")
 }
 
 func TestGateSkillsAreTurnedOnByLocalPolicy(t *testing.T) {
