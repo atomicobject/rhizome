@@ -13,7 +13,7 @@ project-specific scope, commands, and note structure.
 
 ## When this gate applies
 
-This gate applies when `docs/engineering/review-and-approval.md` lists `effort-research`, or when the user asks for it. When the policy does not list it and the user has not asked, do nothing and say nothing about it. A listed gate is part of the approved work, not a new approval of the plan.
+This gate applies when the Gates table in `docs/engineering/review-and-approval.md` has a row naming `effort-research`, or when the user asks for it. A mention of the skill elsewhere in that document does not turn it on. When the table has no such row and the user has not asked, do nothing and say nothing about it. A listed gate is part of the approved work, not a new approval of the plan.
 
 **Adoption.** An effort frozen before the gate was listed does not go back through it. Repository history cannot say reliably which efforts those are, so do not infer it from dates or commits. These adoption rules apply only when the gate was entered because the policy lists it; when the user asked for the gate, run it and record no adoption. When the effort already has an approved plan and no research decision, it predates the gate: append one `[decision]` line to `Execution Notes` naming this gate as adopted and the current `HEAD` as the adoption commit, then continue; research does not apply to it. When the effort has no approved plan, present the assessment as usual and offer a third answer beside Run and Skip, `This effort predates the gate`, which records the same adoption line and lets planning continue. Record the adoption line once per effort.
 
@@ -86,7 +86,9 @@ response bodies, or copied web prose.
 7. Immediately append one UTC `[decision]` line:
    - `Research run: user-approved; output in Plan > Technical context and Assumptions Log.`
    - or `Research skipped: <reason> (user-approved).`
-   A Skip is complete after this write.
+   A Skip is complete after this write. A decision covers the current frozen
+   scope while `Execution Notes` records no refreeze or scope deviation after it;
+   after one, this gate applies again.
 8. For Run, derive at least one bounded question per frozen story: what must be true
    in the repository or ecosystem for that story to be implementable as frozen?
 9. Investigate each question in authority order. Cover the full frozen story set,

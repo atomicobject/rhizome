@@ -39,6 +39,7 @@ Out of scope: changing the portal repository; model runs of the routing evaluati
 - [x] [[init-starter-workflow#^SPEC-0038-US13-AC8|AC8]]: merge-base fallback, commit policy, degraded-review note.
 - [x] [[init-starter-workflow#^SPEC-0038-US13-AC9|AC9]]: neighbor boundaries in descriptions.
 - [x] [[init-starter-workflow#^SPEC-0038-US13-AC10|AC10]]: only the policy table names a gate outside its own folder (added after closure, see Deviations).
+- [x] [[init-starter-workflow#^SPEC-0038-US13-AC11|AC11]]: a plan-check outcome names the plan it covers; research and discussion decisions lapse on a refreeze (added after closure, see Deviations).
 
 ## Plan
 
@@ -273,6 +274,7 @@ For a human to check, as the gate skill requires: twenty review fixes changed sh
 - 2026-11-19T21:14:27Z [validation] Closure: alignment checked criterion by criterion against the evidence in Actual Delivered; no `force-past` line, no open discussion pass, and every `requires-human-verification` line has a recorded sign-off.
 - 2026-11-19T22:25:15Z [decision] After closure and before merge, Gary Turovsky asked on pull request 160 that the router, managed block, and phase references stop naming gate skills. Approved scope change: SPEC-0038 US13 gains AC10, and the policy document's Gates table becomes the only registry. `TestOnlyThePolicyTemplateAndAGateItselfNameAGate` fails if a name returns.
 - 2026-11-19T23:05:00Z [validation] Model runs on the generic wording (`1528df46` templates). Routing evals, self-reported, Claude Fable and GPT Astra: S16–S19 rewritten so the prompt states only the effort's state; both models chose the right gate in all four, as they did against the named wording at `049977fb`. Against scratch repositories both models ran no gate when the policy has no Gates table, ran `plan-check` then a made-up `license-audit` gate when the table listed it, and reported a listed but uninstalled skill as a setup gap. Nine headless Claude sessions given ordinary prompts in scratch repositories all behaved as the table said: research asked before drafting, a `plan-check` line before the approval request, a phase review line before the next batch, no gate with no table, only the removed gate skipped, the custom gate run, the missing skill reported. One run per case, so this shows the wording works, not how often. Two of the three no-table sessions said that no gate ran, where the skills ask for silence; the fixture's history showed the table being removed.
+- 2026-11-20T00:20:00Z [decision] A fresh reviewer read the whole pull request diff at `300da562`, including the seven commits no reviewer had read: 0 blockers, 3 warnings, 8 nits. Gary Turovsky asked for all of them to be fixed here. Fixed: phase review takes its base only from its own adoption line (AC5 reworded); the policy, guide, and AC10 state the four points the Gates table is read at; `plan-check` outcomes end with `plan <hash>` and an unapproved plan that no longer matches is checked again, and research and discussion decisions lapse on a refreeze (new AC11); a gate names another gate only in its description; the skills key on a table row, not a mention; the two rare range cases and the two meanings of "gate" in phase review; the overstated doc sentences; the line-wrap pin and two guards that could not fail; a test that an upgraded repository keeps its own policy document. These fixes were not re-reviewed and the reworded skills were not run against a model again.
 
 ## Deviations
 
@@ -280,6 +282,7 @@ For a human to check, as the gate skill requires: twenty review fixes changed sh
 - Each gate records its own adoption line, so an effort older than four gates carries four lines where SPEC-0038 US13-AC5 says "one adoption `[decision]`". Gates can be listed in different commits, so one line per gate is what the rule needs. Same authority; AC5's wording is reconciled at closure.
 - The new tests live in `pkg/app/cli/init/gate_skills_test.go`, not in `helper_templates_test.go` and `file_plan_test.go` as plan tasks 2.1 and 2.7 named.
 - Added after closure, on the open pull request: gate skills are no longer named in the router, the managed block, or the phase references (AC10). The references run whatever the Gates table lists for the point reached. This change had no plan-check or phase review of its own.
+- Added after closure, from the pull request review: `plan-check` records a plan hash and reruns when an unapproved plan no longer matches it, and research and discussion decisions stop covering the scope after a refreeze (AC11). A team's own gate runs only at the four points the table is read at.
 
 ## Closure Checklist
 

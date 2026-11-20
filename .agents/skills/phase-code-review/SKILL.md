@@ -13,9 +13,9 @@ instructions, the approved effort plan, and the frozen scope remain authoritativ
 
 ## When this gate applies
 
-This gate applies when `docs/engineering/review-and-approval.md` lists `phase-code-review`, or when the user asks for it. When the policy does not list it and the user has not asked, do nothing and say nothing about it. A listed gate is part of the approved work, not a new approval of the plan.
+This gate applies when the Gates table in `docs/engineering/review-and-approval.md` has a row naming `phase-code-review`, or when the user asks for it. A mention of the skill elsewhere in that document does not turn it on. When the table has no such row and the user has not asked, do nothing and say nothing about it. A listed gate is part of the approved work, not a new approval of the plan.
 
-**Adoption.** An effort that was already being implemented when the gate was listed does not have its finished phases reviewed after the fact. Repository history cannot say reliably which efforts those are, so do not infer it from dates or commits: ask. When phases before the one just finished were completed and the effort has no `phase-code-review` line of any kind, ask the user once whether to review from the first implementation commit or to adopt the gate from the phase just finished. On adopt, append one `[decision]` line to `Execution Notes` naming this gate as adopted and the adoption commit, which is the commit that ended the previous phase as its recorded batch exit names it, or the commit the user names when none is recorded; the first review starts from that adoption commit. Record the adoption line once per effort.
+**Adoption.** An effort that was already being implemented when the gate was listed does not have its finished phases reviewed after the fact. Repository history cannot say reliably which efforts those are, so do not infer it from dates or commits: ask. When phases before the one just finished were completed and the effort has no `phase-code-review` line of any kind, ask the user once whether to review from the first implementation commit or to adopt the gate from the phase just finished. On adopt, append one `[decision]` line to `Execution Notes` naming this gate as adopted and the adoption commit, which is the commit that ended the previous phase as its recorded batch exit names it, or the commit the user names when none is recorded; the first review starts from that adoption commit. An adoption line that another gate recorded names a different commit and never sets a review base. Record the adoption line once per effort.
 
 **Where output goes.** A Markdown effort keeps the `[validation]` and `[decision]` lines in `Execution Notes`. A workspace effort keeps the `[validation]` and `[decision]` lines in the `Execution Notes` section of its Markdown work log; the plan and its ticked tasks are in the linked plan document. Retrieval returns a workspace plan by path only, so a reader opens the linked plan document. Timestamps are UTC to the second, from `date -u +"%Y-%m-%dT%H:%M:%SZ"` when the line is written.
 
@@ -86,16 +86,18 @@ Take the base from the first of these that applies:
 
 1. A prior phase-review outcome's `reviewed-up-to` SHA, when it is still an
    ancestor of `HEAD`.
-2. For an adopted effort's first review, the adoption commit, when it is still an
-   ancestor of `HEAD`.
-3. For any other first review, the parent of the first implementation commit,
+2. For an adopted effort's first review, the adoption commit that this gate's own
+   adoption line names, when it is still an ancestor of `HEAD`. When it is not,
+   rule 5 applies.
+3. For the first review of an effort that did not adopt this gate, the parent of
+   the first implementation commit,
    derived from durable plan-approval timing and repository history. When that
    commit is the root commit, the base is the empty tree, `git hash-object -t tree /dev/null`.
 4. When no implementation commit exists because the phase is uncommitted, `HEAD`:
    the working tree is the whole phase. In a repository with no commits at all,
    the whole working tree is the range and the outcome line records `no commits`
-   in place of a SHA; the review after that starts from the empty tree and
-   leaves out what the earlier outcome covered.
+   in place of a SHA; the review after that starts from the empty tree, covers
+   the earlier phase again, and says so in its outcome line.
 5. Otherwise, as after a rebase or squash that removed the recorded SHA, the merge
    base with the default branch:
    `git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD)"`.
@@ -106,14 +108,14 @@ Then fix the end of the range:
 
 - A merge base that equals `HEAD` while the phase has commits proves nothing, as
   when committed work sits on the default branch itself, whatever the working
-  tree holds. Hold the phase, say why, and offer the user the two ways out: name
-  the commit the phase started from, or force-past. Never record SKIPPED from a
+  tree holds. Hold the phase, say why, and offer the user the two ways out:
+  name the commit the phase started from, or force-past. Never record SKIPPED from a
   merge base that equals `HEAD`.
 - The range ends at the working tree, not at `HEAD`, whenever the phase or a fix
   from this review is uncommitted: review `git diff <base>` plus the untracked
   files `git status --short -uall` lists, say so in the reviewer's brief, and write
   `reviewed-up-to <HEAD> plus uncommitted changes` in the outcome line. The
-  empty-diff check, every re-review, and the gate re-run use that same range.
+  empty-diff check, every re-review, and the quality-gate re-run use that same range.
 - Untracked files that the phase did not create, such as install output that was
   never committed, are not part of the range. Leave them out of the changed-file
   list and say in the outcome line that they were left out.
@@ -168,9 +170,10 @@ Then fix the end of the range:
    blocker introduced by the previous iteration's own fix is progress, not a stall. On exhaustion/stall, let the user choose a
    different fix, force-past, or hold the phase. User-routed re-entry starts a new
    three-iteration run.
-8. Re-run the phase's gate set on the final reviewed state, committed or not,
-   before recording the outcome. The fixes from this review land after the phase's
-   own gate run, so otherwise nothing gates them.
+8. Re-run the quality gates that `docs/engineering/quality-gates.md` gives for the
+   paths the phase changed, on the final reviewed state, committed or not, before
+   recording the outcome. The fixes from this review land after the phase's own
+   quality-gate run, so otherwise nothing checks them.
 9. Append exactly one UTC `[validation]` Execution Note for the run, including
    the phase it covers, verdict, iterations, blockers found/fixed, degraded-review notes, and
    `reviewed-up-to <final-head>`. When fixes were left uncommitted, say so after

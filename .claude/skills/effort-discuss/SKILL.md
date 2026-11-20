@@ -15,7 +15,7 @@ project-specific scope, commands, and note structure.
 
 ## When this gate applies
 
-This gate applies when `docs/engineering/review-and-approval.md` lists `effort-discuss`, or when the user asks for it. When the policy does not list it and the user has not asked, do nothing and say nothing about it. A listed gate is part of the approved work, not a new approval of the plan.
+This gate applies when the Gates table in `docs/engineering/review-and-approval.md` has a row naming `effort-discuss`, or when the user asks for it. A mention of the skill elsewhere in that document does not turn it on. When the table has no such row and the user has not asked, do nothing and say nothing about it. A listed gate is part of the approved work, not a new approval of the plan.
 
 **Adoption.** An effort frozen before the gate was listed does not go back through it. Repository history cannot say reliably which efforts those are, so do not infer it from dates or commits. These adoption rules apply only when the gate was entered because the policy lists it; when the user asked for the gate, run it and record no adoption. When the effort already has an approved plan and no discussion decision, it predates the gate: append one `[decision]` line to `Execution Notes` naming this gate as adopted and the current `HEAD` as the adoption commit, then continue; discussion does not apply to it. When the effort has no approved plan, present the assessment as usual and offer a third answer beside Discuss and Skip, `This effort predates the gate`, which records the same adoption line and lets planning continue. Record the adoption line once per effort.
 
@@ -44,11 +44,15 @@ This gate applies when `docs/engineering/review-and-approval.md` lists `effort-d
 
 ## Where this gate sits
 
-- After the effort's research Run-or-Skip `[decision]` is recorded for the
-  current frozen scope — and after the approved research output lands when Run
-  was chosen — and before planning. When the policy does not list
-  `effort-research`, the assessment follows scope freeze directly. An adoption
-  line for `effort-research` counts as its decision and is treated as a Skip.
+- After the `[decision]` of every gate the Gates table lists before this one at
+  the pre-planning point is recorded for the current frozen scope — and after
+  that gate's approved output lands when it ran — and before planning. When the
+  table lists no earlier gate, the assessment follows scope freeze directly. An
+  adoption line for an earlier gate counts as its decision and is treated as a
+  Skip. When an earlier listed gate has no decision yet, run that gate first.
+- A discussion decision covers the current frozen scope while `Execution Notes`
+  records no refreeze or scope deviation after it; after one, this gate applies
+  again.
 - An explicit first invocation of this skill by the user counts as choosing
   Discuss; do not ask a redundant Discuss/Skip confirmation. An entry from the
   planning entry check is not the user's choice and always presents the
@@ -270,8 +274,8 @@ material stays in its provenance-bearing note and is linked from here:
 
 - Use `agentic-engineering specify` while desired behavior is still moving;
   discussion assumes frozen scope.
-- Use `effort-research` for provenance-bearing fact gathering; discussion
-  consumes its output and never replaces it.
+- Use the research gate, when the policy lists one, for provenance-bearing fact
+  gathering; discussion consumes its output and never replaces it.
 - Use `foundation-review` when an approved plan asks for a review of formative
   schema, API, or ownership decisions before later phases build on them.
 - Use `agentic-engineering plan` after the pass completes; discussion never

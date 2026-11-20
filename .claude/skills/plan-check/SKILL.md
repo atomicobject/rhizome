@@ -12,11 +12,13 @@ effort's frozen scope and local repository instructions remain authoritative.
 
 ## When this gate applies
 
-This gate applies when `docs/engineering/review-and-approval.md` lists `plan-check`, or when the user asks for it. When the policy does not list it and the user has not asked, do nothing and say nothing about it. A listed gate is part of the approved work, not a new approval of the plan.
+This gate applies when the Gates table in `docs/engineering/review-and-approval.md` has a row naming `plan-check`, or when the user asks for it. A mention of the skill elsewhere in that document does not turn it on. When the table has no such row and the user has not asked, do nothing and say nothing about it. A listed gate is part of the approved work, not a new approval of the plan.
 
 **Adoption.** A plan approved before the gate was listed is not re-checked, and repository history cannot say reliably when that was, so do not infer it from dates or commits. These adoption rules apply only when the gate was entered because the policy lists it; when the user asked for the gate, run it and record no adoption. A plan that is drafted or structurally revised and not yet approved is always checked, whenever it was started and whatever adoption line the effort carries. Otherwise, when the current plan revision is approved and the effort has no `plan-check` line, append one `[decision]` line to `Execution Notes` naming this gate as adopted and the current `HEAD` as the adoption commit, and stop. Record the adoption line once per effort.
 
 **Where output goes.** A Markdown effort keeps the `[validation]` and `[decision]` lines in `Execution Notes`; the plan it checks is the `Plan` section. A workspace effort keeps the `[validation]` and `[decision]` lines in the `Execution Notes` section of its Markdown work log; the plan it checks, with any research and discussion output, is the linked plan document. Retrieval returns a workspace plan by path only, so a reader opens the linked plan document. Timestamps are UTC to the second, from `date -u +"%Y-%m-%dT%H:%M:%SZ"` when the line is written.
+
+**Which plan an outcome covers.** Every `[validation]` outcome line ends with `plan <hash>`: the first 12 characters of the checked plan's content hash, taken after the run's last plan edit. For a Markdown effort that is `awk '/^## Plan$/{f=1;next} /^## /{f=0} f' <effort note> | git hash-object --stdin`; for a workspace effort it is `git hash-object <linked plan document>`. An outcome covers a plan that is not yet approved only when its hash equals the current one, and a line with no hash covers none: when they differ the plan changed after the check, in this session or an earlier one, and the gate runs again. The one exception is an edit this conversation made itself that changes no task, file, verification, or scope, such as a typo: append `plan-check: carried forward to plan <new hash> — <what changed>` as a `[validation]` line instead of re-running.
 
 ## Invariants
 
@@ -102,7 +104,7 @@ PLAN CHECK — ISSUES FOUND — <effort>, iteration <n>
    or abandon the plan. A later user-routed re-entry starts a new three-iteration
    run.
 6. Append exactly one UTC `[validation]` Execution Note for the run, recording
-   verdict, iteration count, and blockers found/fixed. Mention outstanding warnings
+   verdict, iteration count, blockers found/fixed, and `plan <hash>`. Mention outstanding warnings
    in that line when the user approves over them. Then re-inspect the effort note
    with the repository's normal validation scope; only findings the plan edits
    introduced belong to this run.
@@ -115,10 +117,10 @@ PLAN CHECK — ISSUES FOUND — <effort>, iteration <n>
 Example routine outcome:
 
 ```markdown
-- 2026-06-02T15:30:00Z [validation] plan-check: PASS after 2 iterations; 2 blockers found and fixed (traceability gap, vacuous verification), 1 warning fixed.
+- 2026-06-02T15:30:00Z [validation] plan-check: PASS after 2 iterations; 2 blockers found and fixed (traceability gap, vacuous verification), 1 warning fixed; plan 3f9a1c0b7d2e.
 ```
 
 Use `agentic-engineering plan` to draft or structurally revise the plan,
 `foundation-review` when an approved plan asks for a review of formative
-decisions, and `phase-code-review` for an implemented diff. This skill never
+decisions, and a phase review for an implemented diff. This skill never
 reviews code or edits the plan from reviewer context.

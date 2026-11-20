@@ -86,7 +86,17 @@ func TestGateSkillsArePortableAndBounded(t *testing.T) {
 		for _, want := range []string{"**Adoption.**", "do not infer it from dates or commits", "adoption commit", "workspace", "linked plan document"} {
 			require.Containsf(t, body, want, "%s lacks %q", name, want)
 		}
-		require.NotContainsf(t, body, "git log -S", "%s must not infer adoption from history", name)
+		// A gate names another gate only in its description, so a team can swap one out.
+		for _, line := range strings.Split(body, "\n") {
+			if strings.HasPrefix(line, "description: ") {
+				continue
+			}
+			for _, other := range gateSkillNames {
+				if other != name {
+					require.NotContainsf(t, line, other, "%s depends on the gate %s outside its description", name, other)
+				}
+			}
+		}
 
 		rendered := string(requireSkillTemplateFile(t, requireSkillTemplate(t, withDomain, name), "SKILL.md").Content)
 		require.Equalf(t, body, rendered, "%s must render unchanged when complex-domain is installed", name)
@@ -100,26 +110,32 @@ func TestGateSkillsArePortableAndBounded(t *testing.T) {
 	for _, name := range []string{"effort-research", "effort-discuss", "plan-check"} {
 		require.Contains(t, skillBodyFromTemplates(t, templateAgenticEngineering, name), "when the user asked for the gate, run it and record no adoption")
 	}
-	// One expected phrase spans a line break; a Windows checkout has CRLF there.
-	review := strings.ReplaceAll(skillBodyFromTemplates(t, templateAgenticEngineering, "phase-code-review"), "\r\n", "\n")
+	review := skillBodyFromTemplates(t, templateAgenticEngineering, "phase-code-review")
 	require.Contains(t, review, "ask the user once")
 	for _, want := range []string{
 		"adoption commit", "requires-human-verification",
 		"`git merge-base HEAD \"$(git symbolic-ref --short refs/remotes/origin/HEAD)\"`",
 		"A merge base that equals `HEAD` while the phase has commits", "plus uncommitted changes",
 		"the working tree is the whole phase", "Untracked files that the phase did not create",
-		"`git status --short -uall`", "`no commits`", "`git hash-object -t tree /dev/null`", "name\n  the commit the phase started from",
+		"`git status --short -uall`", "`no commits`", "`git hash-object -t tree /dev/null`", "name the commit the phase started from", "this gate's own", "never sets a review base",
+		"quality-gate re-run",
 		"one revertible change per finding", "commit policy", "degraded: no fresh-context reviewer",
 	} {
 		require.Contains(t, review, want)
 	}
-	require.NotContains(t, review, "sign-off before the phase proceeds")
-	require.Contains(t, skillBodyFromTemplates(t, templateAgenticEngineering, "plan-check"), "degraded: no fresh-context reviewer")
+	check := skillBodyFromTemplates(t, templateAgenticEngineering, "plan-check")
+	for _, want := range []string{"degraded: no fresh-context reviewer", "`plan <hash>`", "a line with no hash covers none", "carried forward to plan"} {
+		require.Contains(t, check, want)
+	}
+	for _, name := range []string{"effort-research", "effort-discuss"} {
+		require.Contains(t, skillBodyFromTemplates(t, templateAgenticEngineering, name), "records no refreeze or scope deviation after it")
+	}
 }
 
 func TestGateSkillsAreTurnedOnByLocalPolicy(t *testing.T) {
 	policy := starterTemplateText(t, "repo", "docs", "engineering", "review-and-approval.md")
 	require.Contains(t, policy, "## Gates")
+	require.Contains(t, policy, "reads this table at four points")
 	require.NotContains(t, policy, "It is not a standing rule after every phase.")
 
 	router := skillBodyFromTemplates(t, templateAgenticEngineering, "agentic-engineering")
@@ -170,6 +186,16 @@ func TestOnlyThePolicyTemplateAndAGateItselfNameAGate(t *testing.T) {
 		}
 		return nil
 	}))
+}
+
+// An upgraded repository keeps the review policy its team wrote, so no gate turns
+// on until the team adds the Gates table.
+func TestSyncKeepsATeamReviewPolicyThatListsNoGates(t *testing.T) {
+	const mine = "# Review and approval\n\nOur own policy, with no gates.\n"
+	root := t.TempDir()
+	writeTestFile(t, root, gatePolicyDoc, mine)
+	syncForTest(t, root, []string{templateCore, templateAgenticEngineering}, nil)
+	require.Equal(t, mine, readTestFile(t, root, gatePolicyDoc))
 }
 
 // A team may already have its own skill under one of the gate names. Init asks
