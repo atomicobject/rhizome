@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 )
@@ -29,7 +30,7 @@ func unsetInlineField(snapshot *DocumentSnapshot, projection *NodeProjection, fi
 	content := snapshot.Content
 	for index := len(binding.InlineSpans) - 1; index >= 0; index-- {
 		span := binding.InlineSpans[index]
-		rangeToRemove := inlineFieldEditRange(snapshot.Content, span)
+		rangeToRemove := inlineFieldRemovalRange(snapshot.Content, span)
 		if !rangeToRemove.Valid(len(content)) {
 			return "", fmt.Errorf("%w: invalid inline field range for %s", errCollectionDrift, field.Name)
 		}
@@ -48,6 +49,74 @@ func inlineFieldEditRange(content string, span InlineFieldSpan) ByteRange {
 		return whole
 	}
 	return line
+}
+
+// inlineFieldRemovalRange widens a removal to the whole line, newline included, when the
+// property is alone on an indented line, so removing it leaves no blank line behind.
+func inlineFieldRemovalRange(content string, span InlineFieldSpan) ByteRange {
+	r := inlineFieldEditRange(content, span)
+	if !r.Valid(len(content)) || (r.End > 0 && content[r.End-1] == '\n') {
+		return r
+	}
+	start := strings.LastIndexByte(content[:r.Start], '\n') + 1
+	end := len(content)
+	if nl := strings.IndexByte(content[r.End:], '\n'); nl >= 0 {
+		end = r.End + nl + 1
+	}
+	if strings.TrimSpace(content[start:r.Start]) != "" || strings.TrimSpace(content[r.End:end]) != "" {
+		return r
+	}
+	return ByteRange{Start: start, End: end}
+}
+
+// listItemInlineInsert finds where a new inline property goes on a list or checkbox item:
+// on its own line after the item's last line before any child item or any paragraph that a
+// blank line has moved out of the item, indented like the item's last property line that
+// reaches its content column without becoming indented code, or to that column otherwise.
+func listItemInlineInsert(content string, span *MarkdownSourceSpan) (int, string, bool) {
+	if span.Shape != ontoschema.EmbeddedSourceShapeListItem && span.Shape != ontoschema.EmbeddedSourceShapeCheckboxItem {
+		return 0, "", false
+	}
+	start, end := span.Range.Start, span.Range.End
+	if len(span.OwnContentRanges) > 0 {
+		end = span.OwnContentRanges[0].End
+	}
+	contentStart := span.ContentRange.Start
+	if span.Checkbox != nil {
+		contentStart = span.Checkbox.TokenRange.Start
+	}
+	if !(ByteRange{Start: start, End: end}).Valid(len(content)) || contentStart < start || contentStart > end {
+		return 0, "", false
+	}
+	column := contentStart - start
+	itemLine := content[start:end]
+	itemLead := len(itemLine) - len(strings.TrimLeft(itemLine, " \t"))
+	indent := itemLine[:min(itemLead, column)] + strings.Repeat(" ", max(column-itemLead, 0))
+	insertAt, afterBlank := end, false
+	protected := markdownsyntax.CodeMask(content[start:end])
+	for lineStart := start; lineStart < end; {
+		lineEnd, next := end, end
+		if nl := strings.IndexByte(content[lineStart:end], '\n'); nl >= 0 {
+			lineEnd, next = lineStart+nl, lineStart+nl+1
+		}
+		line := strings.TrimRight(content[lineStart:lineEnd], "\r")
+		trimmed := strings.TrimSpace(line)
+		lead := len(line) - len(strings.TrimLeft(line, " \t"))
+		switch {
+		case trimmed == "":
+			afterBlank = true
+		case lineStart > start && afterBlank && lead < column:
+			return insertAt, indent, true
+		default:
+			afterBlank = false
+			insertAt = next
+			if fields := scanInlineFieldsInListSegment(trimmed, 0); lineStart > start && lead >= column && lead < column+4 && !protected(lineStart-start+lead) && len(fields) > 0 && fields[0].KeyRange.Start == 0 {
+				indent = line[:lead]
+			}
+		}
+		lineStart = next
+	}
+	return insertAt, indent, true
 }
 
 func inlineFieldReplacementPrefix(content string, span InlineFieldSpan) string {

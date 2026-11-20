@@ -93,8 +93,8 @@ title: Sync
 	require.NoError(t, err)
 	require.Len(t, plan.Files, 1)
 	updated := plan.Files[0].UpdatedContentPreview
-	require.Contains(t, updated, "- [x] Update docs today #action-item assignee:: Alice\ndue:: 2026-05-12")
-	require.Contains(t, updated, "- [ ] Buy snacks #action-item\nassignee:: Bob")
+	require.Contains(t, updated, "- [x] Update docs today #action-item assignee:: Alice\n  due:: 2026-05-12")
+	require.Contains(t, updated, "- [ ] Buy snacks #action-item\n  assignee:: Bob")
 }
 
 func TestEditSession_BatchValidatesTypedValuesAndHonorsUnset(t *testing.T) {

@@ -320,11 +320,16 @@ func inlineFieldEdits(snapshot *DocumentSnapshot, projection *NodeProjection, fi
 		}
 		edits = append(edits, contentEdit{r: editRange, replacement: replacement})
 		for i := 1; i < len(binding.InlineSpans); i++ {
-			edits = append(edits, contentEdit{r: inlineFieldEditRange(snapshot.Content, binding.InlineSpans[i])})
+			edits = append(edits, contentEdit{r: inlineFieldRemovalRange(snapshot.Content, binding.InlineSpans[i])})
 		}
 		return edits, nil
 	}
-	insertAt := inlineInsertOffset(snapshot, projection)
+	insertAt, indent := inlineInsertOffset(snapshot, projection), ""
+	if span := snapshot.SourceSpansByID[projection.Ref.NodeID]; projection.Ref.Kind == NodeKindEmbedded && span != nil {
+		if at, itemIndent, ok := listItemInlineInsert(snapshot.Content, span); ok {
+			insertAt, indent = at, itemIndent
+		}
+	}
 	if insertAt < 0 || insertAt > len(snapshot.Content) {
 		return nil, fmt.Errorf("%w: invalid inline insert offset for %s", errUnsupportedTarget, field.Name)
 	}
@@ -332,5 +337,5 @@ func inlineFieldEdits(snapshot *DocumentSnapshot, projection *NodeProjection, fi
 	if insertAt > 0 && snapshot.Content[insertAt-1] != '\n' {
 		prefix = documentEOL(snapshot.Content)
 	}
-	return []contentEdit{{r: ByteRange{Start: insertAt, End: insertAt}, replacement: prefix + lineText + documentEOL(snapshot.Content)}}, nil
+	return []contentEdit{{r: ByteRange{Start: insertAt, End: insertAt}, replacement: prefix + indent + lineText + documentEOL(snapshot.Content)}}, nil
 }
