@@ -67,6 +67,24 @@ func TestEditSession_ListItemInlinePropertyStaysUnderItem(t *testing.T) {
 			value:    "done",
 		},
 		{
+			name:     "add before a paragraph that ends the list",
+			source:   "- **Simpler core** #radar\n  state:: Open.\n\nClosing prose.\n",
+			expected: "- **Simpler core** #radar\n  state:: Open.\n  triage:: done\n\nClosing prose.\n",
+			value:    "done",
+		},
+		{
+			name:     "indent follows property lines, not prose",
+			source:   "- **Simpler core** #radar\n  state:: Open.\n    wrapped prose\n- **Next** #radar\n",
+			expected: "- **Simpler core** #radar\n  state:: Open.\n    wrapped prose\n  triage:: done\n- **Next** #radar\n",
+			value:    "done",
+		},
+		{
+			name:     "trailing spaces at end of file stay on the item line",
+			source:   "- **Simpler core** #radar  ",
+			expected: "- **Simpler core** #radar  \n  triage:: done\n",
+			value:    "done",
+		},
+		{
 			name:     "replace keeps indentation",
 			source:   "- **Simpler core** #radar\n  triage:: keep\n  updated:: 2026-11-13\n- **SalesBridge** #radar\n",
 			expected: "- **Simpler core** #radar\n  triage:: done\n  updated:: 2026-11-13\n- **SalesBridge** #radar\n",

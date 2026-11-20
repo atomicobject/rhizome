@@ -69,8 +69,9 @@ func inlineFieldRemovalRange(content string, span InlineFieldSpan) ByteRange {
 }
 
 // listItemInlineInsert finds where a new inline property goes on a list or checkbox item:
-// on its own line after the item's last non-blank line before any child item, indented like
-// the item's existing continuation lines, or to the item's content column when it has none.
+// on its own line after the item's last line before any child item or any paragraph that a
+// blank line has moved out of the item, indented like the item's last property line, or to
+// the item's content column when it has none.
 func listItemInlineInsert(content string, span *MarkdownSourceSpan) (int, string, bool) {
 	if span.Shape != ontoschema.EmbeddedSourceShapeListItem && span.Shape != ontoschema.EmbeddedSourceShapeCheckboxItem {
 		return 0, "", false
@@ -86,18 +87,32 @@ func listItemInlineInsert(content string, span *MarkdownSourceSpan) (int, string
 	if !(ByteRange{Start: start, End: end}).Valid(len(content)) || contentStart < start || contentStart > end {
 		return 0, "", false
 	}
-	own := strings.TrimRight(content[start:end], " \t\r\n")
-	insertAt := start + len(own)
-	if nl := strings.IndexByte(content[insertAt:end], '\n'); nl >= 0 {
-		insertAt += nl + 1
-	}
-	itemLead := len(own) - len(strings.TrimLeft(own, " \t"))
-	indent := own[:itemLead] + strings.Repeat(" ", contentStart-start-itemLead)
-	if lines := strings.Split(own, "\n"); len(lines) > 1 {
-		last := strings.TrimRight(lines[len(lines)-1], "\r")
-		if lead := len(last) - len(strings.TrimLeft(last, " \t")); lead > itemLead {
-			indent = last[:lead]
+	column := contentStart - start
+	itemLine := content[start:end]
+	itemLead := len(itemLine) - len(strings.TrimLeft(itemLine, " \t"))
+	indent := itemLine[:min(itemLead, column)] + strings.Repeat(" ", max(column-itemLead, 0))
+	insertAt, afterBlank := end, false
+	for lineStart := start; lineStart < end; {
+		lineEnd, next := end, end
+		if nl := strings.IndexByte(content[lineStart:end], '\n'); nl >= 0 {
+			lineEnd, next = lineStart+nl, lineStart+nl+1
 		}
+		line := strings.TrimRight(content[lineStart:lineEnd], "\r")
+		trimmed := strings.TrimSpace(line)
+		lead := len(line) - len(strings.TrimLeft(line, " \t"))
+		switch {
+		case trimmed == "":
+			afterBlank = true
+		case lineStart > start && afterBlank && lead < column:
+			return insertAt, indent, true
+		default:
+			afterBlank = false
+			insertAt = next
+			if fields := scanInlineFieldsInListSegment(trimmed, 0); lineStart > start && len(fields) > 0 && fields[0].KeyRange.Start == 0 {
+				indent = line[:lead]
+			}
+		}
+		lineStart = next
 	}
 	return insertAt, indent, true
 }
