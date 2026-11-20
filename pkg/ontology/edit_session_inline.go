@@ -29,7 +29,7 @@ func unsetInlineField(snapshot *DocumentSnapshot, projection *NodeProjection, fi
 	content := snapshot.Content
 	for index := len(binding.InlineSpans) - 1; index >= 0; index-- {
 		span := binding.InlineSpans[index]
-		rangeToRemove := inlineFieldEditRange(snapshot.Content, span)
+		rangeToRemove := inlineFieldRemovalRange(snapshot.Content, span)
 		if !rangeToRemove.Valid(len(content)) {
 			return "", fmt.Errorf("%w: invalid inline field range for %s", errCollectionDrift, field.Name)
 		}
@@ -48,6 +48,58 @@ func inlineFieldEditRange(content string, span InlineFieldSpan) ByteRange {
 		return whole
 	}
 	return line
+}
+
+// inlineFieldRemovalRange widens a removal to the whole line, newline included, when the
+// property is alone on an indented line, so removing it leaves no blank line behind.
+func inlineFieldRemovalRange(content string, span InlineFieldSpan) ByteRange {
+	r := inlineFieldEditRange(content, span)
+	if !r.Valid(len(content)) || (r.End > 0 && content[r.End-1] == '\n') {
+		return r
+	}
+	start := strings.LastIndexByte(content[:r.Start], '\n') + 1
+	end := len(content)
+	if nl := strings.IndexByte(content[r.End:], '\n'); nl >= 0 {
+		end = r.End + nl + 1
+	}
+	if strings.TrimSpace(content[start:r.Start]) != "" || strings.TrimSpace(content[r.End:end]) != "" {
+		return r
+	}
+	return ByteRange{Start: start, End: end}
+}
+
+// listItemInlineInsert finds where a new inline property goes on a list or checkbox item:
+// on its own line after the item's last non-blank line before any child item, indented like
+// the item's existing continuation lines, or to the item's content column when it has none.
+func listItemInlineInsert(content string, span *MarkdownSourceSpan) (int, string, bool) {
+	if span.Shape != ontoschema.EmbeddedSourceShapeListItem && span.Shape != ontoschema.EmbeddedSourceShapeCheckboxItem {
+		return 0, "", false
+	}
+	start, end := span.Range.Start, span.Range.End
+	if len(span.OwnContentRanges) > 0 {
+		end = span.OwnContentRanges[0].End
+	}
+	contentStart := span.ContentRange.Start
+	if span.Checkbox != nil {
+		contentStart = span.Checkbox.TokenRange.Start
+	}
+	if !(ByteRange{Start: start, End: end}).Valid(len(content)) || contentStart < start || contentStart > end {
+		return 0, "", false
+	}
+	own := strings.TrimRight(content[start:end], " \t\r\n")
+	insertAt := start + len(own)
+	if nl := strings.IndexByte(content[insertAt:end], '\n'); nl >= 0 {
+		insertAt += nl + 1
+	}
+	itemLead := len(own) - len(strings.TrimLeft(own, " \t"))
+	indent := own[:itemLead] + strings.Repeat(" ", contentStart-start-itemLead)
+	if lines := strings.Split(own, "\n"); len(lines) > 1 {
+		last := strings.TrimRight(lines[len(lines)-1], "\r")
+		if lead := len(last) - len(strings.TrimLeft(last, " \t")); lead > itemLead {
+			indent = last[:lead]
+		}
+	}
+	return insertAt, indent, true
 }
 
 func inlineFieldReplacementPrefix(content string, span InlineFieldSpan) string {
