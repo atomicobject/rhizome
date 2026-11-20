@@ -3,7 +3,7 @@ type: TechnicalSpec
 summary: "Defines rzm init's template architecture: embedded source trees, lean managed guidance, consolidated core skills, managed fences, starter scaffold refresh, starter management state, dependency-aware ejection, the ownership record, and collision semantics."
 id: SPEC-0039
 spec-status: active
-last-updated: 2026-11-01
+last-updated: 2026-11-19
 aliases:
   - SPEC-0039
   - init-template-architecture
@@ -127,7 +127,7 @@ Init templates are embedded source artifacts compiled into the CLI. Runtime init
 
 - The canonical starter directory and metadata id MUST be `agentic-engineering`; legacy `spec-driven` input MUST normalize through an explicit migration before ordinary starter resolution.
 - Starter identity migration MUST include workflow selections, ejected state, dependency references, managed-starter fence ids, install inference, stale-key pruning, and byte-identical legacy-fence preservation for ejected starters.
-- The starter MUST own one lean `agentic-engineering` router whose phases are selected by argument and whose references are self-contained. Separate starter skills exist only for distinct workflows that are not router phases (`foundation-review`, `ingest-transcript`); skill bundles MUST NOT import files from sibling skills.
+- The starter MUST own one lean `agentic-engineering` router whose phases are selected by argument and whose references are self-contained. Separate starter skills exist only for distinct workflows that are not router phases: `foundation-review`, `ingest-transcript`, and the four effort gates of [[init-starter-workflow#^SPEC-0038-US13|SPEC-0038 US13]] (`effort-research`, `effort-discuss`, `plan-check`, `phase-code-review`); skill bundles MUST NOT import files from sibling skills.
 - The router and retained workflow skills MUST preserve stable overlay extension slots used by dependent starters, and all complex-domain overlays targeting retired skills MUST be retargeted or explicitly retired.
 - Core `rhizome` guidance MUST own universal retrieval, validation, safe mutation, documentation-binding, and structural-analysis mechanics; starter resources MUST compose with those routes rather than duplicate them.
 - Team-owned process extension docs MUST be plain Markdown under `docs/engineering/`, MUST be factored by recurring engineering concern rather than workflow phase, MUST remain create-only after installation, MUST exclude schema-enforced note mechanics, and MUST NOT be overwritten by a requested doc refresh when their on-disk content differs from every shipped fingerprint unless the user confirms that file.
@@ -225,7 +225,7 @@ The technical architecture should keep ambient context small while retaining pha
 
 - Skill ownership is explicit and mechanically closed. ^SPEC-0039-US5-AC1
   - `agentic-engineering` is a lean router whose references contain workflow state, specification, effort setup, planning, implementation, quality gates, alignment, reconciliation/backport, compounding, closure orchestration, and a separate closure report contract.
-  - Phases are router arguments; only `foundation-review` and `ingest-transcript` remain separate, thin workflow skills.
+  - Phases are router arguments. `foundation-review` and `ingest-transcript` remain separate, thin workflow skills; the four effort gates are separate skills that apply when the team's review policy lists them. The router, the route table in the managed block, and the phase references name no gate skill; the policy document's Gates table is the registry they read, at four points: before planning, before asking for plan approval, at the end of each implementation phase, and before closure. The managed block's generated Installed Skills list names every installed skill, gates included.
   - Workflow skills hand off by installed skill name and argument (`agentic-engineering specify`) and do not reference sibling skill paths; every installed skill bundle remains self-contained under the existing template closure checks.
   - The router's closure phase preserves the reviewed closure report contract and degraded sequential fallback through lazily loaded router resources rather than preloading every closure resource.
   - The router's references and retained workflow skills declare stable extension slots required by dependent starter overlays; overlay fragments may target a skill-relative Markdown file, and overlay targets, files, and slot ids are validated as a closed installed graph.

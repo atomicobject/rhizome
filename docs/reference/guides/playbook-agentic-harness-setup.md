@@ -113,7 +113,7 @@ Each team member runs `./bin/rzm agent current-user set "<Their Name>"` on their
 ls .agents/skills/
 ```
 
-Every enabled agent-skill surface should include the base `rhizome` skill. For `agentic-engineering` you should also see the `agentic-engineering` router plus `foundation-review` and `ingest-transcript`.
+Every enabled agent-skill surface should include the base `rhizome` skill. For `agentic-engineering` you should also see the `agentic-engineering` router plus `foundation-review`, `ingest-transcript`, and the four effort gates (`effort-research`, `effort-discuss`, `plan-check`, `phase-code-review`).
 
 Rhizome installs skills once for Cursor, Codex, and other compatible harnesses
 under the shared `.agents/skills/` surface. Claude also receives a mirrored

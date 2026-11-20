@@ -68,6 +68,10 @@ Then ask `agentic-engineering specify` to work from that material. A source note
 | --- | --- |
 | `rhizome` | Find relevant project context, query structured notes, validate documents, or safely move linked notes |
 | `foundation-review` | Review foundational choices when the implementation plan calls for that pause |
+| `effort-research` | Decide Run or Skip on bounded research after scope freezes, when the review policy lists the gate |
+| `effort-discuss` | Decide Discuss or Skip on open choices before planning, when the review policy lists the gate |
+| `plan-check` | Check a drafted plan with a fresh reviewer before asking for approval, when the review policy lists the gate |
+| `phase-code-review` | Review a finished implementation phase before the next begins, when the review policy lists the gate |
 | `action-items` | Capture, assign, find, or complete commitments in project Markdown |
 | `custom-views` | Build a project view or tool around the questions your team needs to answer |
 

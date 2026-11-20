@@ -22,7 +22,7 @@ Choose the phase, then start with its one reference; load another only when that
 | `compound` | Turn repeated friction into leverage | `references/compounding.md` |
 | `finish` | Close an effort | `references/closure.md`, then `references/closure-report-contract.md` for delegated passes |
 
-Separate skills exist only for distinct workflows: `foundation-review` for a plan-requested pause on formative decisions, and `ingest-transcript` for provenance-bearing source material.
+Separate skills exist only for distinct workflows: `foundation-review` for a plan-requested pause on formative decisions, `ingest-transcript` for provenance-bearing source material, and effort gates. A gate applies only when `docs/engineering/review-and-approval.md` lists it or the user asks for one; that document's Gates table names each gate's skill and the point it runs at, and this skill names none of them.
 
 ## Authority
 

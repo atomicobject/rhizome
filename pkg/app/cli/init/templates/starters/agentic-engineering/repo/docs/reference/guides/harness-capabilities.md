@@ -21,7 +21,7 @@ Agentic Engineering skills should name skills by skill name and let the active h
 
 ## Delegation capability
 
-Delegation is available only when the current session exposes a callable task or subagent tool. Use it for bounded work that benefits from independent execution or review. When it is unavailable or adds no value, run the work directly; absence alone needs no ceremony.
+Delegation is available only when the current session exposes a callable task or subagent tool. Use it for bounded work that benefits from independent execution or review. When it is unavailable or adds no value, run the work directly; absence alone needs no ceremony, except that a gate that uses a fresh-context reviewer says in its outcome line when it ran without one.
 
 Per-harness divergence should use starter skill overlays or installer surfaces. Do not add provider-specific placeholders to base skill bodies unless a concrete harness requires different behavior.
 

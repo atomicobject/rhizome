@@ -3,7 +3,7 @@ type: ProductSpec
 summary: "Defines the user-facing rzm init workflow: a one-screen first run, maintenance-first reruns, a five-section settings menu, single-pass credential onboarding with Voyage AI as the default, one ownership rule for generated files, ignored-subtree inclusion, agentic-engineering starter selection and migration, starter ejection, and adding or removing add-ons."
 id: SPEC-0038
 spec-status: active
-last-updated: 2026-11-01
+last-updated: 2026-11-19
 aliases:
   - SPEC-0038
   - init-starter-workflow
@@ -105,7 +105,7 @@ The starter is the Rhizome repository harness for Agentic Engineering. It should
   - Core skills install independently of workflow starter choice.
   - Starter skills are loaded only from the selected starter's `skills/` tree.
   - Any starter skill name that collides with a core or already selected starter skill fails the run before the colliding skill is installed.
-  - A lean `agentic-engineering` router owns shared workflow resources and takes the phase as its argument; only distinct workflows (`foundation-review`, `ingest-transcript`) remain separate skills, and no skill imports sibling files.
+  - A lean `agentic-engineering` router owns shared workflow resources and takes the phase as its argument; only distinct workflows (`foundation-review`, `ingest-transcript`, and the four gate skills of US13) remain separate skills, and no skill imports sibling files.
   - Development, review, debugging, and closure guidance loads only for the current phase; the closure path does not preload every shared resource.
 
 
@@ -324,6 +324,27 @@ Add-ons are starters installed alongside the workflow. A default add-on, such as
   - No other workflow, add-on, or ejection choice changes. A repository that predates recorded add-on state records its default add-ons as disabled first, so starting the list does not install them; the rerun suggestion to add them no longer appears.
 - The choice survives later reruns and settings edits, including choosing another workflow in settings, and `rzm init --check` passes right after the change. ^SPEC-0038-US12-AC3
 - The rerun summary has an Add-ons row naming every add-on the setup installs, so an add or remove shows in the change list. ^SPEC-0038-US12-AC4
+
+### US13 - Turn on research, discussion, plan-check, and phase-review gates through local policy
+- id:: ^SPEC-0038-US13
+- summary:: A team lists the effort gates it wants in its review policy, and the starter's four gate skills run at those points without becoming new approvals.
+- status:: ready
+
+A gate is a check an effort passes at a fixed point: `effort-research` and `effort-discuss` after scope freezes and before planning, `plan-check` after a plan is drafted and before approval is requested, and `phase-code-review` after each implementation phase. The starter installs the skills; the team's `docs/engineering/review-and-approval.md` decides which gates apply.
+
+#### Acceptance Criteria
+
+- The starter installs `effort-research`, `effort-discuss`, `plan-check`, and `phase-code-review` as separate skills that name no repository-specific file outside `docs/engineering/`. ^SPEC-0038-US13-AC1
+- A gate applies only when `docs/engineering/review-and-approval.md` lists it or the user asks for it; each skill's description and the router say so. New installations list all four, and an upgraded repository whose policy document does not list them behaves as before. ^SPEC-0038-US13-AC2
+- The planning, implementation, and closure references each check for a listed gate that has no recorded outcome for the current frozen scope, plan revision, or reviewed changes, and a recorded gate is not repeated. ^SPEC-0038-US13-AC3
+- A listed gate is part of the approved work, not renewed approval. A logic-error fix made during phase review is recorded as `requires-human-verification` and closure surfaces every such record, every `force-past`, and any unfinished discussion pass. ^SPEC-0038-US13-AC4
+- An effort frozen before a gate was listed records one adoption `[decision]` for each gate it adopts; research and discussion do not apply to it, and its first phase review starts from the commit that phase review's own adoption line names. The skills ask or read the effort's approved plan to decide this; they do not infer it from repository history. ^SPEC-0038-US13-AC5
+- Each gate names where its output goes for a Markdown effort and for a workspace effort, and writing that output adds no validation finding. ^SPEC-0038-US13-AC6
+- Init asks before replacing a team's own skill folder that has one of the four names, and can keep it. ^SPEC-0038-US13-AC7
+- Phase review falls back to the merge base with the default branch when its recorded commit is no longer an ancestor of `HEAD`, makes one revertible change per finding and commits it only where the repository's commit policy allows, and says in its outcome when it ran without a fresh-context reviewer. ^SPEC-0038-US13-AC8
+- Each gate's description names the neighboring workflow it is not: a formative-decision review goes to `foundation-review`, and a pull request review does not go to `phase-code-review`. ^SPEC-0038-US13-AC9
+- The Gates table in `docs/engineering/review-and-approval.md` is the only hand-written starter file outside a gate's own skill folder that names a gate skill, and a gate names another gate only in its description. The router, the managed block's route table, and the phase references run whatever the table lists at four points: before planning, before asking for plan approval, at the end of each implementation phase, and before closure. A team adds a gate of its own at one of those points with one skill and one table row. ^SPEC-0038-US13-AC10
+- A `plan-check` outcome records a hash of the plan it checked, and a plan that is not yet approved and no longer matches that hash is checked again; a research or discussion decision stops covering the scope once a refreeze or scope deviation is recorded after it. A check or review that stopped with blockers standing, or a research Run with no completion line, leaves its gate open. ^SPEC-0038-US13-AC11
 
 ## Requirements
 
