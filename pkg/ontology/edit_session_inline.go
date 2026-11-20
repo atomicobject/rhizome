@@ -2,6 +2,7 @@ package ontology
 
 import (
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/markdownsyntax"
 	ontoschema "github.com/atomicobject/rhizome/pkg/ontology/schema"
 	"strings"
 )
@@ -92,6 +93,7 @@ func listItemInlineInsert(content string, span *MarkdownSourceSpan) (int, string
 	itemLead := len(itemLine) - len(strings.TrimLeft(itemLine, " \t"))
 	indent := itemLine[:min(itemLead, column)] + strings.Repeat(" ", max(column-itemLead, 0))
 	insertAt, afterBlank := end, false
+	protected := markdownsyntax.CodeMask(content[start:end])
 	for lineStart := start; lineStart < end; {
 		lineEnd, next := end, end
 		if nl := strings.IndexByte(content[lineStart:end], '\n'); nl >= 0 {
@@ -108,7 +110,7 @@ func listItemInlineInsert(content string, span *MarkdownSourceSpan) (int, string
 		default:
 			afterBlank = false
 			insertAt = next
-			if fields := scanInlineFieldsInListSegment(trimmed, 0); lineStart > start && lead >= column && lead < column+4 && len(fields) > 0 && fields[0].KeyRange.Start == 0 {
+			if fields := scanInlineFieldsInListSegment(trimmed, 0); lineStart > start && lead >= column && lead < column+4 && !protected(lineStart-start+lead) && len(fields) > 0 && fields[0].KeyRange.Start == 0 {
 				indent = line[:lead]
 			}
 		}
