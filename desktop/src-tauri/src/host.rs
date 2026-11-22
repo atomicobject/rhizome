@@ -99,6 +99,9 @@ pub struct Host {
     wake: Notify,
     /// Quit Completely or exit began: ensure no runtime, hold no stream.
     closing: AtomicBool,
+    /// Held while the loop lists and opens runtimes, so letting go waits for
+    /// an open in flight rather than leaving the runtime it starts behind.
+    syncing: tokio::sync::Mutex<()>,
     notices: Mutex<Option<notices::Notified>>,
 }
 
@@ -243,8 +246,8 @@ impl Host {
         else {
             return SYNC;
         };
+        // The runtime may still run a task, so quitting can still drain it.
         held.stream = None;
-        held.api = None;
         held.status = None;
         held.problem = Some(problem);
         held.failures += 1;
@@ -294,6 +297,10 @@ pub fn start(app: AppHandle) {
 
 async fn sync(app: &AppHandle) {
     let host = app.state::<Host>();
+    let _syncing = host.syncing.lock().await;
+    if host.closing() {
+        return;
+    }
     let directory = app.state::<Desktop>().directory.clone();
     let Ok(library) = app.state::<Desktop>().library().await.map(|(_, l)| l) else {
         return;
@@ -367,6 +374,10 @@ fn attach(app: &AppHandle, key: &str, opened: pipeline::Opened) {
     held.api = Some(api.clone());
     held.headless = opened.mode == "headless";
     held.retry_at = None;
+    // Quitting lets this runtime go once the open finishes; hold nothing.
+    if host.closing() {
+        return;
+    }
     let (app, key, generation) = (app.clone(), key.to_string(), held.generation);
     held.stream = Some(tauri::async_runtime::spawn(async move {
         let problem = api
@@ -434,8 +445,10 @@ pub async fn stop_runs(app: &AppHandle) {
 /// their terminal.
 pub async fn release_all(app: &AppHandle) {
     let directory = app.state::<Desktop>().directory.clone();
-    let stops = app
-        .state::<Host>()
+    let host = app.state::<Host>();
+    host.closing.store(true, Ordering::SeqCst);
+    let _syncing = host.syncing.lock().await;
+    let stops = host
         .release()
         .into_iter()
         .filter(|held| held.headless)
@@ -461,7 +474,8 @@ pub async fn release_all(app: &AppHandle) {
 /// prevented and never asks. Within [`EXIT_BUDGET`] it drains each runtime
 /// still held and stops its active run, so the run is recorded as
 /// interrupted, then hands the runtime stops to companions that finish after
-/// the app has gone.
+/// the app has gone. It does not wait for an open the loop has in flight; a
+/// runtime that open starts idle-exits, since no stream holds it.
 pub fn terminate(app: &AppHandle) {
     let Some(host) = app.try_state::<Host>() else {
         return;

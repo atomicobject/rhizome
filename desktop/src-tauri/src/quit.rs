@@ -58,13 +58,16 @@ pub fn quit(app: &AppHandle) {
         return windows::stash(app);
     }
     let handle = app.clone();
-    app.dialog()
-        .message(
+    let mut dialog = app.dialog().message(
             "Rhizome keeps running in the menu bar so scheduled tasks run on time, and your windows come back when you open it again. To stop it, choose Quit Rhizome Completely from the Rhizome menu or the menu bar icon.",
         )
-        .title("Rhizome is still running")
-        .buttons(MessageDialogButtons::OkCustom("OK".into()))
-        .show(move |_| windows::stash(&handle));
+    .title("Rhizome is still running")
+    .buttons(MessageDialogButtons::OkCustom("OK".into()));
+    // A sheet on the window ⌘Q came from, so Return dismisses it.
+    if let Some(window) = windows::focused_window(app) {
+        dialog = dialog.parent(&window);
+    }
+    dialog.show(move |_| windows::stash(&handle));
 }
 
 #[derive(Debug, PartialEq)]
@@ -123,13 +126,17 @@ async fn ask(app: &AppHandle, running: &[(String, String)]) -> Choice {
             MessageDialogButtons::OkCancelCustom(STOP.into(), KEEP_WAITING.into()),
         ),
     };
-    app.dialog()
+    let mut dialog = app
+        .dialog()
         .message(message)
         .title("Quit Rhizome Completely")
-        .buttons(buttons)
-        .show_with_result(move |result| {
-            let _ = sent.send(result);
-        });
+        .buttons(buttons);
+    if let Some(window) = windows::focused_window(app) {
+        dialog = dialog.parent(&window);
+    }
+    dialog.show_with_result(move |result| {
+        let _ = sent.send(result);
+    });
     choice(chosen.await.unwrap_or_default(), waiting)
 }
 

@@ -26,7 +26,7 @@ pub struct Model {
     pub title: Option<String>,
 }
 
-const LONGEST: usize = 64;
+const LONGEST: usize = 80;
 
 fn short(text: &str) -> String {
     let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -77,6 +77,7 @@ pub fn model(
     }
     let mut attention = 0;
     let mut paused = false;
+    let connected = views.iter().any(|view| view.status.is_some());
     for view in views {
         if !model.entries.is_empty() {
             model.entries.push(Entry::Separator);
@@ -142,7 +143,7 @@ pub fn model(
             id: "tray:resume".into(),
             label: "Resume Tasks".into(),
         });
-    } else if !views.is_empty() {
+    } else if connected {
         model.entries.push(Entry::Submenu {
             label: "Pause Tasks".into(),
             items: vec![

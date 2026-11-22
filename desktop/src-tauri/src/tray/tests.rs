@@ -169,5 +169,7 @@ fn an_empty_or_failed_listing_and_a_pending_quit_are_shown() {
     let quitting = texts(&model(&[view("notes", None)], None, true, true, now()));
     assert!(quitting.contains(&"Quitting when the running task finishes".to_string()));
     let long = texts(&model(&[], Some(&"x".repeat(100)), true, false, now()));
-    assert_eq!(long[0].chars().count(), 65);
+    assert_eq!(long[0].chars().count(), 81);
+    // Nothing to pause until a runtime reports.
+    assert!(!quitting.iter().any(|t| t.starts_with("Pause")));
 }
