@@ -78,6 +78,8 @@ type attempt struct {
 	started time.Time
 	draft   bool
 	source  string
+	// missing is what a run that failed its requirements lacked.
+	missing []string
 }
 
 func (s *Service) newAttempt(draft bool) attempt {
@@ -94,7 +96,7 @@ func testSource(a attempt) string {
 }
 
 func (a attempt) record(task, outcome string, at time.Time) RunRecord {
-	return RunRecord{ID: a.id, Task: task, StartedAt: a.started, At: at, Outcome: outcome, Test: a.draft, SourceCheckout: testSource(a)}
+	return RunRecord{ID: a.id, Task: task, StartedAt: a.started, At: at, Outcome: outcome, Test: a.draft, SourceCheckout: testSource(a), Missing: a.missing}
 }
 
 // checkLog writes a check's stderr to its run folder, creating the file on

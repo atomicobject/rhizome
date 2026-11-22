@@ -118,6 +118,9 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 		if d.due.Now && ts.NextAt.IsZero() {
 			ts.NextAt = now
 		}
+		if blocked == "" && requirementsBlocked(ts.LastRun) {
+			blocked = BlockedRequires
+		}
 		ts.BlockedBy = blockedBy(report, blocked)
 		if it := st.ActiveTaskItem(def.ID); it != nil {
 			copy := *it

@@ -41,10 +41,15 @@ type SessionOptions struct {
 	DisallowedTools []string
 	PermissionMode  PermissionMode
 	MCPServers      []MCPServer
-	Model           string
-	Effort          string
-	Cwd             string
-	Resume          string
+	// UserMCPConfig loads the person's own MCP servers (user, project,
+	// plugin, and connector configuration) alongside MCPServers. Zero keeps
+	// Claude Code on a strict configuration holding only MCPServers. Codex
+	// app-server always loads the person's config.toml servers.
+	UserMCPConfig bool
+	Model         string
+	Effort        string
+	Cwd           string
+	Resume        string
 }
 
 type MCPServer struct {

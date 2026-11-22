@@ -73,6 +73,14 @@ type Check struct {
 	Script  string   `yaml:"script,omitempty"`
 }
 
+// Requires names what a task needs before its check or prompt runs:
+// commands on the login shell's PATH and MCP servers configured for the
+// person's harness.
+type Requires struct {
+	Commands []string `yaml:"commands,omitempty"`
+	MCP      []string `yaml:"mcp,omitempty"`
+}
+
 // Definition is one task file.
 type Definition struct {
 	ID          string `yaml:"-"`
@@ -87,6 +95,10 @@ type Definition struct {
 	Check    *Check   `yaml:"check,omitempty"`
 	Prompt   string   `yaml:"prompt,omitempty"`
 	Timeout  string   `yaml:"timeout,omitempty"`
+
+	// What the task needs and the tools it must not use (SPEC-0127 US11).
+	Requires Requires `yaml:"requires,omitempty"`
+	Deny     []string `yaml:"deny,omitempty"`
 
 	Cadence time.Duration `yaml:"-"`
 	Limit   time.Duration `yaml:"-"`
@@ -159,6 +171,9 @@ func ParseDefinition(filePath string, data []byte) (Definition, error) {
 	if def.Check == nil && strings.TrimSpace(def.Prompt) == "" {
 		return Definition{}, errors.New("a task needs a check, a prompt, or both")
 	}
+	if err := validateRequires(def); err != nil {
+		return Definition{}, err
+	}
 	def.Limit = defaultTimeout
 	if def.Timeout != "" {
 		var err error
@@ -167,6 +182,28 @@ func ParseDefinition(filePath string, data []byte) (Definition, error) {
 		}
 	}
 	return def, nil
+}
+
+func validateRequires(def Definition) error {
+	for _, name := range def.Requires.Commands {
+		if strings.TrimSpace(name) == "" || strings.ContainsAny(name, `/\`) {
+			return fmt.Errorf("requires.commands entry %q must be a command name, not empty or a path", name)
+		}
+	}
+	for _, list := range []struct {
+		key   string
+		names []string
+	}{{"requires.mcp", def.Requires.MCP}, {"deny", def.Deny}} {
+		for _, name := range list.names {
+			if strings.TrimSpace(name) == "" {
+				return fmt.Errorf("%s entries must not be empty", list.key)
+			}
+		}
+		if len(list.names) > 0 && strings.TrimSpace(def.Prompt) == "" {
+			return fmt.Errorf("%s applies to the prompt run, and this task has no prompt", list.key)
+		}
+	}
+	return nil
 }
 
 // ParseDuration accepts Go durations plus whole days (`7d`) and weeks (`2w`).

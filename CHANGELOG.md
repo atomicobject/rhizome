@@ -5,6 +5,7 @@
 - Scheduled tasks can run at set times: `schedule` takes times of day or an hourly window, on chosen days, in a zone, with a `late` window for missed slots, and handles daylight-saving changes. `every` keeps working.
 - Choose where scheduled tasks run: `rzm tasks machine on|off` turns them on for a repository on this machine (off by default), `rzm tasks hosts --json` lists those repositories, and `rzm tasks run-due --host` runs nothing elsewhere. Per-task harness, model, and effort and a default `tasks.timezone` live in your user configuration.
 - `rzm tasks status` explains why each task is not running, shows each task's next slot and zone, and reports a failed fetch. A pass with due work fetches the primary branch first and runs the nearest deadline first. `rzm tasks pause --for 1h` and `--until <time>` resume on their own, and runtime-started passes keep their output in `.rhizome/task-state/run-due.log`.
+- Scheduled tasks can declare `requires` (commands and MCP servers) and `deny` (tools the agent must not use). A missing requirement fails the run before its check or prompt spends anything, task runs load your own MCP servers in Claude Code and Codex, and `rzm tasks doctor` reports what each task needs on this machine.
 
 ## [v0.54.0] - 2026-11-20
 

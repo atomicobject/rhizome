@@ -78,6 +78,8 @@ type RunRecord struct {
 	Commit         string    `json:"commit,omitempty"`
 	Worktree       string    `json:"worktree,omitempty"`
 	Changed        []string  `json:"changed,omitempty"`
+	// Missing names the requirements a failed run lacked (SPEC-0127 US11).
+	Missing []string `json:"missing,omitempty"`
 }
 
 // State is one person's task state for one repository.

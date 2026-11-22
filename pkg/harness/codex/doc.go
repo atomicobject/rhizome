@@ -5,7 +5,9 @@
 //
 //	codex app-server generate-json-schema --out <dir>
 //
-// Auto permission mode was verified against 0.169.0.
+// Auto permission mode was verified against 0.169.0. Sessions loading the
+// person's config.toml MCP servers, and `codex mcp list --json`, were verified
+// against 0.171.0.
 // Permission modes map as follows: approval-required uses untrusted/read-only;
 // auto uses on-request/workspace-write with approvalsReviewer auto_review;
 // auto-accept-edits uses on-request/workspace-write, which also permits
