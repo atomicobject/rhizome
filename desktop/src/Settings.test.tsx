@@ -244,3 +244,30 @@ it("closes on Escape like Done", () => {
   fireEvent.keyDown(window, { key: "Escape" });
   expect(onClose).toHaveBeenCalledOnce();
 });
+
+it("keeps Rhizome in the menu bar by default and saves the menu bar settings", async () => {
+  call.mockImplementation(async (operation, args) => {
+    if (operation === "menu-bar-settings") return { keepInMenuBar: true, launchAtLogin: false };
+    if (operation === "set-menu-bar-settings")
+      return { keepInMenuBar: true, launchAtLogin: false, ...args };
+    return { enabled: false, always: false };
+  });
+  render(<Settings {...props()} />);
+  const keep = await screen.findByRole("checkbox", {
+    name: "Keep running in the menu bar when you quit",
+  });
+  await waitFor(() => expect(keep).toBeEnabled());
+  expect(keep).toBeChecked();
+  const login = screen.getByRole("checkbox", { name: "Launch at login, in the menu bar" });
+  expect(login).not.toBeChecked();
+  fireEvent.click(login);
+  await waitFor(() => expect(login).toBeChecked());
+  expect(call).toHaveBeenCalledWith("set-menu-bar-settings", { launchAtLogin: true });
+});
+
+it("has no menu bar settings off macOS", () => {
+  portableWindow();
+  render(<Settings {...props()} />);
+  expect(screen.queryByRole("heading", { name: "Menu bar" })).toBeNull();
+  expect(call).not.toHaveBeenCalledWith("menu-bar-settings", {});
+});

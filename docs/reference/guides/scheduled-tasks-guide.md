@@ -217,6 +217,8 @@ In Rhizome Desktop, the Dock icon's badge counts the task items that need you (d
 - **Open worktree** opens a ready or needs-attention item's worktree in a new window.
 - **Start** opens Terminal in the main checkout running `rzm tasks start <item>`. The first time, macOS asks to let Rhizome control Terminal.
 
+On a Mac, Rhizome Desktop hosts scheduled tasks from the menu bar for every repository with **Run tasks on this machine** on, with or without windows. ⌘Q (Quit Rhizome) closes the windows and keeps the menu bar icon; opening Rhizome again brings the windows back. The menu bar menu shows each repository's running and next task, the inbox count, and the last failure, and offers Run now, Pause Tasks, and Open Rhizome. **Quit Rhizome Completely** (⌥⌘Q, or in the menu bar menu) stops hosting: it asks whether to wait for or stop a running task first. Logging out, restarting, or quitting from the Dock stops a running task without asking. Settings > Menu bar turns off "Keep running in the menu bar", so ⌘Q quits completely, or turns on "Launch at login".
+
 ## Where state lives
 
 Everything personal stays in the main checkout's ignored `.rhizome/task-state/`, shared by every worktree of the repository: modes, run history, inbox items, the check checkout, background worktrees, data folders, and run folders. Folder names replace the slash in a module task's id with `_` (`data/compounding_sweep/`), which no id contains. A repository without a main checkout keeps it in Rhizome's per-user configuration folder.

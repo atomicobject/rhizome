@@ -24,8 +24,14 @@ tauri-plugin-notification = "2"
 sha2 = "0.10"
 fs2 = "0.4"
 semver = "1"
+# Loopback-only calls to a runtime's host API; already built for the updater.
+reqwest = { version = "0.13", default-features = false }
+# reqwest builds TLS settings for every client; the updater installs ring too.
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+tauri = { version = "2", features = ["unstable", "tray-icon", "image-png"] }
 flate2 = "1"
 tar = "0.4"
 plist = "1"

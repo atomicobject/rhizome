@@ -167,6 +167,7 @@ async fn open(app: &AppHandle, path: &Path) {
 /// Opens the worktree containing `path` in a new window, as Open worktree on
 /// the Tasks page does.
 pub async fn open_in_new_window(app: &AppHandle, path: &Path) {
+    windows::resume(app);
     match windows::create(app, fresh_session(app)) {
         Ok(window) => open_in(app, &window, path).await,
         Err(error) => eprintln!(
@@ -216,6 +217,7 @@ async fn open_in(app: &AppHandle, window: &Window, path: &Path) {
 }
 
 fn target_window(app: &AppHandle) -> Option<Window> {
+    windows::resume(app);
     let windows = app.windows();
     let open: Vec<String> = windows.keys().cloned().collect();
     if let Some(label) = app.state::<Focus>().target(&open) {

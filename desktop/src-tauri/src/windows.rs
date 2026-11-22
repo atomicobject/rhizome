@@ -1,3 +1,4 @@
+pub use crate::sessions::{number, Geometry, Launch, Sessions};
 use crate::{
     appearance,
     commands::Desktop,
@@ -9,15 +10,7 @@ use crate::{
     terminal::Focus,
 };
 use serde::Deserialize;
-use std::{
-    collections::BTreeMap,
-    path::PathBuf,
-    sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
-        Mutex,
-    },
-    time::Duration,
-};
+use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{
     webview::{NewWindowResponse, PageLoadEvent, WebviewBuilder},
     window::WindowBuilder,
@@ -43,152 +36,6 @@ pub fn content_label(window: &str) -> String {
     window.replacen("window-", "content-", 1)
 }
 
-/// Each open window's layout and selection, saved so a relaunch restores them.
-/// Quitting keeps every window; only closing a window removes it.
-pub struct Sessions {
-    directory: PathBuf,
-    windows: Mutex<BTreeMap<u64, WindowSession>>,
-    closed: Mutex<Option<WindowSession>>,
-    /// Held from snapshot to write, so a delayed save cannot replace a newer
-    /// snapshot, such as one written when a window closed.
-    writing: Mutex<()>,
-    quitting: AtomicBool,
-    dirty: AtomicBool,
-}
-
-pub fn number(window: &str) -> Option<u64> {
-    window.strip_prefix("window-")?.parse().ok()
-}
-
-impl Sessions {
-    pub fn new(directory: PathBuf) -> Self {
-        Self {
-            directory,
-            windows: Mutex::default(),
-            closed: Mutex::default(),
-            writing: Mutex::default(),
-            quitting: AtomicBool::new(false),
-            dirty: AtomicBool::new(false),
-        }
-    }
-
-    pub fn get(&self, window: &str) -> WindowSession {
-        number(window)
-            .and_then(|n| self.windows.lock().unwrap().get(&n).cloned())
-            .unwrap_or_default()
-    }
-
-    pub fn update(&self, app: &AppHandle, window: &str, f: impl FnOnce(&mut WindowSession)) {
-        if self.apply(window, f) {
-            self.schedule(app);
-        }
-    }
-
-    fn apply(&self, window: &str, f: impl FnOnce(&mut WindowSession)) -> bool {
-        let Some(n) = number(window) else {
-            return false;
-        };
-        f(self.windows.lock().unwrap().entry(n).or_default());
-        true
-    }
-
-    /// Forgets a closed window. The last one is kept, with its geometry, for
-    /// the next window opened without a saved layout.
-    pub fn close(&self, window: &str, geometry: Option<Geometry>) {
-        if self.quitting.load(Ordering::SeqCst) {
-            return;
-        }
-        let Some(n) = number(window) else {
-            return;
-        };
-        let mut windows = self.windows.lock().unwrap();
-        if let Some(mut saved) = windows.remove(&n) {
-            if windows.is_empty() {
-                if let Some(geometry) = geometry {
-                    geometry.apply(&mut saved);
-                }
-                *self.closed.lock().unwrap() = Some(saved);
-            }
-        }
-        drop(windows);
-        self.save();
-    }
-
-    /// The layout for a window opened when none remain.
-    pub fn last_closed(&self) -> WindowSession {
-        self.closed.lock().unwrap().clone().unwrap_or_default()
-    }
-
-    /// Saves every open window, with its current geometry, before exit.
-    pub fn quit(&self, geometry: impl IntoIterator<Item = (String, Geometry)>) {
-        self.quitting.store(true, Ordering::SeqCst);
-        for (window, geometry) in geometry {
-            self.apply(&window, |saved| geometry.apply(saved));
-        }
-        self.save();
-    }
-
-    pub fn cancel_quit(&self) {
-        self.quitting.store(false, Ordering::SeqCst);
-        self.save();
-    }
-
-    pub fn save(&self) {
-        let _writing = self.writing.lock().unwrap();
-        self.dirty.store(false, Ordering::SeqCst);
-        let windows = self.windows.lock().unwrap().values().cloned().collect();
-        let closed = self.closed.lock().unwrap().clone();
-        let _ = Session { windows, closed }.save(&self.directory);
-    }
-
-    fn schedule(&self, app: &AppHandle) {
-        if self.dirty.swap(true, Ordering::SeqCst) {
-            return;
-        }
-        let app = app.clone();
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(500)).await;
-            let sessions = app.state::<Sessions>();
-            if sessions.dirty.load(Ordering::SeqCst) && !sessions.quitting.load(Ordering::SeqCst) {
-                sessions.save();
-            }
-        });
-    }
-}
-
-/// A window's logical position and inner size.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Geometry {
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
-}
-
-impl Geometry {
-    fn read(window: &Window) -> Option<Self> {
-        if window.is_minimized().unwrap_or(false) {
-            return None;
-        }
-        let scale = window.scale_factor().ok()?;
-        let position = window.outer_position().ok()?.to_logical::<f64>(scale);
-        let size = window.inner_size().ok()?.to_logical::<f64>(scale);
-        Some(Self {
-            x: position.x,
-            y: position.y,
-            width: size.width,
-            height: size.height,
-        })
-    }
-
-    fn apply(self, saved: &mut WindowSession) {
-        saved.x = Some(self.x);
-        saved.y = Some(self.y);
-        saved.width = Some(self.width);
-        saved.height = Some(self.height);
-    }
-}
-
 fn record(app: &AppHandle, window: &Window) {
     if let Some(geometry) = Geometry::read(window) {
         app.state::<Sessions>()
@@ -198,25 +45,51 @@ fn record(app: &AppHandle, window: &Window) {
 
 /// Saves the session on quit, including windows that were never moved.
 pub fn quit(app: &AppHandle) {
-    let geometry: Vec<_> = app
-        .windows()
-        .values()
-        .filter_map(|w| Some((w.label().to_string(), Geometry::read(w)?)))
-        .collect();
-    app.state::<Sessions>().quit(geometry);
+    app.state::<Sessions>().quit(crate::sessions::geometry(app));
 }
 
-/// Restores the windows from the last session, or one new window.
-pub fn restore(app: &AppHandle, session: Session) -> tauri::Result<()> {
-    let mut windows = session.windows;
-    *app.state::<Sessions>().closed.lock().unwrap() = session.closed.clone();
-    if windows.is_empty() {
-        windows.push(session.closed.unwrap_or_default());
-    }
-    for window in windows {
+/// Opens the windows `launch` restores from the last session: all of them,
+/// or one new window, unless the launch keeps them for the next opener.
+pub fn restore(app: &AppHandle, session: Session, launch: Launch) -> tauri::Result<()> {
+    for window in app.state::<Sessions>().begin(session, launch) {
         create(app, window)?;
     }
     Ok(())
+}
+
+/// Quit Rhizome: saves every open window as the session to resume, then
+/// closes them. The menu bar host keeps running.
+#[cfg(target_os = "macos")]
+pub fn stash(app: &AppHandle) {
+    app.state::<Sessions>()
+        .stash(crate::sessions::geometry(app));
+    for window in app.windows().into_values() {
+        let _ = window.close();
+    }
+}
+
+/// Restores every window Quit Rhizome stashed, or a launch kept, and returns
+/// them; none when nothing waits. Every window opener calls this first.
+pub fn resume(app: &AppHandle) -> Vec<Window> {
+    let mut opened = vec![];
+    for session in app.state::<Sessions>().unstash() {
+        match create(app, session) {
+            Ok(window) => opened.push(window),
+            Err(error) => eprintln!("Rhizome Desktop could not restore a window: {error}"),
+        }
+    }
+    opened
+}
+
+/// [`resume`] from an event callback, which cannot create windows itself.
+/// Returns whether any windows were waiting.
+pub fn resume_from_event(app: &AppHandle) -> bool {
+    let stashed = app.state::<Sessions>().unstash();
+    let resumed = !stashed.is_empty();
+    for session in stashed {
+        create_from_event(app, session);
+    }
+    resumed
 }
 
 fn on_screen(app: &AppHandle, x: f64, y: f64) -> bool {
@@ -250,6 +123,9 @@ const CLICK_GUARD: &str = r#"
 /// content webview the shell positions over its content region. The content
 /// webview has no capabilities and may only show the verified runtime.
 pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> {
+    // A window brings back the Dock icon the menu bar host dropped.
+    #[cfg(target_os = "macos")]
+    app.set_activation_policy(tauri::ActivationPolicy::Regular)?;
     let label = format!("window-{}", NEXT.fetch_add(1, Ordering::SeqCst));
     let width = session.width.unwrap_or(WIDTH).max(MIN_WIDTH);
     let height = session.height.unwrap_or(HEIGHT).max(520.0);
@@ -467,6 +343,9 @@ pub fn create(app: &AppHandle, session: WindowSession) -> tauri::Result<Window> 
         WindowEvent::Focused(true) => {
             app.state::<Focus>().focused(events.label());
             app.state::<Presence>().rediscover();
+            if let Some(host) = app.try_state::<crate::host::Host>() {
+                host.refresh();
+            }
             crate::menu::refresh_panels(&app);
         }
         WindowEvent::Moved(_) | WindowEvent::Resized(_) => record(&app, &events),
@@ -629,8 +508,12 @@ pub fn focused_window(app: &AppHandle) -> Option<Window> {
         .cloned()
 }
 
-/// Brings an existing window forward, or opens one when none remain.
+/// Brings an existing window forward, or opens one when none remain: the
+/// stashed session when one waits, else the last window closed.
 pub fn reopen(app: &AppHandle) {
+    if resume_from_event(app) {
+        return;
+    }
     match focused_window(app) {
         Some(window) => {
             let _ = window.unminimize();
@@ -650,83 +533,4 @@ pub fn create_from_event(app: &AppHandle, session: WindowSession) {
             eprintln!("Rhizome Desktop could not create a window: {error}");
         }
     });
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn failed_update_allows_later_window_closes_and_session_changes() {
-        let directory = tempfile::tempdir().unwrap();
-        let sessions = Sessions::new(directory.path().into());
-        sessions.apply("window-1", |saved| saved.worktree = Some("/w/one".into()));
-        sessions.apply("window-2", |saved| saved.worktree = Some("/w/two".into()));
-        sessions.quit([]);
-        sessions.dirty.store(true, Ordering::SeqCst);
-        sessions.cancel_quit();
-        assert!(
-            !sessions.dirty.load(Ordering::SeqCst),
-            "a save deferred during installation must not suppress later saves"
-        );
-        sessions.close("window-1", None);
-        sessions.apply("window-2", |saved| saved.width = Some(900.0));
-        sessions.save();
-        let saved = Session::load(directory.path()).windows;
-        assert_eq!(saved.len(), 1);
-        assert_eq!(saved[0].worktree.as_deref(), Some("/w/two"));
-        assert_eq!(saved[0].width, Some(900.0));
-    }
-
-    #[test]
-    fn quitting_saves_geometry_of_windows_that_never_moved() {
-        let directory = tempfile::tempdir().unwrap();
-        let sessions = Sessions::new(directory.path().into());
-        sessions.apply("window-1", |saved| saved.worktree = Some("/w/one".into()));
-        sessions.apply("window-2", |_| {});
-        let geometry = Geometry {
-            x: 40.0,
-            y: 60.0,
-            width: 1000.0,
-            height: 700.0,
-        };
-        sessions.quit([("window-1".to_string(), geometry)]);
-        sessions.close("window-1", None);
-        let saved = Session::load(directory.path()).windows;
-        assert_eq!(saved.len(), 2, "quitting keeps every window");
-        assert_eq!(
-            saved[0],
-            WindowSession {
-                x: Some(40.0),
-                y: Some(60.0),
-                width: Some(1000.0),
-                height: Some(700.0),
-                worktree: Some("/w/one".into()),
-                ..WindowSession::default()
-            }
-        );
-    }
-
-    #[test]
-    fn closing_the_last_window_keeps_its_layout_for_the_next_one() {
-        let directory = tempfile::tempdir().unwrap();
-        let sessions = Sessions::new(directory.path().into());
-        sessions.apply("window-1", |saved| saved.worktree = Some("/w/one".into()));
-        sessions.apply("window-2", |saved| saved.worktree = Some("/w/two".into()));
-        let geometry = Geometry {
-            x: 1.0,
-            y: 2.0,
-            width: 900.0,
-            height: 600.0,
-        };
-        sessions.close("window-1", Some(geometry));
-        assert_eq!(sessions.last_closed(), WindowSession::default());
-        sessions.close("window-2", Some(geometry));
-        let session = Session::load(directory.path());
-        assert!(session.windows.is_empty());
-        let closed = session.closed.unwrap();
-        assert_eq!(closed.worktree.as_deref(), Some("/w/two"));
-        assert_eq!((closed.width, closed.height), (Some(900.0), Some(600.0)));
-        assert_eq!(sessions.last_closed(), closed);
-    }
 }
