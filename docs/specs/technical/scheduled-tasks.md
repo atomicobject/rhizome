@@ -4,9 +4,9 @@ id: SPEC-0127
 aliases:
   - SPEC-0127
   - Scheduled tasks
-summary: "Repositories declare periodic agent tasks: an optional free pre-flight check that decides whether work is needed, then a prompt run by each person's own agent harness. A repository sets whether tasks run automatically or only notify, and each person can override that per task. Background runs work in their own worktree, never push, and report back with a message and the changed files. Git history is the team's shared clock, and run records stay in each person's ignored local state, so teammates using different harnesses need no coordination."
+summary: "Repositories declare periodic agent tasks: an optional free pre-flight check that decides whether work is needed, then a prompt run by each person's own agent harness. A repository sets whether tasks run automatically or only notify, and each person can override that per task. Background runs land in the checkout Rhizome has open or in their own worktree, push only when the repository and person allow it, and report back with a message and the changed files. Git history is the team's shared clock, and run records stay in each person's ignored local state, so teammates using different harnesses need no coordination."
 spec-status: active
-last-updated: 2026-11-12
+last-updated: 2026-11-22
 ---
 
 # Scheduled tasks
@@ -28,7 +28,7 @@ The point of tasks is agent work that happens automatically or semi-automaticall
 
 The repository sets the default mode for its tasks, and each person can override it per task, including turning a task off. Cost is the task author's responsibility: a task should be well structured, use its check to avoid unneeded work, and keep its prompt efficient. A task that costs too much is a problem with the task, to be fixed or turned off, not something Rhizome meters.
 
-A background run works in a worktree that Rhizome creates from the primary branch. When it finishes, Rhizome commits whatever it changed to a local branch, tagged with the task. Nothing is pushed and no pull request is opened. The run ends with a message for the person and the list of changed files. The person reviews the worktree, for example by switching to it in Rhizome Desktop, then opens the pull request or discards the branch.
+A background run lands in one of two ways (US12, US13). **In place**, the default, runs in the checkout Rhizome has open on the host machine and commits only the files the task declared it writes. **PR** works in a worktree that Rhizome creates from the primary branch and commits whatever it changed to a local branch, tagged with the task. Pushing happens only when the repository and the person both allow it. The run ends with a message for the person and the list of changed files. The person reviews the worktree, for example by switching to it in Rhizome Desktop, then opens the pull request or discards the branch.
 
 Coordination needs no shared service:
 
@@ -46,17 +46,19 @@ Task authors can see and test a local version before it reaches the primary bran
 - Let agent work happen automatically, or with one click, without anyone remembering to ask for it.
 - Let a repository choose whether its tasks run automatically or only notify, and let each person override that per task.
 - Do agent work only when a free check says the task is needed.
-- Put every change that reaches the primary branch behind a person's review and a pull request.
+- Let a repository choose, per task, whether a task's commits land directly or go through a pull request.
+- Run tasks on time on one designated machine, even with no window open.
 - Run each due task once per person and repository, however many worktrees, runtimes, or triggers are active.
 - Make the shared clock Git history, so a teammate's merged run counts without any coordination service.
 
 ## Non-Goals
 
 - Installing tasks into Claude Code's or Codex's own schedulers, or into cloud routines.
-- Pushing, opening pull requests, or merging without a person.
-- Metering or capping what a task spends. Rhizome shows what each run used, as the harness reports it; keeping a task affordable is its author's job.
+- Merging pull requests without a person.
+- Vendor automation backends (the Claude or Codex apps' schedulers), RRULE or cron authoring, and a launchd or systemd host install.
+- Metering beyond an optional per-person daily token cap (US14). Keeping a task affordable is still its author's job.
 - Sandboxing tasks, or detecting what they change outside their own worktree.
-- Locks or claims across machines, or any central store of run state.
+- Locks or claims across machines, any central store of run state, per-task locks, circuit breakers, or task dependencies.
 - Building the session-memory and dream tasks, or changing [[session-memory-starter|SPEC-0124]]. This spec provides the capability.
 - Findings with per-item identity, such as "this note is stale". A check reports whether the task is needed and passes context to the prompt.
 
@@ -113,10 +115,10 @@ Task authors can see and test a local version before it reaches the primary bran
 #### Acceptance Criteria
 
 - `rzm tasks run-due` is a one-shot command. It handles every task that is due, then exits.
-- While a runtime is up, it runs `rzm tasks run-due` as a separate process on an interval. Rhizome Desktop keeps a runtime up while it is open, so the desktop app is the usual trigger. The interval does not count as client activity, so a headless runtime still exits when idle, and a run in progress survives the runtime exiting.
+- While a Rhizome Desktop host holds the runtime on a machine where the person turned on "Run tasks on this machine" ([[vault-runtime-coordination#^SPEC-0104-US7|SPEC-0104 US7]]), the runtime checks the wall clock every 30 seconds and runs `rzm tasks run-due --host` as a separate process when something is due. The check does not count as client activity, and a run in progress survives the runtime exiting. A runtime with no host dispatches nothing.
 - Task state lives in the main checkout's ignored `.rhizome/task-state/`, keyed by the repository's Git common directory. Every worktree of one repository shares one clock.
 - One repository-wide lock serializes all checks and background work for a repository. It is held from resolving the primary ref through publishing the result, and reuses `pkg/vault/indexlock`'s ownership and reclamation. A trigger that finds the lock held skips this tick.
-- A task missed while the machine slept or Rhizome was closed runs once at the next tick. Missed runs are not replayed.
+- A task missed while the machine slept or Rhizome was closed runs once at the next check, within its `late` window for a scheduled slot (US9). Missed runs are not replayed. When several tasks are due, the one with the nearest deadline runs first.
 
 ### US4 - Check, then run the prompt only when needed
 
@@ -212,13 +214,97 @@ Task authors can see and test a local version before it reaches the primary bran
 - While a run is in progress, the page shows completed blocks as they arrive. Run on an inbox item starts the work in a separate process and returns at once; a failure before the work starts appears on the item.
 - Rhizome Desktop shows Tasks as a sidebar section.
 
+### US9 - Schedule tasks by the wall clock
+
+- id:: ^SPEC-0127-US9
+- summary:: A task can run at fixed local times on chosen days, or hourly within a window, instead of drifting with "last run plus a duration".
+- status:: draft
+
+#### Acceptance Criteria
+
+- A task declares `every: <duration>` (unchanged: due when the latest counting run is older) or `schedule`, never both. `schedule` is one entry or a list of entries. An entry has `at` (`"HH:MM"` or a list of them) or `every` plus `between: ["HH:MM", "HH:MM"]`; optional `days` (`daily`, the default, `weekdays`, `weekends`, or a list of `mon`…`sun`); optional `timezone` (an IANA name); and optional `late` (a duration, default 1h).
+- A slot is due when its time has passed in the task's timezone (the entry's, else the person's `tasks.timezone`, else the host's zone) and no run of the task started at or after the slot. A missed slot runs only if the check happens within `late` of it, and missed slots collapse into one run. Daylight-saving gaps run at the first valid instant after the gap, and a repeated hour runs once.
+- `rzm tasks status` shows the next slot and the timezone it uses. RRULE and cron syntax are rejected.
+- A task file using any field this version does not know fails to parse, so starters that use `schedule` state a minimum Rhizome version.
+
+### US10 - Choose where tasks run and how
+
+- id:: ^SPEC-0127-US10
+- summary:: Each person chooses, per machine and repository, whether scheduled tasks run there, and which harness, model, and effort each task uses, without changing the task file.
+- status:: draft
+
+#### Acceptance Criteria
+
+- Per-person, per-machine settings live in the user configuration file, never in a task file: per repository, keyed by its Git common directory, `runHere` (default off on every machine) and the checkout registered for task running; and per task, `harness`, `model`, and `effort`, which override the person's chat agent settings for that task only. A person-wide `tasks.timezone` sets the default schedule zone.
+- `rzm tasks machine on|off` and the Tasks page change `runHere` for the selected repository. `rzm tasks hosts --json` lists the repositories with `runHere` on, for the Desktop host loop.
+- `rzm tasks run-due --host` runs nothing when `runHere` is off. `rzm tasks status` explains, per task, why it is not running: not run on this machine, no Desktop host, untrusted repository, paused (and until when), off, an open item blocking it, the checkout on the wrong branch, a missing requirement, or a failed fetch. An untrusted repository is reported once, not skipped silently.
+- `rzm tasks pause --until <time>` pauses until that time; `--for 1h` is accepted.
+- `rzm tasks run-due` children keep their stdout and stderr in the run's folder instead of discarding them.
+
+### US11 - Check what a task needs before spending tokens
+
+- id:: ^SPEC-0127-US11
+- summary:: A task declares the commands and MCP servers it needs; Rhizome checks them before any model call, task sessions load the person's own MCP configuration, and `rzm tasks doctor` explains what is missing.
+- status:: draft
+
+#### Acceptance Criteria
+
+- `requires: {commands: [...], mcp: [...]}` names commands that must resolve on the login shell's PATH and MCP servers the person's harness must have configured. A missing requirement fails the run as needs attention before the check or prompt runs.
+- Task sessions load the person's own MCP configuration for both Claude Code and Codex. Claude Code task sessions no longer run with an empty strict MCP configuration.
+- Optional `deny: [...]` names tools the harness must refuse, passed as the session's disallowed tools.
+- `rzm tasks doctor [task]` reports, per task: `requires` commands on the login PATH, harness sign-in, MCP server reachability, repository trust, how fresh the primary ref is, `git push --dry-run` when push is on, and whether Obsidian Git auto-commit is enabled in the host checkout.
+
+### US12 - Land changes in the open checkout
+
+- id:: ^SPEC-0127-US12
+- summary:: An in-place task runs in the checkout Rhizome has open on the host and commits only the files it declared it writes, leaving every human change alone.
+- status:: draft
+
+#### Acceptance Criteria
+
+- `land: in-place` (the default) or `land: pr`. An in-place task must declare `writes:`, a list of repository-relative glob patterns. A task file whose `land` or `writes` widens compared with the version the person last saw drops to notify until the person re-approves it.
+- Before the run: if the checkout is not on the local branch matching the primary ref, the task is skipped with one deduplicated notice. Otherwise Rhizome fetches and runs `git merge --ff-only`, even with dirty files, then snapshots HEAD and the working tree as a Git tree through a private index, plus the set of paths dirty or staged before the run.
+- After the run, the task's changes are the paths that changed during the run, were clean before, and match `writes`. Rhizome commits them with `git commit --only -- <paths>`, leaving pre-staged changes untouched, with the task tag and a `Rhizome-Task-Slot:` trailer naming the slot. It rechecks the branch and HEAD at commit time.
+- Paths outside `writes`, and paths dirty before the run, stay uncommitted and are named in the run summary.
+- A protected path (`.agents/**`, `.rhizome/**`, unless listed in `writes`) changed during the run is restored to its snapshot content at once, the diff is saved under the run's folder, and one needs-attention item is raised.
+- If HEAD moved during the run, Rhizome does not commit; it records the files and raises one notice.
+- A failed or stopped run leaves its changes in place and records its changed paths; the next successful run of that task treats them as its own.
+- Known limit: a person's edit to a clean file inside `writes` during the run cannot be told apart from the task's and is committed with it.
+- Each run records its landing mode. Worktree cleanup applies only to worktrees Rhizome created: no-change cleanup and Discard never touch the open checkout, and Discard on an in-place item dismisses the notice only.
+
+### US13 - Push task commits, or open a pull request
+
+- id:: ^SPEC-0127-US13
+- summary:: When the repository and person allow it, Rhizome pushes an in-place task's commit or a PR task's branch, recovering safely from races with other pushers.
+- status:: draft
+
+#### Acceptance Criteria
+
+- Push needs both the repository's `tasks.allowPush: true` and the person's per-machine push setting.
+- In place: Rhizome pushes the recorded commit when it fast-forwards the remote branch. After an ambiguous failure it fetches and looks for the slot trailer before retrying. When the remote diverged, it runs `git pull --rebase` only when the tracked tree is clean, aborting on conflict; otherwise it keeps the local commit and raises one notice. It never rebases with dirty files, autostashes, or force-pushes.
+- `land: pr`: the worktree path in US4, then Rhizome pushes the branch and opens a pull request with `gh`, carrying the task tag in its body.
+- Slot trailers deduplicate across machines: a pass that finds the slot's trailer on the primary ref treats the slot as done.
+
+### US14 - Remember, stay quiet, and alert off-machine
+
+- id:: ^SPEC-0127-US14
+- summary:: A task can keep a short handoff note between runs, report whether a run needs the person, alert the person off-machine on failures, and stay under an optional daily token cap.
+- status:: draft
+
+#### Acceptance Criteria
+
+- With `memory: true`, the preamble names `$RZM_TASK_DATA_DIR/handoff.md` (about 8 KB at most). The agent reads it first and rewrites it last; Rhizome trims it to the cap.
+- The agent may write `$RZM_TASK_RESULT_FILE` as JSON `{"status": "quiet" | "ok" | "attention", "summary": "..."}`. Not-needed, no-change, quiet, and ok runs record history only; attention, conflicts, and failures always create an inbox item and notify.
+- A per-person `tasks.notify.command` (an argument list) runs after each run that notifies, with the summary on stdin and the task, outcome, and run ID in its environment, for alerts that reach the person off-machine. Its failure is recorded and never fails the run.
+- An optional per-person `dailyTokenCap` per repository stops new agent work once that day's tokens, from the existing day buckets, reach it, and `status` says so.
+
 ## Requirements
 
 - MUST run a task's prompt in the background only in auto mode, or when the person chose Run. Checks make no model calls.
-- MUST NOT push, open pull requests, or merge on the person's behalf.
+- MUST NOT push unless the repository sets `tasks.allowPush: true` and the person turned push on for the repository on this machine. MUST NOT merge pull requests, force-push, autostash, or rebase with a dirty tracked tree.
 - MUST use the resolved primary ref's definition for scheduled execution, and run local versions only through an explicit test in a repository the person trusted.
 - MUST keep task state outside every Git-tracked path, readable only by the person on macOS and Linux.
-- MUST NOT fetch from the network to decide what is due. The primary ref is as fresh as the person's last fetch.
+- MUST fetch the primary ref's remote before resolving it for a pass with due tasks, and fall back to the last fetched ref, reported by `status`, when the fetch fails. Deciding whether anything is due makes no network call.
 - MUST resolve each check's interpreter the way the person's login shell does, because a runtime started by the desktop app or launchd lacks the shell's PATH, and version-manager shims such as mise fail without their environment.
 - MUST run the runtime's own `rzm` for a check command named `rzm`, and put that binary first on the PATH of checks and agent work. The runtime runs with repo delegation off, and its subprocesses inherit that, so a bare `rzm` would otherwise run whichever `rzm` the shell finds first.
 - SHOULD keep deciding what is due cheap enough to run every tick.
@@ -247,7 +333,8 @@ Task authors can see and test a local version before it reaches the primary bran
 
 - **Phase 1, core and CLI:** US1–US5, US7, and the CLI part of US6, triggered by `rzm tasks run-due` and the runtime interval, plus the harness process-group change. A synthetic task with a check and a prompt proves the whole path: the check stores context, background work uses it and produces a ready branch, and `start --print` carries the same locations.
 - **Phase 2, task history and desktop:** US8, the inbox actions on the Tasks page (Run, Snooze, Skip, Discard, Done, mode, pause), and the Rhizome Desktop part of US6: the Tasks section, the badge, notifications, Open worktree, and Start (Terminal running `rzm tasks start <item>`).
-- **Later:** a launchd or systemd job for runs while Rhizome is closed; Windows; a branch-versus-primary diff view in Rhizome Desktop; starter-provided outcome views; adopting tasks in session memory.
+- **Phase 3, hosting and landing (EFF-2026-11-22-11-38):** US9–US14 and the Desktop menu bar host ([[vault-runtime-coordination#^SPEC-0104-US7|SPEC-0104 US7–US8]]).
+- **Later:** a launchd or systemd host install for machines without the app; Windows; a branch-versus-primary diff view in Rhizome Desktop; starter-provided outcome views; adopting tasks in session memory.
 
 ## Decisions
 
@@ -255,9 +342,10 @@ Task authors can see and test a local version before it reaches the primary bran
 - **Local tests (2026-11-03):** scheduled execution keeps the primary-ref contract. Authors can deliberately test the selected checkout's task and supporting files before merge. Test records, task data, and output are distinct from scheduled work; tests do not create task-tagged commits. Code-mode checks reuse the selected checkout's existing index to avoid unexpected indexing cost.
 - **Worktrees (2026-10-25):** interactive work uses the person's harness's own worktrees (US5). Background work uses worktrees Rhizome creates, because Rhizome must find them to show the outcome (US4, US6).
 - **Trust (2026-10-25):** tasks are trusted code, like hooks. Rhizome does not sandbox them or detect what they change outside their worktree.
-- **Cost (2026-10-25):** Rhizome does not meter or cap tasks. The question for a person is whether they want a task to happen, answered by its mode. An expensive task is fixed by its author or turned off.
+- **Cost (2026-10-25, amended 2026-11-22):** Rhizome does not meter tasks beyond an optional per-person daily token cap (US14). The question for a person is whether they want a task to happen, answered by its mode. An expensive task is fixed by its author or turned off.
 - **Modes (2026-10-25):** the repository sets the default mode, and each person can override it per task. Automatic agent work is the point of the feature; notify exists for people and repositories that want to approve each run.
 - **Trigger (2026-10-25):** Rhizome Desktop, through the runtime, is the usual trigger. A launchd or systemd job comes later.
+- **Hosting and landing (2026-11-22):** Drew approved, after two council rounds, that Rhizome is the only runner, hosted on a Mac by Rhizome Desktop from the menu bar; where tasks run is a per-person, per-machine setting; landing is `in-place` by default or `pr`; pushing is allowed when both the repository and the person opt in; schedules use a small wall-clock form, not RRULE or cron. This supersedes the 2026-10-25 non-goals on pushing and metering.
 
 ## Open Questions
 
