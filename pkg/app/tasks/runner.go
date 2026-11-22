@@ -96,9 +96,7 @@ type RunSummary struct {
 // deadline first: a pass that finds another pass in progress skips, and a
 // pass with due work fetches the primary ref's remote first.
 func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
-	// Alerts go out once run.lock is released, oldest first, so ones a
-	// stopped process left are sent before this pass's (SPEC-0127 US14).
-	defer s.deliverAlerts(ctx)
+	defer s.deliverAlerts(ctx) // after run.lock is released, oldest first (SPEC-0127 US14)
 	// Runtimes call this in every Git checkout. A repository that declares
 	// no tasks, or that the person has not trusted, is left untouched: no
 	// state folder, no lock, no recorded error.
@@ -495,10 +493,3 @@ func (s *Service) lockRun(ctx context.Context, wait time.Duration) (func() error
 }
 
 func (s *Service) runLockPath() string { return filepath.Join(s.stateDir, runLock) }
-
-func short(commit string) string {
-	if len(commit) > 8 {
-		return commit[:8]
-	}
-	return commit
-}

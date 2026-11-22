@@ -180,3 +180,11 @@ func gitBytesInput(ctx context.Context, dir string, env []string, input []byte, 
 	}
 	return stdout.Bytes(), nil
 }
+
+// short is a commit's first eight characters, for messages.
+func short(commit string) string {
+	if len(commit) > 8 {
+		return commit[:8]
+	}
+	return commit
+}
