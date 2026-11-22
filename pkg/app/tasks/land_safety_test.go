@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/paths"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 )
 
 // Each test here reproduces one way an in-place run could change the
@@ -168,6 +169,44 @@ func TestInPlaceDoesNotAdoptALeftoverThePersonChanged(t *testing.T) {
 	}
 	if f.read("notes/a.md") != "the person's rewrite\n" || f.status() != "?? notes/a.md" {
 		t.Fatalf("the person's file must stay as they left it: %q", f.status())
+	}
+}
+
+func TestInPlaceDoesNotAdoptLeftoversFromAnotherCheckout(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	f.agent.run = func(req AgentRequest) (AgentResult, error) {
+		if err := os.Remove(filepath.Join(req.Dir, "notes/log.md")); err != nil {
+			t.Fatal(err)
+		}
+		return AgentResult{}, errors.New("harness crashed")
+	}
+	if o := f.pass(); o.Outcome != OutcomeFailed {
+		t.Fatalf("%+v", o)
+	}
+	// The person moves tasks to a second checkout and deletes the same
+	// file there on their own.
+	second := filepath.Join(filepath.Dir(f.host), "second")
+	run(t, f.host, "worktree", "add", "--quiet", "--track", "-b", "second", second, "origin/main")
+	f.svc.opts.Env = vaultconfig.Env{CLIConfigFile: filepath.Join(t.TempDir(), "config.yml")}
+	if err := f.svc.SetHostCheckout(context.Background(), second); err != nil {
+		t.Fatal(err)
+	}
+	f.svc.opts.Push = false
+	if err := os.Remove(filepath.Join(second, "notes/log.md")); err != nil {
+		t.Fatal(err)
+	}
+	f.edits(map[string]string{"notes/b.md": "b\n"}, nil)
+	if o := f.pass(); o.Outcome != OutcomeLanded {
+		t.Fatalf("%+v", o)
+	}
+	if got := strings.Fields(run(t, second, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD")); !slices.Equal(got, []string{"notes/b.md"}) {
+		t.Fatalf("the person's deletion in the second checkout is theirs, got %v", got)
+	}
+	if got := run(t, second, "status", "--porcelain"); got != " D notes/log.md" {
+		t.Fatalf("the person's deletion must stay uncommitted: %q", got)
+	}
+	if _, ok := mustState(t, f.svc).Leftover["tend"]; ok {
+		t.Fatal("the other checkout's leftover record must be dropped")
 	}
 }
 

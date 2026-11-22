@@ -131,11 +131,19 @@ type State struct {
 	// notify (SPEC-0127 US12).
 	Landings map[string]Landing `json:"landings,omitempty"`
 	Widened  map[string]Landing `json:"widened,omitempty"`
-	// Leftover is task -> path -> the content ("<mode> <object id>", ""
-	// when deleted) a failed, stopped, or uncommitted in-place run left
-	// there. The task's next successful run adopts a path only while its
-	// content is still that; otherwise the path is the person's.
-	Leftover map[string]map[string]string `json:"leftoverFiles,omitempty"`
+	// Leftover is the files each task's failed, stopped, or uncommitted
+	// in-place run left, by task.
+	Leftover map[string]Leftover `json:"leftoverFiles,omitempty"`
+}
+
+// Leftover is the files an in-place run left in one checkout: path -> the
+// content ("<mode> <object id>", "" when deleted). The task's next run
+// adopts a path only in that checkout and only while its content is still
+// that; otherwise the path is the person's.
+type Leftover struct {
+	// Checkout is the checkout's resolved path.
+	Checkout string            `json:"checkout"`
+	Files    map[string]string `json:"files"`
 }
 
 // PassError records a run-due pass that failed before running any task.
