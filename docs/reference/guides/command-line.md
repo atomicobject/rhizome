@@ -201,6 +201,7 @@ Admins set per-provider daily budgets with `rzm auth admin config --server <gate
 | `rzm tasks stop [--wait 10s]` | Stop the task run in progress and record it as stopped |
 | `rzm tasks start <item>` | Open your agent harness on an inbox item |
 | `rzm tasks mode <task> auto\|notify\|off\|default` | Your own mode for a task |
+| `rzm tasks approve <task>` | Approve a task whose landing widened (to in place, or a new `writes` pattern), so it runs in its own mode again |
 | `rzm tasks pause [--for 1h \| --until <time>]`, `rzm tasks resume` | Stop or restart all background task work for you in this repository, optionally until a time |
 | `rzm tasks machine on\|off [--checkout <path>]` | Run this repository's scheduled tasks on this machine, from the checkout you name; off by default |
 | `rzm tasks hosts --json` | The repositories whose tasks run on this machine, for Rhizome Desktop |
