@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -277,5 +278,28 @@ func TestInPlaceRestoreNeverRemovesAFolderHoldingWhatItLeaves(t *testing.T) {
 	}
 	if it := taskItems(mustState(t, f.svc), "tend")[0]; !strings.Contains(it.Reason, "left "+skill+" (") {
 		t.Fatalf("the notice must name the folder it left: %q", it.Reason)
+	}
+}
+
+func TestInPlacePushRecoveryChecksThePushDestination(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	mirror := filepath.Join(filepath.Dir(f.remote), "mirror.git")
+	run(t, filepath.Dir(f.remote), "clone", "--quiet", "--bare", f.remote, mirror)
+	// The push destination has a commit this checkout lacks, so the push fails.
+	commitFile(t, f.other, "other/m.md", "only on the push destination\n", "mirror only")
+	run(t, f.other, "push", "--quiet", mirror, "HEAD:main")
+	run(t, f.host, "config", "remote.origin.pushurl", mirror)
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	f.onStep("push", func() {
+		// The fetch URL gets the task's commit some other way.
+		run(t, f.host, "push", "--quiet", f.remote, "HEAD:main")
+	})
+	o := f.pass()
+	landed := mustState(t, f.svc).Last["tend"].Landed
+	if isAncestor(context.Background(), mirror, landed, "main") {
+		t.Fatal("the push destination must not get the commit")
+	}
+	if o.Outcome != OutcomeLanded || !strings.Contains(o.Reason, "push destination") || len(f.attention()) != 1 {
+		t.Fatalf("a commit only the fetch URL has is not pushed: %+v", o)
 	}
 }

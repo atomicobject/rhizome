@@ -44,7 +44,11 @@ func (s *Service) pushInPlace(ctx context.Context, def Definition, a attempt, ip
 		return landed, fmt.Sprintf("Push failed, so commit %s stays local: %v.", short(landed), err)
 	}
 	if isAncestor(ctx, ip.dir, landed, upstream) {
-		return landed, ""
+		// The fetch URL has it; a push URL of its own may still lack it.
+		if dest, notice, err := pushDestination(ctx, ip, remote, branch); err == nil && notice == "" && dest != "" && isAncestor(ctx, ip.dir, landed, dest) {
+			return landed, ""
+		}
+		return landed, fmt.Sprintf("Push failed, so commit %s did not reach the push destination of %s, though %s/%s has it: %v.", short(landed), remote, remote, branch, err)
 	}
 	slot := a.slotID()
 	if other, ok, _ := s.opts.Repo.SlotLanded(ctx, upstream, def.ID, slot); ok {
@@ -87,25 +91,12 @@ var errDiverged = errors.New("the remote branch has commits this checkout lacks"
 // to the commit the check saw, so a branch that moved since, even back to
 // an ancestor of c, rejects it. A notice means Rhizome chose not to push.
 func (s *Service) pushCommit(ctx context.Context, ip *inPlace, remote, branch, c string, made map[string]bool) (string, error) {
-	urls, err := gitOutput(ctx, ip.dir, "remote", "get-url", "--push", "--all", remote)
+	dest, notice, err := pushDestination(ctx, ip, remote, branch)
 	if err != nil {
 		return "", err
 	}
-	if n := len(strings.Split(urls, "\n")); urls == "" || n != 1 {
-		return fmt.Sprintf("%s has %d push URLs, so Rhizome did not push commit %s; push it yourself.", remote, n, short(c)), nil
-	}
-	netCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
-	defer cancel()
-	ref := "refs/heads/" + branch
-	out, err := gitOutput(netCtx, ip.dir, "ls-remote", "--", urls, ref)
-	if err != nil {
-		return "", errors.New(redactURLCredentials(err.Error()))
-	}
-	dest := ""
-	for _, line := range strings.Split(out, "\n") {
-		if id, name, _ := strings.Cut(line, "\t"); name == ref {
-			dest = id
-		}
+	if notice != "" {
+		return fmt.Sprintf("%s, so Rhizome did not push commit %s; push it yourself.", notice, short(c)), nil
 	}
 	switch {
 	case dest == "":
@@ -130,11 +121,40 @@ func (s *Service) pushCommit(ctx context.Context, ip *inPlace, remote, branch, c
 	// dest, and c descends from dest, so this is always a fast-forward,
 	// never a force (SPEC-0127 US13). A missing branch never gets here.
 	landingStep("push-checked")
+	netCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	defer cancel()
+	ref := "refs/heads/" + branch
 	_, err = gitOutput(netCtx, ip.dir, "-c", ip.noHooks, "push", "--quiet", "--no-verify", "--force-with-lease="+ref+":"+dest, remote, c+":"+ref)
 	if err != nil {
 		return "", errors.New(redactURLCredentials(err.Error()))
 	}
 	return "", nil
+}
+
+// pushDestination asks remote's push URL, which can differ from the one it
+// fetches from, for the commit its branch holds ("" when it has no such
+// branch). A notice means remote has other than one push URL.
+func pushDestination(ctx context.Context, ip *inPlace, remote, branch string) (dest, notice string, err error) {
+	urls, err := gitOutput(ctx, ip.dir, "remote", "get-url", "--push", "--all", remote)
+	if err != nil {
+		return "", "", err
+	}
+	if n := len(strings.Split(urls, "\n")); urls == "" || n != 1 {
+		return "", fmt.Sprintf("%s has %d push URLs", remote, n), nil
+	}
+	netCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	defer cancel()
+	ref := "refs/heads/" + branch
+	out, err := gitOutput(netCtx, ip.dir, "ls-remote", "--", urls, ref)
+	if err != nil {
+		return "", "", errors.New(redactURLCredentials(err.Error()))
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if id, name, _ := strings.Cut(line, "\t"); name == ref {
+			dest = id
+		}
+	}
+	return dest, "", nil
 }
 
 // madeCommits are the commits Rhizome landed in place on this machine, as
