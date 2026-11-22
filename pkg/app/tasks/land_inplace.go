@@ -102,7 +102,7 @@ func (s *Service) runInPlace(ctx context.Context, def Definition, a attempt, ite
 		}
 	}
 	runCtx, cancel := context.WithTimeout(ctx, def.Limit)
-	res, runErr := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Dir: ip.dir, Prompt: InPlacePrompt(def, loc, check, ref, ip.dir, ip.branch), Transcript: transcript, Env: s.agentEnv(loc)})
+	res, runErr := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Task: def.ID, Deny: def.Deny, Dir: ip.dir, Prompt: InPlacePrompt(def, loc, check, ref, ip.dir, ip.branch), Transcript: transcript, Env: s.agentEnv(loc)})
 	cancel()
 	// A stopped run still records and protects what it changed.
 	return s.settleInPlace(context.WithoutCancel(ctx), def, a, itemID, commit, ip, leftover, res, runErr)
