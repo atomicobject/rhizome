@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 )
 
 // Status codes for why a task is not running (SPEC-0127 US10). They are
@@ -191,4 +193,16 @@ func (s *Service) notePassError(ctx context.Context, err error) error {
 		return nil
 	})
 	return err
+}
+
+// untrusted explains why tasks may not run here, or returns "".
+func (s *Service) untrusted() string {
+	if s.opts.Trusted == nil {
+		return ""
+	}
+	checkout := s.opts.Repo.MainCheckout
+	if checkout == "" {
+		checkout = s.opts.Repo.CommonDir
+	}
+	return repositorytrust.DenialReason(checkout, "tasks", s.opts.Trusted)
 }

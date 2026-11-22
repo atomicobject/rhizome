@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
@@ -468,18 +467,6 @@ func (s *Service) failWith(ctx context.Context, def Definition, a attempt, itemI
 		return nil
 	})
 	return Outcome{Task: def.ID, Outcome: outcome, Item: itemID, Reason: reason}
-}
-
-// untrusted explains why tasks may not run here, or returns "".
-func (s *Service) untrusted() string {
-	if s.opts.Trusted == nil {
-		return ""
-	}
-	checkout := s.opts.Repo.MainCheckout
-	if checkout == "" {
-		checkout = s.opts.Repo.CommonDir
-	}
-	return repositorytrust.DenialReason(checkout, "tasks", s.opts.Trusted)
 }
 
 func (s *Service) locations(def Definition, commit string) Locations {
