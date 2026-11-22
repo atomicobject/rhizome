@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -155,4 +156,15 @@ func TestANewHostAfterADrainSchedulesAgain(t *testing.T) {
 	release = hosts.Hold()
 	defer release()
 	require.True(t, hosts.Hosting(), "a Desktop that reopens and holds an attached runtime that outlived the quit schedules again")
+}
+
+func TestRunNowStartsNothingAfterADrain(t *testing.T) {
+	hosts := &TaskHosts{}
+	release := hosts.Hold()
+	defer release()
+	hosts.Drain()
+	started := false
+	err := hosts.Launch(func() (*appruntime.Detached, error) { started = true; return nil, nil })
+	require.ErrorIs(t, err, tasks.ErrBusy)
+	require.False(t, started, "Run now must not start work Quit Completely is no longer tracking")
 }

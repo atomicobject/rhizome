@@ -21,7 +21,7 @@ func (d *Driver) ListMCPServers(ctx context.Context, dir string) ([]harness.MCPS
 	if err != nil {
 		return nil, harness.Phase(harness.ErrNotInstalled, err)
 	}
-	result, err := d.runner.Run(ctx, command.Spec{Path: path, Args: []string{"mcp", "list"}, Dir: dir})
+	result, err := d.runner.Run(ctx, command.Spec{Path: path, Args: []string{"mcp", "list"}, Dir: dir, KillTree: true})
 	if err != nil {
 		if ctx.Err() != nil {
 			return nil, harness.Phase(harness.ErrTimeout, ctx.Err())

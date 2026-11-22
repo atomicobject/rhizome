@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/proctree"
 	"io"
 	"os"
 	"os/exec"
@@ -22,6 +23,10 @@ type Spec struct {
 	Stdin io.Reader
 	// Env adds variables to the inherited environment.
 	Env []string
+	// KillTree runs the command in its own session and, when it exits or its
+	// context ends, kills everything it started, for commands such as an MCP
+	// listing that start servers which may hang.
+	KillTree bool
 }
 
 type Result struct {
@@ -73,10 +78,21 @@ func (r OSRunner) Run(ctx context.Context, spec Spec) (Result, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	corr := processlog.CorrelationID()
+	if spec.KillTree {
+		proctree.Configure(cmd)
+	}
 	if err := cmd.Start(); err != nil {
 		return Result{}, err
 	}
 	processlog.Spawn(r.Label, spec.Path, spec.Dir, corr, cmd.Process.Pid)
+	if spec.KillTree {
+		tree := proctree.Track(cmd.Process, proctree.DefaultInterval)
+		defer func() { tree.Stop(); _ = tree.Kill() }()
+		cmd.Cancel = func() error {
+			interrupted.Store(true)
+			return tree.Kill()
+		}
+	}
 	err := cmd.Wait()
 	processlog.Exit(r.Label, corr, cmd.Process.Pid, cmd.ProcessState, err)
 	result := Result{Stdout: stdout.String(), Stderr: stderr.String()}

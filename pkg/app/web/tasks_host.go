@@ -40,6 +40,9 @@ type TaskHosts struct {
 // errTaskStarted answers Run now while a run this runtime started is alive.
 var errTaskStarted = errors.New("a task run this runtime started is still running")
 
+// errDrained answers Run now after Rhizome Desktop drained the runtime to quit.
+var errDrained = errors.New("Rhizome is quitting, so this runtime starts no new runs")
+
 // Hold registers an open host stream until release. A host that connects
 // after the last one closed starts fresh: a drain belongs to the Desktop that
 // asked for it, so an attached runtime that outlived a complete quit
@@ -123,6 +126,9 @@ func (h *TaskHosts) Launch(start func() (*appruntime.Detached, error)) error {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.drained {
+		return fmt.Errorf("%w: %w", tasks.ErrBusy, errDrained)
+	}
 	if h.child.Alive() {
 		return fmt.Errorf("%w: %w", tasks.ErrBusy, errTaskStarted)
 	}
