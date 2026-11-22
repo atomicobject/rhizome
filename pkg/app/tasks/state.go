@@ -51,6 +51,8 @@ const (
 	OutcomeSkipped   = "skipped"
 	// OutcomeInterrupted is a run whose process ended before it finished.
 	OutcomeInterrupted = "interrupted"
+	// OutcomeStopped is a run the person stopped (Service.Stop).
+	OutcomeStopped = "stopped"
 )
 
 // Run stages, recorded only on State.Running.
@@ -105,6 +107,9 @@ type State struct {
 	Fetch  *FetchStatus `json:"fetch,omitempty"`
 	Items  []Item       `json:"items,omitempty"`
 	NextID int          `json:"nextId,omitempty"`
+	// Stopping is the run Stop was asked to end. Whichever process records
+	// that run records it as stopped.
+	Stopping string `json:"stopping,omitempty"`
 }
 
 // PassError records a run-due pass that failed before running any task.
@@ -149,6 +154,9 @@ func (s *State) LastRun(task string) (RunRecord, bool) {
 // is this run. Retention trims history at the end of each run.
 func (s *State) Record(r RunRecord) {
 	r.Stage = ""
+	if s.Stopping != "" && r.ID == s.Stopping {
+		r.Outcome, r.Message, s.Stopping = OutcomeStopped, stoppedMessage, ""
+	}
 	if s.Running != nil && r.ID != "" && s.Running.ID == r.ID {
 		s.Running = nil
 	}
@@ -226,6 +234,11 @@ func (s *State) TokensLast30Days(task string, now time.Time) int64 {
 	}
 	return total
 }
+
+const (
+	interruptedMessage = "the run was interrupted before it finished"
+	stoppedMessage     = "the run was stopped"
+)
 
 // ResolveMode returns a task's mode and where it came from: the person's
 // override, the repository default, or the built-in notify default.

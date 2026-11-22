@@ -102,7 +102,8 @@ func openRuntimeLog(vaultRoot string) (*os.File, error) {
 
 // StartDetached starts executable with args in dir, detached from this
 // process the way a headless runtime is (its own session or process group,
-// stdio on the null device), and does not wait for it.
+// stdio on the null device), and does not wait for it. A long-lived caller
+// reaps it when it exits, so PID checks (the run lock's, Stop's) see it end.
 func StartDetached(executable, dir string, args ...string) error {
 	return StartDetachedTo(nil, executable, dir, args...)
 }
@@ -126,6 +127,6 @@ func StartDetachedTo(output *os.File, executable, dir string, args ...string) er
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	_ = cmd.Process.Release()
+	go func() { _ = cmd.Wait() }()
 	return nil
 }

@@ -2,8 +2,39 @@ package tasks
 
 import (
 	"context"
+	"sync"
 	"time"
 )
+
+// dueInputsCache keeps the definitions and tags for one primary-ref commit,
+// so the runtime's 30-second check and the host stream run two git
+// commands, not one per task file and tag, while the ref stays put.
+type dueInputsCache struct {
+	mu     sync.Mutex
+	commit string
+	defs   []Definition
+	tagged map[string]*Tagged
+}
+
+// dueInputs returns the task definitions and their latest tagged commits at
+// the primary ref. It reads Git only: no network, no writes.
+func (s *Service) dueInputs(ctx context.Context) ([]Definition, map[string]*Tagged, error) {
+	ref, commit, err := s.opts.Repo.ResolvePrimary(ctx, s.opts.Config.PrimaryRef)
+	if err != nil {
+		return nil, nil, err
+	}
+	c := &s.due
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.commit != commit {
+		defs, _, err := LoadDefinitions(ctx, s.opts.Repo, commit)
+		if err != nil {
+			return nil, nil, err
+		}
+		c.commit, c.defs, c.tagged = commit, defs, s.lastTagged(ctx, ref, defs)
+	}
+	return c.defs, c.tagged, nil
+}
 
 // NextDueAt is the earliest time any enabled task is or comes due, for the
 // runtime host's 30-second check (SPEC-0104 US7): at or before now means
@@ -21,23 +52,33 @@ func (s *Service) NextDueAt(ctx context.Context) (time.Time, bool, error) {
 	if err != nil {
 		return time.Time{}, false, err
 	}
-	now := s.opts.Now()
-	if st.PausedAt(now) && st.PausedUntil.IsZero() {
-		return time.Time{}, false, nil
-	}
 	if s.untrusted() != "" && st.PassError != nil && st.PassError.Code == PassUntrusted {
 		return time.Time{}, false, nil
 	}
-	ref, _, defs, _, err := s.primary(ctx)
-	if err != nil {
-		return time.Time{}, false, err
+	_, at, ok, err := s.nextDue(ctx, &st, m)
+	return at, ok, err
+}
+
+// nextDue is the task that comes due first and when, skipping what RunDue
+// skips, so a due time always leads to a run. A timed pause moves it to when
+// the pause lifts.
+func (s *Service) nextDue(ctx context.Context, st *State, m MachineSettings) (Definition, time.Time, bool, error) {
+	now := s.opts.Now()
+	if st.PausedAt(now) && st.PausedUntil.IsZero() {
+		return Definition{}, time.Time{}, false, nil
 	}
-	tagged := s.lastTagged(ctx, ref, defs)
+	defs, tagged, err := s.dueInputs(ctx)
+	if err != nil {
+		return Definition{}, time.Time{}, false, err
+	}
 	zone, _ := s.personZone(m)
-	var next time.Time
-	found := false
+	var (
+		best  Definition
+		next  time.Time
+		found bool
+	)
 	for _, def := range defs {
-		d, blocked := taskDue(&st, def, tagged[def.ID], now, zone, s.opts.Config.DefaultMode)
+		d, blocked := taskDue(st, def, tagged[def.ID], now, zone, s.opts.Config.DefaultMode)
 		if blocked != "" {
 			continue
 		}
@@ -46,11 +87,15 @@ func (s *Service) NextDueAt(ctx context.Context) (time.Time, bool, error) {
 			at = now
 		}
 		if !found || at.Before(next) {
-			next, found = at, true
+			best, next, found = def, at, true
 		}
 	}
 	if found && st.PausedAt(now) && next.Before(st.PausedUntil) {
 		next = st.PausedUntil
 	}
-	return next, found, nil
+	return best, next, found, nil
 }
+
+// RunLockHeld reports whether a live process holds the repository's run
+// lock, so a check, run, or test is in progress.
+func (s *Service) RunLockHeld() bool { return runLockHeld(s.runLockPath()) }

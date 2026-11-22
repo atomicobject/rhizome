@@ -198,6 +198,7 @@ Admins set per-provider daily budgets with `rzm auth admin config --server <gate
 | `rzm tasks status` | Each task's mode, schedule, recent token use, and problems |
 | `rzm tasks inbox` | Items that need you |
 | `rzm tasks run --task <task>` | Run one task now, check first |
+| `rzm tasks stop [--wait 10s]` | Stop the task run in progress and record it as stopped |
 | `rzm tasks start <item>` | Open your agent harness on an inbox item |
 | `rzm tasks mode <task> auto\|notify\|off\|default` | Your own mode for a task |
 | `rzm tasks pause`, `rzm tasks resume` | Stop or restart all background task work for you in this repository |

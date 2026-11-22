@@ -7,6 +7,7 @@ import { PauseIcon, PlayIcon } from "./TaskIcons";
 import { navigateTasks, tasksHref } from "./tasksRoute";
 import {
   formatAgo,
+  formatDateTime,
   formatRunAge,
   formatDue,
   formatCadence,
@@ -146,7 +147,9 @@ export function TasksNotices({
         <div className="banner task-notice" role="status">
           <StatusMark tone="muted" label="Paused" />
           <p className="banner__text">
-            Background work is paused. Due tasks wait until you resume.
+            {report.pausedUntil
+              ? `Background work is paused until ${formatDateTime(report.pausedUntil)}.`
+              : "Background work is paused. Due tasks wait until you resume."}
           </p>
           <button type="button" className="button" disabled={pausePending} onClick={onResume}>
             <PlayIcon />
@@ -357,12 +360,40 @@ function TaskRow({
   );
 }
 
+/** "Run tasks on this machine": scheduled tasks run here only while it is on. */
+function RunHereToggle({
+  runHere,
+  pending,
+  onChange,
+}: {
+  runHere: boolean;
+  pending: boolean;
+  onChange: (runHere: boolean) => void;
+}) {
+  return (
+    <label
+      className="task-run-here"
+      title="Scheduled tasks run on a machine only while Rhizome Desktop runs there with this on"
+    >
+      <input
+        type="checkbox"
+        checked={runHere}
+        disabled={pending}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      Run tasks on this machine
+    </label>
+  );
+}
+
 export function TasksOverview({
   report,
   onOpen,
   pausePending,
   onTogglePause,
   onResume,
+  machinePending = false,
+  onRunHere,
   error,
   announcements = [],
   onDismiss,
@@ -374,6 +405,8 @@ export function TasksOverview({
   pausePending: boolean;
   onTogglePause: () => void;
   onResume: () => void;
+  machinePending?: boolean;
+  onRunHere?: (runHere: boolean) => void;
   error?: ReactNode;
   /**
    * New-task notices and open items of tasks no longer registered; both count
@@ -406,6 +439,13 @@ export function TasksOverview({
           </span>
           <div className="view-header__actions">
             <SourceDetails report={report} />
+            {report.runHere !== undefined && onRunHere ? (
+              <RunHereToggle
+                runHere={report.runHere}
+                pending={machinePending}
+                onChange={onRunHere}
+              />
+            ) : null}
             <PauseButton paused={report.paused} pending={pausePending} onToggle={onTogglePause} />
           </div>
         </div>

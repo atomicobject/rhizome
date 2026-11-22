@@ -73,6 +73,7 @@ func newTasksCmd(registry harnessRegistry) *cobra.Command {
 	cmd.AddCommand(newTasksHostsCmd(&asJSON))
 	cmd.AddCommand(newTasksRunCmd(open, &asJSON))
 	cmd.AddCommand(newTasksDoctorCmd(open, &asJSON))
+	cmd.AddCommand(newTasksStopCmd(open, &asJSON))
 	cmd.AddCommand(newTasksStartCmd(registry, open))
 	cmd.AddCommand(newTasksSnoozeCmd(open))
 	for _, action := range []struct {
