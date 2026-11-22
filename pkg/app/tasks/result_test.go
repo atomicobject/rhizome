@@ -273,3 +273,30 @@ func TestNotifyTestSendsASample(t *testing.T) {
 	_, _, _, err = f.svc.NotifyTest(context.Background())
 	require.ErrorContains(t, err, "no notify command is set")
 }
+
+func TestInPlaceRunsFollowTheQuietRules(t *testing.T) {
+	status := `{"status": "quiet", "summary": "filed one note"}`
+	agent := &fakeAgent{run: func(req AgentRequest) (AgentResult, error) {
+		require.Contains(t, req.Prompt, envValue(req.Env, "RZM_TASK_RESULT_FILE"), "the in-place preamble names the result file")
+		writeFile(t, filepath.Join(req.Dir, "notes", fmt.Sprintf("%d.md", time.Now().UnixNano())), "note\n")
+		writeResult(t, req, status)
+		return AgentResult{Message: "filed"}, nil
+	}}
+	f := newNotifyFixture(t, map[string]string{"file.yml": "name: File\nevery: 1h\nwrites: [\"notes/*.md\"]\nprompt: p\n"}, agent, "")
+	_, err := f.svc.RunDue(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, OutcomeLanded, lastRun(t, f.svc, "file").Outcome)
+	require.Nil(t, activeItem(t, f.svc, "file"), "a quiet landed run leaves no inbox item")
+	require.Empty(t, f.notifications(t), "and sends no alert")
+
+	status = `{"status": "attention", "summary": "a note needs a person"}`
+	later := time.Now().Add(2 * time.Hour)
+	f.svc.opts.Now = func() time.Time { return later }
+	_, err = f.svc.RunDue(context.Background())
+	require.NoError(t, err)
+	it := activeItem(t, f.svc, "file")
+	require.NotNil(t, it)
+	require.Equal(t, StateAttention, it.State)
+	require.Equal(t, "a note needs a person", it.Reason)
+	require.Contains(t, f.notifications(t), "OUTCOME=attention")
+}
