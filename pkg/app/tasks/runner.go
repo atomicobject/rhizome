@@ -497,10 +497,3 @@ func (s *Service) lockRun(ctx context.Context, wait time.Duration) (func() error
 }
 
 func (s *Service) runLockPath() string { return filepath.Join(s.stateDir, runLock) }
-
-func short(commit string) string {
-	if len(commit) > 8 {
-		return commit[:8]
-	}
-	return commit
-}
