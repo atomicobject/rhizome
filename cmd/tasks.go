@@ -84,6 +84,7 @@ func newTasksCmd(registry harnessRegistry) *cobra.Command {
 		},
 	})
 	cmd.AddCommand(newTasksRunCmd(open, &asJSON))
+	cmd.AddCommand(newTasksStopCmd(open, &asJSON))
 	cmd.AddCommand(newTasksStartCmd(registry, open))
 	cmd.AddCommand(newTasksSnoozeCmd(open))
 	for _, action := range []struct {
@@ -330,14 +331,15 @@ func openTasksForPage() func(context.Context, string) (web.TasksAPI, error) {
 	}
 }
 
-// startTasksRunDue is how a runtime asks for due tasks: a detached
-// `rzm tasks run-due` in the vault, so the work outlives the runtime.
+// startTasksRunDue is how a runtime held by a Desktop host asks for due
+// tasks: a detached `rzm tasks run-due --host` in the vault, so the work
+// outlives the runtime.
 func startTasksRunDue(vaultPath string) error {
 	exe, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	return appruntime.StartDetached(exe, vaultPath, "tasks", "run-due")
+	return appruntime.StartDetached(exe, vaultPath, "tasks", "run-due", "--host")
 }
 
 func printTasks(cmd *cobra.Command, asJSON bool, v any, human func(io.Writer)) error {
