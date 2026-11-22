@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 )
@@ -61,11 +62,12 @@ func (s *Service) NextDueAt(ctx context.Context) (time.Time, bool, error) {
 	if st.PausedAt(now) && st.PausedUntil.IsZero() {
 		return time.Time{}, false, nil
 	}
-	_, at, ok, err := s.nextDue(ctx, &st, m)
+	defs, tagged, err := s.dueInputs(ctx)
 	if err != nil {
 		return time.Time{}, false, err
 	}
-	if settle, due := settleAt(&st, s.RunLockHeld()); due {
+	_, at, ok := s.nextDue(&st, m, defs, tagged)
+	if settle, due := settleAt(&st, defs, s.RunLockHeld()); due {
 		if st.PausedAt(now) && settle.Before(st.PausedUntil) {
 			settle = st.PausedUntil
 		}
@@ -81,15 +83,19 @@ const settleInterval = 15 * time.Minute
 
 // settleAt is when a pass is due only to settle items that block their
 // tasks and that only a pass settles (bookkeep, finalizeInterrupted): a
-// ready or started item whose work may have reached the primary ref, and,
-// unless a live process holds the run lock, an item left running or a
-// Running whose process died. It is settleInterval after the last pass, or
-// zero (due now) before any.
-func settleAt(st *State, lockHeld bool) (time.Time, bool) {
+// ready or started item of a declared task, whose work may have reached
+// the primary ref, and, unless a live process holds the run lock, an item
+// left running or a Running whose process died. It is settleInterval after
+// the last pass, or zero (due now) before any.
+func settleAt(st *State, defs []Definition, lockHeld bool) (time.Time, bool) {
 	settle := st.Running != nil && !lockHeld
 	for _, it := range st.Items {
-		if it.Kind == KindTask && (it.State == StateReady || it.State == StateStarted || it.State == StateRunning && !lockHeld) {
-			settle = true
+		switch {
+		case it.Kind != KindTask:
+		case it.State == StateRunning:
+			settle = settle || !lockHeld
+		case it.State == StateReady || it.State == StateStarted:
+			settle = settle || slices.ContainsFunc(defs, func(d Definition) bool { return d.ID == it.Task })
 		}
 	}
 	if !settle || st.LastPass.IsZero() {
@@ -99,8 +105,8 @@ func settleAt(st *State, lockHeld bool) (time.Time, bool) {
 }
 
 // settleDue reports whether settling items is due at now.
-func settleDue(st *State, lockHeld bool, now time.Time) bool {
-	at, due := settleAt(st, lockHeld)
+func settleDue(st *State, defs []Definition, lockHeld bool, now time.Time) bool {
+	at, due := settleAt(st, defs, lockHeld)
 	return due && !at.After(now)
 }
 
@@ -108,14 +114,10 @@ func settleDue(st *State, lockHeld bool, now time.Time) bool {
 // skips, so a due time always leads to a run. A task that never ran is due
 // from when a pass first saw it (zero before one has), so its due time does
 // not move with the clock. A timed pause moves it to when the pause lifts.
-func (s *Service) nextDue(ctx context.Context, st *State, m MachineSettings) (Definition, time.Time, bool, error) {
+func (s *Service) nextDue(st *State, m MachineSettings, defs []Definition, tagged map[string]*Tagged) (Definition, time.Time, bool) {
 	now := s.opts.Now()
 	if st.PausedAt(now) && st.PausedUntil.IsZero() {
-		return Definition{}, time.Time{}, false, nil
-	}
-	defs, tagged, err := s.dueInputs(ctx)
-	if err != nil {
-		return Definition{}, time.Time{}, false, err
+		return Definition{}, time.Time{}, false
 	}
 	zone, _ := s.personZone(m)
 	var (
@@ -139,7 +141,7 @@ func (s *Service) nextDue(ctx context.Context, st *State, m MachineSettings) (De
 	if found && st.PausedAt(now) && next.Before(st.PausedUntil) {
 		next = st.PausedUntil
 	}
-	return best, next, found, nil
+	return best, next, found
 }
 
 // RunLockHeld reports whether a live process holds the repository's run

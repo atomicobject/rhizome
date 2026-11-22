@@ -136,7 +136,7 @@ func (s *Service) runDue(ctx context.Context, host bool) (RunSummary, error) {
 	// Whether anything is due is decided from the local primary ref, with
 	// no network; only a pass with due work, or items waiting for their work
 	// to reach the primary ref, fetches, then reloads.
-	if st, err := s.store.Load(); err == nil && (len(dueNow(&st, defs, s.lastTagged(ctx, ref, defs), s.opts.Now(), zone, s.opts.Config.DefaultMode)) > 0 || settleDue(&st, true, s.opts.Now())) {
+	if st, err := s.store.Load(); err == nil && (len(dueNow(&st, defs, s.lastTagged(ctx, ref, defs), s.opts.Now(), zone, s.opts.Config.DefaultMode)) > 0 || settleDue(&st, defs, true, s.opts.Now())) {
 		s.fetchPrimary(ctx, ref)
 		if ref, commit, defs, problems, err = s.primary(ctx); err != nil {
 			return RunSummary{}, s.notePassError(ctx, err)

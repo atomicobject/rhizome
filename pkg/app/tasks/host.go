@@ -100,11 +100,11 @@ func (s *Service) HostStatus(ctx context.Context) (HostStatus, error) {
 		hs.PausedUntil = &until
 	}
 	names := map[string]string{}
-	if defs, _, err := s.dueInputs(ctx); err == nil {
+	if defs, tagged, err := s.dueInputs(ctx); err == nil {
 		for _, def := range defs {
 			names[def.ID] = def.Name
 		}
-		if def, at, ok, _ := s.nextDue(ctx, &st, machine); ok {
+		if def, at, ok := s.nextDue(&st, machine, defs, tagged); ok {
 			hs.Next = &HostNext{Task: def.ID, Name: def.Name, At: at}
 		}
 	}

@@ -108,4 +108,14 @@ func TestItemsWaitingForTheirWorkMakeAPassDue(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.True(t, at.Equal(now.Add(settleInterval)), "B still waits, so the next settling pass is due 15 minutes later, not %v", at)
+
+	// An item of a task no longer declared can never be settled by a merge.
+	setState(t, svc, func(st *State) {
+		b, _ := st.Item(itemB)
+		b.Task = "removed"
+	})
+	at, ok, err = svc.NextDueAt(ctx)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.True(t, at.After(now.Add(time.Hour)), "an undeclared task's item made a pass due at %v", at)
 }
