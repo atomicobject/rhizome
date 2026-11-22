@@ -111,3 +111,38 @@ func TestTokenCapCountsScheduledRunsOnly(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &TokenCap{Cap: 100, Used: 150, Day: tokenDay(now), Reached: true}, report.TokenCap)
 }
+
+// A result file must hold one JSON object and nothing after it but
+// whitespace; trailing text makes it malformed, which counts as ok.
+func TestResultFileWithTrailingTextCountsAsOK(t *testing.T) {
+	for name, content := range map[string]string{
+		"garbage":       attentionResult + " and then some",
+		"second object": attentionResult + `{"status": "ok"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			agent := &fakeAgent{run: func(req AgentRequest) (AgentResult, error) {
+				writeResult(t, req, content)
+				return AgentResult{Message: "done"}, nil
+			}}
+			f := newNotifyFixture(t, map[string]string{"a.yml": "name: A\nevery: 1h\nprompt: p\n"}, agent, "")
+			_, err := f.svc.RunDue(context.Background())
+			require.NoError(t, err)
+
+			r := lastRun(t, f.svc, "a")
+			require.NotNil(t, r.Result)
+			require.Empty(t, r.Result.Status)
+			require.NotEmpty(t, r.Result.Error)
+			require.Nil(t, activeItem(t, f.svc, "a"))
+			require.Empty(t, f.notifications(t))
+		})
+	}
+	// Trailing whitespace is fine.
+	agent := &fakeAgent{run: func(req AgentRequest) (AgentResult, error) {
+		writeResult(t, req, attentionResult+"\n\n")
+		return AgentResult{Message: "done"}, nil
+	}}
+	f := newNotifyFixture(t, map[string]string{"a.yml": "name: A\nevery: 1h\nprompt: p\n"}, agent, "")
+	_, err := f.svc.RunDue(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, ResultAttention, lastRun(t, f.svc, "a").Result.Status)
+}

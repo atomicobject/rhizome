@@ -107,6 +107,9 @@ func readResult(path string) *RunResult {
 	if err := dec.Decode(&r); err != nil {
 		return &RunResult{Error: "the result file is not a JSON object: " + err.Error()}
 	}
+	if _, err := dec.Token(); err != io.EOF {
+		return &RunResult{Error: "the result file has more after its JSON object"}
+	}
 	r.Error = ""
 	r.Summary = strings.TrimSpace(r.Summary)
 	switch r.Status {
