@@ -41,8 +41,6 @@ type machineTasks struct {
 	runHere bool
 }
 
-func (m *machineTasks) RunHere(context.Context) (bool, error) { return m.runHere, nil }
-
 func (m *machineTasks) SetRunHere(_ context.Context, on bool) error {
 	m.runHere = on
 	return nil

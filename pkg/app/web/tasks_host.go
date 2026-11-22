@@ -69,12 +69,11 @@ func (h *TaskHosts) Dispatching() bool {
 	return h.open > 0 && !h.drained
 }
 
-// TaskMachine is the person's per-machine "Run tasks on this machine"
-// setting (SPEC-0127 US10).
-// LEAD: lane A's *tasks.Service provides RunHere/SetRunHere; once it does,
-// fold these into TasksAPI and drop the type assertions below.
+// TaskMachine sets the person's per-machine "Run tasks on this machine"
+// (SPEC-0127 US10).
+// LEAD: lane A's *tasks.Service has this method; once it lands, fold it into
+// TasksAPI and drop the type assertion in setTaskMachine.
 type TaskMachine interface {
-	RunHere(ctx context.Context) (bool, error)
 	SetRunHere(ctx context.Context, on bool) error
 }
 
@@ -141,11 +140,6 @@ func (s *Server) hostStatus(ctx context.Context, api TasksAPI, hosts *TaskHosts)
 		return status, err
 	}
 	status.Draining = hosts.Draining()
-	if machine, ok := api.(TaskMachine); ok {
-		if status.RunHere, err = machine.RunHere(ctx); err != nil {
-			return status, err
-		}
-	}
 	return status, nil
 }
 

@@ -7,8 +7,8 @@ import (
 )
 
 // HostStatus is what Rhizome Desktop's menu bar shows for one repository
-// (SPEC-0104 US7). The runtime sends it on the host stream; it adds RunHere
-// and Draining, which live outside the task state.
+// (SPEC-0104 US7). The runtime sends it on the host stream and adds
+// Draining, which lives in the runtime.
 type HostStatus struct {
 	Repository  string       `json:"repository"`
 	CommonDir   string       `json:"commonDir"`
@@ -77,6 +77,7 @@ func (s *Service) HostStatus(ctx context.Context) (HostStatus, error) {
 		return HostStatus{}, err
 	}
 	now := s.opts.Now()
+	// LEAD: set RunHere from lane A's MachineSettings().Repository.RunHere.
 	hs := HostStatus{Repository: s.opts.Repo.MainCheckout, CommonDir: s.opts.Repo.CommonDir, Paused: st.PausedAt(now), Notices: []HostNotice{}}
 	if hs.Paused {
 		hs.PausedUntil = st.PausedUntil
