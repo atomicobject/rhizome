@@ -205,13 +205,14 @@ func (s *Service) runDue(ctx context.Context, host bool) (RunSummary, error) {
 			summary.Outcomes = append(summary.Outcomes, s.recheck(ctx, d.def, it.ID, commit))
 			continue
 		}
-		if slot := s.slotOf(d.def, s.opts.Now()); slot != "" {
+		slot := s.slotOf(d.def, current.due)
+		if slot != "" {
 			if landed, ok, _ := s.opts.Repo.SlotLanded(ctx, ref, d.def.ID, slot); ok {
 				summary.Outcomes = append(summary.Outcomes, s.slotDone(ctx, d.def, slot, landed, commit))
 				continue
 			}
 		}
-		summary.Outcomes = append(summary.Outcomes, s.runTask(ctx, d.def, mode, ref, commit))
+		summary.Outcomes = append(summary.Outcomes, s.runTask(ctx, d.def, mode, ref, commit, slot))
 	}
 	return summary, nil
 }
@@ -284,9 +285,9 @@ func (s *Service) lastTagged(ctx context.Context, ref string, defs []Definition)
 }
 
 // runTask runs one due task's check, then notifies or does the work.
-func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, commit string) Outcome {
+func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, commit, slot string) Outcome {
 	a := s.newAttempt(false)
-	a.slot, a.scheduled = s.slotOf(def, s.opts.Now()), true
+	a.slot, a.scheduled = slot, true
 	base := a.record(def.ID, "", time.Time{})
 	base.Commit = commit
 	if err := s.begin(ctx, a, base, nil); err != nil {

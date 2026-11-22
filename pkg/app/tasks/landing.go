@@ -147,25 +147,15 @@ func protected(def Definition, path string) bool {
 	return false
 }
 
-// slotOf names the scheduled slot a run of def at now is for, or "" for an
-// unscheduled run, whose slot is its run ID. Integration seam: the
-// wall-clock schedule (SPEC-0127 US9) supplies the slot time as RFC3339.
-func (s *Service) slotOf(def Definition, now time.Time) string {
+// slotOf names the scheduled slot a due task runs for, from the Due that
+// taskDue computed (its last run and, for a team task, its tagged commit),
+// so the duplicate check and the commit's slot line agree with the
+// decision to run. An unscheduled run's slot is "" (its run ID).
+func (s *Service) slotOf(def Definition, due Due) string {
 	if s.slotFor != nil {
-		return s.slotFor(def, now)
+		return s.slotFor(def, s.opts.Now())
 	}
-	if len(def.Schedule) == 0 {
-		return ""
-	}
-	// From the task's last run, as taskDue decides, so both name the same
-	// slot: with 05:00 and 06:00 entries, a run after a landed 05:00 is for
-	// 06:00.
-	var last RunRecord
-	if st, err := s.store.Load(); err == nil {
-		last, _ = st.LastRun(def.ID)
-	}
-	due := clockFor(last, nil, s.zone()).Next(def, now)
-	if !due.Now || due.At.IsZero() {
+	if len(def.Schedule) == 0 || !due.Now || due.At.IsZero() {
 		return ""
 	}
 	return due.At.Format(time.RFC3339)
