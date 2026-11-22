@@ -368,6 +368,10 @@ pub struct Session {
     /// next has no windows to restore.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub closed: Option<WindowSession>,
+    /// `windows` were stashed by Quit Rhizome or kept from a launch that
+    /// opened none, rather than open when this was saved.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub pending: bool,
 }
 
 impl Session {
@@ -399,6 +403,25 @@ pub struct Preferences {
     /// The workbench sidebar's state in every window (SPEC-0128).
     #[serde(deserialize_with = "lenient")]
     pub sidebar_collapsed: bool,
+    /// macOS: ⌘Q closes windows and keeps the menu bar host (SPEC-0104 US8).
+    #[serde(deserialize_with = "lenient")]
+    pub keep_in_menu_bar: On,
+    #[serde(deserialize_with = "lenient")]
+    pub launch_at_login: bool,
+    /// The one-time notice that Quit Rhizome keeps the menu bar host.
+    #[serde(deserialize_with = "lenient")]
+    pub menu_bar_notice_shown: bool,
+}
+
+/// A setting that is on until the person turns it off.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct On(pub bool);
+
+impl Default for On {
+    fn default() -> Self {
+        Self(true)
+    }
 }
 
 /// Reads a field, or its default when the value is one a newer app wrote.
@@ -741,9 +764,32 @@ mod tests {
                 render_profiling: true,
                 theme: Theme::Graphite,
                 appearance: Appearance::Light,
-                sidebar_collapsed: false,
+                ..Preferences::default()
             }
         );
+    }
+
+    #[test]
+    fn the_menu_bar_keeps_rhizome_running_until_turned_off() {
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join(PREFERENCES);
+        let saved = Preferences::load(directory.path());
+        assert!(saved.keep_in_menu_bar.0, "on by default");
+        assert!(!saved.launch_at_login && !saved.menu_bar_notice_shown);
+        Preferences {
+            keep_in_menu_bar: On(false),
+            ..Preferences::default()
+        }
+        .save(directory.path())
+        .unwrap();
+        assert!(!Preferences::load(directory.path()).keep_in_menu_bar.0);
+        fs::write(&file, r#"{"keepInMenuBar":"no","launchAtLogin":true}"#).unwrap();
+        let saved = Preferences::load(directory.path());
+        assert!(
+            saved.keep_in_menu_bar.0,
+            "an unreadable value keeps the default"
+        );
+        assert!(saved.launch_at_login);
     }
 
     #[test]

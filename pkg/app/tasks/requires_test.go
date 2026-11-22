@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentchat"
 	"github.com/atomicobject/rhizome/pkg/harness"
@@ -22,6 +23,14 @@ type listingHarness struct {
 func (h *listingHarness) ListMCPServers(context.Context, string) ([]harness.MCPServerState, error) {
 	h.listed++
 	return h.servers, nil
+}
+
+// slowListingHarness lists nothing until its context ends.
+type slowListingHarness struct{ harnesstest.Harness }
+
+func (*slowListingHarness) ListMCPServers(ctx context.Context, _ string) ([]harness.MCPServerState, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
 }
 
 // resolvingAgent is a fakeAgent whose prompt runs would use driver.
@@ -117,6 +126,19 @@ func TestMCPAndDenyRequirementsAskTheTasksHarness(t *testing.T) {
 		require.Equal(t, OutcomeFailed, summary.Outcomes[0].Outcome)
 		require.Contains(t, summary.Outcomes[0].Reason, `MCP server "files" for claude reports "failed to connect"`)
 		require.NotContains(t, summary.Outcomes[0].Reason, `"linear"`)
+		require.Zero(t, agent.calls())
+	})
+
+	t.Run("a listing that does not finish in time is a missing requirement", func(t *testing.T) {
+		restore := mcpListTimeout
+		mcpListTimeout = 50 * time.Millisecond
+		t.Cleanup(func() { mcpListTimeout = restore })
+		dir := newRepo(t, map[string]string{"linear.yml": task})
+		agent := resolvingAgent{fakeAgent: &fakeAgent{}, kind: harness.KindClaude, driver: &slowListingHarness{}}
+		summary, err := newService(t, dir, agent, "auto").RunDue(ctx)
+		require.NoError(t, err)
+		require.Equal(t, OutcomeFailed, summary.Outcomes[0].Outcome)
+		require.Contains(t, summary.Outcomes[0].Reason, "could not list claude MCP servers within 50ms")
 		require.Zero(t, agent.calls())
 	})
 

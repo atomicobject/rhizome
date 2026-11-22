@@ -96,6 +96,9 @@ type RunRecord struct {
 	// NotifyError why the notify command failed after the run (US14).
 	Result      *RunResult `json:"result,omitempty"`
 	NotifyError string     `json:"notifyError,omitempty"`
+	// Holder names the run lock acquisition that started the run (PID and
+	// lock time), so Stop marks only its holder's run.
+	Holder string `json:"holder,omitempty"`
 }
 
 // State is one person's task state for one repository.
@@ -118,9 +121,11 @@ type State struct {
 	// PassError is why the latest run-due pass failed before running tasks.
 	PassError *PassError `json:"passError,omitempty"`
 	// Fetch is the latest fetch of the primary ref's remote.
-	Fetch  *FetchStatus `json:"fetch,omitempty"`
-	Items  []Item       `json:"items,omitempty"`
-	NextID int          `json:"nextId,omitempty"`
+	Fetch *FetchStatus `json:"fetch,omitempty"`
+	// LastPass is when the latest run-due pass settled items (bookkeep).
+	LastPass time.Time `json:"lastPass,omitzero"`
+	Items    []Item    `json:"items,omitempty"`
+	NextID   int       `json:"nextId,omitempty"`
 	// Stopping is the run Stop was asked to end. Whichever process records
 	// that run records it as stopped.
 	Stopping string `json:"stopping,omitempty"`
@@ -130,9 +135,11 @@ type State struct {
 	// notify (SPEC-0127 US12).
 	Landings map[string]Landing `json:"landings,omitempty"`
 	Widened  map[string]Landing `json:"widened,omitempty"`
-	// Leftover is task -> paths a failed, stopped, or uncommitted in-place
-	// run left in the checkout; the task's next successful run adopts them.
-	Leftover map[string][]string `json:"leftover,omitempty"`
+	// Leftover is task -> path -> the content ("<mode> <object id>", ""
+	// when deleted) a failed, stopped, or uncommitted in-place run left
+	// there. The task's next successful run adopts a path only while its
+	// content is still that; otherwise the path is the person's.
+	Leftover map[string]map[string]string `json:"leftoverFiles,omitempty"`
 
 	// TokenCapNotified is the UTC day the daily token cap last stopped
 	// work and notified, so it notifies once a day (SPEC-0127 US14).
@@ -189,7 +196,7 @@ func (s *State) LastRun(task string) (RunRecord, bool) {
 // Record appends a run and counts its tokens. It clears Running when that
 // is this run. Retention trims history at the end of each run.
 func (s *State) Record(r RunRecord) {
-	r.Stage = ""
+	r.Stage, r.Holder = "", ""
 	if s.Stopping != "" && r.ID == s.Stopping {
 		r.Outcome, r.Message, s.Stopping = OutcomeStopped, stoppedMessage, ""
 	}

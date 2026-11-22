@@ -2,11 +2,14 @@ package tasks
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
@@ -120,5 +123,102 @@ func TestPRLandingPushesTheBranchAndOpensAPullRequest(t *testing.T) {
 	}
 	if f.status() != "" {
 		t.Fatal("a pr run never touches the open checkout")
+	}
+}
+
+func TestApproveAcceptsOnlyTheLandingTheNoticeShowed(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nprompt: Tend the notes.\n")
+	f.pass()
+	f.push(".rhizome/tasks/tend.yml", inPlaceTask)
+	run(t, f.host, "fetch", "--quiet", "origin")
+	if o := f.pass(); o.Outcome != OutcomeNotified {
+		t.Fatalf("%+v", o)
+	}
+	// The file widens again before the person approves what they read.
+	f.push(".rhizome/tasks/tend.yml", strings.Replace(inPlaceTask, `["notes/**"]`, `["notes/**", "**"]`, 1))
+	run(t, f.host, "fetch", "--quiet", "origin")
+	err := f.svc.Approve(context.Background(), "tend")
+	if err == nil || !strings.Contains(err.Error(), "new inbox note") {
+		t.Fatalf("approving an unseen landing must fail, got %v", err)
+	}
+	st := mustState(t, f.svc)
+	if st.Landings["tend"].Land != "pr" || !slices.Contains(st.Widened["tend"].Writes, "**") {
+		t.Fatalf("nothing may be approved, and the new landing waits: %+v %+v", st.Landings, st.Widened)
+	}
+	var notes int
+	for _, it := range st.Items {
+		if it.Kind == KindAnnouncement && it.Active() && strings.Contains(it.Summary, "notes/**, **") {
+			notes++
+		}
+	}
+	if notes != 1 {
+		t.Fatalf("the new landing needs one notice, got %d: %+v", notes, st.Items)
+	}
+	if err := f.svc.Approve(context.Background(), "tend"); err != nil {
+		t.Fatalf("approving the landing the new notice showed works: %v", err)
+	}
+	if got := mustState(t, f.svc).Landings["tend"]; !slices.Contains(got.Writes, "**") {
+		t.Fatalf("%+v", got)
+	}
+}
+
+func TestDiscardNeverRemovesTheHostCheckout(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n")
+	f.svc = f.service(repoconfig.LocalTasksConfig{PrimaryRef: "origin/main", DefaultMode: "auto"}, false)
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	if o := f.pass(); o.Outcome != OutcomeReady {
+		t.Fatalf("%+v", o)
+	}
+	it := taskItems(mustState(t, f.svc), "tend")[0]
+	// The person makes the run's worktree the checkout tasks run in.
+	f.svc.opts.Env = vaultconfig.Env{CLIConfigFile: filepath.Join(t.TempDir(), "config.yml")}
+	if err := f.svc.SetHostCheckout(context.Background(), it.Worktree); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(it.Worktree, "notes/mine.md"), "the person's work\n")
+	if err := f.svc.Discard(context.Background(), it.ID); err == nil || !strings.Contains(err.Error(), "holds the checkout") {
+		t.Fatalf("Discard must refuse the host checkout, got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(it.Worktree, "notes/mine.md")); err != nil {
+		t.Fatalf("the host checkout must survive: %v", err)
+	}
+
+	// A worktree the person switched to their own branch is theirs too.
+	if err := f.svc.SetHostCheckout(context.Background(), ""); err != nil {
+		t.Fatal(err)
+	}
+	run(t, it.Worktree, "switch", "--quiet", "-c", "mine")
+	if err := f.svc.Discard(context.Background(), it.ID); err == nil || !strings.Contains(err.Error(), "is on mine") {
+		t.Fatalf("Discard must refuse a worktree on another branch, got %v", err)
+	}
+	run(t, it.Worktree, "switch", "--quiet", it.Branch)
+	if err := f.svc.Discard(context.Background(), it.ID); err != nil {
+		t.Fatalf("Discard removes the run's own worktree: %v", err)
+	}
+}
+
+func TestLandingsRunNoRepositoryHooks(t *testing.T) {
+	saved := openPullRequest
+	t.Cleanup(func() { openPullRequest = saved })
+	openPullRequest = func(context.Context, string, string, string, string, string) (string, error) {
+		return "https://example.test/pull/1", nil
+	}
+	for _, task := range []string{inPlaceTask, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n"} {
+		f := newLandFixture(t, task)
+		marker := filepath.Join(t.TempDir(), "hook-ran")
+		for _, hook := range []string{"post-checkout", "pre-commit", "commit-msg", "post-commit", "post-index-change", "reference-transaction", "pre-push"} {
+			path := filepath.Join(f.host, ".git", "hooks", hook)
+			writeFile(t, path, "#!/bin/sh\necho "+hook+" >> "+marker+"\n")
+			if err := os.Chmod(path, 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+		if o := f.pass(); o.Outcome != OutcomeLanded && o.Outcome != OutcomeReady {
+			t.Fatalf("%+v", o)
+		}
+		if ran, err := os.ReadFile(marker); err == nil {
+			t.Fatalf("hooks ran for %q: %s", strings.SplitN(task, "\n", 4)[2], ran)
+		}
 	}
 }

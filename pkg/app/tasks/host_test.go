@@ -57,7 +57,8 @@ func TestRunDueHostRunsOnlyWhereRunHereIsOn(t *testing.T) {
 	if err := svc.SetRunHere(ctx, true); err != nil {
 		t.Fatal(err)
 	}
-	if at, ok, err := svc.NextDueAt(ctx); err != nil || !ok || !at.Equal(now) {
+	// No pass has seen the task yet, so it is due since it appeared.
+	if at, ok, err := svc.NextDueAt(ctx); err != nil || !ok || !at.IsZero() {
 		t.Fatalf("NextDueAt for a task that never ran = %v %v %v", at, ok, err)
 	}
 	if summary, err = svc.RunDueHost(ctx); err != nil || len(summary.Outcomes) != 1 || summary.Outcomes[0].Outcome != OutcomeNotified {
@@ -249,5 +250,65 @@ func TestRunDueFetchesOnlyWhenSomethingIsDue(t *testing.T) {
 	report, err := svc.Status(ctx)
 	if err != nil || report.Fetch == nil || report.Fetch.Error == "" || !report.Fetch.At.Equal(now) {
 		t.Fatalf("status fetch: %+v %v", report.Fetch, err)
+	}
+}
+
+// A failed fetch's error names the remote URL. What is stored and shown
+// keeps no userinfo, query string, fragment, or token from it.
+func TestFetchErrorsKeepNoCredentials(t *testing.T) {
+	isolateGit(t)
+	root := t.TempDir()
+	remote := filepath.Join(root, "remote.git")
+	run(t, root, "init", "--quiet", "--bare", "-b", "main", remote)
+	seed := filepath.Join(root, "seed")
+	run(t, root, "init", "--quiet", "-b", "main", seed)
+	commitFile(t, seed, TasksDir+"/a.yml", "name: A\nevery: 1h\nprompt: p\n", "add task")
+	run(t, seed, "remote", "add", "origin", remote)
+	run(t, seed, "push", "--quiet", "origin", "main")
+	host := filepath.Join(root, "host")
+	run(t, root, "clone", "--quiet", remote, host)
+
+	now := time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
+	svc := hostService(t, host, "", &now, true)
+	ctx := context.Background()
+	for _, url := range []string{
+		"https://127.0.0.1:1/repo.git?access_token=SECRET-QUERY#SECRET-FRAGMENT",
+		"https://x-access-token:SECRET-USERINFO@127.0.0.1:1/repo.git",
+	} {
+		run(t, host, "remote", "set-url", "origin", url)
+		now = now.Add(2 * time.Hour)
+		if _, err := svc.RunDue(ctx); err != nil {
+			t.Fatal(err)
+		}
+		f := mustState(t, svc).Fetch
+		if f == nil || f.Error == "" || strings.Contains(f.Error, "SECRET") {
+			t.Fatalf("fetch from %s stored %+v", url, f)
+		}
+	}
+	for _, text := range []string{
+		"remote: token=SECRET-A rejected",
+		"auth x-access-token:SECRET-B failed",
+		"see http://h/p?ref=main&access_token=SECRET-C",
+	} {
+		if got := redactURLCredentials(text); strings.Contains(got, "SECRET") {
+			t.Fatalf("redact(%q) = %q", text, got)
+		}
+	}
+}
+
+func TestNextDueAtDuringAPauseSkipsASlotWhoseLateWindowCloses(t *testing.T) {
+	dir := newRepo(t, map[string]string{"n.yml": "name: N\nschedule: {at: \"12:52\", timezone: UTC, late: 1h}\nprompt: p\n"})
+	now := time.Date(2026, 11, 23, 12, 55, 0, 0, time.UTC)
+	svc := hostService(t, dir, "main", &now, true)
+	ctx := context.Background()
+	if err := svc.SetRunHere(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.PauseUntil(ctx, time.Date(2026, 11, 23, 14, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatal(err)
+	}
+	want := time.Date(2026, 11, 24, 12, 52, 0, 0, time.UTC)
+	if at, ok, err := svc.NextDueAt(ctx); err != nil || !ok || !at.Equal(want) {
+		t.Fatalf("NextDueAt = %v %v %v, want the next day's slot %v: today's late window closes at 13:52, before the pause lifts", at, ok, err, want)
 	}
 }

@@ -97,6 +97,14 @@ func (s *Service) noHooks(a attempt) (string, error) {
 	return "core.hooksPath=" + hooks, nil
 }
 
+// passNoHooks is noHooks for Git commands a pass runs outside any one run,
+// such as its fetch and the check checkout.
+func (s *Service) passNoHooks() string {
+	hooks := filepath.Join(s.stateDir, "no-hooks")
+	_ = os.MkdirAll(hooks, 0o700)
+	return "core.hooksPath=" + hooks
+}
+
 // captureTree writes the checkout's effective working-tree contents as a
 // Git tree through a private copy of its index, so the author's index,
 // HEAD, and working tree never change. The runner's state folder is left
@@ -130,7 +138,8 @@ func (s *Service) captureTree(ctx context.Context, root, noHooks string) (string
 	if _, err = gitBytesInput(ctx, root, env, tracked, "-c", noHooks, "update-index", "--no-assume-unchanged", "-z", "--stdin"); err != nil {
 		return "", err
 	}
-	args := []string{"-c", noHooks, "-c", "core.splitIndex=false", "add", "-A", "--", "."}
+	// A stale file-system monitor would hide edits from the snapshot.
+	args := []string{"-c", noHooks, "-c", "core.splitIndex=false", "-c", "core.fsmonitor=false", "add", "-A", "--", "."}
 	// The executing runner owns this directory, including its changing locks.
 	if rel, err := filepath.Rel(root, s.stateDir); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		rel = filepath.ToSlash(rel)

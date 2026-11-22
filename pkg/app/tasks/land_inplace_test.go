@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/atomicobject/rhizome/pkg/harness"
 )
 
 func TestInPlaceLandsManyRunsWhileAnotherClonePushes(t *testing.T) {
@@ -111,7 +114,7 @@ func TestInPlaceRestoresProtectedPaths(t *testing.T) {
 		t.Fatalf("only writes outside protected folders, or naming them, are committed: %v", got)
 	}
 	if f.read(".agents/skills/a/SKILL.md") != "agent skill\n" || f.read(".agents/skills/a/notes/x.md") != "x\n" || !strings.HasPrefix(f.read(".rhizome/tasks/tend.yml"), "name: Tend notes") {
-		t.Fatal("protected files must be restored to their snapshot content")
+		t.Fatalf("protected files must be restored to their snapshot content: %+v", f.attention())
 	}
 	if _, err := os.Stat(filepath.Join(f.host, ".rhizome/new.yml")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("a protected file the run created must be removed: %v", err)
@@ -158,7 +161,7 @@ func TestInPlaceAdoptsAFailedRunsFiles(t *testing.T) {
 	if o := f.pass(); o.Outcome != OutcomeFailed {
 		t.Fatalf("%+v", o)
 	}
-	if got := mustState(t, f.svc).Leftover["tend"]; !slices.Equal(got, []string{"notes/a.md"}) {
+	if got := slices.Sorted(maps.Keys(mustState(t, f.svc).Leftover["tend"])); !slices.Equal(got, []string{"notes/a.md"}) {
 		t.Fatalf("a failed run records the task's files, got %v", got)
 	}
 	failed := f.attention()
@@ -209,7 +212,7 @@ func TestInPlaceHeadMovedDuringTheRunDoesNotCommit(t *testing.T) {
 	if run(t, f.host, "log", "-1", "--format=%s") != "person commits during the run" || f.status() != "?? notes/a.md" {
 		t.Fatal("Rhizome must not commit after HEAD moved")
 	}
-	if got := mustState(t, f.svc).Leftover["tend"]; !slices.Equal(got, []string{"notes/a.md"}) {
+	if got := slices.Sorted(maps.Keys(mustState(t, f.svc).Leftover["tend"])); !slices.Equal(got, []string{"notes/a.md"}) {
 		t.Fatalf("the files must be recorded, got %v", got)
 	}
 	if len(f.attention()) != 1 {
@@ -230,5 +233,21 @@ func TestInPlaceSkipsAWrongBranchWithOneNotice(t *testing.T) {
 	}
 	if n := len(taskItems(mustState(t, f.svc), "tend")); n != 1 || len(f.attention()) != 1 {
 		t.Fatalf("expected one deduplicated notice, got %+v", taskItems(mustState(t, f.svc), "tend"))
+	}
+}
+
+func TestInPlaceRunsCarryTheTaskAndItsDenyList(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nwrites: [\"notes/**\"]\ndeny: [WebFetch]\nprompt: Tend the notes.\n")
+	var got AgentRequest
+	f.agent.run = func(req AgentRequest) (AgentResult, error) {
+		got = req
+		return AgentResult{Message: "nothing to do"}, nil
+	}
+	f.svc.opts.Agent = resolvingAgent{fakeAgent: f.agent, kind: harness.KindClaude, driver: &listingHarness{}}
+	if o := f.pass(); o.Outcome != OutcomeNoChanges {
+		t.Fatalf("%+v", o)
+	}
+	if got.Task != "tend" || !slices.Equal(got.Deny, []string{"WebFetch"}) || got.Dir != f.host {
+		t.Fatalf("the in-place run must name the task, its deny list, and the checkout: %+v", got)
 	}
 }

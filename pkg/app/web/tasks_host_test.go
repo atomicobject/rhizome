@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -92,7 +93,7 @@ func TestTaskHostStreamHoldsTheRuntimeAndSendsStatusChanges(t *testing.T) {
 	require.Equal(t, "/repo", status["repository"])
 	require.Equal(t, false, status["draining"])
 	require.Equal(t, int32(1), held.Load(), "an open host stream keeps the runtime from idling")
-	require.True(t, hosts.Dispatching())
+	require.True(t, hosts.Hosting())
 
 	api.set(func(st *tasks.HostStatus) { st.Attention = 2 })
 	_, status = readHostEvent(t, events)
@@ -100,8 +101,8 @@ func TestTaskHostStreamHoldsTheRuntimeAndSendsStatusChanges(t *testing.T) {
 
 	code, drained := serveTasks(t, s, http.MethodPost, "/api/tasks/host/drain", "")
 	require.Equal(t, http.StatusOK, code)
-	require.Equal(t, map[string]any{"running": nil}, drained)
-	require.False(t, hosts.Dispatching(), "a drained runtime dispatches nothing")
+	require.Equal(t, map[string]any{"running": nil, "dispatching": nil}, drained)
+	require.False(t, hosts.Hosting(), "a drained runtime dispatches nothing")
 	_, status = readHostEvent(t, events)
 	require.Equal(t, true, status["draining"])
 
@@ -144,4 +145,26 @@ func TestTaskHostRoutes(t *testing.T) {
 	code, _ = serveTasks(t, s, http.MethodPost, "/api/tasks/machine", `{"runHere":true}`)
 	require.Equal(t, http.StatusOK, code)
 	require.True(t, machine.runHere)
+}
+
+func TestANewHostAfterADrainSchedulesAgain(t *testing.T) {
+	hosts := &TaskHosts{}
+	release := hosts.Hold()
+	hosts.Drain()
+	require.False(t, hosts.Hosting(), "a drained runtime dispatches nothing while the quitting host is still connected")
+	release()
+	release = hosts.Hold()
+	defer release()
+	require.True(t, hosts.Hosting(), "a Desktop that reopens and holds an attached runtime that outlived the quit schedules again")
+}
+
+func TestRunNowStartsNothingAfterADrain(t *testing.T) {
+	hosts := &TaskHosts{}
+	release := hosts.Hold()
+	defer release()
+	hosts.Drain()
+	started := false
+	err := hosts.Launch(func() (*appruntime.Detached, error) { started = true; return nil, nil })
+	require.ErrorIs(t, err, tasks.ErrBusy)
+	require.False(t, started, "Run now must not start work Quit Completely is no longer tracking")
 }

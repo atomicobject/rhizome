@@ -1,12 +1,10 @@
 package tasks
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -48,7 +46,11 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	if s.opts.Agent == nil {
 		return s.fail(ctx, def, a, itemID, commit, "no agent harness is available to run the prompt", 0)
 	}
-	branch, dir, err := s.createWorktree(ctx, def, commit)
+	noHooks, err := s.noHooks(a)
+	if err != nil {
+		return s.fail(ctx, def, a, itemID, commit, err.Error(), 0)
+	}
+	branch, dir, err := s.createWorktree(ctx, def, commit, noHooks)
 	if err != nil {
 		return s.fail(ctx, def, a, itemID, commit, "create worktree: "+err.Error(), 0)
 	}
@@ -101,7 +103,7 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	if len(message) > maxMessage {
 		message = message[:maxMessage]
 	}
-	changed, committed, err := commitWork(ctx, def, dir, commit, message)
+	changed, committed, err := commitWork(ctx, def, dir, commit, message, noHooks)
 	if err != nil {
 		return s.fail(ctx, def, a, itemID, commit, fmt.Sprintf("commit: %v (worktree kept at %s)", err, dir), res.Tokens)
 	}
@@ -208,8 +210,9 @@ func writeLocations(b *strings.Builder, loc Locations, check CheckResult) {
 }
 
 // createWorktree makes the branch rzm/<task>/<date>, suffixed when taken,
-// and a worktree for it under the state folder.
-func (s *Service) createWorktree(ctx context.Context, def Definition, commit string) (branch, dir string, err error) {
+// and a worktree for it under the state folder, running no repository
+// hooks.
+func (s *Service) createWorktree(ctx context.Context, def Definition, commit, noHooks string) (branch, dir string, err error) {
 	branch, err = s.freeBranch(ctx, def)
 	if err != nil {
 		return "", "", err
@@ -218,7 +221,7 @@ func (s *Service) createWorktree(ctx context.Context, def Definition, commit str
 	if err := os.MkdirAll(filepath.Dir(dir), 0o700); err != nil {
 		return "", "", err
 	}
-	if _, err := s.opts.Repo.git(ctx, "worktree", "add", "--quiet", "-b", branch, dir, commit); err != nil {
+	if _, err := s.opts.Repo.git(ctx, "-c", noHooks, "worktree", "add", "--quiet", "-b", branch, dir, commit); err != nil {
 		return "", "", err
 	}
 	return branch, dir, nil
@@ -249,17 +252,16 @@ func (s *Service) freeBranch(ctx context.Context, def Definition) (string, error
 }
 
 // removeWorktree removes a run's worktree and local branch. Ones already
-// gone are not errors. It refuses anything Rhizome did not make: a folder
-// outside the state folder, such as the open checkout, or a branch outside
-// rzm/.
+// gone are not errors. It refuses anything Rhizome did not make (see
+// removable) and a branch outside rzm/.
 func (s *Service) removeWorktree(ctx context.Context, branch, dir string) error {
-	if dir != "" && !s.ownsWorktree(dir) {
-		return fmt.Errorf("%s is not a worktree Rhizome made, so it was left alone", dir)
-	}
 	if branch != "" && !strings.HasPrefix(branch, "rzm/") {
 		return fmt.Errorf("%s is not a branch Rhizome made, so it was left alone", branch)
 	}
 	if dir != "" {
+		if err := s.removable(ctx, branch, dir); err != nil {
+			return err
+		}
 		if _, err := os.Stat(dir); err == nil {
 			if _, err := s.opts.Repo.git(ctx, "worktree", "remove", "--force", dir); err != nil {
 				return err
@@ -278,16 +280,80 @@ func (s *Service) removeWorktree(ctx context.Context, branch, dir string) error 
 	return nil
 }
 
+// removable refuses to remove dir unless it is a run or test worktree
+// folder under the state folder, is not and does not hold the main
+// checkout, the host checkout, or the selected checkout, and, when it
+// exists, Git lists it as a linked worktree on the run's branch (a test
+// worktree may be on any). The open checkout and a worktree the person
+// took over are never removed.
+func (s *Service) removable(ctx context.Context, branch, dir string) error {
+	dir = filepath.Clean(dir)
+	refused := func(why string) error {
+		return fmt.Errorf("%s %s, so it was left alone", dir, why)
+	}
+	if parent := filepath.Dir(dir); parent != filepath.Join(s.stateDir, "worktrees") && parent != filepath.Join(s.stateDir, "tests") {
+		return refused("is not a worktree Rhizome made")
+	}
+	for _, keep := range []string{s.opts.Repo.MainCheckout, s.hostCheckout(), s.opts.Checkout} {
+		if keep != "" && holds(dir, keep) {
+			return refused("is or holds the checkout " + keep)
+		}
+	}
+	if _, err := os.Stat(dir); err != nil {
+		return nil
+	}
+	out, err := s.opts.Repo.git(ctx, "worktree", "list", "--porcelain")
+	if err != nil {
+		return err
+	}
+	for i, entry := range strings.Split(out, "\n\n") {
+		lines := strings.Split(entry, "\n")
+		path, ok := strings.CutPrefix(lines[0], "worktree ")
+		if !ok || !samePath(path, dir) {
+			continue
+		}
+		on := "detached"
+		for _, line := range lines[1:] {
+			if b, ok := strings.CutPrefix(line, "branch "); ok {
+				on = b
+			}
+		}
+		switch {
+		case i == 0:
+			return refused("is the main worktree")
+		case branch != "" && on != "refs/heads/"+branch:
+			return refused("is on " + strings.TrimPrefix(on, "refs/heads/") + ", not the run's branch " + branch)
+		}
+		return nil
+	}
+	return refused("is not a Git worktree of this repository")
+}
+
+// holds reports whether path is dir or inside it.
+func holds(dir, path string) bool {
+	rel, err := filepath.Rel(resolved(dir), resolved(path))
+	return err == nil && (rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))))
+}
+
+func samePath(a, b string) bool { return resolved(a) == resolved(b) }
+
+func resolved(path string) string {
+	if r, err := filepath.EvalSymlinks(path); err == nil {
+		return r
+	}
+	return filepath.Clean(path)
+}
+
 // commitWork commits every change in dir with the work's message and the
 // task tag. When the work committed everything itself, an empty commit
 // carries the tag. It returns the files changed since base, and whether
 // there was anything to keep: changes, or commits the work made even if
-// they cancel out.
-func commitWork(ctx context.Context, def Definition, dir, base, message string) ([]string, bool, error) {
-	if _, err := gitOutput(ctx, dir, "add", "-A"); err != nil {
+// they cancel out. Repository hooks do not run.
+func commitWork(ctx context.Context, def Definition, dir, base, message, noHooks string) ([]string, bool, error) {
+	if _, err := gitOutput(ctx, dir, "-c", noHooks, "add", "-A"); err != nil {
 		return nil, false, err
 	}
-	status, err := gitOutput(ctx, dir, "status", "--porcelain")
+	status, err := gitOutput(ctx, dir, "-c", noHooks, "status", "--porcelain")
 	if err != nil {
 		return nil, false, err
 	}
@@ -302,11 +368,11 @@ func commitWork(ctx context.Context, def Definition, dir, base, message string) 
 		message = "The task's agent left no message."
 	}
 	body := fmt.Sprintf("chore(tasks): %s\n\n%s\n\n%s\n", truncate(def.Name, 60), message, def.Tag())
-	args := []string{"commit", "--quiet", "-F", "-"}
+	args := []string{"-c", noHooks, "commit", "--quiet", "--no-verify", "-F", "-"}
 	if status == "" {
 		args = append(args, "--allow-empty")
 	}
-	if err := gitWithInput(ctx, dir, body, args...); err != nil {
+	if _, err := gitBytesInput(ctx, dir, nil, []byte(body), args...); err != nil {
 		return nil, false, err
 	}
 	out, err := gitOutput(ctx, dir, "diff", "--name-only", base, "HEAD")
@@ -317,19 +383,6 @@ func commitWork(ctx context.Context, def Definition, dir, base, message string) 
 		return []string{}, true, nil
 	}
 	return strings.Split(out, "\n"), true, nil
-}
-
-func gitWithInput(ctx context.Context, dir, input string, args ...string) error {
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
-	cmd.Stdin = strings.NewReader(input)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("git %s: %v: %s", args[0], err, strings.TrimSpace(stderr.String()))
-	}
-	return nil
 }
 
 func firstLine(s string) string {

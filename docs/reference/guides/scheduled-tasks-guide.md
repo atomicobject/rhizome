@@ -52,7 +52,7 @@ schedule:
     days: [sat, sun]
 ```
 
-A slot is due once its time has passed and no run of the task started at or after it. A slot missed while the machine slept or Rhizome was closed still runs if the next check comes within `late` of it; several missed slots run once. A slot inside a daylight-saving gap runs at the first instant after the gap, and a slot in a repeated hour runs once. The zone is the entry's `timezone`, else your `tasks.timezone` setting (below), else the machine's. Windows that cross midnight, cron strings, and RRULEs are not supported.
+A slot is due once its time has passed and no run of the task started at or after it. A slot missed while the machine slept or Rhizome was closed still runs if the next check comes within `late` of it; several missed slots run once. A slot inside a daylight-saving gap runs at the first instant after the gap, and a slot in a repeated hour runs once, at its first occurrence; a run that started in either occurrence counts for it. The zone is the entry's `timezone`, else your `tasks.timezone` setting (below), else the machine's. Windows that cross midnight, cron strings, and RRULEs are not supported.
 
 Rhizome versions before `schedule` reject a task file that uses it, because task files reject unknown fields. A starter that ships scheduled tasks states its minimum Rhizome version.
 
@@ -158,11 +158,11 @@ A task's `harness`, `model`, and `effort` override your chat agent settings for 
 
 Scheduled tasks run on a machine where you turned on **Run tasks on this machine** (the Tasks page or `rzm tasks machine on`), while Rhizome Desktop runs there, even with every window closed. A runtime that Desktop does not hold, such as one started by `rzm` commands or MCP, runs no scheduled tasks. `rzm tasks stop` stops a run in progress and records it as stopped.
 
-While Rhizome Desktop holds the runtime of a repository you turned on here, it checks the clock every 30 seconds and starts `rzm tasks run-due --host` when a task is due. `--host` runs nothing unless the repository runs here, so a runtime on another machine never does the work. You can also run `rzm tasks run-due` yourself. Each due task runs once per person and repository, however many worktrees or runtimes are open. A task missed while Rhizome was closed runs once at the next pass, within its `late` window for a scheduled slot. When several tasks are due, the one with the nearest deadline runs first: a slot by the end of its `late` window, an `every` task by its due time.
+While Rhizome Desktop holds the runtime of a repository you turned on here, it checks the clock every 30 seconds and starts `rzm tasks run-due --host` when a task is due. `--host` runs nothing unless the repository runs here, so a runtime on another machine never does the work; turning **Run tasks on this machine** off during a pass stops it before the next task. You can also run `rzm tasks run-due` yourself. Each due task runs once per person and repository, however many worktrees or runtimes are open. A task missed while Rhizome was closed runs once at the next pass, within its `late` window for a scheduled slot. When several tasks are due, the one with the nearest deadline runs first: a slot by the end of its `late` window, an `every` task by its due time.
 
 Deciding what is due reads only the local primary ref. A pass with something due first fetches the primary ref's remote, without prompting and with a time limit, then reads the tasks again; if the fetch fails, the pass uses the last fetched ref and `rzm tasks status` shows the failure. A task added on the remote is seen at the next pass that fetches.
 
-`rzm tasks status` says why each task is not running: tasks do not run on this machine, the repository is untrusted, work is paused (and until when), the task is off, an open item waits for you, a requirement was missing, or today's token cap is reached. `--json` reports the same as a stable `blockedBy` code (`not-run-here`, `no-host`, `untrusted`, `paused`, `off`, `open-item`, `wrong-branch`, `requires`, `fetch-failed`, `token-cap`), with each task's `nextAt` and `timezone` and the repository's `runHere`, `pausedUntil`, last `fetch`, and `tokenCap` (`cap`, `used`, `day`, `reached`). An untrusted repository is reported once, as the last pass's error. To run a task without waiting for a pass, choose **Run now** on its page or run `rzm tasks run --task <task>`. Its check runs first, and the work starts only if the check finds some. A task with an open inbox item runs from that item instead.
+`rzm tasks status` says why each task is not running: tasks do not run on this machine, the repository is untrusted, work is paused (and until when), the task is off, an open item waits for you, a requirement was missing, or today's token cap is reached. `--json` reports the same as a stable `blockedBy` code (`not-run-here`, `no-host`, `untrusted`, `paused`, `off`, `open-item`, `wrong-branch`, `requires`, `fetch-failed`, `token-cap`), with each task's `nextAt` and `timezone` and the repository's `runHere`, `pausedUntil`, last `fetch`, and `tokenCap` (`cap`, `used`, `day`, `reached`). Only the runtime knows whether Rhizome Desktop hosts it, so `no-host` appears on the Tasks page (with tasks on here and no Desktop host) and never in `rzm tasks status`. A failed fetch never blocks a task, since the pass falls back to the last fetched branch, so `fetch-failed` is reserved and the failure shows only as the report's `fetch`. An untrusted repository is reported once, as the last pass's error. To run a task without waiting for a pass, choose **Run now** on its page or run `rzm tasks run --task <task>`. Its check runs first, and the work starts only if the check finds some. A task with an open inbox item runs from that item instead.
 
 A `person` task is due when your own last run is older than its cadence. A `team` task also counts teammates: when a commit tagged `Rhizome-Task: <id>` reaches the primary branch, everyone's clock resets. Squash merges keep the tag when the repository squashes with commit messages. They drop it when it squashes with the pull request title alone.
 
@@ -172,10 +172,10 @@ A `person` task is due when your own last run is older than its cadence. A `team
 
 - repository trust;
 - the primary branch and when the repository last fetched it;
-- `git push --dry-run` to the primary branch's remote, when your push setting is on;
+- `git push --dry-run` to the primary branch's remote, when your push setting is on, with the repository's hooks turned off; in an untrusted repository it is skipped, because a push runs commands the repository configures;
 - Obsidian Git in the host checkout: a timed auto commit-and-sync (`autoSaveInterval`) or auto pull (`autoPullInterval`) moves HEAD under an in-place run;
 - each `requires.commands` entry on your login shell's `PATH`;
-- for a task with a prompt: whether your harness is installed and signed in, whether it can enforce `deny`, and each `requires.mcp` server's status as the harness lists it. Claude Code connects to each server; Codex reports only whether a server is enabled and signed in.
+- for a task with a prompt: whether your harness is installed and signed in, whether it can enforce `deny`, and each `requires.mcp` server's status as the harness lists it. Claude Code connects to each server. Codex does not start its servers to list them, so doctor reports a Codex server as configured (Codex does not report connection status), or as disabled or not logged in; a configured server can still fail to connect when the task runs.
 
 ## Where changes land
 
@@ -185,13 +185,27 @@ A background run, automatic or started with **Run**, **Run now**, or `rzm tasks 
 
 `land: in-place` runs in the checkout Rhizome has open, the main checkout unless you chose another, and commits only the files the task declares in `writes`: repository-relative glob patterns where `*` stays within a folder and `**` crosses folders. A task that declares `writes` lands in place unless it says `land: pr`; `land: in-place` without `writes` is invalid.
 
-Before the run, the checkout must be on the local branch of the primary ref (for `origin/main`, a `main` that tracks it). Otherwise the task is skipped with one inbox notice, which later skips update instead of repeating, and it tries again at its next due time. Rhizome then fetches and fast-forwards the branch with `git merge --ff-only`, even with uncommitted files; when Git refuses because incoming changes touch them, the task is skipped the same way. It then records the working tree, which files were already changed or staged, and HEAD.
+Before the run, Rhizome fetches the branch's remote and fast-forwards the branch to the primary ref, even with uncommitted files, then records the working tree, HEAD, and which files you had changed, staged, or marked `assume-unchanged` or `skip-worktree`. The fast-forward works like `git merge --ff-only`, but never autostashes or runs hooks. When Rhizome cannot do this safely, the task is skipped with one inbox notice, which later skips update instead of repeating, and it tries again at its next due time. A task is skipped when:
 
-After the run, the task's changes are the files that changed during the run, were clean before it, and match `writes`. Rhizome commits exactly those with `git commit --only`, so anything you staged stays staged, using the agent's final message, the `Rhizome-Task: <id>` tag, and a `Rhizome-Task-Slot:` line naming the run. Repository hooks and commit signing are off for this commit. Everything else stays as it is and is named in the run's summary: files you had changed before the run, and files the agent changed outside `writes`.
+- the checkout is not on the local branch of the primary ref (for `origin/main`, a `main` that tracks it), or you switch branches while Rhizome fetches;
+- a merge, rebase, cherry-pick, revert, or bisect is in progress there, or conflicts are unresolved;
+- the branch has commits the primary ref lacks, so it cannot fast-forward;
+- the incoming commits change a file you have uncommitted changes to, or one marked `assume-unchanged` or `skip-worktree`, or add a file where an untracked or ignored file of yours is. Git would replace an ignored file without asking.
 
-- **Protected files.** Changes under `.agents/` or `.rhizome/`, including task files, are put back at once unless a `writes` pattern names that folder itself (`.rhizome/memory/**`; `**` alone does not count). The run's diff of them is saved as `runs/<id>/protected.diff`, and the item needs attention.
-- **HEAD moved.** If you commit, switch branches, or pull in that checkout while the task runs, Rhizome commits nothing, keeps the task's files in place, and raises one notice.
-- **Failed or stopped runs** leave their files in place. The task's next successful run commits them as its own, as long as they still match `writes` and you have not staged them.
+A run is also skipped, without a notice, when the fetch brings another machine's commit for the same scheduled slot.
+
+After the run, the task's changes are the files that changed during the run, were clean before it, and match `writes`. Rhizome commits exactly those, using the agent's final message, the `Rhizome-Task: <id>` tag, and a `Rhizome-Task-Slot:` line naming the run. It builds the commit outside your index and then updates only those files' index entries, so anything you staged stays staged. Repository hooks and commit signing are off. Everything else stays as it is and is named in the run's summary:
+
+- files you had changed or staged before the run, or staged during it;
+- files marked `assume-unchanged` or `skip-worktree`;
+- files the agent changed outside `writes`;
+- a task file that would replace a file or folder that is not the task's, such as a file where a folder of your staged work was.
+
+Other cases:
+
+- **Protected files.** Changes under `.agents/` or `.rhizome/`, including task files, are put back at once unless a `writes` pattern names that folder itself (`.rhizome/memory/**`; `**` alone does not count). The run's diff of them is saved as `runs/<id>/protected.diff`, and the item needs attention. Rhizome restores nothing if the branch or HEAD changed since the run started. It never writes through a folder the run replaced with a symlink, and it leaves a rename that changes only letter case. The notice names what it left.
+- **HEAD moved.** If you commit, switch branches, or pull in that checkout while the task runs, Rhizome commits nothing, keeps the task's files in place, and raises one notice. It moves the branch only while holding Git's locks on HEAD and the branch, so a commit or switch you make at that moment either waits for Rhizome or makes Rhizome stop.
+- **Failed or stopped runs** leave their files in place. The task's next successful run commits them as its own, as long as they still match `writes` and are exactly as the failed run left them. A file you edited or staged since then is yours.
 - **Known limit.** An edit you make during the run to a clean file inside `writes` cannot be told apart from the task's, and is committed with it.
 
 A successful in-place run closes its inbox item; its result is in the task's run history. **Discard** on an in-place item only dismisses the notice; it never touches the checkout.
@@ -200,18 +214,18 @@ A successful in-place run closes its inbox item; its result is in the task's run
 
 `land: pr`, and any task without `writes`, works in a worktree that Rhizome creates under `.rhizome/task-state/worktrees/`, on the branch `rzm/<task>/<date>`; a module task's branch is `rzm/<module>/<name>/<date>`. When it finishes, Rhizome commits every change with the agent's final message and the task tag. A run that changes nothing removes its worktree and branch.
 
-Review a finished run in its worktree, then open the pull request yourself, or discard it. In Rhizome Desktop, **Open worktree** opens the run's worktree in a new window, and **Discard** removes the worktree and branch. From a terminal, use `rzm tasks discard <item>`.
+Review a finished run in its worktree, then open the pull request yourself, or discard it. In Rhizome Desktop, **Open worktree** opens the run's worktree in a new window, and **Discard** removes the worktree and branch. From a terminal, use `rzm tasks discard <item>`. Discard leaves a worktree alone when you have made it the checkout tasks run in or switched it to another branch; remove it yourself with `git worktree remove`.
 
 ### Pushing
 
 Nothing is pushed unless the repository sets `tasks.allowPush: true` in `.rhizome/config.yml` and you turn push on for the repository on this machine. Then:
 
-- An in-place run pushes its commit when that fast-forwards the branch's upstream. If the push fails, Rhizome fetches, and treats the run as pushed when its commit, or a commit with the same slot line, is already there. If the upstream moved, it runs `git pull --rebase` only when no tracked file has uncommitted changes, aborting on a conflict; otherwise the commit stays local with one notice. It never force-pushes, autostashes, or pushes commits of yours that are not task commits.
+- An in-place run pushes its commit when that fast-forwards the branch as the push destination has it. Rhizome asks the push URL itself, which can differ from the remote you fetch from, and pushes only commits it made in place on this machine. If the push fails, Rhizome fetches, and treats the run as pushed when its commit, or a commit with the same slot line, is already there. If the upstream moved, Rhizome rebases its commit onto the fetched upstream and pushes again. It does this only when HEAD is still that commit, it is the only local commit, no tracked file has uncommitted changes, no merge, rebase, or bisect is in progress, and the upstream did not change the task's files. Otherwise the commit stays local with one notice. Rhizome never starts or aborts a `git rebase`, never force-pushes or autostashes, and never pushes your commits.
 - A pr run pushes its branch and opens a pull request with `gh pr create`, with the task tag in its body. Discard still removes only the local worktree and branch.
 
 ### Approving a wider landing
 
-The first time Rhizome sees a task, the inbox note says how it lands. When a task file later widens its landing, from a worktree to in place or with a new `writes` pattern, the task runs as notify until you approve it with `rzm tasks approve <task>`; an inbox note says so, and `rzm tasks status` shows its mode source as `approval`. Narrowing needs no approval.
+The first time Rhizome sees a task, the inbox note says how it lands. When a task file later widens its landing, from a worktree to in place or with a new `writes` pattern, the task runs as notify until you approve it with `rzm tasks approve <task>`; an inbox note says so, and `rzm tasks status` shows its mode source as `approval`. Narrowing needs no approval. Approval accepts only the landing that note described: if the task file widened again since, `approve` refuses and a new note describes the new landing.
 
 ## Quiet runs and alerts
 
@@ -299,7 +313,7 @@ From a terminal, `rzm tasks inbox` lists the items and `rzm tasks <action> <item
 
 A due item stays current. Each time its task comes due again, Rhizome runs the check again: if nothing is needed now, the item closes as done; if it is still needed, its summary and context are refreshed in place, and any snooze is kept. A re-check never adds a second item or starts work, and a check that fails moves the item to needs attention. Running, ready, and started items keep their task from checking until they close.
 
-An item closes by itself when a commit carrying its task's tag reaches the primary branch, whoever made it.
+An item closes by itself when a commit carrying its task's tag reaches the primary branch, whoever made it. A pass notices that: while an item waits for its work to reach the primary branch, the Desktop host starts a pass at most every 15 minutes that fetches and closes it, and runs nothing else for that task.
 
 ## The Tasks page
 
@@ -313,6 +327,8 @@ In Rhizome Desktop, the Dock icon's badge counts the task items that need you (d
 
 - **Open worktree** opens a ready or needs-attention item's worktree in a new window.
 - **Start** opens Terminal in the main checkout running `rzm tasks start <item>`. The first time, macOS asks to let Rhizome control Terminal.
+
+On a Mac, Rhizome Desktop hosts scheduled tasks from the menu bar for every repository with **Run tasks on this machine** on, with or without windows. ⌘Q (Quit Rhizome) closes the windows and keeps the menu bar icon; opening Rhizome again brings the windows back. The menu bar menu shows each repository's running and next task, the inbox count, and the last failure, and offers Run now, Pause Tasks, and Open Rhizome. **Quit Rhizome Completely** (⌥⌘Q, or in the menu bar menu) stops hosting: it asks whether to wait for or stop a running task first. Logging out, restarting, or quitting from the Dock stops a running task without asking. Settings > Menu bar turns off "Keep running in the menu bar", so ⌘Q quits completely, or turns on "Launch at login".
 
 ## Where state lives
 

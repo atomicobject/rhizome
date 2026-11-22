@@ -3,7 +3,6 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -89,19 +88,28 @@ func (st *State) landingMode(task string, mode Mode) Mode {
 	return mode
 }
 
-// Approve accepts a task's current landing from the primary ref, so a task
-// whose landing widened runs in its own mode again, and closes the task's
-// announcements.
+// Approve accepts the widened landing the person was told about, so the
+// task runs in its own mode again, and closes the task's announcements. It
+// approves only the landing recorded with the notice: when the task file
+// on the primary ref now lands differently, it raises a notice for the new
+// landing and refuses, so nothing is approved unseen.
 func (s *Service) Approve(ctx context.Context, task string) error {
 	_, _, def, err := s.currentDefinition(ctx, task)
 	if err != nil {
 		return err
 	}
-	return s.store.Update(ctx, func(st *State) error {
+	unseen := false
+	if err := s.store.Update(ctx, func(st *State) error {
+		next := landingOf(def)
+		if pending, ok := st.Widened[def.ID]; !ok || !pending.equal(next) {
+			reviewLandings(st, []Definition{def}, s.opts.Now())
+			_, unseen = st.Widened[def.ID]
+			return nil
+		}
 		if st.Landings == nil {
 			st.Landings = map[string]Landing{}
 		}
-		st.Landings[def.ID] = landingOf(def)
+		st.Landings[def.ID] = next
 		delete(st.Widened, def.ID)
 		for i := range st.Items {
 			if it := &st.Items[i]; it.Task == def.ID && it.Kind == KindAnnouncement && it.Active() {
@@ -109,7 +117,13 @@ func (s *Service) Approve(ctx context.Context, task string) error {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	if unseen {
+		return fmt.Errorf("task %s now %s, which differs from the landing you were asked to approve; read the new inbox note, then run `rzm tasks approve %s` again", task, landingOf(def).describe(), task)
+	}
+	return nil
 }
 
 // protectedPrefixes hold agent instructions and Rhizome configuration,
@@ -119,7 +133,8 @@ var protectedPrefixes = []string{".agents/", ".rhizome/"}
 
 func protected(def Definition, path string) bool {
 	for _, prefix := range protectedPrefixes {
-		if !strings.HasPrefix(path, prefix) {
+		// `.Agents/` is `.agents/` on a case-insensitive file system.
+		if !strings.HasPrefix(strings.ToLower(path), prefix) {
 			continue
 		}
 		for _, p := range def.Writes {
@@ -169,11 +184,4 @@ func (s *Service) slotDone(ctx context.Context, def Definition, slot, landed, co
 		return nil
 	})
 	return Outcome{Task: def.ID, Outcome: OutcomeSkipped, Reason: reason}
-}
-
-// ownsWorktree reports whether Rhizome made dir under the state folder;
-// cleanup never removes anything else, such as the open checkout.
-func (s *Service) ownsWorktree(dir string) bool {
-	rel, err := filepath.Rel(s.stateDir, dir)
-	return err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }

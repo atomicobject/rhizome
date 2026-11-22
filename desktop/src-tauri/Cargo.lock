@@ -3215,11 +3215,14 @@ dependencies = [
 name = "rhizome-desktop"
 version = "0.0.0"
 dependencies = [
+ "chrono",
  "flate2",
  "fs2",
  "gtk",
  "libc",
  "plist",
+ "reqwest",
+ "rustls",
  "semver",
  "serde",
  "serde_json",
@@ -3996,6 +3999,7 @@ dependencies = [
  "gtk",
  "heck 0.5.0",
  "http",
+ "image",
  "jni 0.21.1",
  "libc",
  "log",

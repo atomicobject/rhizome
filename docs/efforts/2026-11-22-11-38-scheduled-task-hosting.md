@@ -111,11 +111,11 @@ Contracts the lanes share (names are binding; lanes may add fields, not rename):
 3. **Service API** (lane A exports, lane B consumes): `tasks.NextDueAt(ctx) (time.Time, bool, error)` — the earliest due time across enabled tasks, computed without network or Git writes and cheap enough for every 30-second check; `Service.Stop(ctx, wait time.Duration) (stopped bool, err error)` is lane B's, signalling the `run.lock` holder's process group and recording outcome `stopped`.
 4. **Host HTTP API** (lane B serves, lane C consumes), same host and origin checks as other `/api/tasks` routes:
    - `GET /api/tasks/host` — `text/event-stream`. Holding it calls `IdleTracker.Hold` and registers a host. Sends `event: status` with a `HostStatus` JSON at connect, on change, and at least every 30 seconds.
-   - `HostStatus`: `{"repository": "<main checkout>", "commonDir": "...", "runHere": bool, "paused": bool, "pausedUntil": "RFC3339"?, "draining": bool, "running": {"task", "name", "runId", "startedAt", "stage"}?, "next": {"task", "name", "at"}?, "attention": int, "lastFailure": {"task", "name", "at", "message", "item"}?, "notices": [{"id", "kind": "attention"|"failed"|"ready"|"due", "task", "title", "body"}]}`. Notice ids are stable so Desktop notifies once per id.
-   - `POST /api/tasks/host/drain` → `{"running": {...}|null}`; stops new dispatch until the runtime restarts.
-   - `POST /api/tasks/stop` → `{"stopped": bool}`.
+   - `HostStatus`: `{"repository": "<main checkout>", "commonDir": "...", "runHere": bool, "paused": bool, "pausedUntil": "RFC3339"?, "draining": bool, "running": {"task", "name", "runId", "startedAt", "stage"}?, "dispatching": {"pid", "startedAt"}?, "next": {"task", "name", "at"}?, "attention": int, "lastFailure": {"task", "name", "at", "message", "item"}?, "notices": [{"id", "kind": "attention"|"failed"|"ready"|"due", "task", "name", "title", "body"}]}`. Notice ids are stable so Desktop notifies once per id. Every listed key of `lastFailure` and a notice is always sent; a pass-level failure has `"task": ""` and `"name": "Scheduled tasks"`. `dispatching` (added after review) is a `run-due` or Run now process this runtime started that is alive while `running` is absent, because it has not recorded a run yet.
+   - `POST /api/tasks/host/drain` → `{"running": {...}|null, "dispatching": {"pid", "startedAt"}|null}`; stops new dispatch until the runtime restarts. Drain and the scheduled check-and-start share one lock, so no pass starts after a drain returns.
+   - `POST /api/tasks/stop` → `{"stopped": bool}`. It stops the `run.lock` holder or, when no process holds the lock yet, the process this runtime started (its process group).
    - `POST /api/tasks/pause` accepts optional JSON `{"until": "RFC3339"}`.
-   - `POST /api/tasks/tasks/<task>/run` → starts detached `rzm tasks run --task <id>` (Run now), 409 when busy or blocked.
+   - `POST /api/tasks/tasks/<task>/run` → adds or reuses the task's item and starts detached `rzm tasks run <item>` (Run now; equivalent to `rzm tasks run --task <id>`), 409 when busy or blocked, including while a run this runtime started has not taken the run lock yet, so one run starts at a time per runtime.
    - `POST /api/tasks/machine` `{"runHere": bool}` for the Tasks page toggle.
 5. **Run outcomes**: add `OutcomeStopped = "stopped"` (lane B). Lane A's `blockedBy` codes are the only status vocabulary Desktop shows.
 
@@ -143,7 +143,10 @@ Not yet delivered.
 
 ## Deviations
 
+- 2026-11-22, review fixes on the integrated phase 1 (additive to contract 4): `HostStatus` and the drain response gain `dispatching`, notices gain `name`, stop also ends a started run that holds no `run.lock` yet, and Run now launches through the task's item, which is equivalent to `--task`.
 - 2026-11-22T17:05:00Z, routine resolution within the approved plan: `land` defaults to `in-place` only when a task declares `writes`, and to `pr` (today's local worktree branch, no push unless allowed) otherwise. In-place requires `writes`, so a literal in-place default would make every existing task file, including the shipped `compounding/mine`, invalid. SPEC-0127 US12 states the rule.
+
+- 2026-11-22T18:40:00Z, routine resolution within the approved plan (phase 2 data-safety review): in-place landing no longer shells out to `git merge --ff-only`, `git commit --only`, or `git pull --rebase`, which can autostash, run hooks, overwrite ignored files, commit a folder swap over staged work, land on a branch switched to midway, or rewrite a person's commit. It fast-forwards with `read-tree` and commits with `commit-tree`, moving the branch under a `git update-ref` transaction that locks HEAD and the branch; on divergence it remakes its single commit on the fetched upstream. Pushes check the push destination's own ref, push only commits Rhizome landed, and carry a lease on that ref. Approval accepts only the landing the notice described. US12 and US13 now state these behaviours; each situation Rhizome cannot handle safely skips with one notice.
 
 ## Closure Checklist
 

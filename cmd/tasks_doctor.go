@@ -65,7 +65,10 @@ func renderDoctor(w io.Writer, r tasks.DoctorReport) {
 func renderChecks(w io.Writer, checks []tasks.DoctorCheck) {
 	for _, c := range checks {
 		mark := "ok  "
-		if !c.OK {
+		switch {
+		case c.Skipped:
+			mark = "SKIP"
+		case !c.OK:
 			mark = "FAIL"
 		}
 		fmt.Fprintf(w, "  %s %s: %s\n", mark, c.Check, c.Detail)
