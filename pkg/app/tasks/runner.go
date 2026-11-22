@@ -305,7 +305,11 @@ func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, c
 		if err != nil {
 			return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}
 		}
+		s.alertRun(ctx, def.Name, a.id) // SPEC-0127 US14
 		return Outcome{Task: def.ID, Outcome: OutcomeNotified, Item: id}
+	}
+	if out, capped := s.skipForTokenCap(ctx, def, a, commit); capped { // SPEC-0127 US14
+		return out
 	}
 	var id string
 	if err := s.store.Update(ctx, func(st *State) error {
@@ -385,6 +389,7 @@ func (s *Service) failRecheck(ctx context.Context, def Definition, a attempt, it
 		st.Record(r)
 		return nil
 	})
+	s.alertRun(ctx, def.Name, a.id) // SPEC-0127 US14
 	return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: reason}
 }
 
@@ -424,6 +429,7 @@ func (s *Service) fail(ctx context.Context, def Definition, a attempt, itemID, c
 		st.Record(r)
 		return nil
 	})
+	s.alertRun(ctx, def.Name, a.id) // SPEC-0127 US14
 	return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: reason}
 }
 

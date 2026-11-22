@@ -80,6 +80,10 @@ type RunRecord struct {
 	Changed        []string  `json:"changed,omitempty"`
 	// Missing names the requirements a failed run lacked (SPEC-0127 US11).
 	Missing []string `json:"missing,omitempty"`
+	// Result is what the agent wrote to $RZM_TASK_RESULT_FILE, and
+	// NotifyError why the notify command failed after the run (US14).
+	Result      *RunResult `json:"result,omitempty"`
+	NotifyError string     `json:"notifyError,omitempty"`
 }
 
 // State is one person's task state for one repository.
@@ -105,6 +109,10 @@ type State struct {
 	Fetch  *FetchStatus `json:"fetch,omitempty"`
 	Items  []Item       `json:"items,omitempty"`
 	NextID int          `json:"nextId,omitempty"`
+
+	// TokenCapNotified is the UTC day the daily token cap last stopped
+	// work and notified, so it notifies once a day (SPEC-0127 US14).
+	TokenCapNotified string `json:"tokenCapNotified,omitempty"`
 }
 
 // PassError records a run-due pass that failed before running any task.

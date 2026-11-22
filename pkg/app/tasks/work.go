@@ -82,7 +82,7 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 		_ = s.removeWorktree(ctx, branch, dir)
 		return Outcome{Task: def.ID, Outcome: OutcomeSkipped, Item: itemID, Reason: "the item was closed before the prompt ran"}
 	}
-	loc := s.locations(def, commit)
+	loc := s.withResultFile(s.locations(def, commit), a) // SPEC-0127 US14
 	if err := os.MkdirAll(loc.DataDir, 0o700); err != nil {
 		return s.fail(ctx, def, a, itemID, commit, err.Error(), 0)
 	}
@@ -93,6 +93,7 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	runCtx, cancel := context.WithTimeout(ctx, def.Limit)
 	res, err := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Task: def.ID, Dir: dir, Deny: def.Deny, Prompt: BackgroundPrompt(def, loc, check, ref, branch, dir), Transcript: transcript, Env: s.agentEnv(loc)})
 	cancel()
+	a.result = afterPrompt(def, loc) // SPEC-0127 US14: trim the handoff note, read the result file
 	if err != nil {
 		return s.fail(ctx, def, a, itemID, commit, fmt.Sprintf("prompt run failed: %v (worktree kept at %s)", err, dir), res.Tokens)
 	}
@@ -111,6 +112,8 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 		outcome = OutcomeNoChanges
 		cleanupErr = s.removeWorktree(ctx, branch, dir)
 	}
+	// A ready run's branch waits for the person's review (SPEC-0127 US14).
+	alert := notifiesFor(outcome, a.result.status(), true) || cleanupErr != nil
 	if err := s.store.Update(ctx, func(st *State) error {
 		// The person may have closed the item during the run; keep their
 		// state, dropping only a worktree this run removed.
@@ -123,9 +126,15 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 				// Keep the location so discard can retry the cleanup.
 				it.set(StateAttention, now)
 				it.Reason = "nothing changed, but the worktree could not be removed: " + cleanupErr.Error()
+			case alert:
+				it.set(StateAttention, now)
+				it.Branch, it.Worktree = "", ""
 			default:
 				it.set(StateDone, now)
 				it.Branch, it.Worktree = "", ""
+			}
+			if a.result.attention() && cleanupErr == nil {
+				it.Reason = a.result.Summary
 			}
 		} else if err == nil && !committed && cleanupErr == nil {
 			it.Branch, it.Worktree = "", ""
@@ -140,6 +149,9 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	}); err != nil {
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: fmt.Sprintf("the run finished (%s, worktree at %s) but its result could not be saved: %v", outcome, dir, err)}
 	}
+	if alert {
+		s.alertRun(ctx, def.Name, a.id)
+	}
 	return Outcome{Task: def.ID, Outcome: outcome, Item: itemID}
 }
 
@@ -150,6 +162,8 @@ func BackgroundPrompt(def Definition, loc Locations, check CheckResult, ref, bra
 	fmt.Fprintf(&b, "You are running the scheduled task %q (%s) in the background. No person is present to answer questions, so make reasonable choices and keep going.\n\n", def.Name, def.ID)
 	fmt.Fprintf(&b, "Work only in this worktree: %s\nIt is on the branch %s, made from commit %s of %s.\n\n", dir, branch, loc.Commit, ref)
 	writeLocations(&b, loc, check)
+	writeMemory(&b, def, loc)
+	writeResultFile(&b, loc)
 	b.WriteString("When you finish, Rhizome commits every change in this worktree with your final message and tags it with the task. Do not push, open a pull request, or change other worktrees or branches. End with a short message for the person: what you did and what they should review.\n\n")
 	b.WriteString("Task instructions:\n\n")
 	b.WriteString(strings.TrimSpace(def.Prompt))

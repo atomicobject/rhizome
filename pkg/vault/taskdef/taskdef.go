@@ -100,6 +100,9 @@ type Definition struct {
 	Requires Requires `yaml:"requires,omitempty"`
 	Deny     []string `yaml:"deny,omitempty"`
 
+	// Memory keeps a short handoff note between runs (SPEC-0127 US14).
+	Memory bool `yaml:"memory,omitempty"`
+
 	Cadence time.Duration `yaml:"-"`
 	Limit   time.Duration `yaml:"-"`
 }
