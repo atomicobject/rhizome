@@ -179,12 +179,14 @@ A background run, automatic or started with **Run**, **Run now**, or `rzm tasks 
 
 `land: in-place` runs in the checkout Rhizome has open, the main checkout unless you chose another, and commits only the files the task declares in `writes`: repository-relative glob patterns where `*` stays within a folder and `**` crosses folders. A task that declares `writes` lands in place unless it says `land: pr`; `land: in-place` without `writes` is invalid.
 
-Before the run, Rhizome fetches the branch's remote and fast-forwards the branch to the primary ref, even with uncommitted files, then records the working tree, HEAD, and which files you had changed, staged, or marked `assume-unchanged` or `skip-worktree`. The fast-forward works like `git merge --ff-only`, but never autostashes or runs hooks. When Rhizome cannot do this safely, the task is skipped with one inbox notice, which later skips update instead of repeating, and it tries again at its next due time. A task is skipped when:
+Before the run, Rhizome fetches the branch's remote and fast-forwards the branch to the primary ref, even with uncommitted files, then records the working tree, HEAD, and which files you had changed, staged, marked `assume-unchanged` or `skip-worktree`, or had ignored. The fast-forward works like `git merge --ff-only`, but never autostashes or runs hooks. Rhizome checks for files in its way while it holds Git's locks, and a stop does not cut the fast-forward short, so it never leaves Git's lock files behind. When Rhizome cannot do this safely, the task is skipped with one inbox notice, which later skips update instead of repeating, and it tries again at its next due time. A task is skipped when:
 
 - the checkout is not on the local branch of the primary ref (for `origin/main`, a `main` that tracks it), or you switch branches while Rhizome fetches;
 - a merge, rebase, cherry-pick, revert, or bisect is in progress there, or conflicts are unresolved;
 - the branch has commits the primary ref lacks, so it cannot fast-forward;
 - the incoming commits change a file you have uncommitted changes to, or one marked `assume-unchanged` or `skip-worktree`, or add a file where an untracked or ignored file of yours is. Git would replace an ignored file without asking.
+
+If Git fails partway through the fast-forward, for example when it cannot write a file, it may already have updated some files while HEAD and your staging area stay where they were. The notice names those files: check `git status`, and `git checkout -- <file>` puts a tracked one back. Rhizome does not try to repair it.
 
 A run is also skipped, without a notice, when the fetch brings another machine's commit for the same scheduled slot.
 
@@ -192,12 +194,15 @@ After the run, the task's changes are the files that changed during the run, wer
 
 - files you had changed or staged before the run, or staged during it;
 - files marked `assume-unchanged` or `skip-worktree`;
+- files Git ignored before the run, and everything inside a folder it ignored, even when the run changed the ignore rules so they now show up;
+- a nested Git repository or submodule;
 - files the agent changed outside `writes`;
 - a task file that would replace a file or folder that is not the task's, such as a file where a folder of your staged work was.
 
 Other cases:
 
-- **Protected files.** Changes under `.agents/` or `.rhizome/`, including task files, are put back at once unless a `writes` pattern names that folder itself (`.rhizome/memory/**`; `**` alone does not count). The run's diff of them is saved as `runs/<id>/protected.diff`, and the item needs attention. Rhizome restores nothing if the branch or HEAD changed since the run started. It never writes through a folder the run replaced with a symlink, and it leaves a rename that changes only letter case. The notice names what it left.
+- **Protected files.** Changes under `.agents/` or `.rhizome/`, including task files, are put back at once unless a `writes` pattern names that folder itself (`.rhizome/memory/**`; `**` alone does not count). The run's diff of them is saved as `runs/<id>/protected.diff`, and the item needs attention. Rhizome restores nothing if the branch or HEAD changed since the run started. It writes files as a checkout would, with your line-ending and filter settings, never writes through a folder the run replaced with a symlink, and leaves a rename that changes only letter case, files Git ignored before the run, and nested repositories. The notice names what it left.
+- **Ignore rules.** A run that changes a `.gitignore` outside `writes`, or the repository's `.git/info/exclude`, needs attention. Files those rules hid before the run stay yours either way: Rhizome neither commits nor removes them.
 - **HEAD moved.** If you commit, switch branches, or pull in that checkout while the task runs, Rhizome commits nothing, keeps the task's files in place, and raises one notice. It moves the branch only while holding Git's locks on HEAD and the branch, so a commit or switch you make at that moment either waits for Rhizome or makes Rhizome stop.
 - **Failed or stopped runs** leave their files in place. The task's next successful run commits them as its own, as long as they still match `writes` and are exactly as the failed run left them. A file you edited or staged since then is yours.
 - **Known limit.** An edit you make during the run to a clean file inside `writes` cannot be told apart from the task's, and is committed with it.
@@ -214,7 +219,7 @@ Review a finished run in its worktree, then open the pull request yourself, or d
 
 Nothing is pushed unless the repository sets `tasks.allowPush: true` in `.rhizome/config.yml` and you turn push on for the repository on this machine. Then:
 
-- An in-place run pushes its commit when that fast-forwards the branch as the push destination has it. Rhizome asks the push URL itself, which can differ from the remote you fetch from, and pushes only commits it made in place on this machine. If the push fails, Rhizome fetches, and treats the run as pushed when its commit, or a commit with the same slot line, is already there. If the upstream moved, Rhizome rebases its commit onto the fetched upstream and pushes again. It does this only when HEAD is still that commit, it is the only local commit, no tracked file has uncommitted changes, no merge, rebase, or bisect is in progress, and the upstream did not change the task's files. Otherwise the commit stays local with one notice. Rhizome never starts or aborts a `git rebase`, never force-pushes or autostashes, and never pushes your commits.
+- An in-place run pushes its commit when that fast-forwards the branch as the push destination has it. Rhizome asks the push URL itself, which can differ from the remote you fetch from, and pushes only commits it made in place on this machine. If the push fails, Rhizome fetches, and treats the run as pushed when its commit, or a commit with the same slot line, is already there. If the upstream moved, Rhizome rebases its commit onto the fetched upstream and pushes again. It does this only when HEAD is still that commit, it is the only local commit, no tracked file has uncommitted changes, no merge, rebase, or bisect is in progress, and the upstream did not change the task's files. Otherwise the commit stays local with one notice. Rhizome remembers each commit it made, including a rebased one whose push failed or a run you stopped mid-push, so the next run pushes it along with its own. Rhizome never starts or aborts a `git rebase`, never force-pushes or autostashes, and never pushes your commits.
 - A pr run pushes its branch and opens a pull request with `gh pr create`, with the task tag in its body. Discard still removes only the local worktree and branch.
 
 ### Approving a wider landing
