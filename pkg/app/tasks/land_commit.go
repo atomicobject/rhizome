@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -81,8 +83,8 @@ func buildTree(ctx context.Context, dir, noHooks, base string, info []byte) (str
 // as a file replacing a folder would. It then moves the branch under
 // moveHead, so a commit, switch, or pull since the snapshot fails it, and
 // while the locks are held points the person's index entries for paths at
-// the commit; everything else they staged stays staged. Hooks and signing
-// are off. It returns "" when the paths need no commit.
+// the commit (updateIndex); everything else they staged stays staged. Hooks
+// and signing are off. It returns "" when the paths need no commit.
 func (s *Service) commitInPlace(ctx context.Context, def Definition, a attempt, ip *inPlace, paths []string, entries map[string]string, message string) (string, error) {
 	if ip.moved(ctx) != "" {
 		return "", errHeadMoved
@@ -105,20 +107,85 @@ func (s *Service) commitInPlace(ctx context.Context, def Definition, a attempt, 
 	if len(changed) == 0 {
 		return "", nil
 	}
-	out, err := gitBytesInput(ctx, ip.dir, nil, []byte(inPlaceMessage(def, message, a.slotID())), "-c", ip.noHooks, "commit-tree", "--no-gpg-sign", "-p", ip.head, "-F", "-", tree)
+	out, err := gitBytesInput(ctx, ip.dir, nil, []byte(taskMessage(def, message, a.slotID())), "-c", ip.noHooks, "commit-tree", "--no-gpg-sign", "-p", ip.head, "-F", "-", tree)
 	if err != nil {
 		return "", err
 	}
 	commit := strings.TrimSpace(string(out))
 	landingStep("commit")
 	err = moveHead(ctx, ip, ip.head, commit, "rhizome tasks: "+def.ID, func() error {
-		_, err := gitBytesInput(ctx, ip.dir, nil, info, "-c", ip.noHooks, "update-index", "-z", "--index-info")
-		return err
+		return updateIndex(ctx, ip, paths, info)
 	})
 	if err != nil {
 		return "", err
 	}
 	return commit, nil
+}
+
+// updateIndex applies info to the person's index under index.lock, which it
+// takes as Git does (created exclusively, written, renamed over the index),
+// so no `git add` can land between its check and its write. Under the lock
+// it checks that the index still has paths as HEAD has them, as when the
+// run's own paths were chosen, and changes nothing when the person staged
+// one since. The new index is built in a private copy.
+func updateIndex(ctx context.Context, ip *inPlace, paths []string, info []byte) error {
+	index, err := gitOutput(ctx, ip.dir, "rev-parse", "--path-format=absolute", "--git-path", "index")
+	if err != nil {
+		return err
+	}
+	lockFile := index + ".lock"
+	lock, err := os.OpenFile(lockFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
+	if errors.Is(err, os.ErrExist) {
+		return fmt.Errorf("another Git command holds %s", lockFile)
+	}
+	if err != nil {
+		return err
+	}
+	renamed := false
+	defer func() {
+		if !renamed {
+			_ = lock.Close()
+			_ = os.Remove(lockFile)
+		}
+	}()
+	staged, err := nameSet(ctx, ip.dir, append([]string{"--literal-pathspecs", "diff-index", "--cached", "--name-only", "-z", "--no-renames", ip.head, "--"}, paths...)...)
+	if err != nil {
+		return err
+	}
+	if len(staged) > 0 {
+		return fmt.Errorf("%s was staged while Rhizome committed", strings.Join(slices.Sorted(maps.Keys(staged)), ", "))
+	}
+	tmp, err := os.MkdirTemp("", "rhizome-task-index-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmp)
+	private := filepath.Join(tmp, "index")
+	data, err := os.ReadFile(index)
+	if err == nil {
+		err = os.WriteFile(private, data, 0o600)
+	}
+	if err != nil {
+		return err
+	}
+	env := []string{"GIT_INDEX_FILE=" + private}
+	if _, err := gitBytesInput(ctx, ip.dir, env, info, "-c", ip.noHooks, "-c", "core.splitIndex=false", "update-index", "-z", "--index-info"); err != nil {
+		return err
+	}
+	if data, err = os.ReadFile(private); err != nil {
+		return err
+	}
+	if _, err := lock.Write(data); err != nil {
+		return err
+	}
+	if err := lock.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(lockFile, index); err != nil {
+		return err
+	}
+	renamed = true
+	return nil
 }
 
 // restoreProtected saves the run's diff of protected paths to diffFile and
@@ -202,7 +269,7 @@ func restorePath(ctx context.Context, dir, path, entry string) error {
 			return err
 		}
 		// The run created it.
-		return os.RemoveAll(full)
+		return clearPath(full, path)
 	}
 	if err != nil {
 		return err
@@ -218,7 +285,7 @@ func restorePath(ctx context.Context, dir, path, entry string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.RemoveAll(full); err != nil {
+	if err := clearPath(full, path); err != nil {
 		return err
 	}
 	switch mode {
@@ -231,9 +298,45 @@ func restorePath(ctx context.Context, dir, path, entry string) error {
 	}
 }
 
-// inPlaceMessage is the commit message: the agent's message without lines
+// clearPath removes what is at full, the checkout's rel, so a restore can
+// write there. A folder goes only when it holds nothing but folders:
+// restoreProtected removes the run's own files first, so anything still in
+// it is something the restore leaves (a nested repository, a file ignored
+// before the run, a path that is not the task's), and the folder stays.
+func clearPath(full, rel string) error {
+	info, err := os.Lstat(full)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		held := ""
+		err := filepath.WalkDir(full, func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !d.IsDir() || d.Name() == ".git" {
+				held = p
+				return fs.SkipAll
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		if held != "" {
+			sub, _ := filepath.Rel(full, held)
+			return fmt.Errorf("a folder holding %s, which Rhizome leaves alone", rel+"/"+filepath.ToSlash(sub))
+		}
+	}
+	return os.RemoveAll(full)
+}
+
+// taskMessage is a task commit's message: the agent's message without lines
 // that would pose as Rhizome's own, then the task tag and slot line.
-func inPlaceMessage(def Definition, message, slot string) string {
+func taskMessage(def Definition, message, slot string) string {
 	var kept []string
 	for _, line := range strings.Split(message, "\n") {
 		if !strings.HasPrefix(strings.TrimSpace(line), TagKey) {

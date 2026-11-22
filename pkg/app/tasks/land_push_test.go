@@ -284,3 +284,34 @@ func TestInPlacePushesTheCommitOfAStoppedLanding(t *testing.T) {
 		t.Fatalf("the remote must hold both task commits, it is at %s", short(got))
 	}
 }
+
+func TestMergedPRRunMakesAnotherMachineSkipItsSlot(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n")
+	cfg := repoconfig.LocalTasksConfig{PrimaryRef: "origin/main", DefaultMode: "auto"}
+	f.svc = f.service(cfg, false)
+	slot := "2026-11-23T05:00:00-05:00"
+	f.svc.slotFor = func(Definition, time.Time) string { return slot }
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	if o := f.pass(); o.Outcome != OutcomeReady {
+		t.Fatalf("%+v", o)
+	}
+	// The pull request merges.
+	run(t, f.host, "push", "--quiet", "origin", taskItems(mustState(t, f.svc), "tend")[0].Branch+":main")
+	repo, err := OpenRepo(context.Background(), f.other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent := &fakeAgent{}
+	other, err := New(Options{Repo: repo, Config: cfg, Agent: agent, Now: func() time.Time { return f.now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other.slotFor = f.svc.slotFor
+	summary, err := other.RunDue(context.Background())
+	if err != nil || len(summary.Outcomes) != 1 {
+		t.Fatalf("%+v %v", summary, err)
+	}
+	if o := summary.Outcomes[0]; o.Outcome != OutcomeSkipped || !strings.Contains(o.Reason, "already landed") || agent.calls() != 0 {
+		t.Fatalf("another machine must skip a slot whose pull request merged: %+v", o)
+	}
+}

@@ -81,3 +81,45 @@ func TestInPlacePushRecoveryLeavesThePersonsWork(t *testing.T) {
 		}
 	})
 }
+
+func TestInPlaceKeepsAFileStagedWhileItCommits(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	head := run(t, f.host, "rev-parse", "HEAD")
+	f.onStep("commit", func() {
+		writeFile(t, filepath.Join(f.host, "notes/a.md"), "the person's newer version\n")
+		run(t, f.host, "add", "notes/a.md")
+	})
+	o := f.pass()
+	if staged := run(t, f.host, "show", ":notes/a.md"); staged != "the person's newer version" {
+		t.Fatalf("the person's staged version must stay staged, got %q (%+v)", staged, o)
+	}
+	if got := run(t, f.host, "rev-parse", "HEAD"); got != head || o.Outcome != OutcomeFailed || !strings.Contains(o.Reason, "notes/a.md was staged") {
+		t.Fatalf("nothing may be committed over a file staged meanwhile: HEAD %s, %+v", got, o)
+	}
+	gitDir := run(t, f.host, "rev-parse", "--absolute-git-dir")
+	if _, err := os.Stat(filepath.Join(gitDir, "index.lock")); !os.IsNotExist(err) {
+		t.Fatalf("the index lock must be released: %v", err)
+	}
+}
+
+func TestInPlacePushNeverRepublishesARewoundRemote(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	base := run(t, f.remote, "rev-parse", "main")
+	f.push("other/p.md", "published, then rewound\n")
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	rewound := false
+	f.onStep("push-checked", func() {
+		if !rewound {
+			rewound = true
+			run(t, f.remote, "update-ref", "refs/heads/main", base)
+		}
+	})
+	o := f.pass()
+	if got := run(t, f.remote, "rev-parse", "main"); got != base {
+		t.Fatalf("a remote rewound after the check must not get the rewound commit back: main is %s, not %s (%+v)", got, base, o)
+	}
+	if o.Outcome != OutcomeLanded || !strings.Contains(o.Reason, "not Rhizome's task commits") {
+		t.Fatalf("%+v", o)
+	}
+}

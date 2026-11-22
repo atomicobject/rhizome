@@ -103,7 +103,7 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	if len(message) > maxMessage {
 		message = message[:maxMessage]
 	}
-	changed, committed, err := commitWork(ctx, def, dir, commit, message, noHooks)
+	changed, committed, err := commitWork(ctx, def, dir, commit, message, a.slotID(), noHooks)
 	if err != nil {
 		return s.fail(ctx, def, a, itemID, commit, fmt.Sprintf("commit: %v (worktree kept at %s)", err, dir), res.Tokens)
 	}
@@ -344,12 +344,13 @@ func resolved(path string) string {
 	return filepath.Clean(path)
 }
 
-// commitWork commits every change in dir with the work's message and the
-// task tag. When the work committed everything itself, an empty commit
-// carries the tag. It returns the files changed since base, and whether
+// commitWork commits every change in dir with the work's message, the task
+// tag, and the slot line, so another machine skips the slot once the pull
+// request merges. When the work committed everything itself, an empty
+// commit carries them. It returns the files changed since base, and whether
 // there was anything to keep: changes, or commits the work made even if
 // they cancel out. Repository hooks do not run.
-func commitWork(ctx context.Context, def Definition, dir, base, message, noHooks string) ([]string, bool, error) {
+func commitWork(ctx context.Context, def Definition, dir, base, message, slot, noHooks string) ([]string, bool, error) {
 	if _, err := gitOutput(ctx, dir, "-c", noHooks, "add", "-A"); err != nil {
 		return nil, false, err
 	}
@@ -364,10 +365,7 @@ func commitWork(ctx context.Context, def Definition, dir, base, message, noHooks
 	if status == "" && ahead == "0" {
 		return nil, false, nil
 	}
-	if message == "" {
-		message = "The task's agent left no message."
-	}
-	body := fmt.Sprintf("chore(tasks): %s\n\n%s\n\n%s\n", truncate(def.Name, 60), message, def.Tag())
+	body := taskMessage(def, message, slot)
 	args := []string{"-c", noHooks, "commit", "--quiet", "--no-verify", "-F", "-"}
 	if status == "" {
 		args = append(args, "--allow-empty")
