@@ -275,6 +275,8 @@ pub struct Opened {
     pub url: Url,
     pub pid: i64,
     pub spawned: bool,
+    /// `headless` or `attached`.
+    pub mode: String,
 }
 
 /// Opens `worktree`'s runtime through the companion, starting it when needed,
@@ -295,12 +297,40 @@ pub async fn open_runtime(
     if only_running && !running(&desktop, worktree).await {
         return Ok(None);
     }
+    let executable = repository.executables.get(worktree).map(String::as_str);
+    verified(&desktop, &library, executable, worktree, replace)
+        .await
+        .map(Some)
+}
+
+/// Opens the runtime of a repository's task checkout for the menu bar host,
+/// starting it when needed. The library need not list the repository; when
+/// it does, the worktree's chosen executable applies.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub async fn hold(app: &AppHandle, worktree: &str) -> Result<Opened, Failure> {
+    let desktop = app.state::<Desktop>();
+    let library = desktop.library().await?.1;
+    let executable = (library.repositories.iter())
+        .find_map(|repository| repository.executables.get(worktree))
+        .map(String::as_str);
+    let lock = desktop.worktree(worktree);
+    let _serialized = lock.lock().await;
+    verified(&desktop, &library, executable, worktree, false).await
+}
+
+async fn verified(
+    desktop: &Desktop,
+    library: &Library,
+    executable: Option<&str>,
+    worktree: &str,
+    replace: bool,
+) -> Result<Opened, Failure> {
     let opened = bridge::call(
         &desktop.directory,
         Request {
             operation: "open",
             folder: Some(worktree),
-            executable: repository.executables.get(worktree).map(String::as_str),
+            executable,
             global_executable: library.global_executable.as_deref(),
             restart: replace,
             ..Request::default()
@@ -316,11 +346,12 @@ pub async fn open_runtime(
     let pid = opened["pid"]
         .as_i64()
         .ok_or("Rhizome returned no runtime process.".to_string())?;
-    Ok(Some(Opened {
+    Ok(Opened {
         url,
         pid,
         spawned: opened["spawned"].as_bool().unwrap_or(false),
-    }))
+        mode: opened["mode"].as_str().unwrap_or_default().to_string(),
+    })
 }
 
 /// Whether the companion verifies `worktree`'s runtime as running right now.

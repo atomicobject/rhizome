@@ -30,3 +30,11 @@ fn panel_shortcuts_are_distinct_from_other_menu_accelerators() {
         assert!(!SHORTCUTS[..i].iter().any(|(_, other)| shortcut == other));
     }
 }
+
+#[test]
+fn quit_completely_has_its_own_shortcut() {
+    assert_eq!(QUIT_COMPLETELY, "Alt+CmdOrCtrl+Q");
+    assert!(!SHORTCUTS
+        .iter()
+        .any(|(_, key)| *key == QUIT_COMPLETELY || *key == "CmdOrCtrl+Q"));
+}

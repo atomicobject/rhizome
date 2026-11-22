@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Rhizome Desktop on macOS keeps running in the menu bar so scheduled tasks run on time with every window closed. ⌘Q closes the windows and keeps a menu bar icon, and opening Rhizome again brings the windows back; Quit Rhizome Completely (⌥⌘Q or the menu bar) asks about a running task and stops what the app holds. The menu bar menu shows each hosted repository's next and running task, inbox count, and last failure, with Run now and Pause Tasks. Settings adds "Keep running in the menu bar" and "Launch at login".
+
 ## [v0.54.0] - 2026-11-20
 
 - File path selectors and explicit note references follow the vault filesystem's casing behavior. AO KB setup now accepts `mocs` when its schema selects `MOCs`, while returned paths keep their actual spelling and sensitive filesystems retain distinct files.

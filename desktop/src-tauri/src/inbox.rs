@@ -2,6 +2,8 @@
 //! the person (EFF-2026-10-31-14-31, phase 3). Each runtime page reports its
 //! repository's items in its title report (page.rs); the app sums the counts
 //! across repositories and notifies once per item and state while it runs.
+//! A repository the menu bar host holds (host.rs) reports through its host
+//! stream instead: its count comes from there, and the host notifies for it.
 use crate::{page, pane::Panes, windows};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -144,10 +146,19 @@ pub fn listen(app: &AppHandle) {
     });
 }
 
+/// The inbox counts of repositories whose host stream has reported.
+fn hosted(app: &AppHandle) -> BTreeMap<String, u32> {
+    app.try_state::<crate::host::Host>()
+        .map(|host| host.attention())
+        .unwrap_or_default()
+}
+
 /// Handles a window's new report: notifies for items that newly need the
-/// person, then updates the badge.
+/// person, unless the host notifies for that repository, then updates the
+/// badge.
 pub fn reported(app: &AppHandle, window: &str) {
     let inbox = app.state::<Inbox>();
+    let hosted = hosted(app);
     let fresh = app
         .state::<Panes>()
         .with(window, |pane| {
@@ -159,7 +170,7 @@ pub fn reported(app: &AppHandle, window: &str) {
             Some((repository, fresh.into_iter().cloned().collect::<Vec<_>>()))
         })
         .flatten();
-    if let Some((repository, items)) = fresh {
+    if let Some((repository, items)) = fresh.filter(|(r, _)| !hosted.contains_key(r)) {
         for item in items {
             let id = inbox.next.fetch_add(1, Ordering::Relaxed) + 1;
             inbox.clicks.lock().unwrap().insert(
@@ -189,10 +200,17 @@ pub fn closing(app: &AppHandle, window: &str) {
     refresh(app);
 }
 
-/// Sets the Dock badge to the total across windows, clearing it at 0.
+/// Sets the Dock badge to the total across windows and hosted repositories,
+/// clearing it at 0.
 pub fn refresh(app: &AppHandle) {
     let counts = app.state::<Panes>().task_needs();
-    let needs = total(counts.iter().map(|(r, n)| (r.as_str(), *n)));
+    let hosted = hosted(app);
+    let pages = counts.iter().filter(|(r, _)| !hosted.contains_key(r));
+    let needs = total(
+        pages
+            .map(|(r, n)| (r.as_str(), *n))
+            .chain(hosted.iter().map(|(r, n)| (r.as_str(), *n))),
+    );
     // The badge belongs to the app; any window sets it.
     if let Some(window) = app.windows().values().next() {
         let _ = window.set_badge_count((needs > 0).then_some(needs.into()));

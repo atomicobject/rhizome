@@ -127,6 +127,13 @@ pub enum Action {
     SetRenderProfiling {
         enabled: bool,
     },
+    /// macOS: "Keep running in the menu bar" and "Launch at login".
+    MenuBarSettings,
+    #[serde(rename_all = "camelCase")]
+    SetMenuBarSettings {
+        keep_in_menu_bar: Option<bool>,
+        launch_at_login: Option<bool>,
+    },
     InstallUpdate,
     CliLinkStatus,
     CliLinkInstall,
@@ -545,6 +552,23 @@ pub async fn desktop_request(
             }
             Ok(json!(page::profiling_for(&app)))
         }
+        #[cfg(target_os = "macos")]
+        Action::MenuBarSettings => Ok(crate::quit::settings(&app)),
+        #[cfg(not(target_os = "macos"))]
+        Action::MenuBarSettings => Ok(Value::Null),
+        #[cfg(target_os = "macos")]
+        Action::SetMenuBarSettings {
+            keep_in_menu_bar,
+            launch_at_login,
+        } => Ok(crate::quit::set_settings(
+            &app,
+            keep_in_menu_bar,
+            launch_at_login,
+        )?),
+        #[cfg(not(target_os = "macos"))]
+        Action::SetMenuBarSettings { .. } => Err("Menu bar settings are available only on macOS."
+            .to_string()
+            .into()),
         Action::CheckForUpdates => Ok(json!(updater::check(&app).await)),
         Action::InstallUpdate => {
             updater::install(&app)?;
