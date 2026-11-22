@@ -32,6 +32,9 @@ type Locations struct {
 	Commit       string `json:"commit"`
 	DataDir      string `json:"dataDir"`
 	Test         bool   `json:"test,omitempty"`
+	// ResultFile is a prompt run's $RZM_TASK_RESULT_FILE (SPEC-0127 US14);
+	// checks have none.
+	ResultFile string `json:"-"`
 }
 
 func (l Locations) env() []string {
@@ -43,6 +46,9 @@ func (l Locations) env() []string {
 	}
 	if l.Test {
 		env = append(env, "RZM_TASK_TEST=1")
+	}
+	if l.ResultFile != "" {
+		env = append(env, "RZM_TASK_RESULT_FILE="+l.ResultFile)
 	}
 	return env
 }

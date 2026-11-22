@@ -64,6 +64,9 @@ type Report struct {
 	StateDir     string       `json:"stateDir"`
 	Tasks        []TaskStatus `json:"tasks"`
 	Problems     []Problem    `json:"problems,omitempty"`
+
+	// TokenCap is the person's daily token cap here and today's use.
+	TokenCap *TokenCap `json:"tokenCap,omitempty"`
 }
 
 // Status reports every task's mode, last run, and next due time. It reads
@@ -86,6 +89,7 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 		warning = "your user configuration could not be read, so tasks do not run on this machine: " + err.Error()
 	}
 	report.RunHere = machine.Repository.RunHere
+	report.TokenCap = todayTokens(&st, machine.Repository.DailyTokenCap, now)
 	if t, ok := s.opts.Repo.FetchedAt(); ok {
 		report.FetchedAt = t
 	}
@@ -127,6 +131,9 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 		}
 		if blocked == "" && requirementsBlocked(ts.LastRun) {
 			blocked = BlockedRequires
+		}
+		if blocked == "" && capBlocks(report.TokenCap, mode, def) {
+			blocked = BlockedTokenCap
 		}
 		ts.BlockedBy = blockedBy(report, blocked)
 		if it := st.ActiveTaskItem(def.ID); it != nil {

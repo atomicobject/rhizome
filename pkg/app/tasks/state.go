@@ -92,6 +92,10 @@ type RunRecord struct {
 	Landed  string   `json:"landed,omitempty"`
 	PR      string   `json:"pr,omitempty"`
 	Left    []string `json:"left,omitempty"`
+	// Result is what the agent wrote to $RZM_TASK_RESULT_FILE, and
+	// NotifyError why the notify command failed after the run (US14).
+	Result      *RunResult `json:"result,omitempty"`
+	NotifyError string     `json:"notifyError,omitempty"`
 }
 
 // State is one person's task state for one repository.
@@ -129,6 +133,10 @@ type State struct {
 	// Leftover is task -> paths a failed, stopped, or uncommitted in-place
 	// run left in the checkout; the task's next successful run adopts them.
 	Leftover map[string][]string `json:"leftover,omitempty"`
+
+	// TokenCapNotified is the UTC day the daily token cap last stopped
+	// work and notified, so it notifies once a day (SPEC-0127 US14).
+	TokenCapNotified string `json:"tokenCapNotified,omitempty"`
 }
 
 // PassError records a run-due pass that failed before running any task.

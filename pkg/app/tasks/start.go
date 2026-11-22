@@ -88,6 +88,7 @@ func CopyablePrompt(def Definition, loc Locations, check CheckResult, ref string
 
 func writePromptBody(b *strings.Builder, def Definition, loc Locations, check CheckResult) {
 	writeLocations(b, loc, check)
+	writeMemory(b, def, loc)
 	fmt.Fprintf(b, "Confirm the task is still needed against the current code. End every commit message with the line %q. If nothing is left to do, say so and stop without opening a pull request.\n\n", def.Tag())
 	b.WriteString("Task instructions:\n\n")
 	b.WriteString(strings.TrimSpace(def.Prompt))

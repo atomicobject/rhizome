@@ -10,8 +10,8 @@ import (
 
 // Status codes for why a task is not running (SPEC-0127 US10). They are
 // the only skip vocabulary Rhizome Desktop shows. This package sets
-// not-run-here, untrusted, paused, off, and open-item; the runtime host
-// and landing set the others.
+// not-run-here, untrusted, paused, off, open-item, requires, and
+// token-cap; the runtime host and landing set the others.
 const (
 	BlockedNotRunHere  = "not-run-here"
 	BlockedNoHost      = "no-host"
@@ -22,6 +22,9 @@ const (
 	BlockedWrongBranch = "wrong-branch"
 	BlockedRequires    = "requires"
 	BlockedFetchFailed = "fetch-failed"
+	// BlockedTokenCap: today's tokens reached the person's dailyTokenCap,
+	// so scheduled agent work waits (SPEC-0127 US14).
+	BlockedTokenCap = "token-cap"
 )
 
 // fetchTimeout bounds the fetch before a pass; a hung remote then falls

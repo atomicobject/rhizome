@@ -82,6 +82,8 @@ type attempt struct {
 	missing []string
 	// slot is the scheduled slot the run is for; "" means its own ID.
 	slot string
+	// result is what the agent reported in its result file.
+	result *RunResult
 }
 
 // slotID names the run's slot in its commit's slot line.
@@ -106,7 +108,7 @@ func testSource(a attempt) string {
 }
 
 func (a attempt) record(task, outcome string, at time.Time) RunRecord {
-	return RunRecord{ID: a.id, Task: task, StartedAt: a.started, At: at, Outcome: outcome, Test: a.draft, SourceCheckout: testSource(a), Missing: a.missing}
+	return RunRecord{ID: a.id, Task: task, StartedAt: a.started, At: at, Outcome: outcome, Test: a.draft, SourceCheckout: testSource(a), Missing: a.missing, Result: a.result}
 }
 
 // checkLog writes a check's stderr to its run folder, creating the file on
@@ -177,6 +179,7 @@ func (s *Service) end(ctx context.Context, a attempt) {
 	if err != nil || st.Running == nil || st.Running.ID != a.id {
 		return
 	}
+	defer s.alertRun(ctx, st.Running.Task, a.id) // SPEC-0127 US14
 	_ = s.store.Update(context.WithoutCancel(ctx), func(st *State) error {
 		if st.Running != nil && st.Running.ID == a.id {
 			r := *st.Running
@@ -205,13 +208,15 @@ func running(st *State, a attempt, fn func(*RunRecord)) {
 // folder, and moves its item to needs attention. Callers hold run.lock, so
 // nothing else is running and any stop request is settled.
 func (s *Service) finalizeInterrupted(ctx context.Context) error {
-	return s.store.Update(ctx, func(st *State) error {
+	var task, id string
+	err := s.store.Update(ctx, func(st *State) error {
 		defer func() { st.Stopping = "" }()
 		if st.Running == nil {
 			return nil
 		}
 		now := s.opts.Now()
 		r := *st.Running
+		task, id = r.Task, r.ID
 		r.At, r.Outcome = now, OutcomeInterrupted
 		r.Message = interruptedMessage
 		reason := interruptedMessage
@@ -232,6 +237,10 @@ func (s *Service) finalizeInterrupted(ctx context.Context) error {
 		st.Running = nil
 		return nil
 	})
+	if err == nil && id != "" {
+		s.alertRun(ctx, task, id) // SPEC-0127 US14
+	}
+	return err
 }
 
 // retain bounds history and run folders. Callers hold run.lock. Per task it

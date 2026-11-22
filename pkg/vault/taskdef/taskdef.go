@@ -104,6 +104,8 @@ type Definition struct {
 	// ParseDefinition resolves Land's default.
 	Land   string   `yaml:"land,omitempty"`
 	Writes []string `yaml:"writes,omitempty"`
+	// Memory keeps a short handoff note between runs (SPEC-0127 US14).
+	Memory bool `yaml:"memory,omitempty"`
 
 	Cadence time.Duration `yaml:"-"`
 	Limit   time.Duration `yaml:"-"`
