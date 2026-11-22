@@ -206,7 +206,7 @@ Rhizome Desktop shows a system notification when an item needs you, which only h
 | Variable | Value |
 | --- | --- |
 | `RZM_TASK_ID` | the task id |
-| `RZM_TASK_OUTCOME` | `failed`, `interrupted`, `notified`, `ready`, `attention`, or `token-cap` |
+| `RZM_TASK_OUTCOME` | `failed`, `interrupted`, `notified`, `ready`, `attention`, or `token-cap`; `test` from `rzm tasks notify-test` |
 | `RZM_TASK_RUN_ID` | the run's ID |
 | `RZM_TASK_REPOSITORY` | the repository's main checkout |
 | `RZM_TASK_ITEM` | the inbox item, when there is one |
