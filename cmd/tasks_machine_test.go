@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/atomicobject/rhizome/pkg/app/tasks"
-	"github.com/atomicobject/rhizome/pkg/harness"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/stretchr/testify/require"
 )
@@ -36,15 +34,13 @@ func TestTasksMachineHostsAndHostRunDue(t *testing.T) {
 		Getwd:  func() (string, error) { return dir, nil },
 		Config: vaultconfig.Env{CLIConfigFile: writeConfig},
 	})
+	// Through the invocation wrapper, so the fixture's Env and the
+	// execution context both reach the command (cmd/AGENTS.md).
 	rzm := func(args ...string) string {
 		t.Helper()
-		var out bytes.Buffer
-		cmd := newTasksCmd(func() map[harness.Kind]harness.Harness { return nil })
-		cmd.SetArgs(args)
-		cmd.SetOut(&out)
-		cmd.SetErr(&out)
-		require.NoError(t, cmd.ExecuteContext(ctx), out.String())
-		return out.String()
+		stdout, stderr, err := runRootCLIWithRootSilence(t, ctx, append([]string{"tasks"}, args...), true)
+		require.NoError(t, err, stderr)
+		return stdout + stderr
 	}
 
 	require.Contains(t, rzm("run-due", "--host"), "Skipped: tasks do not run on this machine")
