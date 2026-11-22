@@ -81,3 +81,24 @@ func TestInPlacePushRecoveryLeavesThePersonsWork(t *testing.T) {
 		}
 	})
 }
+
+func TestInPlaceKeepsAFileStagedWhileItCommits(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	head := run(t, f.host, "rev-parse", "HEAD")
+	f.onStep("commit", func() {
+		writeFile(t, filepath.Join(f.host, "notes/a.md"), "the person's newer version\n")
+		run(t, f.host, "add", "notes/a.md")
+	})
+	o := f.pass()
+	if staged := run(t, f.host, "show", ":notes/a.md"); staged != "the person's newer version" {
+		t.Fatalf("the person's staged version must stay staged, got %q (%+v)", staged, o)
+	}
+	if got := run(t, f.host, "rev-parse", "HEAD"); got != head || o.Outcome != OutcomeFailed || !strings.Contains(o.Reason, "notes/a.md was staged") {
+		t.Fatalf("nothing may be committed over a file staged meanwhile: HEAD %s, %+v", got, o)
+	}
+	gitDir := run(t, f.host, "rev-parse", "--absolute-git-dir")
+	if _, err := os.Stat(filepath.Join(gitDir, "index.lock")); !os.IsNotExist(err) {
+		t.Fatalf("the index lock must be released: %v", err)
+	}
+}

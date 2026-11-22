@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -81,8 +82,8 @@ func buildTree(ctx context.Context, dir, noHooks, base string, info []byte) (str
 // as a file replacing a folder would. It then moves the branch under
 // moveHead, so a commit, switch, or pull since the snapshot fails it, and
 // while the locks are held points the person's index entries for paths at
-// the commit; everything else they staged stays staged. Hooks and signing
-// are off. It returns "" when the paths need no commit.
+// the commit (updateIndex); everything else they staged stays staged. Hooks
+// and signing are off. It returns "" when the paths need no commit.
 func (s *Service) commitInPlace(ctx context.Context, def Definition, a attempt, ip *inPlace, paths []string, entries map[string]string, message string) (string, error) {
 	if ip.moved(ctx) != "" {
 		return "", errHeadMoved
@@ -112,13 +113,78 @@ func (s *Service) commitInPlace(ctx context.Context, def Definition, a attempt, 
 	commit := strings.TrimSpace(string(out))
 	landingStep("commit")
 	err = moveHead(ctx, ip, ip.head, commit, "rhizome tasks: "+def.ID, func() error {
-		_, err := gitBytesInput(ctx, ip.dir, nil, info, "-c", ip.noHooks, "update-index", "-z", "--index-info")
-		return err
+		return updateIndex(ctx, ip, paths, info)
 	})
 	if err != nil {
 		return "", err
 	}
 	return commit, nil
+}
+
+// updateIndex applies info to the person's index under index.lock, which it
+// takes as Git does (created exclusively, written, renamed over the index),
+// so no `git add` can land between its check and its write. Under the lock
+// it checks that the index still has paths as HEAD has them, as when the
+// run's own paths were chosen, and changes nothing when the person staged
+// one since. The new index is built in a private copy.
+func updateIndex(ctx context.Context, ip *inPlace, paths []string, info []byte) error {
+	index, err := gitOutput(ctx, ip.dir, "rev-parse", "--path-format=absolute", "--git-path", "index")
+	if err != nil {
+		return err
+	}
+	lockFile := index + ".lock"
+	lock, err := os.OpenFile(lockFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
+	if errors.Is(err, os.ErrExist) {
+		return fmt.Errorf("another Git command holds %s", lockFile)
+	}
+	if err != nil {
+		return err
+	}
+	renamed := false
+	defer func() {
+		if !renamed {
+			_ = lock.Close()
+			_ = os.Remove(lockFile)
+		}
+	}()
+	staged, err := nameSet(ctx, ip.dir, append([]string{"--literal-pathspecs", "diff-index", "--cached", "--name-only", "-z", "--no-renames", ip.head, "--"}, paths...)...)
+	if err != nil {
+		return err
+	}
+	if len(staged) > 0 {
+		return fmt.Errorf("%s was staged while Rhizome committed", strings.Join(slices.Sorted(maps.Keys(staged)), ", "))
+	}
+	tmp, err := os.MkdirTemp("", "rhizome-task-index-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmp)
+	private := filepath.Join(tmp, "index")
+	data, err := os.ReadFile(index)
+	if err == nil {
+		err = os.WriteFile(private, data, 0o600)
+	}
+	if err != nil {
+		return err
+	}
+	env := []string{"GIT_INDEX_FILE=" + private}
+	if _, err := gitBytesInput(ctx, ip.dir, env, info, "-c", ip.noHooks, "-c", "core.splitIndex=false", "update-index", "-z", "--index-info"); err != nil {
+		return err
+	}
+	if data, err = os.ReadFile(private); err != nil {
+		return err
+	}
+	if _, err := lock.Write(data); err != nil {
+		return err
+	}
+	if err := lock.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(lockFile, index); err != nil {
+		return err
+	}
+	renamed = true
+	return nil
 }
 
 // restoreProtected saves the run's diff of protected paths to diffFile and
