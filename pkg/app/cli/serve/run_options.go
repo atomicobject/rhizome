@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/web"
 )
 
@@ -65,7 +66,7 @@ type Options struct {
 	// calls it only while a Desktop host stream holds it (SPEC-0104 US7).
 	// Nil, or a nil OpenTasks, turns dispatch off. TasksCheckInterval
 	// overrides the 30-second check for tests.
-	RunTasks           func(vaultPath string) error
+	RunTasks           func(vaultPath string) (*appruntime.Detached, error)
 	TasksCheckInterval time.Duration
 	// OpenTasks opens the scheduled-tasks service for the Tasks page; nil
 	// makes /api/tasks report the feature unavailable.

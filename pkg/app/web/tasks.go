@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -52,12 +53,12 @@ var (
 
 // launchTaskRun starts `rzm tasks run <item>` detached in the vault, the
 // way the runtime starts `rzm tasks run-due`.
-func launchTaskRun(vaultPath, itemID string) error {
+func launchTaskRun(vaultPath, itemID string) (*appruntime.Detached, error) {
 	exe, err := os.Executable()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return appruntime.StartDetached(exe, vaultPath, "tasks", "run", itemID)
+	return appruntime.StartDetachedTo(nil, exe, vaultPath, "tasks", "run", itemID)
 }
 
 func launchTaskTest(vaultPath, file string) error {
@@ -230,7 +231,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		serve = func(api TasksAPI) { s.drainTaskHost(w, r, api) }
 	case len(parts) == 1 && parts[0] == "stop" && post:
 		serve = func(api TasksAPI) {
-			stopped, err := api.Stop(r.Context(), tasks.DefaultStopWait)
+			stopped, err := s.stopTaskRun(r.Context(), api)
 			writeTasksResult(w, map[string]bool{"stopped": stopped}, err)
 		}
 	case len(parts) == 1 && parts[0] == "machine" && post:
@@ -260,11 +261,23 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 	serve(api)
 }
 
+// serveTasksStatus answers the status report. Inside a runtime it also
+// knows whether a Desktop host holds it: with tasks on for this machine and
+// no host stream, a scheduled task that could otherwise run is blocked by
+// no-host. The CLI cannot know, so its report never says so.
 func (s *Server) serveTasksStatus(w http.ResponseWriter, r *http.Request, api TasksAPI) {
 	report, err := api.Status(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+	if report.RunHere && !s.cfg.TaskHosts.Held() {
+		report.Tasks = slices.Clone(report.Tasks)
+		for i := range report.Tasks {
+			if t := &report.Tasks[i]; t.Scheduled && t.BlockedBy == "" {
+				t.BlockedBy = tasks.BlockedNoHost
+			}
+		}
 	}
 	writeJSON(w, http.StatusOK, report)
 }
@@ -297,20 +310,32 @@ func (s *Server) taskItemAction(w http.ResponseWriter, r *http.Request, itemID, 
 }
 
 // launchItemRun starts an item's run in a separate process and answers with
-// when it launched and which item it runs.
+// when it launched and which item it runs. Prechecking and starting hold the
+// runtime's dispatch lock (TaskHosts.Launch), so a second request before the
+// first run takes the run lock answers 409 instead of starting another.
 func (s *Server) launchItemRun(w http.ResponseWriter, ctx context.Context, api TasksAPI, itemID string) {
-	if err := api.PrecheckRun(ctx, itemID); err != nil {
-		writeError(w, http.StatusConflict, err)
-		return
-	}
 	launchedAt := time.Now().UTC()
 	launch := s.tasksLaunch
 	if launch == nil {
 		launch = launchTaskRun
 	}
-	if err := launch(s.cfg.VaultPath, itemID); err != nil {
-		_ = api.RecordLaunchError(ctx, itemID, err.Error())
-		writeError(w, http.StatusInternalServerError, fmt.Errorf("start task run: %w", err))
+	var spawnErr error
+	err := s.cfg.TaskHosts.Launch(func() (*appruntime.Detached, error) {
+		if err := api.PrecheckRun(ctx, itemID); err != nil {
+			return nil, err
+		}
+		launchedAt = time.Now().UTC()
+		child, err := launch(s.cfg.VaultPath, itemID)
+		spawnErr = err
+		return child, err
+	})
+	switch {
+	case spawnErr != nil:
+		_ = api.RecordLaunchError(ctx, itemID, spawnErr.Error())
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("start task run: %w", spawnErr))
+		return
+	case err != nil:
+		writeError(w, http.StatusConflict, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"launchedAt": launchedAt.Format(time.RFC3339Nano), "item": itemID})

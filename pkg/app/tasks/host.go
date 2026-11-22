@@ -10,20 +10,20 @@ import (
 // (SPEC-0104 US7). The runtime sends it on the host stream and adds
 // Draining, which lives in the runtime.
 type HostStatus struct {
-	Repository  string       `json:"repository"`
-	CommonDir   string       `json:"commonDir"`
-	RunHere     bool         `json:"runHere"`
-	Paused      bool         `json:"paused"`
-	PausedUntil *time.Time   `json:"pausedUntil,omitempty"`
-	Draining    bool         `json:"draining"`
-	Running     *HostRun     `json:"running,omitempty"`
+	Repository  string     `json:"repository"`
+	CommonDir   string     `json:"commonDir"`
+	RunHere     bool       `json:"runHere"`
+	Paused      bool       `json:"paused"`
+	PausedUntil *time.Time `json:"pausedUntil,omitempty"`
+	Draining    bool       `json:"draining"`
+	Running     *HostRun   `json:"running,omitempty"`
 	// Dispatching is a run the runtime started that has recorded no run
 	// yet; the runtime adds it, like Draining.
 	Dispatching *HostDispatch `json:"dispatching,omitempty"`
-	Next        *HostNext    `json:"next,omitempty"`
-	Attention   int          `json:"attention"`
-	LastFailure *HostFailure `json:"lastFailure,omitempty"`
-	Notices     []HostNotice `json:"notices"`
+	Next        *HostNext     `json:"next,omitempty"`
+	Attention   int           `json:"attention"`
+	LastFailure *HostFailure  `json:"lastFailure,omitempty"`
+	Notices     []HostNotice  `json:"notices"`
 }
 
 // HostRun is the run in progress.

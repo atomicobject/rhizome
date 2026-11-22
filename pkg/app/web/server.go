@@ -20,6 +20,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/finder"
 	"github.com/atomicobject/rhizome/pkg/app/provideraccess"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/userstate"
 	"github.com/atomicobject/rhizome/pkg/diagnostics"
 	"github.com/atomicobject/rhizome/pkg/embeddings"
@@ -139,8 +140,8 @@ type Server struct {
 	kitBuild            string
 	viewWatch           viewFolderWatch
 	tasksTestLaunch     func(vaultPath, file string) error
-	tasksLaunch         func(vaultPath, itemID string) error // nil starts `rzm tasks run`
-	taskHostPoll        time.Duration                        // zero uses taskHostPoll
+	tasksLaunch         func(vaultPath, itemID string) (*appruntime.Detached, error) // nil starts `rzm tasks run`
+	taskHostPoll        time.Duration                                                // zero uses taskHostPoll
 }
 
 var agentHarnessOverride func() map[harness.Kind]harness.Harness

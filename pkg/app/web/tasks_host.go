@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/tasks"
 )
 
@@ -24,13 +25,20 @@ const (
 	taskHostResend = 25 * time.Second
 )
 
-// TaskHosts counts the host streams open on this runtime and remembers a
-// drain. The runtime dispatches scheduled tasks only while Dispatching.
+// TaskHosts counts the host streams open on this runtime, remembers a
+// drain, and tracks the last task process the runtime started. One mutex
+// covers all three, so a scheduled pass never starts after a drain and only
+// one run starts at a time from this runtime.
 type TaskHosts struct {
 	mu      sync.Mutex
 	open    int
 	drained bool
+	// child is the latest run-due or run this runtime started.
+	child *appruntime.Detached
 }
+
+// errTaskStarted answers Run now while a run this runtime started is alive.
+var errTaskStarted = errors.New("a task run this runtime started is still running")
 
 // Hold registers an open host stream until release.
 func (h *TaskHosts) Hold() (release func()) {
@@ -47,7 +55,19 @@ func (h *TaskHosts) Hold() (release func()) {
 	}
 }
 
-// Drain stops new dispatch until the runtime restarts.
+// Held reports whether a host stream is open; a nil TaskHosts (no runtime
+// host support) reports true, so nothing reads as hostless.
+func (h *TaskHosts) Held() bool {
+	if h == nil {
+		return true
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.open > 0
+}
+
+// Drain stops new dispatch until the runtime restarts. It waits for a
+// dispatch in progress, so that one is reported as Child.
 func (h *TaskHosts) Drain() {
 	h.mu.Lock()
 	h.drained = true
@@ -61,12 +81,63 @@ func (h *TaskHosts) Draining() bool {
 	return h.drained
 }
 
-// Dispatching reports whether a host stream is open and the runtime has not
-// been drained.
-func (h *TaskHosts) Dispatching() bool {
+// Hosting reports whether a host stream is open and the runtime has not
+// been drained, the cheap test before a scheduled check reads task state.
+func (h *TaskHosts) Hosting() bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return h.open > 0 && !h.drained
+}
+
+// Dispatch starts a scheduled pass with start, checking under the lock
+// Drain takes, immediately before starting, that a host stream is open, the
+// runtime is not drained, and no process the runtime started is alive. It
+// returns nil when it started nothing.
+func (h *TaskHosts) Dispatch(start func() (*appruntime.Detached, error)) (*appruntime.Detached, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.open == 0 || h.drained || h.child.Alive() {
+		return nil, nil
+	}
+	child, err := start()
+	if err != nil {
+		return nil, err
+	}
+	h.child = child
+	return child, nil
+}
+
+// Launch starts a run the person asked for (Run now) with start, refusing
+// while a process the runtime started is alive, as a second request does
+// before the first run takes the run lock. A nil TaskHosts just starts it.
+func (h *TaskHosts) Launch(start func() (*appruntime.Detached, error)) error {
+	if h == nil {
+		_, err := start()
+		return err
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.child.Alive() {
+		return fmt.Errorf("%w: %w", tasks.ErrBusy, errTaskStarted)
+	}
+	child, err := start()
+	if err == nil && child != nil {
+		h.child = child
+	}
+	return err
+}
+
+// Child is the process the runtime last started while it is alive, or nil.
+func (h *TaskHosts) Child() *tasks.HostDispatch {
+	if h == nil {
+		return nil
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if !h.child.Alive() {
+		return nil
+	}
+	return &tasks.HostDispatch{PID: h.child.PID, StartedAt: h.child.StartedAt}
 }
 
 // TaskMachine sets the person's per-machine "Run tasks on this machine"
@@ -138,19 +209,40 @@ func (s *Server) hostStatus(ctx context.Context, api TasksAPI, hosts *TaskHosts)
 		return status, err
 	}
 	status.Draining = hosts.Draining()
+	if status.Running == nil {
+		status.Dispatching = hosts.Child()
+	}
 	return status, nil
 }
 
 // drainTaskHost stops new dispatch and answers with the run in progress,
-// so Desktop can ask whether to wait for it or stop it.
+// or the process the runtime started that has recorded no run yet, so
+// Desktop can ask whether to wait for it or stop it.
 func (s *Server) drainTaskHost(w http.ResponseWriter, r *http.Request, api TasksAPI) {
 	hosts := s.taskHosts(w)
 	if hosts == nil {
 		return
 	}
 	hosts.Drain()
-	status, err := api.HostStatus(r.Context())
-	writeTasksResult(w, map[string]*tasks.HostRun{"running": status.Running}, err)
+	status, err := s.hostStatus(r.Context(), api, hosts)
+	writeTasksResult(w, map[string]any{"running": status.Running, "dispatching": status.Dispatching}, err)
+}
+
+// stopTaskRun stops the run holding the run lock or, when no process holds
+// it yet, the process this runtime started for a run.
+func (s *Server) stopTaskRun(ctx context.Context, api TasksAPI) (bool, error) {
+	stopped, err := api.Stop(ctx, tasks.DefaultStopWait)
+	if err != nil || stopped {
+		return stopped, err
+	}
+	child := s.cfg.TaskHosts.Child()
+	if child == nil {
+		return false, nil
+	}
+	if err := tasks.StopProcess(ctx, child.PID, tasks.DefaultStopWait); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *Server) setTaskMachine(w http.ResponseWriter, r *http.Request, api TasksAPI, runHere bool) {
