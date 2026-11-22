@@ -124,7 +124,7 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	alert := notifiesFor(outcome, a.result.status(), pr == "") || cleanupErr != nil
 	reviewed := outcome == OutcomeReady && !alert
 	if reviewed {
-		if err := s.removeWorktree(ctx, "", dir); err != nil {
+		if err := s.removePushedWorktree(ctx, branch, dir, noHooks); err != nil {
 			reviewed, alert = false, true
 			notice = fmt.Sprintf("The pull request is open, but its local worktree could not be removed: %v.", err)
 		}
@@ -278,6 +278,24 @@ func (s *Service) removeWorktree(ctx context.Context, branch, dir string) error 
 		}
 	}
 	return nil
+}
+
+// removePushedWorktree removes a pushed run's worktree but keeps its
+// branch, which the pull request uses. Like removeWorktree, it leaves a
+// worktree that is no longer on the run's branch, and it also leaves one
+// with uncommitted changes, since the person may be working there.
+func (s *Service) removePushedWorktree(ctx context.Context, branch, dir, noHooks string) error {
+	if err := s.removable(ctx, branch, dir); err != nil {
+		return err
+	}
+	if _, err := os.Stat(dir); err == nil {
+		if status, err := gitOutput(ctx, dir, "-c", noHooks, "status", "--porcelain"); err != nil {
+			return err
+		} else if status != "" {
+			return fmt.Errorf("%s has uncommitted changes, so it was left alone", dir)
+		}
+	}
+	return s.removeWorktree(ctx, "", dir)
 }
 
 // removable refuses to remove dir unless it is a run or test worktree
