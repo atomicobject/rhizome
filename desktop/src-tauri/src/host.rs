@@ -28,6 +28,8 @@ mod notices;
 mod release;
 
 pub use api::{Api, HostStatus};
+// Quit Completely (macOS only) uses all of these; every platform uses terminate.
+#[cfg_attr(not(target_os = "macos"), allow(unused_imports))]
 pub use release::{drain_all, freeze, release_all, stop_runs, terminate, wait_idle, Busy};
 
 /// How often the loop lists hosted repositories when nothing wakes it.
