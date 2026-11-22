@@ -32,6 +32,7 @@ check:                              # optional: command or script, not both
 prompt: |
   Do what the pre-flight check says.
 timeout: 1h                         # optional, applies to the check and the prompt each
+memory: true                        # optional: a short handoff note between runs
 ```
 
 ### Run at set times
@@ -81,7 +82,7 @@ For a test, `RZM_TASK_COMMIT` names the source snapshot and `RZM_TASK_DATA_DIR` 
 
 ### Cost is the task's job
 
-Rhizome does not meter or cap what a task spends. Use the check so the prompt runs only when there is work, and keep the prompt efficient. `rzm tasks status` shows each task's recent token use; a task that costs too much should be fixed or turned off.
+Use the check so the prompt runs only when there is work, and keep the prompt efficient. `rzm tasks status` shows each task's recent token use; a task that costs too much should be fixed or turned off. As a safety net, you can set a daily token cap per repository on your machine (`dailyTokenCap`, below).
 
 ### What a task needs
 
@@ -136,15 +137,20 @@ The same settings, with a few more, live in your user configuration (`~/.config/
 ```yaml
 tasks:
   timezone: America/Detroit          # default zone for schedules
+  notify:
+    command: [/Users/me/bin/rhizome-notify]   # optional; see Quiet runs and alerts
   repositories:
     /Users/me/notes/.git:
       runHere: true
       checkout: /Users/me/notes      # optional; defaults to the main checkout
+      dailyTokenCap: 2000000         # optional; 0 or absent is no cap
       tasks:
         compounding/sweep: {harness: codex, model: gpt-6.1, effort: high}
 ```
 
 A task's `harness`, `model`, and `effort` override your chat agent settings for that task only.
+
+`dailyTokenCap` stops new scheduled agent work in the repository once its scheduled runs have used that many tokens today. Today is the UTC day Rhizome stores token totals in, so the cap resets at 00:00 UTC. Checks still run, since they cost nothing; a task that needs agent work records a skipped run and waits for its next slot or cadence. The first stop each day runs your notify command once. The cap is checked before a run starts, so one run can finish past it. Notify-mode items, tests, and runs you start yourself with **Run** or `rzm tasks run` are not capped.
 
 ## When tasks run
 
@@ -152,7 +158,7 @@ While Rhizome Desktop holds the runtime of a repository you turned on here, it c
 
 Deciding what is due reads only the local primary ref. A pass with something due first fetches the primary ref's remote, without prompting and with a time limit, then reads the tasks again; if the fetch fails, the pass uses the last fetched ref and `rzm tasks status` shows the failure. A task added on the remote is seen at the next pass that fetches.
 
-`rzm tasks status` says why each task is not running: tasks do not run on this machine, the repository is untrusted, work is paused (and until when), the task is off, or an open item waits for you. `--json` reports the same as a stable `blockedBy` code (`not-run-here`, `no-host`, `untrusted`, `paused`, `off`, `open-item`, `wrong-branch`, `requires`, `fetch-failed`), with each task's `nextAt` and `timezone` and the repository's `runHere`, `pausedUntil`, and last `fetch`. An untrusted repository is reported once, as the last pass's error. To run a task without waiting for a pass, choose **Run now** on its page or run `rzm tasks run --task <task>`. Its check runs first, and the work starts only if the check finds some. A task with an open inbox item runs from that item instead.
+`rzm tasks status` says why each task is not running: tasks do not run on this machine, the repository is untrusted, work is paused (and until when), the task is off, an open item waits for you, a requirement was missing, or today's token cap is reached. `--json` reports the same as a stable `blockedBy` code (`not-run-here`, `no-host`, `untrusted`, `paused`, `off`, `open-item`, `wrong-branch`, `requires`, `fetch-failed`, `token-cap`), with each task's `nextAt` and `timezone` and the repository's `runHere`, `pausedUntil`, last `fetch`, and `tokenCap` (`cap`, `used`, `day`, `reached`). An untrusted repository is reported once, as the last pass's error. To run a task without waiting for a pass, choose **Run now** on its page or run `rzm tasks run --task <task>`. Its check runs first, and the work starts only if the check finds some. A task with an open inbox item runs from that item instead.
 
 A `person` task is due when your own last run is older than its cadence. A `team` task also counts teammates: when a commit tagged `Rhizome-Task: <id>` reaches the primary branch, everyone's clock resets. Squash merges keep the tag when the repository squashes with commit messages. They drop it when it squashes with the pull request title alone.
 
@@ -173,6 +179,61 @@ A background run, automatic or started with **Run**, **Run now**, or `rzm tasks 
 
 Review a finished run in its worktree, then open the pull request yourself, or discard it. In Rhizome Desktop, **Open worktree** opens the run's worktree in a new window, and **Discard** removes the worktree and branch. From a terminal, use `rzm tasks discard <item>`.
 
+## Quiet runs and alerts
+
+A task that runs every day should not ask for you every day. Before it finishes, a background run's agent may write the file named by `$RZM_TASK_RESULT_FILE` (the preamble gives its path):
+
+```json
+{"status": "quiet", "summary": "No new sessions to mine."}
+```
+
+`status` is `quiet` (nothing worth mentioning), `ok` (a normal run), or `attention` (you need to look). Rhizome keeps the status and summary on the run. A missing file means ok. A file that is not one JSON object, is over 16 KB, or has another status is recorded on the run with its error and also counts as ok; it never fails the run.
+
+Which runs need you:
+
+- **History only, no inbox item, no alert:** the check found nothing to do, the run changed nothing, or a `quiet` or `ok` run changed nothing.
+- **Inbox item and alert:** a failure (including an interrupted run or a missing requirement), an `attention` result, and a task that is due for you (in notify mode, or with only a check). An `attention` run that changed nothing waits in the inbox as needs attention with its summary.
+- **Changes to review:** a run that committed to its `rzm/<task>/<date>` branch makes a ready item and an alert whatever its status, because the branch waits on you until you review, open a pull request, or discard it.
+
+### Handoff memory
+
+With `memory: true`, the preamble tells the agent about `$RZM_TASK_DATA_DIR/handoff.md`: read it first, rewrite it last, and keep it short. After each background run or test, Rhizome cuts a note over 8 KB to its first 8 KB, ending at a whole line, with a marker that says it was cut. **Start** and **Copy prompt** name the note too.
+
+### Alerts on your phone
+
+Rhizome Desktop shows a system notification when an item needs you, which only helps at that Mac. For alerts that reach you elsewhere, set `tasks.notify.command` in your user configuration to an argument list. After each run that makes an alert, Rhizome runs it with a one-line summary, such as `Mine sessions failed: check failed: exit status 1`, on stdin and these variables:
+
+| Variable | Value |
+| --- | --- |
+| `RZM_TASK_ID` | the task id |
+| `RZM_TASK_OUTCOME` | `failed`, `interrupted`, `notified`, `ready`, `attention`, or `token-cap` |
+| `RZM_TASK_RUN_ID` | the run's ID |
+| `RZM_TASK_REPOSITORY` | the repository's main checkout |
+| `RZM_TASK_ITEM` | the inbox item, when there is one |
+
+The command runs with your login shell's `PATH`, in the main checkout, and has 30 seconds. Its output goes to `runs/<id>/notify.log`. If it fails or times out, the run records why (`notifyError`) and is otherwise unchanged. Tests never notify.
+
+For example, a script that posts to [ntfy](https://ntfy.sh), which has a phone app; the topic acts as a password, so use a long random one:
+
+```sh
+#!/bin/sh
+# ~/bin/rhizome-notify: send the task summary on stdin to your phone.
+curl -fsS -H "Title: Rhizome $RZM_TASK_OUTCOME: $RZM_TASK_ID" \
+  --data-binary @- "https://ntfy.sh/replace-with-your-long-random-topic"
+```
+
+[Pushover](https://pushover.net) works the same way with `curl -fsS --form-string "token=<app token>" --form-string "user=<user key>" --form-string "message=$(cat)" https://api.pushover.net/1/messages.json`. Keep the keys in the script (`chmod 700`), not in the configuration. Then point the setting at the script and check it:
+
+```yaml
+tasks:
+  notify:
+    command: [/Users/me/bin/rhizome-notify]
+```
+
+```sh
+rzm tasks notify-test   # sends a sample notification; exits 1 and prints the output if it fails
+```
+
 ## The inbox
 
 In Rhizome Desktop, the toolbar's **Tasks** tab shows how many items need you, and the Dock badge counts them across every open repository. A system notification arrives when an item becomes due, ready for review, or needs attention; clicking it opens the task. Each item's page offers the actions for its state:
@@ -191,7 +252,7 @@ Each item is in one of these states:
 | --- | --- | --- |
 | due | A notify-mode task is needed. | `run`, `start`, `snooze`, `skip` |
 | ready | A background run finished with changes. | review, then `done` or `discard` |
-| needs-attention | A check or run failed or timed out. It waits for its next cadence instead of retrying. | `run`, `start`, `discard`, `done` |
+| needs-attention | A check or run failed or timed out, or the agent asked for attention. It waits for its next cadence instead of retrying. | `run`, `start`, `discard`, `done` |
 | started | You started it with `start`. | `done` |
 
 From a terminal, `rzm tasks inbox` lists the items and `rzm tasks <action> <item>` acts on one.
@@ -219,7 +280,7 @@ In Rhizome Desktop, the Dock icon's badge counts the task items that need you (d
 
 Everything personal stays in the main checkout's ignored `.rhizome/task-state/`, shared by every worktree of the repository: modes, run history, inbox items, the check checkout, background worktrees, data folders, and run folders. Folder names replace the slash in a module task's id with `_` (`data/compounding_sweep/`), which no id contains. A repository without a main checkout keeps it in Rhizome's per-user configuration folder.
 
-Every run gets an ID like `20261031T143000Z-1a2b3c4d` before its check starts, and a folder `runs/<id>/` holding `check.log` (the check's stderr, cut at 1 MB) and, when agent work ran, `events.jsonl` (the harness transcript). A run left unfinished by a crash or reboot is recorded once as `interrupted` by the next run. Per task, Rhizome keeps the 20 newest runs with a transcript and 100 others, and the 20 newest transcripts and check logs; token totals cover the last 30 days even after older runs are trimmed. Tests have a separate bounded history, labelled Test, with their source checkout and snapshot. Their records and owned output worktrees are retained together and do not move the task's clock.
+Every run gets an ID like `20261031T143000Z-1a2b3c4d` before its check starts, and a folder `runs/<id>/` holding `check.log` (the check's stderr, cut at 1 MB) and, when agent work ran, `events.jsonl` (the harness transcript), the agent's `result.json`, and `notify.log` when the notify command printed anything. A `memory: true` task's `handoff.md` lives in its data folder. A run left unfinished by a crash or reboot is recorded once as `interrupted` by the next run. Per task, Rhizome keeps the 20 newest runs with a transcript and 100 others, and the 20 newest transcripts and check logs; token totals cover the last 30 days even after older runs are trimmed. Tests have a separate bounded history, labelled Test, with their source checkout and snapshot. Their records and owned output worktrees are retained together and do not move the task's clock.
 
 A `run-due` pass that a runtime starts writes its output to `run-due.log` in the same folder, keeping the last 1 MB.
 

@@ -37,6 +37,9 @@ func renderTaskStatus(w io.Writer, r tasks.Report) {
 	case r.Paused:
 		fmt.Fprintln(w, "Paused: background work is off until `rzm tasks resume`.")
 	}
+	if c := r.TokenCap; c != nil && c.Reached {
+		fmt.Fprintf(w, "Token cap reached: %d of %d tokens used today (UTC); scheduled agent work waits until 00:00 UTC.\n", c.Used, c.Cap)
+	}
 	if !r.RunHere && r.RefError == "" {
 		fmt.Fprintln(w, "Scheduled tasks do not run on this machine; `rzm tasks machine on` turns them on.")
 	}
@@ -100,11 +103,12 @@ var blockedText = map[string]string{
 	tasks.BlockedWrongBranch: "the checkout is not on the primary branch",
 	tasks.BlockedRequires:    "a requirement is missing",
 	tasks.BlockedFetchFailed: "the primary ref could not be fetched",
+	tasks.BlockedTokenCap:    "today's token cap is reached",
 }
 
 // shownAbove are codes the repository lines or the waiting line already
 // explain.
-var shownAbove = map[string]bool{tasks.BlockedNotRunHere: true, tasks.BlockedUntrusted: true, tasks.BlockedPaused: true, tasks.BlockedOpenItem: true}
+var shownAbove = map[string]bool{tasks.BlockedNotRunHere: true, tasks.BlockedUntrusted: true, tasks.BlockedPaused: true, tasks.BlockedOpenItem: true, tasks.BlockedTokenCap: true}
 
 // slotText formats a due time in the task's zone, naming the zone when it
 // is not this machine's.
