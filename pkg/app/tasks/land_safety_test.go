@@ -252,3 +252,30 @@ func TestInPlaceNeverCommitsANestedRepository(t *testing.T) {
 		}
 	}
 }
+
+func TestInPlaceRestoreNeverRemovesAFolderHoldingWhatItLeaves(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	const skill = ".agents/skills/a/SKILL.md"
+	f.agent.run = func(req AgentRequest) (AgentResult, error) {
+		if err := os.Remove(filepath.Join(req.Dir, skill)); err != nil {
+			t.Fatal(err)
+		}
+		writeFile(t, filepath.Join(req.Dir, skill, "x.md"), "the run's\n")
+		sub := filepath.Join(req.Dir, skill, "sub")
+		writeFile(t, filepath.Join(sub, "y.md"), "y\n")
+		run(t, sub, "init", "--quiet")
+		run(t, sub, "add", "-A")
+		run(t, sub, "commit", "--quiet", "-m", "nested")
+		return AgentResult{Message: "Nested a repository where a skill was."}, nil
+	}
+	o := f.pass()
+	if _, err := os.Stat(filepath.Join(f.host, skill, "sub/.git")); err != nil {
+		t.Fatalf("a restore must not remove a folder holding a nested repository: %v (%+v)", err, o)
+	}
+	if _, err := os.Stat(filepath.Join(f.host, skill, "x.md")); !os.IsNotExist(err) {
+		t.Fatalf("the run's own protected file is still removed: %v", err)
+	}
+	if it := taskItems(mustState(t, f.svc), "tend")[0]; !strings.Contains(it.Reason, "left "+skill+" (") {
+		t.Fatalf("the notice must name the folder it left: %q", it.Reason)
+	}
+}

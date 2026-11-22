@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -268,7 +269,7 @@ func restorePath(ctx context.Context, dir, path, entry string) error {
 			return err
 		}
 		// The run created it.
-		return os.RemoveAll(full)
+		return clearPath(full, path)
 	}
 	if err != nil {
 		return err
@@ -284,7 +285,7 @@ func restorePath(ctx context.Context, dir, path, entry string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.RemoveAll(full); err != nil {
+	if err := clearPath(full, path); err != nil {
 		return err
 	}
 	switch mode {
@@ -295,6 +296,42 @@ func restorePath(ctx context.Context, dir, path, entry string) error {
 	default:
 		return os.WriteFile(full, data, 0o644)
 	}
+}
+
+// clearPath removes what is at full, the checkout's rel, so a restore can
+// write there. A folder goes only when it holds nothing but folders:
+// restoreProtected removes the run's own files first, so anything still in
+// it is something the restore leaves (a nested repository, a file ignored
+// before the run, a path that is not the task's), and the folder stays.
+func clearPath(full, rel string) error {
+	info, err := os.Lstat(full)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		held := ""
+		err := filepath.WalkDir(full, func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !d.IsDir() || d.Name() == ".git" {
+				held = p
+				return fs.SkipAll
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		if held != "" {
+			sub, _ := filepath.Rel(full, held)
+			return fmt.Errorf("a folder holding %s, which Rhizome leaves alone", rel+"/"+filepath.ToSlash(sub))
+		}
+	}
+	return os.RemoveAll(full)
 }
 
 // inPlaceMessage is the commit message: the agent's message without lines
