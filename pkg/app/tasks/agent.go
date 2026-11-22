@@ -9,6 +9,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/agentchat"
 	"github.com/atomicobject/rhizome/pkg/harness"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
 // HarnessAgent runs prompts through the person's configured harness
@@ -17,6 +18,9 @@ import (
 type HarnessAgent struct {
 	Drivers  map[harness.Kind]harness.Harness
 	Settings func() (agentchat.Settings, error)
+	// TaskSettings reads the person's harness, model, and effort for one
+	// task on this machine; set fields override Settings for that task only.
+	TaskSettings func(task string) (repoconfig.TaskAgentConfig, error)
 }
 
 // RunPrompt runs one turn and returns the agent's final message and the
@@ -26,7 +30,13 @@ func (a HarnessAgent) RunPrompt(ctx context.Context, req AgentRequest) (AgentRes
 	if err != nil {
 		return AgentResult{}, fmt.Errorf("read agent settings: %w", err)
 	}
-	kind, err := agentchat.ResolveHarness(ctx, "", a.Drivers, func() (harness.Kind, error) { return settings.Harness, nil })
+	var override repoconfig.TaskAgentConfig
+	if a.TaskSettings != nil {
+		if override, err = a.TaskSettings(req.Task); err != nil {
+			return AgentResult{}, fmt.Errorf("read task settings: %w", err)
+		}
+	}
+	kind, err := agentchat.ResolveHarness(ctx, override.Harness, a.Drivers, func() (harness.Kind, error) { return settings.Harness, nil })
 	if err != nil {
 		return AgentResult{}, err
 	}
@@ -40,8 +50,8 @@ func (a HarnessAgent) RunPrompt(ctx context.Context, req AgentRequest) (AgentRes
 	prefs := settings.Harnesses[kind]
 	session, err := a.Drivers[kind].StartSession(ctx, harness.SessionOptions{
 		PermissionMode: harness.PermissionFullAccess,
-		Model:          prefs.Model,
-		Effort:         prefs.Effort,
+		Model:          cmp.Or(override.Model, prefs.Model),
+		Effort:         cmp.Or(override.Effort, prefs.Effort),
 		Cwd:            req.Dir,
 		Env:            req.Env,
 	})

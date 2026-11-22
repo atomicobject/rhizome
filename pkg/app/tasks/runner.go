@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 )
@@ -28,7 +29,10 @@ type Options struct {
 	Rzm string
 	// Trusted reports whether the person trusted a checkout; nil trusts all.
 	Trusted func(checkout string) (bool, error)
-	Now     func() time.Time
+	// Env locates the user configuration with the person's per-machine
+	// task settings; a zero Env means none, so tasks do not run here.
+	Env vaultconfig.Env
+	Now func() time.Time
 }
 
 // Service runs and reports on one repository's tasks for one person.
