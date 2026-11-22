@@ -154,7 +154,9 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 				it.Branch, it.Worktree = "", ""
 			}
 			if a.result.attention() && cleanupErr == nil {
-				it.Reason = a.result.Summary
+				// A push, pull request, or cleanup notice stays first, as in
+				// the alert.
+				it.Reason = joinNotices(notice, a.result.Summary)
 			}
 		} else if err == nil && (!committed || reviewed) && cleanupErr == nil {
 			it.Branch, it.Worktree = "", ""

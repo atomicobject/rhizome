@@ -2,7 +2,9 @@ package tasks
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -145,4 +147,20 @@ func TestResultFileWithTrailingTextCountsAsOK(t *testing.T) {
 	_, err := f.svc.RunDue(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, ResultAttention, lastRun(t, f.svc, "a").Result.Status)
+}
+
+// An attention result does not hide a publishing failure: the item's reason
+// names the failure first, then the agent's summary, as the alert does.
+func TestAttentionKeepsThePublishingNotice(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n")
+	stubPullRequest(t, errors.New("gh is not signed in"), nil)
+	f.agent.run = okNotesAgent(t, attentionResult)
+	require.Equal(t, OutcomeReady, f.pass().Outcome)
+
+	it := activeItem(t, f.svc, "tend")
+	require.NotNil(t, it)
+	require.True(t, strings.HasPrefix(it.Reason, "Pushed rzm/tend/"), it.Reason)
+	require.Contains(t, it.Reason, "gh is not signed in")
+	require.True(t, strings.HasSuffix(it.Reason, " look"), it.Reason)
+	require.DirExists(t, it.Worktree)
 }
