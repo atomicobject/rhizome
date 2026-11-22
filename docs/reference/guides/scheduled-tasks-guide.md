@@ -211,7 +211,7 @@ A successful in-place run closes its inbox item; its result is in the task's run
 
 ### Pull request
 
-`land: pr`, and any task without `writes`, works in a worktree that Rhizome creates under `.rhizome/task-state/worktrees/`, on the branch `rzm/<task>/<date>`; a module task's branch is `rzm/<module>/<name>/<date>`. When it finishes, Rhizome commits every change with the agent's final message and the task tag. A run that changes nothing removes its worktree and branch.
+`land: pr`, and any task without `writes`, works in a worktree that Rhizome creates under `.rhizome/task-state/worktrees/`, on the branch `rzm/<task>/<date>`; a module task's branch is `rzm/<module>/<name>/<date>`. When it finishes, Rhizome commits every change with the agent's final message, the task tag, and a `Rhizome-Task-Slot:` line naming the run's slot, so once the pull request merges with its commit messages, another machine skips that slot. A run that changes nothing removes its worktree and branch.
 
 Review a finished run in its worktree, then open the pull request yourself, or discard it. In Rhizome Desktop, **Open worktree** opens the run's worktree in a new window, and **Discard** removes the worktree and branch. From a terminal, use `rzm tasks discard <item>`. Discard leaves a worktree alone when you have made it the checkout tasks run in or switched it to another branch; remove it yourself with `git worktree remove`.
 

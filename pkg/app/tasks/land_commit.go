@@ -107,7 +107,7 @@ func (s *Service) commitInPlace(ctx context.Context, def Definition, a attempt, 
 	if len(changed) == 0 {
 		return "", nil
 	}
-	out, err := gitBytesInput(ctx, ip.dir, nil, []byte(inPlaceMessage(def, message, a.slotID())), "-c", ip.noHooks, "commit-tree", "--no-gpg-sign", "-p", ip.head, "-F", "-", tree)
+	out, err := gitBytesInput(ctx, ip.dir, nil, []byte(taskMessage(def, message, a.slotID())), "-c", ip.noHooks, "commit-tree", "--no-gpg-sign", "-p", ip.head, "-F", "-", tree)
 	if err != nil {
 		return "", err
 	}
@@ -334,9 +334,9 @@ func clearPath(full, rel string) error {
 	return os.RemoveAll(full)
 }
 
-// inPlaceMessage is the commit message: the agent's message without lines
+// taskMessage is a task commit's message: the agent's message without lines
 // that would pose as Rhizome's own, then the task tag and slot line.
-func inPlaceMessage(def Definition, message, slot string) string {
+func taskMessage(def Definition, message, slot string) string {
 	var kept []string
 	for _, line := range strings.Split(message, "\n") {
 		if !strings.HasPrefix(strings.TrimSpace(line), TagKey) {
