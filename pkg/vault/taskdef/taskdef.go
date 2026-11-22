@@ -81,12 +81,12 @@ type Definition struct {
 	Description string `yaml:"description,omitempty"`
 	// Every is a duration cadence; Schedule is wall-clock slots. A task has
 	// exactly one (SPEC-0127 US9).
-	Every       string   `yaml:"every,omitempty"`
-	Schedule    Schedule `yaml:"schedule,omitempty"`
-	Scope       string   `yaml:"scope,omitempty"`
-	Check       *Check `yaml:"check,omitempty"`
-	Prompt      string `yaml:"prompt,omitempty"`
-	Timeout     string `yaml:"timeout,omitempty"`
+	Every    string   `yaml:"every,omitempty"`
+	Schedule Schedule `yaml:"schedule,omitempty"`
+	Scope    string   `yaml:"scope,omitempty"`
+	Check    *Check   `yaml:"check,omitempty"`
+	Prompt   string   `yaml:"prompt,omitempty"`
+	Timeout  string   `yaml:"timeout,omitempty"`
 
 	Cadence time.Duration `yaml:"-"`
 	Limit   time.Duration `yaml:"-"`
