@@ -92,7 +92,13 @@ func (s *Service) runInPlace(ctx context.Context, def Definition, a attempt, ite
 		it.Reason, it.Summary, it.Context = "", check.Summary, check.Context
 		it.Commit, it.Landing, it.Run = commit, def.Land, a.id
 		running(st, a, func(r *RunRecord) { r.Stage, r.Item, r.Landing = StageAgent, itemID, def.Land })
-		leftover = maps.Clone(st.Leftover[def.ID])
+		// Files left in another checkout are the person's there, and here
+		// the same paths are the person's own changes.
+		if l, ok := st.Leftover[def.ID]; ok && l.Checkout == resolved(ip.dir) {
+			leftover = maps.Clone(l.Files)
+		} else {
+			delete(st.Leftover, def.ID)
+		}
 		return nil
 	}); err != nil {
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: err.Error()}
@@ -307,13 +313,13 @@ func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, 
 	keep := func(st *State, it *Item, r *RunRecord) {
 		r.Landing, r.Changed, r.Left = def.Land, owned, left.paths()
 		if st.Leftover == nil {
-			st.Leftover = map[string]map[string]string{}
+			st.Leftover = map[string]Leftover{}
 		}
 		files := map[string]string{}
 		for _, p := range owned {
 			files[p] = entries[p]
 		}
-		st.Leftover[def.ID] = files
+		st.Leftover[def.ID] = Leftover{Checkout: resolved(ip.dir), Files: files}
 	}
 	if runErr != nil {
 		reason := fmt.Sprintf("Prompt run failed: %v.", runErr)

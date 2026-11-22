@@ -5,12 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"os/exec"
 	"slices"
 	"strings"
 
+	"github.com/atomicobject/rhizome/pkg/app/procrun"
 	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 )
 
@@ -36,9 +38,7 @@ func (s *Service) pushInPlace(ctx context.Context, def Definition, a attempt, ip
 	if notice != "" || err == nil {
 		return landed, notice
 	}
-	fetchCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
-	_, _ = gitOutput(fetchCtx, ip.dir, "-c", ip.noHooks, "fetch", "--quiet", remote)
-	cancel()
+	_, _ = network(ctx, ip.dir, nil, "git", "-c", ip.noHooks, "fetch", "--quiet", remote)
 	upstream, upErr := gitOutput(ctx, ip.dir, "rev-parse", "--verify", "--quiet", "refs/remotes/"+remote+"/"+branch+"^{commit}")
 	if upErr != nil {
 		return landed, fmt.Sprintf("Push failed, so commit %s stays local: %v.", short(landed), err)
@@ -121,10 +121,8 @@ func (s *Service) pushCommit(ctx context.Context, ip *inPlace, remote, branch, c
 	// dest, and c descends from dest, so this is always a fast-forward,
 	// never a force (SPEC-0127 US13). A missing branch never gets here.
 	landingStep("push-checked")
-	netCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
-	defer cancel()
 	ref := "refs/heads/" + branch
-	_, err = gitOutput(netCtx, ip.dir, "-c", ip.noHooks, "push", "--quiet", "--no-verify", "--force-with-lease="+ref+":"+dest, remote, c+":"+ref)
+	_, err = network(ctx, ip.dir, nil, "git", "-c", ip.noHooks, "push", "--quiet", "--no-verify", "--force-with-lease="+ref+":"+dest, remote, c+":"+ref)
 	if err != nil {
 		return "", errors.New(redactURLCredentials(err.Error()))
 	}
@@ -142,10 +140,8 @@ func pushDestination(ctx context.Context, ip *inPlace, remote, branch string) (d
 	if n := len(strings.Split(urls, "\n")); urls == "" || n != 1 {
 		return "", fmt.Sprintf("%s has %d push URLs", remote, n), nil
 	}
-	netCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
-	defer cancel()
 	ref := "refs/heads/" + branch
-	out, err := gitOutput(netCtx, ip.dir, "ls-remote", "--", urls, ref)
+	out, err := network(ctx, ip.dir, nil, "git", "ls-remote", "--", urls, ref)
 	if err != nil {
 		return "", "", errors.New(redactURLCredentials(err.Error()))
 	}
@@ -292,8 +288,8 @@ func (s *Service) pushPR(ctx context.Context, def Definition, a attempt, ref, br
 	if err != nil {
 		return "", err.Error()
 	}
-	if _, err := gitOutput(ctx, dir, "-c", noHooks, "push", "--quiet", "--no-verify", remote, branch+":refs/heads/"+branch); err != nil {
-		return "", fmt.Sprintf("Pushing %s failed, so the branch stays local: %v.", branch, err)
+	if _, err := network(ctx, dir, nil, "git", "-c", noHooks, "push", "--quiet", "--no-verify", remote, branch+":refs/heads/"+branch); err != nil {
+		return "", fmt.Sprintf("Pushing %s failed, so the branch stays local: %s.", branch, redactURLCredentials(err.Error()))
 	}
 	body := strings.TrimSpace(message) + "\n\n" + def.Tag() + "\n"
 	url, err := openPullRequest(ctx, dir, base, branch, "chore(tasks): "+truncate(def.Name, 60), body)
@@ -306,15 +302,34 @@ func (s *Service) pushPR(ctx context.Context, def Definition, a attempt, ref, br
 // openPullRequest opens a pull request with gh and returns its URL; tests
 // replace it.
 var openPullRequest = func(ctx context.Context, dir, base, head, title, body string) (string, error) {
-	cmd := exec.CommandContext(ctx, "gh", "pr", "create", "--base", base, "--head", head, "--title", title, "--body-file", "-")
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GH_PROMPT_DISABLED=1", "GIT_TERMINAL_PROMPT=0")
-	cmd.Stdin = strings.NewReader(body)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &stdout, &stderr
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("gh pr create: %v: %s", err, strings.TrimSpace(stderr.String()))
+	out, err := network(ctx, dir, strings.NewReader(body), "gh", "pr", "create", "--base", base, "--head", head, "--title", title, "--body-file", "-")
+	if err != nil {
+		return "", err
 	}
-	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	lines := strings.Split(strings.TrimSpace(out), "\n")
 	return strings.TrimSpace(lines[len(lines)-1]), nil
+}
+
+// network runs a git or gh command that talks to a remote: within
+// fetchTimeout, never prompting, and with everything it started (ssh, a
+// credential helper) killed when it ends or times out, so a stalled
+// connection cannot hold run.lock.
+func network(ctx context.Context, dir string, stdin io.Reader, name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	defer cancel()
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GH_PROMPT_DISABLED=1", "LC_ALL=C")
+	cmd.Stdin = stdin
+	var stderr bytes.Buffer
+	out, err := procrun.Run(ctx, cmd, &stderr, 1<<20)
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "", fmt.Errorf("%s timed out after %s", name, fetchTimeout)
+	case err != nil && strings.TrimSpace(stderr.String()) != "":
+		return "", fmt.Errorf("%s: %s", name, strings.TrimSpace(stderr.String()))
+	case err != nil:
+		return "", fmt.Errorf("%s: %w", name, err)
+	}
+	return strings.TrimRight(string(out), "\n"), nil
 }

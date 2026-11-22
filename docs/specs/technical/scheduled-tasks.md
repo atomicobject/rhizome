@@ -269,7 +269,7 @@ Task authors can see and test a local version before it reaches the primary bran
 - Files that were ignored before the run, at or under any ignored path, and nested Git repositories (gitlinks) are never committed or restored, even when the run changes ignore rules; they are named in the summary. A run that changes ignore rules it may not write needs attention.
 - A protected path (`.agents/**`, `.rhizome/**`, unless listed in `writes`) changed during the run is restored to its snapshot content at once, the diff is saved under the run's folder, and one needs-attention item is raised. Restoring happens only while the branch and HEAD are unchanged, never writes through a symlinked folder, and leaves a case-only rename; the notice names anything left.
 - If HEAD moved during the run, Rhizome does not commit; it records the files and raises one notice.
-- A failed or stopped run leaves its changes in place and records its changed paths with their content; the next successful run of that task treats them as its own while their content is unchanged.
+- A failed or stopped run leaves its changes in place and records its changed paths with their content; the next successful run of that task treats them as its own while their content is unchanged and it runs in the same checkout.
 - Known limit: a person's edit to a clean file inside `writes` during the run cannot be told apart from the task's and is committed with it.
 - Each run records its landing mode. Worktree cleanup applies only to worktrees Rhizome created: no-change cleanup and Discard never touch the open checkout, and Discard on an in-place item dismisses the notice only.
 

@@ -29,9 +29,10 @@ const (
 	BlockedTokenCap = "token-cap"
 )
 
-// fetchTimeout bounds the fetch before a pass; a hung remote then falls
-// back to the last fetched ref.
-const fetchTimeout = 60 * time.Second
+// fetchTimeout bounds the fetch before a pass, where a hung remote falls
+// back to the last fetched ref, and every other command that talks to a
+// remote. Tests shorten it.
+var fetchTimeout = 60 * time.Second
 
 // dueTask is one task's due state in a pass.
 type dueTask struct {

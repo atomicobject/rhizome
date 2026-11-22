@@ -161,7 +161,7 @@ func TestInPlaceAdoptsAFailedRunsFiles(t *testing.T) {
 	if o := f.pass(); o.Outcome != OutcomeFailed {
 		t.Fatalf("%+v", o)
 	}
-	if got := slices.Sorted(maps.Keys(mustState(t, f.svc).Leftover["tend"])); !slices.Equal(got, []string{"notes/a.md"}) {
+	if got := slices.Sorted(maps.Keys(mustState(t, f.svc).Leftover["tend"].Files)); !slices.Equal(got, []string{"notes/a.md"}) {
 		t.Fatalf("a failed run records the task's files, got %v", got)
 	}
 	failed := f.attention()
@@ -175,7 +175,7 @@ func TestInPlaceAdoptsAFailedRunsFiles(t *testing.T) {
 	if got := f.committed("HEAD"); !slices.Equal(got, []string{"notes/a.md", "notes/b.md"}) {
 		t.Fatalf("the next successful run must adopt the failed run's files, got %v", got)
 	}
-	if got := mustState(t, f.svc).Leftover["tend"]; got != nil {
+	if got, ok := mustState(t, f.svc).Leftover["tend"]; ok {
 		t.Fatalf("adopted files are no longer left over: %v", got)
 	}
 	if f.status() != "?? outside.md" {
@@ -212,7 +212,7 @@ func TestInPlaceHeadMovedDuringTheRunDoesNotCommit(t *testing.T) {
 	if run(t, f.host, "log", "-1", "--format=%s") != "person commits during the run" || f.status() != "?? notes/a.md" {
 		t.Fatal("Rhizome must not commit after HEAD moved")
 	}
-	if got := slices.Sorted(maps.Keys(mustState(t, f.svc).Leftover["tend"])); !slices.Equal(got, []string{"notes/a.md"}) {
+	if got := slices.Sorted(maps.Keys(mustState(t, f.svc).Leftover["tend"].Files)); !slices.Equal(got, []string{"notes/a.md"}) {
 		t.Fatalf("the files must be recorded, got %v", got)
 	}
 	if len(f.attention()) != 1 {
