@@ -17,6 +17,9 @@ type HostStatus struct {
 	PausedUntil *time.Time   `json:"pausedUntil,omitempty"`
 	Draining    bool         `json:"draining"`
 	Running     *HostRun     `json:"running,omitempty"`
+	// Dispatching is a run the runtime started that has recorded no run
+	// yet; the runtime adds it, like Draining.
+	Dispatching *HostDispatch `json:"dispatching,omitempty"`
 	Next        *HostNext    `json:"next,omitempty"`
 	Attention   int          `json:"attention"`
 	LastFailure *HostFailure `json:"lastFailure,omitempty"`
@@ -32,6 +35,13 @@ type HostRun struct {
 	Stage     string    `json:"stage"`
 }
 
+// HostDispatch is a run-due or run process the runtime started that is
+// still alive.
+type HostDispatch struct {
+	PID       int       `json:"pid"`
+	StartedAt time.Time `json:"startedAt"`
+}
+
 // HostNext is the task that comes due first.
 type HostNext struct {
 	Task string    `json:"task"`
@@ -40,24 +50,30 @@ type HostNext struct {
 }
 
 // HostFailure is the latest failure still standing: a task whose latest run
-// failed, or a run-due pass that failed before running tasks (no task).
+// failed, or a run-due pass that failed before running tasks (an empty
+// task, named passName). Every key is always sent.
 type HostFailure struct {
-	Task    string    `json:"task,omitempty"`
-	Name    string    `json:"name,omitempty"`
+	Task    string    `json:"task"`
+	Name    string    `json:"name"`
 	At      time.Time `json:"at"`
 	Message string    `json:"message"`
-	Item    string    `json:"item,omitempty"`
+	Item    string    `json:"item"`
 }
 
 // HostNotice is something Desktop may notify about. Its ID is stable for
-// an item in one state, so Desktop notifies once per ID.
+// an item in one state, so Desktop notifies once per ID. Every key is
+// always sent.
 type HostNotice struct {
 	ID    string `json:"id"`
 	Kind  string `json:"kind"`
-	Task  string `json:"task,omitempty"`
+	Task  string `json:"task"`
+	Name  string `json:"name"`
 	Title string `json:"title"`
-	Body  string `json:"body,omitempty"`
+	Body  string `json:"body"`
 }
+
+// passName names a pass-level failure, which belongs to no task.
+const passName = "Scheduled tasks"
 
 // Notice kinds.
 const (
@@ -116,16 +132,16 @@ func (s *Service) HostStatus(ctx context.Context) (HostStatus, error) {
 		}
 	}
 	if pe := st.PassError; pe != nil {
-		hs.Notices = append(hs.Notices, HostNotice{ID: fmt.Sprintf("pass-%d", pe.At.UnixNano()), Kind: NoticeFailed, Title: "Scheduled tasks could not run", Body: pe.Message})
+		hs.Notices = append(hs.Notices, HostNotice{ID: fmt.Sprintf("pass-%d", pe.At.UnixNano()), Kind: NoticeFailed, Name: passName, Title: "Scheduled tasks could not run", Body: pe.Message})
 		if hs.LastFailure == nil || pe.At.After(hs.LastFailure.At) {
-			hs.LastFailure = &HostFailure{At: pe.At, Message: pe.Message}
+			hs.LastFailure = &HostFailure{Name: passName, At: pe.At, Message: pe.Message}
 		}
 	}
 	return hs, nil
 }
 
 func itemNotice(it Item, st *State, name string) (HostNotice, bool) {
-	n := HostNotice{ID: "item-" + it.ID + "-" + string(it.State), Task: it.Task}
+	n := HostNotice{ID: "item-" + it.ID + "-" + string(it.State), Task: it.Task, Name: name}
 	switch {
 	case it.Kind == KindAnnouncement:
 		n.Kind, n.Title, n.Body = NoticeDue, "New task: "+name, it.Summary

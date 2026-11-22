@@ -137,9 +137,9 @@ func TestHostStatusShape(t *testing.T) {
 			"task": "lint", "name": "Lint", "at": "2026-11-22T11:30:00Z", "message": "check failed: exit 1", "item": "2",
 		},
 		"notices": []any{
-			map[string]any{"id": "item-1-ready", "kind": "ready", "task": "digest", "title": "Digest is ready for review", "body": "Wrote the digest."},
-			map[string]any{"id": "item-2-needs-attention", "kind": "failed", "task": "lint", "title": "Lint failed", "body": "check failed: exit 1"},
-			map[string]any{"id": "item-3-due", "kind": "due", "task": "notes", "title": "New task: Notes", "body": "New task \"Notes\" runs every 1h."},
+			map[string]any{"id": "item-1-ready", "kind": "ready", "task": "digest", "name": "Digest", "title": "Digest is ready for review", "body": "Wrote the digest."},
+			map[string]any{"id": "item-2-needs-attention", "kind": "failed", "task": "lint", "name": "Lint", "title": "Lint failed", "body": "check failed: exit 1"},
+			map[string]any{"id": "item-3-due", "kind": "due", "task": "notes", "name": "Notes", "title": "New task: Notes", "body": "New task \"Notes\" runs every 1h."},
 		},
 	}, raw, "a stale running record and a snoozed item are left out")
 
@@ -147,6 +147,23 @@ func TestHostStatusShape(t *testing.T) {
 	again, err := svc.HostStatus(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, status.Notices, again.Notices)
+
+	// A pass-level failure has every key too: no task, a readable name.
+	passAt := hostNow.Add(-time.Minute)
+	setState(t, svc, func(st *State) { st.PassError = &PassError{At: passAt, Message: "primary ref missing"} })
+	failed, err := svc.HostStatus(context.Background())
+	require.NoError(t, err)
+	data, err = json.Marshal(failed)
+	require.NoError(t, err)
+	var pass struct {
+		LastFailure map[string]any   `json:"lastFailure"`
+		Notices     []map[string]any `json:"notices"`
+	}
+	require.NoError(t, json.Unmarshal(data, &pass))
+	require.Equal(t, map[string]any{"task": "", "name": passName, "at": "2026-11-22T11:59:00Z", "message": "primary ref missing", "item": ""}, pass.LastFailure)
+	last := pass.Notices[len(pass.Notices)-1]
+	require.Equal(t, "", last["task"])
+	require.Equal(t, passName, last["name"])
 
 	until := hostNow.Add(time.Hour)
 	require.NoError(t, svc.PauseUntil(context.Background(), until))
