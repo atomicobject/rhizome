@@ -157,9 +157,14 @@ func (s *Service) slotOf(def Definition, now time.Time) string {
 	if len(def.Schedule) == 0 {
 		return ""
 	}
-	// With no earlier run, Next reports the latest slot still inside its
-	// late window: the slot a run at now is for.
-	due := clockFor(RunRecord{}, nil, s.zone()).Next(def, now)
+	// From the task's last run, as taskDue decides, so both name the same
+	// slot: with 05:00 and 06:00 entries, a run after a landed 05:00 is for
+	// 06:00.
+	var last RunRecord
+	if st, err := s.store.Load(); err == nil {
+		last, _ = st.LastRun(def.ID)
+	}
+	due := clockFor(last, nil, s.zone()).Next(def, now)
 	if !due.Now || due.At.IsZero() {
 		return ""
 	}
