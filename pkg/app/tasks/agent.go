@@ -12,8 +12,9 @@ import (
 )
 
 // HarnessAgent runs prompts through the person's configured harness
-// (SPEC-0101) in full-access mode. Approvals are denied, because no person
-// is present to answer them.
+// (SPEC-0101) in full-access mode, with the person's own MCP servers and
+// the task's deny list as disallowed tools. Approvals are denied, because no
+// person is present to answer them.
 type HarnessAgent struct {
 	Drivers  map[harness.Kind]harness.Harness
 	Settings func() (agentchat.Settings, error)
@@ -22,11 +23,7 @@ type HarnessAgent struct {
 // RunPrompt runs one turn and returns the agent's final message and the
 // tokens the harness reported.
 func (a HarnessAgent) RunPrompt(ctx context.Context, req AgentRequest) (AgentResult, error) {
-	settings, err := a.Settings()
-	if err != nil {
-		return AgentResult{}, fmt.Errorf("read agent settings: %w", err)
-	}
-	kind, err := agentchat.ResolveHarness(ctx, "", a.Drivers, func() (harness.Kind, error) { return settings.Harness, nil })
+	settings, kind, err := a.resolve(ctx)
 	if err != nil {
 		return AgentResult{}, err
 	}
@@ -39,11 +36,13 @@ func (a HarnessAgent) RunPrompt(ctx context.Context, req AgentRequest) (AgentRes
 	}
 	prefs := settings.Harnesses[kind]
 	session, err := a.Drivers[kind].StartSession(ctx, harness.SessionOptions{
-		PermissionMode: harness.PermissionFullAccess,
-		Model:          prefs.Model,
-		Effort:         prefs.Effort,
-		Cwd:            req.Dir,
-		Env:            req.Env,
+		PermissionMode:  harness.PermissionFullAccess,
+		UserMCPConfig:   true,
+		DisallowedTools: req.Deny,
+		Model:           prefs.Model,
+		Effort:          prefs.Effort,
+		Cwd:             req.Dir,
+		Env:             req.Env,
 	})
 	if err != nil {
 		return AgentResult{}, err
@@ -111,4 +110,23 @@ func (a HarnessAgent) RunPrompt(ctx context.Context, req AgentRequest) (AgentRes
 		_ = transcript.Finish(result.Message)
 	}
 	return result, turnErr
+}
+
+// Harness names the harness and driver a prompt run would use, without
+// starting a session.
+func (a HarnessAgent) Harness(ctx context.Context) (harness.Kind, harness.Harness, error) {
+	_, kind, err := a.resolve(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	return kind, a.Drivers[kind], nil
+}
+
+func (a HarnessAgent) resolve(ctx context.Context) (agentchat.Settings, harness.Kind, error) {
+	settings, err := a.Settings()
+	if err != nil {
+		return settings, "", fmt.Errorf("read agent settings: %w", err)
+	}
+	kind, err := agentchat.ResolveHarness(ctx, "", a.Drivers, func() (harness.Kind, error) { return settings.Harness, nil })
+	return settings, kind, err
 }

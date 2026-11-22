@@ -20,6 +20,8 @@ type AgentRequest struct {
 	Env    []string
 	Dir    string
 	Prompt string
+	// Deny names tools the harness must refuse (the task's deny list).
+	Deny []string
 	// Transcript is the run's events.jsonl path; empty means no capture.
 	Transcript string
 }
@@ -87,7 +89,7 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 		return s.fail(ctx, def, a, itemID, commit, err.Error(), 0)
 	}
 	runCtx, cancel := context.WithTimeout(ctx, def.Limit)
-	res, err := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Dir: dir, Prompt: BackgroundPrompt(def, loc, check, ref, branch, dir), Transcript: transcript, Env: s.agentEnv(loc)})
+	res, err := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Dir: dir, Prompt: BackgroundPrompt(def, loc, check, ref, branch, dir), Deny: def.Deny, Transcript: transcript, Env: s.agentEnv(loc)})
 	cancel()
 	if err != nil {
 		return s.fail(ctx, def, a, itemID, commit, fmt.Sprintf("prompt run failed: %v (worktree kept at %s)", err, dir), res.Tokens)

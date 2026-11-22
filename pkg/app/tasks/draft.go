@@ -75,6 +75,9 @@ func (s *Service) RunDraft(ctx context.Context, file string) (Outcome, error) {
 	if err = os.MkdirAll(loc.DataDir, 0o700); err != nil {
 		return s.finishTest(ctx, a, def.ID, snapshot, dir, OutcomeFailed, err.Error(), 0)
 	}
+	if a.missing = s.missingRequirements(ctx, def); len(a.missing) > 0 {
+		return s.finishTest(ctx, a, def.ID, snapshot, dir, OutcomeFailed, requirementsMessage(a.missing), 0)
+	}
 	check := CheckResult{Needed: true}
 	if def.Check != nil {
 		log := s.openCheckLog(a)
@@ -105,7 +108,7 @@ func (s *Service) RunDraft(ctx context.Context, file string) (Outcome, error) {
 	}
 	prompt := testPrompt(def, loc, check, dir)
 	runCtx, cancel := context.WithTimeout(ctx, def.Limit)
-	res, runErr := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Dir: dir, Prompt: prompt, Transcript: s.runFile(a.id, transcriptFile), Env: s.agentEnv(loc)})
+	res, runErr := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Dir: dir, Prompt: prompt, Deny: def.Deny, Transcript: s.runFile(a.id, transcriptFile), Env: s.agentEnv(loc)})
 	cancel()
 	outcome := OutcomeReady
 	message := strings.TrimSpace(res.Message)
