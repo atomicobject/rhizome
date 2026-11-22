@@ -31,15 +31,8 @@ type inPlace struct {
 	excludeFile, exclude string
 }
 
-// hostCheckout is the checkout in-place tasks land in: the person's
-// tasks.repositories.<commonDir>.checkout setting (SPEC-0127 US10), else
-// the main checkout.
-func (s *Service) hostCheckout() string {
-	if m, err := s.MachineSettings(); err == nil && m.Repository.Checkout != "" {
-		return m.Repository.Checkout
-	}
-	return s.opts.Repo.MainCheckout
-}
+// hostCheckout is the checkout in-place tasks land in (taskCheckout).
+func (s *Service) hostCheckout() string { return s.taskCheckout() }
 
 // pushAllowed reports whether runs may push: the repository allows it and
 // the person turned push on for it on this machine.
