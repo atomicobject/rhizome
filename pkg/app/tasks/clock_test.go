@@ -88,6 +88,39 @@ func TestScheduleSlots(t *testing.T) {
 	})
 }
 
+// A wall-clock time in a repeated hour is one slot, identified by its date
+// and time in the zone: a run that started at either occurrence satisfies
+// it, and it comes due at the first.
+func TestRepeatedHourIsOneSlot(t *testing.T) {
+	cases := []struct {
+		zone, at      string
+		first, second time.Time
+	}{
+		// 03:00 CEST falls back to 02:00 CET.
+		{"Europe/Berlin", "02:30", time.Date(2026, 10, 25, 0, 30, 0, 0, time.UTC), time.Date(2026, 10, 25, 1, 30, 0, 0, time.UTC)},
+		// 02:00 EDT falls back to 01:00 EST.
+		{"America/Detroit", "01:30", time.Date(2026, 11, 1, 5, 30, 0, 0, time.UTC), time.Date(2026, 11, 1, 6, 30, 0, 0, time.UTC)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.zone, func(t *testing.T) {
+			if _, err := time.LoadLocation(tc.zone); err != nil {
+				t.Skip("needs zone data")
+			}
+			def := scheduled(t, "  at: \""+tc.at+"\"\n  late: 2h\n  timezone: "+tc.zone+"\n")
+			previous := tc.first.AddDate(0, 0, -1)
+			if got := (Clock{LastStart: previous}).Next(def, tc.first.Add(time.Minute)); !got.Now || !got.At.Equal(tc.first) {
+				t.Fatalf("first occurrence: %+v", got)
+			}
+			for _, started := range []time.Time{tc.first.Add(5 * time.Minute), tc.second.Add(5 * time.Minute)} {
+				c := Clock{LastStart: started}
+				if got := c.Next(def, tc.second.Add(10*time.Minute)); got.Now {
+					t.Fatalf("a run started at %v did not satisfy the slot: %+v", started, got)
+				}
+			}
+		})
+	}
+}
+
 func TestScheduleZonePrecedence(t *testing.T) {
 	tokyo, err1 := time.LoadLocation("Asia/Tokyo")
 	detroit, err2 := time.LoadLocation("America/Detroit")

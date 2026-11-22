@@ -49,7 +49,7 @@ schedule:
     days: [sat, sun]
 ```
 
-A slot is due once its time has passed and no run of the task started at or after it. A slot missed while the machine slept or Rhizome was closed still runs if the next check comes within `late` of it; several missed slots run once. A slot inside a daylight-saving gap runs at the first instant after the gap, and a slot in a repeated hour runs once. The zone is the entry's `timezone`, else your `tasks.timezone` setting (below), else the machine's. Windows that cross midnight, cron strings, and RRULEs are not supported.
+A slot is due once its time has passed and no run of the task started at or after it. A slot missed while the machine slept or Rhizome was closed still runs if the next check comes within `late` of it; several missed slots run once. A slot inside a daylight-saving gap runs at the first instant after the gap, and a slot in a repeated hour runs once, at its first occurrence; a run that started in either occurrence counts for it. The zone is the entry's `timezone`, else your `tasks.timezone` setting (below), else the machine's. Windows that cross midnight, cron strings, and RRULEs are not supported.
 
 Rhizome versions before `schedule` reject a task file that uses it, because task files reject unknown fields. A starter that ships scheduled tasks states its minimum Rhizome version.
 
