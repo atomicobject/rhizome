@@ -51,7 +51,7 @@ func (s *Service) LiveState(ctx context.Context) (LiveState, error) {
 	if err != nil {
 		return LiveState{}, err
 	}
-	live := LiveState{Paused: st.Paused, Running: st.Running, Items: []Item{}, Recent: []RunRecord{}}
+	live := LiveState{Paused: st.PausedAt(s.opts.Now()), Running: st.Running, Items: []Item{}, Recent: []RunRecord{}}
 	for _, it := range st.Items {
 		if it.Active() {
 			live.Items = append(live.Items, it)

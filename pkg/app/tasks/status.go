@@ -10,20 +10,29 @@ import (
 
 // TaskStatus describes one task for `rzm tasks status`.
 type TaskStatus struct {
-	Scheduled  bool          `json:"scheduled"`
-	Local      *LocalVersion `json:"local,omitempty"`
-	ID         string        `json:"id"`
-	Name       string        `json:"name"`
-	Scope      string        `json:"scope"`
-	Every      string        `json:"every"`
-	Mode       Mode          `json:"mode"`
-	ModeSource string        `json:"modeSource"`
-	LastRun    *RunRecord    `json:"lastRun,omitempty"`
-	LastTagged *Tagged       `json:"lastTagged,omitempty"`
-	NextDue    time.Time     `json:"nextDue,omitzero"`
-	Due        bool          `json:"due"`
-	Item       *Item         `json:"item,omitempty"`
-	Tokens     int64         `json:"tokensLast30Days,omitempty"`
+	Scheduled bool          `json:"scheduled"`
+	Local     *LocalVersion `json:"local,omitempty"`
+	ID        string        `json:"id"`
+	Name      string        `json:"name"`
+	Scope     string        `json:"scope"`
+	Every     string        `json:"every"`
+	// Schedule describes a wall-clock schedule; Every is then empty.
+	Schedule   string     `json:"schedule,omitempty"`
+	Mode       Mode       `json:"mode"`
+	ModeSource string     `json:"modeSource"`
+	LastRun    *RunRecord `json:"lastRun,omitempty"`
+	LastTagged *Tagged    `json:"lastTagged,omitempty"`
+	NextDue    time.Time  `json:"nextDue,omitzero"`
+	Due        bool       `json:"due"`
+	// NextAt is when the task is or next comes due (now for an `every`
+	// task that never ran); Timezone names the zone of a scheduled slot.
+	NextAt   time.Time `json:"nextAt,omitzero"`
+	Timezone string    `json:"timezone,omitempty"`
+	// BlockedBy is why the task is not running, as a stable code
+	// (BlockedNotRunHere, ...), or empty.
+	BlockedBy string `json:"blockedBy,omitempty"`
+	Item      *Item  `json:"item,omitempty"`
+	Tokens    int64  `json:"tokensLast30Days,omitempty"`
 	// CheckOnly marks a task with no prompt: its items cannot be run,
 	// started, or copied, only handled by hand.
 	CheckOnly bool `json:"checkOnly,omitempty"`
@@ -31,13 +40,20 @@ type TaskStatus struct {
 
 // Report is the whole `rzm tasks status` result.
 type Report struct {
-	Ref       string     `json:"ref,omitempty"`
-	Commit    string     `json:"commit,omitempty"`
-	RefError  string     `json:"refError,omitempty"`
-	FetchedAt time.Time  `json:"fetchedAt,omitzero"`
-	Paused    bool       `json:"paused"`
-	Untrusted string     `json:"untrusted,omitempty"`
-	PassError *PassError `json:"lastPassError,omitempty"`
+	Ref       string    `json:"ref,omitempty"`
+	Commit    string    `json:"commit,omitempty"`
+	RefError  string    `json:"refError,omitempty"`
+	FetchedAt time.Time `json:"fetchedAt,omitzero"`
+	Paused    bool      `json:"paused"`
+	// PausedUntil is when a timed pause ends.
+	PausedUntil time.Time `json:"pausedUntil,omitzero"`
+	// RunHere reports whether the person runs this repository's scheduled
+	// tasks on this machine.
+	RunHere bool `json:"runHere"`
+	// Fetch is the latest fetch of the primary ref's remote.
+	Fetch     *FetchStatus `json:"fetch,omitempty"`
+	Untrusted string       `json:"untrusted,omitempty"`
+	PassError *PassError   `json:"lastPassError,omitempty"`
 	// MergeWarning says when the repository's squash merges drop task tags,
 	// so team tasks would not see teammates' merged runs.
 	MergeWarning string       `json:"mergeWarning,omitempty"`
@@ -53,7 +69,17 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	report := Report{Paused: st.Paused, Untrusted: s.untrusted(), PassError: st.PassError, StateDir: s.stateDir, Tasks: []TaskStatus{}}
+	now := s.opts.Now()
+	report := Report{Paused: st.PausedAt(now), Fetch: st.Fetch, Untrusted: s.untrusted(), PassError: st.PassError, StateDir: s.stateDir, Tasks: []TaskStatus{}}
+	if report.Paused {
+		report.PausedUntil = st.PausedUntil
+	}
+	machine, err := s.MachineSettings()
+	if err != nil {
+		return report, err
+	}
+	report.RunHere = machine.Repository.RunHere
+	zone, warning := s.personZone(machine)
 	if t, ok := s.opts.Repo.FetchedAt(); ok {
 		report.FetchedAt = t
 	}
@@ -71,20 +97,26 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 		return report, err
 	}
 	report.Problems = problems
+	if warning != "" {
+		report.Problems = append(report.Problems, Problem{Path: "tasks.timezone", Message: warning})
+	}
 	tagged := s.lastTagged(ctx, ref, defs)
-	now := s.opts.Now()
 	for _, def := range defs {
 		mode, source := st.ResolveMode(def.ID, s.opts.Config.DefaultMode)
 		ts := TaskStatus{Scheduled: true, ID: def.ID, Name: def.Name, Scope: def.Scope, Every: def.Every, Mode: mode, ModeSource: source, LastTagged: tagged[def.ID], CheckOnly: strings.TrimSpace(def.Prompt) == ""}
+		if len(def.Schedule) > 0 {
+			ts.Schedule = def.Schedule.String()
+		}
 		if last, ok := st.LastRun(def.ID); ok {
 			ts.LastRun = &last
 		}
-		clock := Clock{LastTagged: tagged[def.ID]}
-		if ts.LastRun != nil {
-			clock.LastLocal = ts.LastRun.At
+		d, blocked := taskDue(&st, def, tagged[def.ID], now, zone, s.opts.Config.DefaultMode)
+		ts.NextDue, ts.Due, ts.Timezone = d.due.At, d.due.Now, d.due.Zone
+		ts.NextAt = d.due.At
+		if d.due.Now && ts.NextAt.IsZero() {
+			ts.NextAt = now
 		}
-		due := clock.Next(def, now)
-		ts.NextDue, ts.Due = due.At, due.Now
+		ts.BlockedBy = blockedBy(report, blocked)
 		if it := st.ActiveTaskItem(def.ID); it != nil {
 			copy := *it
 			ts.Item = &copy
@@ -102,6 +134,20 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 		return report, err
 	}
 	return report, nil
+}
+
+// blockedBy is the first reason a task does not run: the repository's
+// (untrusted, not run here, paused) before the task's own.
+func blockedBy(r Report, own string) string {
+	switch {
+	case r.Untrusted != "":
+		return BlockedUntrusted
+	case !r.RunHere:
+		return BlockedNotRunHere
+	case r.Paused:
+		return BlockedPaused
+	}
+	return own
 }
 
 // mergeWarningTTL bounds how often one Service asks GitHub for the squash
