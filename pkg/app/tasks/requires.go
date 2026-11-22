@@ -53,7 +53,7 @@ func (s *Service) missingRequirements(ctx context.Context, def Definition) []str
 	if len(def.Requires.MCP) == 0 {
 		return missing
 	}
-	servers, err := listMCP(ctx, kind, driver, s.opts.Repo.MainCheckout)
+	servers, err := listMCP(ctx, kind, driver, s.taskCheckout())
 	if err != nil {
 		return append(missing, err.Error())
 	}
@@ -119,4 +119,15 @@ func requirementsMessage(missing []string) string {
 // call it on every poll and report blockedBy "requires".
 func requirementsBlocked(last *RunRecord) bool {
 	return last != nil && last.Outcome == OutcomeFailed && len(last.Missing) > 0
+}
+
+// taskCheckout is the checkout whose project MCP configuration a task's
+// session sees: the one registered for task running on this machine, else
+// the main checkout. Worktree runs start from the primary ref, whose
+// committed project configuration that checkout shares when it is on it.
+func (s *Service) taskCheckout() string {
+	if m, err := s.MachineSettings(); err == nil && m.Repository.Checkout != "" {
+		return m.Repository.Checkout
+	}
+	return s.opts.Repo.MainCheckout
 }
