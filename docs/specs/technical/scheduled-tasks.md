@@ -262,7 +262,7 @@ Task authors can see and test a local version before it reaches the primary bran
 
 #### Acceptance Criteria
 
-- `land: in-place` (the default) or `land: pr`. An in-place task must declare `writes:`, a list of repository-relative glob patterns. A task file whose `land` or `writes` widens compared with the version the person last saw drops to notify until the person re-approves it.
+- `land: in-place` or `land: pr`. An in-place task must declare `writes:`, a list of repository-relative glob patterns. `land` defaults to `in-place` when the task declares `writes` and to `pr` otherwise, so task files written before `writes` existed keep landing in a worktree. A task file whose `land` or `writes` widens compared with the version the person last saw drops to notify until the person re-approves it.
 - Before the run: if the checkout is not on the local branch matching the primary ref, the task is skipped with one deduplicated notice. Otherwise Rhizome fetches and runs `git merge --ff-only`, even with dirty files, then snapshots HEAD and the working tree as a Git tree through a private index, plus the set of paths dirty or staged before the run.
 - After the run, the task's changes are the paths that changed during the run, were clean before, and match `writes`. Rhizome commits them with `git commit --only -- <paths>`, leaving pre-staged changes untouched, with the task tag and a `Rhizome-Task-Slot:` trailer naming the slot. It rechecks the branch and HEAD at commit time.
 - Paths outside `writes`, and paths dirty before the run, stay uncommitted and are named in the run summary.

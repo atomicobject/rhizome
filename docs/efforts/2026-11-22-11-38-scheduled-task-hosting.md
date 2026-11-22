@@ -143,7 +143,7 @@ Not yet delivered.
 
 ## Deviations
 
-None yet.
+- 2026-11-22T17:05:00Z, routine resolution within the approved plan: `land` defaults to `in-place` only when a task declares `writes`, and to `pr` (today's local worktree branch, no push unless allowed) otherwise. In-place requires `writes`, so a literal in-place default would make every existing task file, including the shipped `compounding/mine`, invalid. SPEC-0127 US12 states the rule.
 
 ## Closure Checklist
 
