@@ -84,10 +84,10 @@ func TestDoctorReportsEachTasksNeeds(t *testing.T) {
 			failed = append(failed, c.Check+": "+c.Detail)
 		}
 	}
-	require.Equal(t, []string{
-		`command: command "rzm-test-no-such-command" is not on the login shell's PATH`,
-		`mcp: MCP server "files" for claude reports "needs authentication"`,
-	}, failed)
+	// The PATH wording differs on Windows, which has no login shell.
+	require.Len(t, failed, 2)
+	require.Regexp(t, `^command: command "rzm-test-no-such-command" is not on (the login shell's )?PATH$`, failed[0])
+	require.Equal(t, `mcp: MCP server "files" for claude reports "needs authentication"`, failed[1])
 	got := checksByName(triage.Checks)
 	require.Equal(t, "claude 2.1.330 is signed in", got[CheckHarness].Detail)
 	require.True(t, got[CheckDeny].OK)
