@@ -201,3 +201,24 @@ func TestInPlaceSkipsASlotLandedDuringItsFetch(t *testing.T) {
 		t.Fatalf("a slot that landed during the fetch must not run again: %+v", o)
 	}
 }
+
+func TestInPlaceRestoreAppliesCheckoutFilters(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	writeFile(t, filepath.Join(f.host, ".git/info/attributes"), ".agents/** text eol=crlf\n")
+	const skill = ".agents/skills/a/SKILL.md"
+	if err := os.Remove(filepath.Join(f.host, skill)); err != nil {
+		t.Fatal(err)
+	}
+	run(t, f.host, "checkout", "--", skill)
+	if f.read(skill) != "agent skill\r\n" {
+		t.Fatalf("the checkout must hold CRLF line endings, got %q", f.read(skill))
+	}
+	f.edits(map[string]string{skill: "injected\n"}, nil)
+	o := f.pass()
+	if got := f.read(skill); got != "agent skill\r\n" {
+		t.Fatalf("a restore must write what a checkout would, got %q (%+v)", got, o)
+	}
+	if f.status() != "" {
+		t.Fatalf("the restored file must match the index: %q", f.status())
+	}
+}
