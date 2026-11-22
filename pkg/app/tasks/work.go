@@ -115,12 +115,14 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 		pr, notice = s.pushPR(ctx, def, a, ref, branch, dir, message)
 	}
 	// A local task branch waits for the person's review; a pushed pull
-	// request is the review surface itself, so a quiet or ok run's local
-	// worktree and branch go, as for a run with no changes (SPEC-0127 US14).
+	// request is the review surface itself, so a quiet or ok run's item
+	// closes and its worktree goes (SPEC-0127 US14). The local branch stays,
+	// so a later run that day takes a new name instead of the pull
+	// request's branch.
 	alert := notifiesFor(outcome, a.result.status(), pr == "") || cleanupErr != nil
 	reviewed := outcome == OutcomeReady && !alert
 	if reviewed {
-		if err := s.removeWorktree(ctx, branch, dir); err != nil {
+		if err := s.removeWorktree(ctx, "", dir); err != nil {
 			reviewed, alert = false, true
 			notice = fmt.Sprintf("The pull request is open, but its local worktree could not be removed: %v.", err)
 		}
@@ -160,7 +162,7 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 		r.Landing, r.PR = def.Land, pr
 		switch {
 		case reviewed:
-			r.Branch = branch // pushed; the local copy is gone
+			r.Branch = branch // pushed; the worktree is gone
 		case outcome == OutcomeReady || cleanupErr != nil:
 			r.Branch, r.Worktree = branch, dir
 		}
@@ -230,7 +232,8 @@ func worktreeName(def Definition, branch string) string {
 }
 
 // freeBranch returns rzm/<task>/<YYYY-MM-DD>, with -2, -3, ... appended
-// when a branch of that name exists.
+// when a branch of that name exists here or on a remote-tracking ref, so a
+// discarded run's pushed branch is not pushed over.
 func (s *Service) freeBranch(ctx context.Context, def Definition) (string, error) {
 	base := fmt.Sprintf("rzm/%s/%s", def.ID, s.opts.Now().Format("2006-01-02"))
 	for n := 1; n < 100; n++ {
@@ -238,7 +241,7 @@ func (s *Service) freeBranch(ctx context.Context, def Definition) (string, error
 		if n > 1 {
 			name = fmt.Sprintf("%s-%d", base, n)
 		}
-		if _, err := s.opts.Repo.git(ctx, "show-ref", "--verify", "--quiet", "refs/heads/"+name); err != nil {
+		if out, err := s.opts.Repo.git(ctx, "for-each-ref", "--count=1", "--format=%(refname)", "refs/heads/"+name, "refs/remotes/*/"+name); err == nil && out == "" {
 			return name, nil
 		}
 	}

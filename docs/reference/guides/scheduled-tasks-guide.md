@@ -221,17 +221,17 @@ A task that runs every day should not ask for you every day. Before it finishes,
 {"status": "quiet", "summary": "No new sessions to mine."}
 ```
 
-`status` is `quiet` (nothing worth mentioning), `ok` (a normal run), or `attention` (you need to look). Rhizome keeps the status and summary on the run. A missing file means ok. A file that is not one JSON object, is over 16 KB, or has another status is recorded on the run with its error and also counts as ok; it never fails the run.
+`status` is `quiet` (nothing worth mentioning), `ok` (a normal run), or `attention` (you need to look). Rhizome keeps the status and summary on the run. A missing file means ok. A file that is not one JSON object, is over 16 KB, has another status, or is not a regular file in the run's folder (a symlink or FIFO, say) is recorded on the run with its error and also counts as ok; it never fails the run.
 
 Which runs need you:
 
 - **History only, no inbox item, no alert:** the check found nothing to do, the run changed nothing, or a `quiet` or `ok` run changed nothing.
 - **Inbox item and alert:** a failure (including an interrupted run or a missing requirement), an `attention` result, and a task that is due for you (in notify mode, or with only a check). An `attention` run that changed nothing waits in the inbox as needs attention with its summary.
-- **Changes to review:** a `pr` run that committed to its `rzm/<task>/<date>` branch makes a ready item and an alert whatever its status, because the branch waits on you until you review, open a pull request, or discard it. An in-place run that landed its commit is history only unless it reports `attention` or raises a notice (restored protected files, a moved HEAD, a push problem).
+- **Changes to review:** a `pr` run that committed to its `rzm/<task>/<date>` branch makes a ready item and an alert whatever its status, because the branch waits on you until you review, open a pull request, or discard it. When Rhizome pushed the branch and opened its pull request, the pull request is where you review it: a `quiet` or `ok` run is history only, with the pull request on the run, and its worktree is removed (the local branch stays). An `attention` result or a failed push or pull request still makes a ready item and an alert. An in-place run that landed its commit is history only unless it reports `attention` or raises a notice (restored protected files, a moved HEAD, a push problem); the alert then names the notice before the agent's summary.
 
 ### Handoff memory
 
-With `memory: true`, the preamble tells the agent about `$RZM_TASK_DATA_DIR/handoff.md`: read it first, rewrite it last, and keep it short. After each background run or test, Rhizome cuts a note over 8 KB to its first 8 KB, ending at a whole line, with a marker that says it was cut. **Start** and **Copy prompt** name the note too.
+With `memory: true`, the preamble tells the agent about `$RZM_TASK_DATA_DIR/handoff.md`: read it first, rewrite it last, and keep it short. After each background run or test, Rhizome cuts a note over 8 KB to its first 8 KB, ending at a whole line, with a marker that says it was cut. It trims only a regular file and replaces it rather than writing through a link. **Start** and **Copy prompt** name the note too.
 
 ### Alerts on your phone
 
@@ -240,12 +240,16 @@ Rhizome Desktop shows a system notification when an item needs you, which only h
 | Variable | Value |
 | --- | --- |
 | `RZM_TASK_ID` | the task id |
-| `RZM_TASK_OUTCOME` | `failed`, `interrupted`, `notified`, `ready`, `attention`, or `token-cap`; `test` from `rzm tasks notify-test` |
-| `RZM_TASK_RUN_ID` | the run's ID |
+| `RZM_TASK_OUTCOME` | `failed`, `interrupted`, `notified`, `ready`, `attention`, or `token-cap`; `untrusted`, `pass-failed`, or `fetch-failed` for a host problem (below); `test` from `rzm tasks notify-test` |
+| `RZM_TASK_RUN_ID` | the run's ID; unset for a host problem |
 | `RZM_TASK_REPOSITORY` | the repository's main checkout |
 | `RZM_TASK_ITEM` | the inbox item, when there is one |
 
-The command runs with your login shell's `PATH`, in the main checkout, and has 30 seconds. Its output goes to `runs/<id>/notify.log`. If it fails or times out, the run records why (`notifyError`) and is otherwise unchanged. Tests never notify.
+The command runs with your login shell's `PATH`, in the main checkout, and has 30 seconds. Its output goes to `runs/<id>/notify.log`. If it fails or times out, the run records why (`notifyError`) and is otherwise unchanged. Tests never notify, and a run you stop yourself does not alert.
+
+Rhizome queues each alert in task state when it records the run, then runs the command after the run finishes and releases the repository's run lock, so a slow command never holds up the next run. A process stopped while sending leaves the alert queued; the next `rzm tasks run-due` or `rzm tasks run` sends it, oldest first. The queue holds 50 alerts; past that the oldest are dropped, and the next alert says how many.
+
+A machine that runs a repository's tasks also alerts when they cannot run at all: the repository is not trusted, the primary branch or its task files cannot be read, or fetching the primary branch has kept failing for six hours (passes still run from the last fetched commit). Each distinct problem alerts once until it clears and again if it comes back. These alerts have no task or run, so `RZM_TASK_ID` and `RZM_TASK_RUN_ID` are unset and nothing is written to a `notify.log`. While the primary branch cannot be read, the runtime starts a pass every 15 minutes to record and report it.
 
 For example, a script that posts to [ntfy](https://ntfy.sh), which has a phone app; the topic acts as a password, so use a long random one:
 
