@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -241,16 +240,28 @@ func worktreeName(def Definition, branch string) string {
 // discarded run's pushed branch is not pushed over.
 func (s *Service) freeBranch(ctx context.Context, def Definition) (string, error) {
 	base := fmt.Sprintf("rzm/%s/%s", def.ID, s.opts.Now().Format("2006-01-02"))
-	for n := 1; n < 100; n++ {
+	// One listing of the day's names, local and remote, so a task that runs
+	// every minute still finds a free one without a Git call per name.
+	out, err := s.opts.Repo.git(ctx, "for-each-ref", "--format=%(refname:lstrip=2)", "refs/heads/"+base, "refs/heads/"+base+"-*", "refs/remotes/*/"+base, "refs/remotes/*/"+base+"-*")
+	if err != nil {
+		return "", err
+	}
+	taken := map[string]bool{}
+	for _, ref := range strings.Split(out, "\n") {
+		// Remote refs list as <remote>/<branch>; keep the branch part.
+		if i := strings.Index(ref, "rzm/"); i >= 0 {
+			taken[ref[i:]] = true
+		}
+	}
+	for n := 1; ; n++ {
 		name := base
 		if n > 1 {
 			name = fmt.Sprintf("%s-%d", base, n)
 		}
-		if out, err := s.opts.Repo.git(ctx, "for-each-ref", "--count=1", "--format=%(refname)", "refs/heads/"+name, "refs/remotes/*/"+name); err == nil && out == "" {
+		if !taken[name] {
 			return name, nil
 		}
 	}
-	return "", errors.New("no free branch name")
 }
 
 // removeWorktree removes a run's worktree and local branch. Ones already
@@ -291,7 +302,9 @@ func (s *Service) removePushedWorktree(ctx context.Context, branch, dir, noHooks
 		return err
 	}
 	if _, err := os.Stat(dir); err == nil {
-		if status, err := gitOutput(ctx, dir, "-c", noHooks, "status", "--porcelain"); err != nil {
+		// Ignored files count: they are the person's too, and removing the
+		// worktree would delete them.
+		if status, err := gitOutput(ctx, dir, "-c", noHooks, "status", "--porcelain", "--ignored=matching", "--untracked-files=all"); err != nil {
 			return err
 		} else if status != "" {
 			return fmt.Errorf("%s has uncommitted changes, so it was left alone", dir)

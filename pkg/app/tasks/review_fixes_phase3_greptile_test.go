@@ -3,6 +3,8 @@ package tasks
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -40,6 +42,15 @@ func TestPullRequestCleanupLeavesTheWorktreeThePersonUses(t *testing.T) {
 	for name, touch := range map[string]func(t *testing.T, dir string){
 		"switched": func(t *testing.T, dir string) { run(t, dir, "switch", "--quiet", "-c", "mine") },
 		"dirty":    func(t *testing.T, dir string) { writeFile(t, filepath.Join(dir, "notes/mine.md"), "mine\n") },
+		"ignored file": func(t *testing.T, dir string) {
+			exclude := run(t, dir, "rev-parse", "--git-path", "info/exclude")
+			if !filepath.IsAbs(exclude) {
+				exclude = filepath.Join(dir, exclude)
+			}
+			require.NoError(t, os.MkdirAll(filepath.Dir(exclude), 0o755))
+			writeFile(t, exclude, "local.cache\n")
+			writeFile(t, filepath.Join(dir, "local.cache"), "the person's\n")
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newLandFixture(t, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n")
@@ -163,4 +174,20 @@ func TestAttentionKeepsThePublishingNotice(t *testing.T) {
 	require.Contains(t, it.Reason, "gh is not signed in")
 	require.True(t, strings.HasSuffix(it.Reason, " look"), it.Reason)
 	require.DirExists(t, it.Worktree)
+}
+
+// A task that runs every minute keeps every quiet pull request's branch, so a
+// day can hold far more than 99 of them; the next run still gets a name.
+func TestFreeBranchFindsANameAfterManyRunsInADay(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1m\nland: pr\nprompt: Tend the notes.\n")
+	def, err := ParseDefinition(".rhizome/tasks/tend.yml", []byte("name: Tend notes\nevery: 1m\nland: pr\nprompt: Tend the notes.\n"))
+	require.NoError(t, err)
+	base := "rzm/tend/" + f.svc.opts.Now().Format("2006-01-02")
+	run(t, f.host, "branch", base)
+	for n := 2; n <= 150; n++ {
+		run(t, f.host, "branch", fmt.Sprintf("%s-%d", base, n))
+	}
+	name, err := f.svc.freeBranch(context.Background(), def)
+	require.NoError(t, err)
+	require.Equal(t, base+"-151", name)
 }
