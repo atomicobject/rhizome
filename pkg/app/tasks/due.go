@@ -113,10 +113,20 @@ func (s *Service) fetchPrimary(ctx context.Context, ref string) {
 	})
 }
 
-var urlCredentials = regexp.MustCompile(`(://)[^/@\s]+@`)
+var (
+	urlUserinfo = regexp.MustCompile(`(://)[^/@\s'"]+@`)
+	urlQuery    = regexp.MustCompile(`(://[^\s?#'"]*)[?#][^\s'"]*`)
+	tokenValue  = regexp.MustCompile(`(?i)(access_token=|token=|x-access-token:)[^\s&#'"@]+`)
+)
 
-// redactURLCredentials hides a user and token embedded in a remote URL.
-func redactURLCredentials(s string) string { return urlCredentials.ReplaceAllString(s, "$1***@") }
+// redactURLCredentials hides what can carry a credential in Git's error
+// text before it is stored or shown: a URL's userinfo, query string, and
+// fragment, and token assignments anywhere.
+func redactURLCredentials(s string) string {
+	s = urlUserinfo.ReplaceAllString(s, "$1***@")
+	s = urlQuery.ReplaceAllString(s, "$1?***")
+	return tokenValue.ReplaceAllString(s, "$1***")
+}
 
 // RunDueHost is RunDue for a Rhizome Desktop host (`rzm tasks run-due
 // --host`): it runs nothing unless the person turned on running this

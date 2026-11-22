@@ -251,3 +251,46 @@ func TestRunDueFetchesOnlyWhenSomethingIsDue(t *testing.T) {
 		t.Fatalf("status fetch: %+v %v", report.Fetch, err)
 	}
 }
+
+// A failed fetch's error names the remote URL. What is stored and shown
+// keeps no userinfo, query string, fragment, or token from it.
+func TestFetchErrorsKeepNoCredentials(t *testing.T) {
+	isolateGit(t)
+	root := t.TempDir()
+	remote := filepath.Join(root, "remote.git")
+	run(t, root, "init", "--quiet", "--bare", "-b", "main", remote)
+	seed := filepath.Join(root, "seed")
+	run(t, root, "init", "--quiet", "-b", "main", seed)
+	commitFile(t, seed, TasksDir+"/a.yml", "name: A\nevery: 1h\nprompt: p\n", "add task")
+	run(t, seed, "remote", "add", "origin", remote)
+	run(t, seed, "push", "--quiet", "origin", "main")
+	host := filepath.Join(root, "host")
+	run(t, root, "clone", "--quiet", remote, host)
+
+	now := time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
+	svc := hostService(t, host, "", &now, true)
+	ctx := context.Background()
+	for _, url := range []string{
+		"https://127.0.0.1:1/repo.git?access_token=SECRET-QUERY#SECRET-FRAGMENT",
+		"https://x-access-token:SECRET-USERINFO@127.0.0.1:1/repo.git",
+	} {
+		run(t, host, "remote", "set-url", "origin", url)
+		now = now.Add(2 * time.Hour)
+		if _, err := svc.RunDue(ctx); err != nil {
+			t.Fatal(err)
+		}
+		f := mustState(t, svc).Fetch
+		if f == nil || f.Error == "" || strings.Contains(f.Error, "SECRET") {
+			t.Fatalf("fetch from %s stored %+v", url, f)
+		}
+	}
+	for _, text := range []string{
+		"remote: token=SECRET-A rejected",
+		"auth x-access-token:SECRET-B failed",
+		"see http://h/p?ref=main&access_token=SECRET-C",
+	} {
+		if got := redactURLCredentials(text); strings.Contains(got, "SECRET") {
+			t.Fatalf("redact(%q) = %q", text, got)
+		}
+	}
+}
