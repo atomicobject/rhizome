@@ -4,7 +4,7 @@ id: EFF-2026-11-22-11-38
 aliases: [EFF-2026-11-22-11-38]
 name: Scheduled task hosting and landing
 created-at: 2026-11-22T16:38:28Z
-status: active
+status: complete
 summary: Make scheduled tasks run on time from a Rhizome Desktop menu bar host, land their changes in the open checkout or through a pull request, and report quietly or loudly as needed (approved plan phases 1–3).
 governing-specs:
   - "[[scheduled-tasks]]"
@@ -40,15 +40,15 @@ Constraints from the brief: work only in this worktree of `atomicobject/rhizome`
 
 ## Spec Coverage Checklist
 
-- [ ] SPEC-0104 US7: host stream, host-only dispatch, 30-second wall-clock check, drain and stop, terminate path (lanes B, C).
-- [ ] SPEC-0104 US8: accessory app, custom quit items, session stash and resume, launch at login, menu bar menu, notifications (lane C).
-- [ ] SPEC-0127 US3: `run-due --host`, nearest deadline first (lanes A, B).
-- [ ] SPEC-0127 US9: `schedule` parsing, slot math, `late`, DST, status (lane A).
-- [ ] SPEC-0127 US10: per-machine settings, `machine`, `hosts`, skip reasons, pause until, run-due output kept (lanes A, B).
-- [ ] SPEC-0127 US11: `requires`, MCP passthrough for Claude and Codex, `deny`, `doctor` (lane A2).
-- [ ] SPEC-0127 US12: in-place landing (lane D).
-- [ ] SPEC-0127 US13: push, `pr` landing, slot trailers (lane D).
-- [ ] SPEC-0127 US14: memory, result file, quiet rules, notify command, token cap (lane E).
+- [x] SPEC-0104 US7: host stream, host-only dispatch, 30-second wall-clock check, drain and stop, terminate path (lanes B, C).
+- [x] SPEC-0104 US8: accessory app, custom quit items, session stash and resume, launch at login, menu bar menu, notifications (lane C).
+- [x] SPEC-0127 US3: `run-due --host`, nearest deadline first (lanes A, B).
+- [x] SPEC-0127 US9: `schedule` parsing, slot math, `late`, DST, status (lane A).
+- [x] SPEC-0127 US10: per-machine settings, `machine`, `hosts`, skip reasons, pause until, run-due output kept (lanes A, B).
+- [x] SPEC-0127 US11: `requires`, MCP passthrough for Claude and Codex, `deny`, `doctor` (lane A2).
+- [x] SPEC-0127 US12: in-place landing (lane D).
+- [x] SPEC-0127 US13: push, `pr` landing, slot trailers (lane D).
+- [x] SPEC-0127 US14: memory, result file, quiet rules, notify command, token cap (lane E).
 
 ## Plan
 
@@ -135,11 +135,43 @@ A no-op auto task runs within a minute of its wall-clock slot on the Mac mini wi
 
 ## Actual Delivered
 
-Not yet delivered.
+Delivered on three stacked pull requests: phase 1 [#163](https://github.com/atomicobject/rhizome/pull/163) (`t3/scheduled-task-hosting`), phase 2 [#164](https://github.com/atomicobject/rhizome/pull/164) (`t3/scheduled-task-landing`), phase 3 [#165](https://github.com/atomicobject/rhizome/pull/165) (`t3/scheduled-task-operations`, which carries this closure).
+
+- **Phase 1, menu bar host and on-time runs.**
+  - Rhizome Desktop on macOS keeps a menu-bar-only app after the last window closes or ⌘Q. ⌘Q stashes the window session, and every window opener resumes it.
+  - Quit Rhizome Completely (⌥⌘Q) asks wait or stop, freezes the host loop, drains, stops runs (including a pass that has not recorded a run yet), then stops the held runtimes.
+  - The native terminate path never prevents or prompts, and stops held runtimes and the active run within 3 s.
+  - Settings: Keep running in the menu bar (default on) and Launch at login (a LaunchAgent with `--login`, menu-bar-only). The menu shows next task, running task, inbox count and last failure from the runtime's host stream. It offers Run now, Pause, Open Rhizome and Quit Completely, plus one macOS notification per notice id, persisted across launches.
+  - The runtime serves `GET /api/tasks/host` (SSE `HostStatus`, including `dispatching`), plus drain, stop, Run now, pause until, and machine. A 30-second wall-clock check starts `run-due --host` only while a host stream is held and not drained.
+  - `rzm tasks stop` ends the run.lock holder's process tree and records it once as stopped.
+  - `schedule` (`at`/`every`+`between`, `days`, `timezone`, `late`, with DST handling), per-machine settings (`runHere`, `checkout`, per-task harness/model/effort, `timezone`), and `rzm tasks machine|hosts|pause --until/--for`.
+  - A pass with something due fetches first, with credentials redacted from errors. Status explains every skip (`blockedBy`). A settling pass runs every 15 minutes while items wait.
+  - `requires` checks commands and MCP servers before any token is spent, each MCP listing bounded to 30 s and its process tree killed. Claude task sessions load the person's MCP config. `deny` maps to disallowed tools, and Codex refuses it. `rzm tasks doctor` reports readiness and lists invalid task files.
+- **Phase 2, in-place landing and push.** `land: in-place|pr` and `writes`.
+  - In-place runs fast-forward with `read-tree -m -u` and commit only task-owned paths through a private-index `commit-tree`, moving the branch under a locked `update-ref` transaction.
+  - Pre-dirty, staged, assume-unchanged, ignored-before-run, outside-`writes`, and nested-repository paths are never committed.
+  - Protected paths are restored through checkout filters, never through symlinks, and never across a branch switch. A failed run's files are adopted only while unchanged.
+  - Push needs `tasks.allowPush` and the person's push setting. It checks the push destination's ref, publishes only Rhizome-landed commits, never forces or rebases, and replays the single task commit on divergence.
+  - `pr` landing pushes the branch and opens a pull request.
+  - Slot trailers dedupe across machines, and widened landings run as notify until `rzm tasks approve`. Discard and cleanup never touch the open or host checkout.
+- **Phase 3, operations.**
+  - `memory: true` handoff notes, trimmed safely to 8 KB.
+  - `$RZM_TASK_RESULT_FILE` (`quiet|ok|attention`), read only as a regular file.
+  - Quiet rules: not-needed, no-change, quiet, ok, landed in-place, and quiet runs with an opened pull request make no inbox item.
+  - A per-person `notify.command` alert, queued durably in state and delivered after run.lock is released, including one alert per distinct pass-level failure (untrusted, unreadable primary ref, fetch failing over 6 h).
+  - `rzm tasks notify-test`, and a per-repository daily token cap (UTC day) with `blockedBy: token-cap`.
 
 ## Execution Notes
 
 - 2026-11-22T16:38:28Z: Effort opened; SPEC-0127 and SPEC-0104 amended to carry the approved plan as acceptance criteria.
+- 2026-11-22T16:45:00Z: Phase 1 lanes A (schedules, settings, status), A2 (requires, MCP, doctor), B (runtime host), C (desktop), and phase 2 lane D started as Claude Opus 5.5 xhigh T3 delegates in their own worktrees. Lane E (phase 3) started after lanes A and A2 were integrated.
+- 2026-11-22T18:00:00Z: Integration resolved overlaps between lanes. NextDueAt keeps lane A's schedule-aware rules with lane B's per-commit cache. Per-task harness overrides flow through `HarnessAgent.resolve`, so preflight, doctor, and runs agree. Slots come from the schedule. Lane E's quiet rules, result file, and alerts were extended to in-place runs (`TestInPlaceRunsFollowTheQuietRules`).
+- 2026-11-22T18:30:00Z: Independent reviews (GPT-6.2 Sol, high) of each phase. Phase 1: 8 P1 and 4 P2 (stop targeting, drain/dispatch race, runHere mid-pass, blocked items, repeated DST hour, respawn loop, doctor hooks, fetch credential redaction). Phase 2: 14 P1 checkout-safety findings, which led to replacing `merge --ff-only`/`commit --only`/`pull --rebase`. Phase 3: 5 P1 (FIFO/symlink result file, symlinked handoff, pass failures never alerting, alerts under run.lock, quiet PR runs). All fixed in dedicated fix lanes with regression tests shown failing first.
+- 2026-11-22T19:00:00Z: Real-app check on the Mac mini with a separate bundle identifier, data dir, and HOME, and a throwaway fixture repository. All passed: login launch menu-bar-only; runtime held 3m44s past a 1-minute idle timeout; host stream status and the untrusted-pass report; ⌘Q with two windows then reopen restores both; Quit Completely leaves no runtime or task process; login → Quit Completely → relaunch restores the layout; pause and resume; the quit Apple Event exits in 0.28 s with no prompt. One menu label bug was fixed (ef7f5efdc).
+- 2026-11-22T19:30:00Z: A second phase 2 review on Sol was cut off by the provider's safety filter. Claude Fable 5.2 (high) completed it and found one P1 (ignore rules changing mid-run) and five P2, all fixed.
+- 2026-11-22T20:00:00Z: Greptile on phase 1, rounds 1–5. Nine findings were fixed, plus a `cmd.Cancel` race it raised on #163. It repeats two already-fixed comments (it excludes binary files, so it reports the tracked `menu-bar-template.png` as missing).
+- `make check-full` on phase 1: two runs under load averages of 14–70 from parallel lanes each failed one untouched timing test (`TestIdentifierBlockIDMigrationCancelsSectionTraversal`, `TestDelegatedProcessOwnsLauncherPIDAndReceivesTermination`). Both pass in isolation and on the quiet run. A third failure was a real race in a new fixture (`TestStopEndsTheRunsProcessTreeAndRecordsItOnce` read a half-written PID file), fixed in 33c282aa4. `make check-full` then passed on 33c282aa4. `make check-full` passed on phase 2 at 6e1e18720 and on phase 3 at 443272527 (after a file-size split; the first phase 3 run failed only `file-size-check`).
+- `make desktop-check` passed (198 Rust tests, clippy `-D warnings`) and `make desktop-build` built the app. `rzm validate` and `frozen-scope-drift`: 0 issues.
 
 ## Deviations
 
@@ -150,15 +182,30 @@ Not yet delivered.
 
 ## Closure Checklist
 
-- [ ] Required quality gates pass.
-- [ ] Alignment and actual outcomes are verified.
-- [ ] Specs and documentation are reconciled.
-- [ ] Follow-ups are triaged.
+- [x] Required quality gates pass (see Execution Notes; CI on each pull request is the merge gate).
+- [x] Alignment and actual outcomes are verified, except the time-bound and human-only done-when items carried forward below.
+- [x] Specs and documentation are reconciled: SPEC-0127 (US3, US9–US14, Requirements, Non-Goals, Decisions) and SPEC-0104 (US7–US8) match delivery. The CONTEXT files, the scheduled-tasks guide, the command-line guide, the vault-runtime subsystem note, desktop CONTEXT, and CHANGELOG are updated.
+- [x] Follow-ups are triaged (below).
+
+Carried forward as action items. They need real time or Drew, and cannot be verified from this session:
+
+- [ ] Phase 1 soak: enable a no-op auto task with `schedule` on the Mac mini, close all windows, and confirm it fires within a minute of its slot for three days, including across sleep; confirm it never runs on the laptop (runHere off there) #action-item
+  assignee:: [[Drew Colthorp]]
+- [ ] Trust a fixture repository with `rzm trust`, then run a task that uses an MCP server under Claude Code and under Codex (requires.mcp, doctor), and exercise Quit Completely's wait/stop question with a task running #action-item
+  assignee:: [[Drew Colthorp]]
+- [ ] Turn on Launch at login and log out and back in (and restart once); confirm Rhizome starts menu-bar-only and never blocks logout or restart; confirm an updater restart keeps the session #action-item
+  assignee:: [[Drew Colthorp]]
+- [ ] Phase 2 live check on a disposable clone with a real agent: an in-place task landing while another clone pushes, then Discard on an in-place item (covered by tests; not yet with a real harness) #action-item
+  assignee:: [[Drew Colthorp]]
+- [ ] Phase 3 live check: configure `tasks.notify.command` (for example ntfy) and run `rzm tasks notify-test`, then confirm a host failure reaches your phone and a quiet run makes no inbox item #action-item
+  assignee:: [[Drew Colthorp]]
 
 ## Compounding Follow-ups
 
-None yet.
+- Running five implementation lanes in parallel on one machine pushed load averages to 40–100, which made untouched timing tests fail and slowed gates. Run full gates only after lanes finish, one checkout at a time.
+- Greptile repeats already-fixed comments on a large branch and excludes binary files, so it reports tracked images as missing. Use an independent model review for large diffs and treat repeated Greptile comments as stale after checking the tree.
+- GPT Sol reviews of Git data-safety code can be stopped by the provider's cybersecurity filter; Claude Fable completed the same review.
 
 ## Status
 
-Active. Phase 1 lanes A, A2, B, and C are next.
+Complete on the phase 3 branch. Delivery is carried by [#163](https://github.com/atomicobject/rhizome/pull/163), [#164](https://github.com/atomicobject/rhizome/pull/164), and [#165](https://github.com/atomicobject/rhizome/pull/165). Drew merges them in order. The carried-forward action items above need real time or Drew.
