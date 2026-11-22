@@ -53,6 +53,8 @@ const (
 	OutcomeInterrupted = "interrupted"
 	// OutcomeStopped is a run the person stopped (Service.Stop).
 	OutcomeStopped = "stopped"
+	// OutcomeLanded is an in-place run that committed its files.
+	OutcomeLanded = "landed"
 )
 
 // Run stages, recorded only on State.Running.
@@ -82,6 +84,14 @@ type RunRecord struct {
 	Changed        []string  `json:"changed,omitempty"`
 	// Missing names the requirements a failed run lacked (SPEC-0127 US11).
 	Missing []string `json:"missing,omitempty"`
+
+	// Landing (SPEC-0127 US12, US13): the run's land mode, the commit an
+	// in-place run made or pushed, a pr run's pull request, and the paths an
+	// in-place run left uncommitted.
+	Landing string   `json:"landing,omitempty"`
+	Landed  string   `json:"landed,omitempty"`
+	PR      string   `json:"pr,omitempty"`
+	Left    []string `json:"left,omitempty"`
 }
 
 // State is one person's task state for one repository.
@@ -110,6 +120,15 @@ type State struct {
 	// Stopping is the run Stop was asked to end. Whichever process records
 	// that run records it as stopped.
 	Stopping string `json:"stopping,omitempty"`
+
+	// Landings is each task's landing as the person last saw or approved
+	// it; Widened holds a wider landing awaiting approval, which runs as
+	// notify (SPEC-0127 US12).
+	Landings map[string]Landing `json:"landings,omitempty"`
+	Widened  map[string]Landing `json:"widened,omitempty"`
+	// Leftover is task -> paths a failed, stopped, or uncommitted in-place
+	// run left in the checkout; the task's next successful run adopts them.
+	Leftover map[string][]string `json:"leftover,omitempty"`
 }
 
 // PassError records a run-due pass that failed before running any task.

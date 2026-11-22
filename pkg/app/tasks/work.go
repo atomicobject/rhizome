@@ -69,9 +69,9 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 			return nil
 		}
 		it.set(StateRunning, s.opts.Now())
-		it.Branch, it.Worktree, it.Commit, it.Run = branch, dir, commit, a.id
+		it.Branch, it.Worktree, it.Commit, it.Run, it.Landing = branch, dir, commit, a.id, def.Land
 		running(st, a, func(r *RunRecord) {
-			r.Stage, r.Item, r.Branch, r.Worktree, r.Commit = StageAgent, itemID, branch, dir, commit
+			r.Stage, r.Item, r.Branch, r.Worktree, r.Commit, r.Landing = StageAgent, itemID, branch, dir, commit, def.Land
 		})
 		return nil
 	}); err != nil {
@@ -104,13 +104,16 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	if err != nil {
 		return s.fail(ctx, def, a, itemID, commit, fmt.Sprintf("commit: %v (worktree kept at %s)", err, dir), res.Tokens)
 	}
-	now := s.opts.Now()
 	outcome := OutcomeReady
 	var cleanupErr error
+	var pr, notice string
 	if !committed {
 		outcome = OutcomeNoChanges
 		cleanupErr = s.removeWorktree(ctx, branch, dir)
+	} else if s.pushAllowed() {
+		pr, notice = s.pushPR(ctx, def, a, ref, branch, dir, message)
 	}
+	now := s.opts.Now()
 	if err := s.store.Update(ctx, func(st *State) error {
 		// The person may have closed the item during the run; keep their
 		// state, dropping only a worktree this run removed.
@@ -119,6 +122,7 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 			switch {
 			case outcome == OutcomeReady:
 				it.set(StateReady, now)
+				it.PR, it.Reason = pr, notice
 			case cleanupErr != nil:
 				// Keep the location so discard can retry the cleanup.
 				it.set(StateAttention, now)
@@ -132,6 +136,7 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 		}
 		r := a.record(def.ID, outcome, now)
 		r.Tokens, r.Message, r.Item, r.Commit, r.Changed = res.Tokens, firstLine(message), itemID, commit, changed
+		r.Landing, r.PR = def.Land, pr
 		if outcome == OutcomeReady || cleanupErr != nil {
 			r.Branch, r.Worktree = branch, dir
 		}
@@ -212,8 +217,16 @@ func (s *Service) freeBranch(ctx context.Context, def Definition) (string, error
 }
 
 // removeWorktree removes a run's worktree and local branch. Ones already
-// gone are not errors.
+// gone are not errors. It refuses anything Rhizome did not make: a folder
+// outside the state folder, such as the open checkout, or a branch outside
+// rzm/.
 func (s *Service) removeWorktree(ctx context.Context, branch, dir string) error {
+	if dir != "" && !s.ownsWorktree(dir) {
+		return fmt.Errorf("%s is not a worktree Rhizome made, so it was left alone", dir)
+	}
+	if branch != "" && !strings.HasPrefix(branch, "rzm/") {
+		return fmt.Errorf("%s is not a branch Rhizome made, so it was left alone", branch)
+	}
 	if dir != "" {
 		if _, err := os.Stat(dir); err == nil {
 			if _, err := s.opts.Repo.git(ctx, "worktree", "remove", "--force", dir); err != nil {

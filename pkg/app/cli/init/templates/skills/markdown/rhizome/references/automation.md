@@ -83,7 +83,7 @@ How a task runs shapes how to write one:
 
 - Scheduled runs read task files from the primary branch. A task edited on a branch does nothing until it merges.
 - Each task runs once per person and repository while that person's Rhizome app or runtime is up. The repository default is to notify the person; `tasks.defaultMode` in `.rhizome/config.yml` sets it, and `rzm tasks mode <task> auto|notify|off|default` is each person's override.
-- A background run works in its own worktree, commits there, and pushes nothing. The person reviews the branch and opens the pull request. Write the prompt to end with a message saying what changed.
+- By default a background run works in its own worktree and commits there; the person reviews the branch and opens the pull request. A task that declares `writes: [<glob>, ...]` runs in the open checkout instead and commits only its changed files that match, leaving the person's own changes alone and undoing changes under `.agents/` or `.rhizome/` that no pattern names. Declare the narrowest `writes` that covers the work: widening it later makes the task wait for each person's `rzm tasks approve <task>`. Pushing happens only when `tasks.allowPush` and the person both allow it. Write the prompt to end with a message saying what changed.
 
 ## Write for unattended runs
 
