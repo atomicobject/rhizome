@@ -212,16 +212,6 @@ func (s *Service) runDue(ctx context.Context, host bool) (RunSummary, error) {
 	return summary, nil
 }
 
-// notePassError records why a pass failed before running any task, so
-// status can explain why automatic work stopped. It returns err.
-func (s *Service) notePassError(ctx context.Context, err error) error {
-	_ = s.store.Update(ctx, func(st *State) error {
-		st.PassError = &PassError{At: s.opts.Now(), Message: err.Error()}
-		return nil
-	})
-	return err
-}
-
 // bookkeep announces tasks the person has not seen and closes items whose
 // work reached the primary ref.
 func (s *Service) bookkeep(ctx context.Context, st *State, defs []Definition, tagged map[string]*Tagged, now time.Time) {

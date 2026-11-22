@@ -176,3 +176,13 @@ func (s *Service) RunDueHost(ctx context.Context) (RunSummary, error) {
 }
 
 const notRunHere = "tasks do not run on this machine for this repository; turn them on with `rzm tasks machine on`"
+
+// notePassError records why a pass failed before running any task, so
+// status can explain why automatic work stopped. It returns err.
+func (s *Service) notePassError(ctx context.Context, err error) error {
+	_ = s.store.Update(ctx, func(st *State) error {
+		st.PassError = &PassError{At: s.opts.Now(), Message: err.Error()}
+		return nil
+	})
+	return err
+}
