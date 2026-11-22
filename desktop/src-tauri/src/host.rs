@@ -398,7 +398,7 @@ fn attach(app: &AppHandle, key: &str, opened: pipeline::Opened) {
                 let host = app.state::<Host>();
                 match update {
                     api::Update::Error(problem) => host.unreadable(&key, generation, problem),
-                    api::Update::Status(status) => match host.record(&key, generation, status) {
+                    api::Update::Status(status) => match host.record(&key, generation, *status) {
                         Some(notices) => notify(&app, &key, &notices),
                         None => host.refresh(),
                     },

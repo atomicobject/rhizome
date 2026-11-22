@@ -92,7 +92,7 @@ pub struct Notice {
 /// What the host stream reports.
 #[derive(Debug, PartialEq)]
 pub enum Update {
-    Status(HostStatus),
+    Status(Box<HostStatus>),
     /// The runtime could not read the status; the message is for the menu.
     Error(String),
 }
@@ -220,7 +220,7 @@ impl Api {
                         if let Ok(status) = serde_json::from_str::<HostStatus>(&data) {
                             status_by = tokio::time::Instant::now() + quiet;
                             failing = None;
-                            on(Update::Status(status));
+                            on(Update::Status(Box::new(status)));
                         }
                     }
                     "error" => {

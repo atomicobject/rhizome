@@ -106,7 +106,7 @@ fn the_stream_delivers_each_status_until_the_runtime_closes_it() {
     let api = Api::new(origin).unwrap();
     let mut seen = vec![];
     let ended = runtime().block_on(api.stream(|update| match update {
-        Update::Status(status) => seen.push(status),
+        Update::Status(status) => seen.push(*status),
         Update::Error(problem) => panic!("{problem}"),
     }));
     assert_eq!(request.recv().unwrap().0, "GET /api/tasks/host HTTP/1.1");
