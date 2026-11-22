@@ -75,6 +75,7 @@ func newTasksCmd(registry harnessRegistry) *cobra.Command {
 	cmd.AddCommand(newTasksDoctorCmd(open, &asJSON))
 	cmd.AddCommand(newTasksStopCmd(open, &asJSON))
 	cmd.AddCommand(newTasksNotifyTestCmd(open, &asJSON))
+	cmd.AddCommand(newTasksDeliverAlertsCmd(registry))
 	cmd.AddCommand(newTasksStartCmd(registry, open))
 	cmd.AddCommand(newTasksSnoozeCmd(open))
 	for _, action := range []struct {
@@ -288,6 +289,9 @@ func openTasksService(ctx context.Context, cmd *cobra.Command, registry harnessR
 		Settings: func() (agentchat.Settings, error) { return agentchat.LoadSettings(env) },
 		Trusted:  trust.Trusted,
 		Env:      env,
+		// Alerts go to a detached process so a slow notify command never
+		// keeps a task pass, which Desktop tracks, alive (SPEC-0127 US14).
+		DeliverAlerts: func() error { return startDeliverAlerts(cwd) },
 	})
 }
 

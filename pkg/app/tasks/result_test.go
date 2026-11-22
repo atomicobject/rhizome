@@ -300,3 +300,22 @@ func TestInPlaceRunsFollowTheQuietRules(t *testing.T) {
 	require.Equal(t, "a note needs a person", it.Reason)
 	require.Contains(t, f.notifications(t), "OUTCOME=attention")
 }
+
+func TestAPassHandsItsAlertsToAnotherProcess(t *testing.T) {
+	agent := &fakeAgent{run: func(req AgentRequest) (AgentResult, error) {
+		writeResult(t, req, `{"status": "attention", "summary": "look at this"}`)
+		return AgentResult{Message: "done"}, nil
+	}}
+	f := newNotifyFixture(t, map[string]string{"a.yml": "name: A\nevery: 1h\nprompt: p\n"}, agent, "")
+	handed := 0
+	f.svc.opts.DeliverAlerts = func() error { handed++; return nil }
+	_, err := f.svc.RunDue(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 1, handed, "the pass starts a deliverer")
+	require.Empty(t, f.notifications(t), "the pass itself runs no notify command, so a slow one cannot keep it alive")
+	require.Len(t, mustState(t, f.svc).PendingAlerts, 1)
+
+	f.svc.DeliverAlerts(context.Background())
+	require.Contains(t, f.notifications(t), "OUTCOME=attention")
+	require.Empty(t, mustState(t, f.svc).PendingAlerts)
+}

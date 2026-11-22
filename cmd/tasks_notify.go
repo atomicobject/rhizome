@@ -3,7 +3,10 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
+
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 
 	"github.com/atomicobject/rhizome/pkg/app/tasks"
 	"github.com/spf13/cobra"
@@ -55,4 +58,30 @@ func renderNotifyTest(w io.Writer, command []string, out []byte, err error) {
 	if text := strings.TrimSpace(string(out)); text != "" {
 		fmt.Fprintf(w, "Its output:\n%s\n", text)
 	}
+}
+
+// newTasksDeliverAlertsCmd sends queued task alerts. Task passes start it
+// detached once their work is recorded, so alert delivery never holds them.
+func newTasksDeliverAlertsCmd(registry harnessRegistry) *cobra.Command {
+	return &cobra.Command{
+		Use: "deliver-alerts", Short: "Send queued task alerts through your tasks.notify.command", Args: cobra.NoArgs, Hidden: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			svc, err := openTasksService(cmd.Context(), cmd, registry)
+			if err != nil {
+				return err
+			}
+			svc.DeliverAlerts(cmd.Context())
+			return nil
+		},
+	}
+}
+
+// startDeliverAlerts starts a detached `rzm tasks deliver-alerts` in dir.
+func startDeliverAlerts(dir string) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	_, err = appruntime.StartDetachedTo(nil, exe, dir, "tasks", "deliver-alerts")
+	return err
 }

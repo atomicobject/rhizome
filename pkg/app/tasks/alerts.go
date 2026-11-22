@@ -94,6 +94,17 @@ func (s *Service) deliverAlerts(ctx context.Context) {
 	if st, err := s.store.Load(); err != nil || len(st.PendingAlerts) == 0 || os.Getenv("RZM_TASK_TEST") == "1" {
 		return
 	}
+	if s.opts.DeliverAlerts != nil {
+		// A failed hand-off leaves the alerts queued for the next process.
+		_ = s.opts.DeliverAlerts()
+		return
+	}
+	s.DeliverAlerts(ctx)
+}
+
+// DeliverAlerts sends queued alerts in this process, oldest first, under
+// alert.lock (`rzm tasks deliver-alerts`).
+func (s *Service) DeliverAlerts(ctx context.Context) {
 	release, err := acquire(ctx, filepath.Join(s.stateDir, alertLock), "tasks/alert", notifyTimeout+5*time.Second)
 	if err != nil {
 		return

@@ -33,6 +33,10 @@ type Options struct {
 	// task settings; a zero Env means none, so tasks do not run here.
 	Env vaultconfig.Env
 	Now func() time.Time
+	// DeliverAlerts hands queued alerts to another process (the CLI starts a
+	// detached `rzm tasks deliver-alerts`), so a slow notify command never
+	// keeps a task pass alive after its work is done. Nil delivers inline.
+	DeliverAlerts func() error
 	// Push is the person's per-machine push setting for this repository
 	// (SPEC-0127 US13); pushing also needs the repository's allowPush.
 	Push bool
