@@ -78,6 +78,7 @@ func runnableItem(st *State, itemID string) (*Item, error) {
 // request. It reads the task's current definition from the primary ref.
 // Failures before the run starts satisfy NotStarted.
 func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
+	defer s.deliverAlerts(ctx) // after run.lock is released (SPEC-0127 US14)
 	release, err := s.lockRun(ctx, 0)
 	if errors.Is(err, errLocked) {
 		return Outcome{}, notStartedError{ErrBusy}

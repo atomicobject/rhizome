@@ -179,7 +179,6 @@ func (s *Service) end(ctx context.Context, a attempt) {
 	if err != nil || st.Running == nil || st.Running.ID != a.id {
 		return
 	}
-	defer s.alertRun(ctx, st.Running.Task, a.id) // SPEC-0127 US14
 	_ = s.store.Update(context.WithoutCancel(ctx), func(st *State) error {
 		if st.Running != nil && st.Running.ID == a.id {
 			r := *st.Running
@@ -191,6 +190,7 @@ func (s *Service) end(ctx context.Context, a attempt) {
 				it.Reason = r.Message
 			}
 			st.Record(r)
+			s.queueRunAlert(st, r.Task, a.id, "") // SPEC-0127 US14
 		}
 		return nil
 	})
@@ -205,22 +205,24 @@ func running(st *State, a attempt, fn func(*RunRecord)) {
 
 // finalizeInterrupted records a Running left by a process that ended
 // mid-run as one interrupted run (stopped, when Stop marked it), keeping its
-// folder, and moves its item to needs attention. Callers hold run.lock, so
-// nothing else is running and any stop request is settled.
+// folder, and moves its item to needs attention. A scheduled run that
+// crashed before it had an item, as during its check, gets a
+// needs-attention item, reusing the task's earlier notice, so its alert
+// points somewhere. Callers hold run.lock, so nothing else is running and
+// any stop request is settled.
 func (s *Service) finalizeInterrupted(ctx context.Context) error {
-	var task, id string
-	err := s.store.Update(ctx, func(st *State) error {
+	return s.store.Update(ctx, func(st *State) error {
 		defer func() { st.Stopping = "" }()
 		if st.Running == nil {
 			return nil
 		}
 		now := s.opts.Now()
 		r := *st.Running
-		task, id = r.Task, r.ID
 		r.At, r.Outcome = now, OutcomeInterrupted
 		r.Message = interruptedMessage
+		stopped := st.Stopping == r.ID
 		reason := interruptedMessage
-		if st.Stopping == r.ID {
+		if stopped {
 			reason = stoppedMessage
 		}
 		if r.Item != "" {
@@ -232,15 +234,19 @@ func (s *Service) finalizeInterrupted(ctx context.Context) error {
 					it.interrupt(now, reason)
 				}
 			}
+		} else if !r.Test && !stopped {
+			it := st.ActiveTaskItem(r.Task)
+			if it == nil || it.State != StateAttention || it.Worktree != "" {
+				it = st.AddItem(Item{Task: r.Task, Kind: KindTask, Commit: r.Commit, Landing: r.Landing}, now)
+			}
+			it.interrupt(now, reason)
+			r.Item = it.ID
 		}
 		st.Record(r)
 		st.Running = nil
+		s.queueRunAlert(st, r.Task, r.ID, "") // SPEC-0127 US14
 		return nil
 	})
-	if err == nil && id != "" {
-		s.alertRun(ctx, task, id) // SPEC-0127 US14
-	}
-	return err
 }
 
 // retain bounds history and run folders. Callers hold run.lock. Per task it

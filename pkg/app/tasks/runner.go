@@ -96,6 +96,9 @@ type RunSummary struct {
 // deadline first: a pass that finds another pass in progress skips, and a
 // pass with due work fetches the primary ref's remote first.
 func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
+	// Alerts go out once run.lock is released, oldest first, so ones a
+	// stopped process left are sent before this pass's (SPEC-0127 US14).
+	defer s.deliverAlerts(ctx)
 	// Runtimes call this in every Git checkout. A repository that declares
 	// no tasks, or that the person has not trusted, is left untouched: no
 	// state folder, no lock, no recorded error.
@@ -318,12 +321,12 @@ func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, c
 			r := a.record(def.ID, OutcomeNotified, now)
 			r.Message, r.Item, r.Commit = check.Summary, id, commit
 			st.Record(r)
+			s.queueRunAlert(st, def.Name, a.id, "") // SPEC-0127 US14
 			return nil
 		})
 		if err != nil {
 			return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}
 		}
-		s.alertRun(ctx, def.Name, a.id) // SPEC-0127 US14
 		return Outcome{Task: def.ID, Outcome: OutcomeNotified, Item: id}
 	}
 	if out, capped := s.skipForTokenCap(ctx, def, a, commit); capped { // SPEC-0127 US14
@@ -408,9 +411,9 @@ func (s *Service) failRecheck(ctx context.Context, def Definition, a attempt, it
 		r := a.record(def.ID, OutcomeFailed, now)
 		r.Message, r.Item, r.Commit = reason, itemID, commit
 		st.Record(r)
+		s.queueRunAlert(st, def.Name, a.id, "") // SPEC-0127 US14
 		return nil
 	})
-	s.alertRun(ctx, def.Name, a.id) // SPEC-0127 US14
 	return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: reason}
 }
 
@@ -457,9 +460,9 @@ func (s *Service) failWith(ctx context.Context, def Definition, a attempt, itemI
 			extra(st, it, &r)
 		}
 		st.Record(r)
+		s.queueRunAlert(st, def.Name, a.id, "") // SPEC-0127 US14
 		return nil
 	})
-	s.alertRun(ctx, def.Name, a.id) // SPEC-0127 US14
 	return Outcome{Task: def.ID, Outcome: outcome, Item: itemID, Reason: reason}
 }
 

@@ -63,20 +63,17 @@ func (s *Service) skipForTokenCap(ctx context.Context, def Definition, a attempt
 		return Outcome{}, false
 	}
 	reason := fmt.Sprintf("token cap reached: %d of %d tokens used today (UTC day %s)", c.Used, c.Cap, c.Day)
-	first := false
 	if err := s.store.Update(ctx, func(st *State) error {
 		r := a.record(def.ID, OutcomeSkipped, s.opts.Now())
 		r.Message, r.Commit = reason, commit
 		st.Record(r)
 		if st.TokenCapNotified != c.Day {
-			st.TokenCapNotified, first = c.Day, true
+			st.TokenCapNotified = c.Day
+			s.queueAlert(st, Notification{Task: def.ID, Outcome: NotifyTokenCap, Run: a.id, Summary: fmt.Sprintf("Scheduled tasks in %s stopped agent work for today: %s. They resume after 00:00 UTC; Run now still works.", s.repository(), reason)})
 		}
 		return nil
 	}); err != nil {
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}, true
-	}
-	if first {
-		s.notify(ctx, Notification{Task: def.ID, Outcome: NotifyTokenCap, Run: a.id, Summary: fmt.Sprintf("Scheduled tasks in %s stopped agent work for today: %s. They resume after 00:00 UTC; Run now still works.", s.repository(), reason)})
 	}
 	return Outcome{Task: def.ID, Outcome: OutcomeSkipped, Reason: reason}, true
 }

@@ -137,6 +137,12 @@ type State struct {
 	// TokenCapNotified is the UTC day the daily token cap last stopped
 	// work and notified, so it notifies once a day (SPEC-0127 US14).
 	TokenCapNotified string `json:"tokenCapNotified,omitempty"`
+	// PendingAlerts are notify-command calls waiting for delivery, oldest
+	// first; DroppedAlerts counts older ones dropped to keep the bound.
+	// PassAlert is the pass-level failure last alerted (US14).
+	PendingAlerts []PendingAlert `json:"pendingAlerts,omitempty"`
+	DroppedAlerts int            `json:"droppedAlerts,omitempty"`
+	PassAlert     *PassAlert     `json:"passAlert,omitempty"`
 }
 
 // PassError records a run-due pass that failed before running any task.
@@ -156,6 +162,9 @@ const PassUntrusted = "untrusted"
 type FetchStatus struct {
 	At    time.Time `json:"at"`
 	Error string    `json:"error,omitempty"`
+	// FailingSince is the first failure of the current run of failed
+	// fetches; zero after a success.
+	FailingSince time.Time `json:"failingSince,omitzero"`
 }
 
 // PausedAt reports whether background work is paused at now; a pause

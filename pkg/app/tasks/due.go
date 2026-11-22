@@ -1,7 +1,9 @@
 package tasks
 
 import (
+	"cmp"
 	"context"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -109,8 +111,12 @@ func (s *Service) fetchPrimary(ctx context.Context, ref string) {
 	status := &FetchStatus{At: s.opts.Now()}
 	if err != nil {
 		status.Error = redactURLCredentials(err.Error())
+		status.FailingSince = status.At
 	}
 	_ = s.store.Update(ctx, func(st *State) error {
+		if prev := st.Fetch; status.Error != "" && prev != nil && prev.Error != "" {
+			status.FailingSince = cmp.Or(prev.FailingSince, prev.At)
+		}
 		st.Fetch = status
 		return nil
 	})
@@ -124,7 +130,10 @@ func redactURLCredentials(s string) string { return urlCredentials.ReplaceAllStr
 // RunDueHost is RunDue for a Rhizome Desktop host (`rzm tasks run-due
 // --host`): it runs nothing unless the person turned on running this
 // repository's tasks on this machine, and it records an untrusted
-// repository once as the pass error instead of skipping silently.
+// repository once as the pass error instead of skipping silently. It
+// alerts once per distinct pass-level failure (an untrusted repository, a
+// primary ref that cannot be read, a fetch failing for fetchAlertAfter)
+// until it clears, then delivers queued alerts.
 func (s *Service) RunDueHost(ctx context.Context) (RunSummary, error) {
 	m, err := s.MachineSettings()
 	if err != nil {
@@ -133,14 +142,23 @@ func (s *Service) RunDueHost(ctx context.Context) (RunSummary, error) {
 	if !m.Repository.RunHere {
 		return RunSummary{Skipped: "tasks do not run on this machine for this repository; turn them on with `rzm tasks machine on`"}, nil
 	}
+	defer s.deliverAlerts(ctx)
 	if reason := s.untrusted(); reason != "" {
 		err := s.store.Update(ctx, func(st *State) error {
 			if st.PassError == nil || st.PassError.Code != PassUntrusted || st.PassError.Message != reason {
 				st.PassError = &PassError{At: s.opts.Now(), Code: PassUntrusted, Message: reason}
 			}
+			s.reviewPassAlert(st)
 			return nil
 		})
 		return RunSummary{Skipped: reason}, err
 	}
-	return s.RunDue(ctx)
+	// The person chose this machine for the repository, so a pass that
+	// cannot read the primary ref records why even before any task ran.
+	if err := os.MkdirAll(s.stateDir, 0o700); err != nil {
+		return RunSummary{}, err
+	}
+	summary, err := s.RunDue(ctx)
+	s.notePassAlert(context.WithoutCancel(ctx))
+	return summary, err
 }

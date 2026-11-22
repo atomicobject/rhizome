@@ -286,12 +286,12 @@ func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, 
 		r.Tokens, r.Message, r.Item, r.Commit, r.Changed = res.Tokens, firstLine(message), itemID, ip.head, owned
 		r.Landing, r.Landed, r.Left = def.Land, landed, left.paths()
 		st.Record(r)
+		if len(notices) > 0 || a.result.attention() {
+			s.queueRunAlert(st, def.Name, a.id, joinNotices(notices...)) // SPEC-0127 US14
+		}
 		return nil
 	}); err != nil {
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: fmt.Sprintf("the run finished (%s, commit %s) but its result could not be saved: %v", outcome, short(landed), err)}
-	}
-	if len(notices) > 0 || a.result.attention() {
-		s.alertRun(ctx, def.Name, a.id) // SPEC-0127 US14
 	}
 	return Outcome{Task: def.ID, Outcome: outcome, Item: itemID, Reason: joinNotices(notices...)}
 }

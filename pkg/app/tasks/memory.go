@@ -2,11 +2,15 @@ package tasks
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/atomicobject/rhizome/pkg/fileio"
 )
 
 const (
@@ -28,13 +32,21 @@ func writeMemory(b *strings.Builder, def Definition, loc Locations) {
 
 // trimHandoff cuts a handoff note longer than the cap to its head plus a
 // marker, at most maxHandoff bytes in all, ending on a whole line when one
-// ends in the second half.
+// ends in the second half. Only a regular file in the real data folder is
+// trimmed; a symlink, FIFO, or device is left alone. It reads at most one
+// byte past the cap and replaces the note through a temporary file, so it
+// never writes through a link.
 func trimHandoff(path string) error {
-	data, err := os.ReadFile(path)
-	if err != nil || len(data) <= maxHandoff {
-		if os.IsNotExist(err) {
+	f, err := openRegular(path, os.O_RDONLY, 0)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
+		return err
+	}
+	data, err := io.ReadAll(io.LimitReader(f, maxHandoff+1))
+	_ = f.Close()
+	if err != nil || len(data) <= maxHandoff {
 		return err
 	}
 	head := data[:maxHandoff-len(handoffCut)]
@@ -48,5 +60,5 @@ func trimHandoff(path string) error {
 		}
 		head = head[:len(head)-1]
 	}
-	return os.WriteFile(path, append(bytes.TrimRight(head, "\n"), handoffCut...), 0o600)
+	return fileio.WriteFileAtomic(path, append(bytes.TrimRight(head, "\n"), handoffCut...), 0o600)
 }

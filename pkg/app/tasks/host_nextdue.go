@@ -39,7 +39,9 @@ func (s *Service) dueInputs(ctx context.Context) ([]Definition, map[string]*Tagg
 // NextDueAt is the earliest time any enabled task is or comes due, for the
 // runtime host's 30-second check (SPEC-0104 US7): at or before now means
 // `rzm tasks run-due --host` has work. It reads the local primary ref and
-// task state only, with no network and no Git writes. ok is false when
+// task state only, with no network and no Git writes. A primary ref that
+// cannot be read is due every passRetryEvery, so the host pass records and
+// alerts it. ok is false when
 // nothing will come due here: tasks do not run on this machine, work is
 // paused until resumed, every task is off or blocked by an open item, or an
 // untrusted repository was already reported.
@@ -56,6 +58,13 @@ func (s *Service) NextDueAt(ctx context.Context) (time.Time, bool, error) {
 		return time.Time{}, false, nil
 	}
 	_, at, ok, err := s.nextDue(ctx, &st, m)
+	if err != nil {
+		// Pass-alert hook (SPEC-0127 US14, phase 3 fixes): the primary ref
+		// or its definitions cannot be read, so allow one host pass every
+		// passRetryEvery to record the error and alert. When this meets the
+		// phase 1 bookkeeping pass, keep the earlier of the two times.
+		return passRetryAt(&st, s.opts.Now()), true, nil
+	}
 	return at, ok, err
 }
 

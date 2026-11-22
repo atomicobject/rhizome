@@ -80,12 +80,14 @@ func afterPrompt(def Definition, loc Locations) *RunResult {
 }
 
 // readResult reads a result file. A missing file is no result; a malformed
-// one is a result with Error set and no status, which counts as ok.
+// one is a result with Error set and no status, which counts as ok, and so
+// is anything but a regular file in the runner's own run folder: a FIFO,
+// device, or symlink is refused without being read.
 func readResult(path string) *RunResult {
 	if path == "" {
 		return nil
 	}
-	f, err := os.Open(path)
+	f, err := openRegular(path, os.O_RDONLY, 0)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}

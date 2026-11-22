@@ -114,18 +114,30 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	} else if s.pushAllowed() {
 		pr, notice = s.pushPR(ctx, def, a, ref, branch, dir, message)
 	}
+	// A local task branch waits for the person's review; a pushed pull
+	// request is the review surface itself, so a quiet or ok run's local
+	// worktree and branch go, as for a run with no changes (SPEC-0127 US14).
+	alert := notifiesFor(outcome, a.result.status(), pr == "") || cleanupErr != nil
+	reviewed := outcome == OutcomeReady && !alert
+	if reviewed {
+		if err := s.removeWorktree(ctx, branch, dir); err != nil {
+			reviewed, alert = false, true
+			notice = fmt.Sprintf("The pull request is open, but its local worktree could not be removed: %v.", err)
+		}
+	}
 	now := s.opts.Now()
-	// A ready run's branch waits for the person's review (SPEC-0127 US14).
-	alert := notifiesFor(outcome, a.result.status(), true) || cleanupErr != nil
 	if err := s.store.Update(ctx, func(st *State) error {
 		// The person may have closed the item during the run; keep their
 		// state, dropping only a worktree this run removed.
 		if it, err := st.Item(itemID); err == nil && it.State == StateRunning {
-			it.Message, it.Tokens, it.Changed = message, res.Tokens, changed
+			it.Message, it.Tokens, it.Changed, it.PR = message, res.Tokens, changed, pr
 			switch {
+			case reviewed:
+				it.set(StateDone, now)
+				it.Branch, it.Worktree = "", ""
 			case outcome == OutcomeReady:
 				it.set(StateReady, now)
-				it.PR, it.Reason = pr, notice
+				it.Reason = notice
 			case cleanupErr != nil:
 				// Keep the location so discard can retry the cleanup.
 				it.set(StateAttention, now)
@@ -140,22 +152,25 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 			if a.result.attention() && cleanupErr == nil {
 				it.Reason = a.result.Summary
 			}
-		} else if err == nil && !committed && cleanupErr == nil {
+		} else if err == nil && (!committed || reviewed) && cleanupErr == nil {
 			it.Branch, it.Worktree = "", ""
 		}
 		r := a.record(def.ID, outcome, now)
 		r.Tokens, r.Message, r.Item, r.Commit, r.Changed = res.Tokens, firstLine(message), itemID, commit, changed
 		r.Landing, r.PR = def.Land, pr
-		if outcome == OutcomeReady || cleanupErr != nil {
+		switch {
+		case reviewed:
+			r.Branch = branch // pushed; the local copy is gone
+		case outcome == OutcomeReady || cleanupErr != nil:
 			r.Branch, r.Worktree = branch, dir
 		}
 		st.Record(r)
+		if alert {
+			s.queueRunAlert(st, def.Name, a.id, notice) // SPEC-0127 US14
+		}
 		return nil
 	}); err != nil {
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: fmt.Sprintf("the run finished (%s, worktree at %s) but its result could not be saved: %v", outcome, dir, err)}
-	}
-	if alert {
-		s.alertRun(ctx, def.Name, a.id)
 	}
 	return Outcome{Task: def.ID, Outcome: outcome, Item: itemID}
 }

@@ -1,7 +1,6 @@
 package tasks
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -32,34 +31,17 @@ const (
 // Notification is one call of the person's notify command (SPEC-0127
 // US14): Summary goes to its stdin, the rest to its environment.
 type Notification struct {
-	Task    string `json:"task"`
+	Task    string `json:"task,omitempty"`
 	Outcome string `json:"outcome"`
-	Run     string `json:"run"`
+	Run     string `json:"run,omitempty"`
 	Item    string `json:"item,omitempty"`
 	Summary string `json:"summary"`
 }
 
-// alertRun runs the notify command for a recorded run that needs the
-// person. Tests never notify.
-func (s *Service) alertRun(ctx context.Context, name, runID string) {
-	st, err := s.store.Load()
-	if err != nil {
-		return
-	}
-	r, ok := st.runByID(runID)
-	if !ok || r.Test {
-		return
-	}
-	outcome := r.Outcome
-	if r.Result.attention() {
-		outcome = NotifyAttention
-	}
-	s.notify(ctx, Notification{Task: r.Task, Outcome: outcome, Run: r.ID, Item: r.Item, Summary: alertSummary(name, outcome, r)})
-}
-
-// alertSummary is the notification text: the task, what happened, and the
-// agent's summary or the run's message.
-func alertSummary(name, outcome string, r RunRecord) string {
+// alertSummary is the notification text: the task, what happened, the
+// run's notices (a push failure, restored protected files, a moved HEAD),
+// and the agent's summary or the run's message.
+func alertSummary(name, outcome string, r RunRecord, notice string) string {
 	phrase := map[string]string{
 		OutcomeFailed:      "failed",
 		OutcomeInterrupted: "was interrupted",
@@ -74,39 +56,30 @@ func alertSummary(name, outcome string, r RunRecord) string {
 	if r.Result != nil && r.Result.Summary != "" {
 		text = r.Result.Summary
 	}
-	if text == "" {
+	if text = joinNotices(notice, text); text == "" {
 		return name + " " + phrase
 	}
 	return name + " " + phrase + ": " + text
 }
 
-// notify runs the person's notify command, if one is set, writes its
-// output to the run's notify.log, and records a failure on the run. It
-// never fails the run.
-func (s *Service) notify(ctx context.Context, n Notification) {
-	ctx = context.WithoutCancel(ctx)
-	if os.Getenv("RZM_TASK_TEST") == "1" {
-		return // a task test's own rzm must not page the person
-	}
-	command, err := s.notifyCommand()
-	if err == nil && len(command) == 0 {
+// writeNotifyLog saves the notify command's output as the run's notify.log,
+// replacing an earlier one. It writes only a new regular file in the real
+// run folder, never through a link an agent left there.
+func (s *Service) writeNotifyLog(runID string, out []byte) {
+	path := s.runFile(runID, notifyLogFile)
+	if len(out) == 0 || path == "" {
 		return
 	}
-	var out []byte
-	if err == nil {
-		out, err = s.runNotify(ctx, command, n)
+	if os.MkdirAll(filepath.Dir(path), 0o700) != nil || realDir(filepath.Dir(path)) != nil {
+		return
 	}
-	if path := s.runFile(n.Run, notifyLogFile); len(out) > 0 && path != "" {
-		if os.MkdirAll(filepath.Dir(path), 0o700) == nil {
-			_ = os.WriteFile(path, out, 0o600)
-		}
-	}
+	_ = os.Remove(path)
+	f, err := openRegular(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		_ = s.store.Update(ctx, func(st *State) error {
-			st.patchRun(n.Run, func(r *RunRecord) { r.NotifyError = err.Error() })
-			return nil
-		})
+		return
 	}
+	_, _ = f.Write(out)
+	_ = f.Close()
 }
 
 // notifyCommand is the person's tasks.notify.command, or nil.
@@ -136,9 +109,9 @@ func (s *Service) runNotify(ctx context.Context, command []string, n Notificatio
 	cmd.Dir = s.opts.Repo.MainCheckout
 	cmd.Env = append(loginpath.WithPath(os.Environ(), s.taskPath()), n.env(s.repository())...)
 	cmd.Stdin = strings.NewReader(n.Summary + "\n")
-	stderr := &cappedBuffer{n: maxNotifyOutput}
+	stderr := &cappedWriter{n: maxNotifyOutput}
 	out, err := procrun.Run(ctx, cmd, stderr, maxNotifyOutput)
-	out = append(out, stderr.Bytes()...)
+	out = append(out, stderr.buf...)
 	switch {
 	case err == nil:
 		return out, nil
@@ -149,15 +122,14 @@ func (s *Service) runNotify(ctx context.Context, command []string, n Notificatio
 	}
 }
 
+// env is the notification's environment. A pass-level alert has no task
+// or run, so those variables are unset.
 func (n Notification) env(repository string) []string {
-	env := []string{
-		"RZM_TASK_ID=" + n.Task,
-		"RZM_TASK_OUTCOME=" + n.Outcome,
-		"RZM_TASK_RUN_ID=" + n.Run,
-		"RZM_TASK_REPOSITORY=" + repository,
-	}
-	if n.Item != "" {
-		env = append(env, "RZM_TASK_ITEM="+n.Item)
+	env := []string{"RZM_TASK_OUTCOME=" + n.Outcome, "RZM_TASK_REPOSITORY=" + repository}
+	for _, kv := range [][2]string{{"RZM_TASK_ID", n.Task}, {"RZM_TASK_RUN_ID", n.Run}, {"RZM_TASK_ITEM", n.Item}} {
+		if kv[1] != "" {
+			env = append(env, kv[0]+"="+kv[1])
+		}
 	}
 	return env
 }
@@ -211,15 +183,17 @@ func (s *State) patchRun(id string, fn func(*RunRecord)) {
 	}
 }
 
-// cappedBuffer keeps the first n bytes written and drops the rest.
-type cappedBuffer struct {
-	bytes.Buffer
-	n int
+// cappedWriter keeps the first n bytes written and drops the rest. It has
+// no ReadFrom, so io.Copy (which os/exec uses for a command's output)
+// cannot bypass the cap.
+type cappedWriter struct {
+	buf []byte
+	n   int
 }
 
-func (c *cappedBuffer) Write(p []byte) (int, error) {
-	if room := c.n - c.Len(); room > 0 {
-		c.Buffer.Write(p[:min(len(p), room)])
+func (c *cappedWriter) Write(p []byte) (int, error) {
+	if room := c.n - len(c.buf); room > 0 {
+		c.buf = append(c.buf, p[:min(len(p), room)]...)
 	}
 	return len(p), nil
 }
