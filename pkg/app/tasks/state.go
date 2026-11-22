@@ -67,7 +67,10 @@ const (
 // the person's clock. A record keeps its own item, branch, and worktree, so
 // an old run never shows a newer attempt's work.
 type RunRecord struct {
-	Test           bool      `json:"test,omitempty"`
+	Test bool `json:"test,omitempty"`
+	// Scheduled is a run a pass started rather than the person; only its
+	// tokens count toward the daily token cap (SPEC-0127 US14).
+	Scheduled      bool      `json:"scheduled,omitempty"`
 	SourceCheckout string    `json:"sourceCheckout,omitempty"`
 	ID             string    `json:"id,omitempty"`
 	Task           string    `json:"task"`
@@ -118,6 +121,9 @@ type State struct {
 	// Tokens is task -> UTC day ("2006-01-02") -> tokens, for 30 days, so
 	// totals survive history trimming.
 	Tokens map[string]map[string]int64 `json:"tokens,omitempty"`
+	// ScheduledTokens is UTC day -> tokens of scheduled runs only, summed
+	// over tasks: the unattended spending the daily token cap limits.
+	ScheduledTokens map[string]int64 `json:"scheduledTokens,omitempty"`
 	// PassError is why the latest run-due pass failed before running tasks.
 	PassError *PassError `json:"passError,omitempty"`
 	// Fetch is the latest fetch of the primary ref's remote.
@@ -217,6 +223,12 @@ func (s *State) Record(r RunRecord) {
 	if r.Tokens > 0 {
 		s.addTokens(r.Task, r.At, r.Tokens)
 	}
+	if r.Scheduled && r.Tokens > 0 {
+		if s.ScheduledTokens == nil {
+			s.ScheduledTokens = map[string]int64{}
+		}
+		s.ScheduledTokens[tokenDay(r.At)] += r.Tokens
+	}
 }
 
 const tokenDays = 30
@@ -250,6 +262,11 @@ func (s *State) seedTokens() {
 // trimTokens drops day buckets older than 30 days.
 func (s *State) trimTokens(now time.Time) {
 	cutoff := tokenCutoff(now)
+	for day := range s.ScheduledTokens {
+		if day < cutoff {
+			delete(s.ScheduledTokens, day)
+		}
+	}
 	for task, days := range s.Tokens {
 		for day := range days {
 			if day < cutoff {

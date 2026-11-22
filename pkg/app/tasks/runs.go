@@ -82,6 +82,8 @@ type attempt struct {
 	missing []string
 	// slot is the scheduled slot the run is for; "" means its own ID.
 	slot string
+	// scheduled is a run a pass started, not the person.
+	scheduled bool
 	// result is what the agent reported in its result file.
 	result *RunResult
 }
@@ -108,7 +110,7 @@ func testSource(a attempt) string {
 }
 
 func (a attempt) record(task, outcome string, at time.Time) RunRecord {
-	return RunRecord{ID: a.id, Task: task, StartedAt: a.started, At: at, Outcome: outcome, Test: a.draft, SourceCheckout: testSource(a), Missing: a.missing, Result: a.result}
+	return RunRecord{ID: a.id, Task: task, StartedAt: a.started, At: at, Outcome: outcome, Test: a.draft, Scheduled: a.scheduled, SourceCheckout: testSource(a), Missing: a.missing, Result: a.result}
 }
 
 // checkLog writes a check's stderr to its run folder, creating the file on

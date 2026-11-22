@@ -232,7 +232,7 @@ func TestTokenCapSkipsAgentWorkButNotTheCheck(t *testing.T) {
 	f.writeConfig(t, 100)
 	today := tokenDay(time.Now())
 	require.NoError(t, f.svc.Store().Update(ctx, func(st *State) error {
-		st.Tokens = map[string]map[string]int64{"other": {today: 60}, "older": {today: 40}}
+		st.ScheduledTokens = map[string]int64{today: 100}
 		return nil
 	}))
 

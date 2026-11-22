@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -74,4 +75,39 @@ func TestCancelledHostPassDeliversNothing(t *testing.T) {
 	st := mustState(t, f.svc)
 	require.Len(t, st.PendingAlerts, 1, "the alert waits for the next process")
 	require.Nil(t, st.PassError, "a stop is not a failed pass")
+}
+
+// The daily cap guards unattended spending: tokens from the person's own Run
+// show in totals but do not count toward it.
+func TestTokenCapCountsScheduledRunsOnly(t *testing.T) {
+	agent := &fakeAgent{run: func(req AgentRequest) (AgentResult, error) {
+		return AgentResult{Message: "done", Tokens: 150}, nil
+	}}
+	f := newNotifyFixture(t, map[string]string{"a.yml": "name: A\nevery: 1h\nprompt: p\n"}, agent, "")
+	now := time.Date(2026, 11, 23, 5, 0, 0, 0, time.UTC)
+	f.svc.opts.Now = func() time.Time { return now }
+	ctx := context.Background()
+	f.writeConfig(t, 100)
+	require.NoError(t, f.svc.SetMode(ctx, "a", "notify"))
+	_, err := f.svc.RunDue(ctx)
+	require.NoError(t, err)
+	it := activeItem(t, f.svc, "a")
+	require.NotNil(t, it)
+	_, err = f.svc.Run(ctx, it.ID)
+	require.NoError(t, err)
+
+	st := mustState(t, f.svc)
+	require.Equal(t, int64(150), st.TokensLast30Days("a", now), "a manual run still shows in totals")
+	report, err := f.svc.Status(ctx)
+	require.NoError(t, err)
+	require.Equal(t, &TokenCap{Cap: 100, Used: 0, Day: tokenDay(now), Reached: false}, report.TokenCap)
+
+	now = now.Add(2 * time.Hour)
+	require.NoError(t, f.svc.SetMode(ctx, "a", "auto"))
+	_, err = f.svc.RunDue(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 2, agent.calls(), "the scheduled run was not capped by manual tokens")
+	report, err = f.svc.Status(ctx)
+	require.NoError(t, err)
+	require.Equal(t, &TokenCap{Cap: 100, Used: 150, Day: tokenDay(now), Reached: true}, report.TokenCap)
 }

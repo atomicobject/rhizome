@@ -282,7 +282,7 @@ func (s *Service) lastTagged(ctx context.Context, ref string, defs []Definition)
 // runTask runs one due task's check, then notifies or does the work.
 func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, commit string) Outcome {
 	a := s.newAttempt(false)
-	a.slot = s.slotOf(def, s.opts.Now())
+	a.slot, a.scheduled = s.slotOf(def, s.opts.Now()), true
 	base := a.record(def.ID, "", time.Time{})
 	base.Commit = commit
 	if err := s.begin(ctx, a, base, nil); err != nil {

@@ -23,21 +23,8 @@ func todayTokens(st *State, limit int64, now time.Time) *TokenCap {
 		return nil
 	}
 	day := tokenDay(now)
-	used := st.tokensOn(day)
+	used := st.ScheduledTokens[day]
 	return &TokenCap{Cap: limit, Used: used, Day: day, Reached: used >= limit}
-}
-
-// tokensOn sums every task's tokens for one UTC day.
-func (s *State) tokensOn(day string) int64 {
-	st := *s
-	if st.Tokens == nil {
-		st.seedTokens()
-	}
-	var total int64
-	for _, days := range st.Tokens {
-		total += days[day]
-	}
-	return total
 }
 
 // capBlocks reports whether a reached cap stops this task's scheduled

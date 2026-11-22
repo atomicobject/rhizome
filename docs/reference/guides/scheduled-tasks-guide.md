@@ -152,7 +152,7 @@ tasks:
 
 A task's `harness`, `model`, and `effort` override your chat agent settings for that task only.
 
-`dailyTokenCap` stops new scheduled agent work in the repository once its scheduled runs have used that many tokens today. Today is the UTC day Rhizome stores token totals in, so the cap resets at 00:00 UTC. Checks still run, since they cost nothing; a task that needs agent work records a skipped run and waits for its next slot or cadence. The first stop each day runs your notify command once. The cap is checked before a run starts, so one run can finish past it. Notify-mode items, tests, and runs you start yourself with **Run** or `rzm tasks run` are not capped.
+`dailyTokenCap` stops new scheduled agent work in the repository once its scheduled runs have used that many tokens today. Today is the UTC day Rhizome stores token totals in, so the cap resets at 00:00 UTC. Checks still run, since they cost nothing; a task that needs agent work records a skipped run and waits for its next slot or cadence. The first stop each day runs your notify command once. The cap is checked before a run starts, so one run can finish past it. Notify-mode items, tests, and runs you start yourself with **Run** or `rzm tasks run` are not capped, and their tokens do not count toward the cap, though they still show in each task's token use in `rzm tasks status`.
 
 ## When tasks run
 
