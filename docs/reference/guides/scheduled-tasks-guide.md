@@ -64,6 +64,23 @@ For a test, `RZM_TASK_COMMIT` names the source snapshot and `RZM_TASK_DATA_DIR` 
 
 Rhizome does not meter or cap what a task spends. Use the check so the prompt runs only when there is work, and keep the prompt efficient. `rzm tasks status` shows each task's recent token use; a task that costs too much should be fixed or turned off.
 
+### What a task needs
+
+A task can name the commands and MCP servers it needs, and the tools its agent must not use:
+
+```yaml
+requires:
+  commands: [gh, jq]                  # on your login shell's PATH
+  mcp: [claude.ai Linear]             # configured and usable in your harness
+deny: [WebFetch, "Bash(git push:*)"]  # tools the harness refuses during the prompt
+```
+
+Rhizome checks every requirement before the run's check or prompt, so a missing one costs no tokens. The run fails, and its inbox item needs attention naming what is missing, when a command is not on your login shell's `PATH`, when your harness does not list an MCP server, or when it lists one as unusable: in Claude Code anything but connected, such as needs authentication or failed to connect; in Codex disabled or not logged in. `requires.commands` takes command names, not paths, and `rzm` always resolves to the binary running the task. Name MCP servers as `claude mcp list` or `codex mcp list` prints them. Checking `requires.mcp` runs that command, and `claude mcp list` connects to every server to check it, which takes a few seconds.
+
+Background runs and tests load your own MCP configuration: in Claude Code your user, project, plugin, and claude.ai connector servers; in Codex the servers in `~/.codex/config.toml`. Agent chat keeps its own fixed set.
+
+`deny` passes its names to Claude Code as disallowed tools, in the syntax of Claude Code's `--disallowedTools`. Codex cannot refuse a named tool, so under Codex a task with `deny` fails before it runs; use Claude Code for that task or remove `deny`. `requires.mcp` and `deny` apply to the prompt, so a task without one cannot declare them.
+
 ## Choose how tasks run
 
 Each task runs in one of three modes:
@@ -89,6 +106,17 @@ Tasks run only in a trusted repository. Rhizome Desktop trusts a repository when
 While Rhizome Desktop or any headless `rzm` runtime is up for a vault inside a Git checkout, it starts `rzm tasks run-due` every 15 minutes. You can also run `rzm tasks run-due` yourself. Each due task runs once per person and repository, however many worktrees or runtimes are open. A task missed while Rhizome was closed runs once at the next pass. To run a task without waiting for a pass, choose **Run now** on its page or run `rzm tasks run --task <task>`. Its check runs first, and the work starts only if the check finds some. A task with an open inbox item runs from that item instead.
 
 A `person` task is due when your own last run is older than its cadence. A `team` task also counts teammates: when a commit tagged `Rhizome-Task: <id>` reaches the primary branch, everyone's clock resets. Squash merges keep the tag when the repository squashes with commit messages. They drop it when it squashes with the pull request title alone.
+
+## Check what tasks need
+
+`rzm tasks doctor [task]` reports whether this machine can run every task, or one, and exits 1 when a check fails; add `--json` for scripts. It changes nothing. It checks:
+
+- repository trust;
+- the primary branch and when the repository last fetched it;
+- `git push --dry-run` to the primary branch's remote, when your push setting is on;
+- Obsidian Git in the host checkout: a timed auto commit-and-sync (`autoSaveInterval`) or auto pull (`autoPullInterval`) moves HEAD under an in-place run;
+- each `requires.commands` entry on your login shell's `PATH`;
+- for a task with a prompt: whether your harness is installed and signed in, whether it can enforce `deny`, and each `requires.mcp` server's status as the harness lists it. Claude Code connects to each server; Codex reports only whether a server is enabled and signed in.
 
 ## Background runs
 

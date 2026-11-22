@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Scheduled tasks can declare `requires` (commands and MCP servers) and `deny` (tools the agent must not use). A missing requirement fails the run before its check or prompt spends anything, task runs load your own MCP servers in Claude Code and Codex, and `rzm tasks doctor` reports what each task needs on this machine.
+
 ## [v0.54.0] - 2026-11-20
 
 - File path selectors and explicit note references follow the vault filesystem's casing behavior. AO KB setup now accepts `mocs` when its schema selects `MOCs`, while returned paths keep their actual spelling and sensitive filesystems retain distinct files.
