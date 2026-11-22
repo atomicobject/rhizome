@@ -145,6 +145,8 @@ Not yet delivered.
 
 - 2026-11-22T17:05:00Z, routine resolution within the approved plan: `land` defaults to `in-place` only when a task declares `writes`, and to `pr` (today's local worktree branch, no push unless allowed) otherwise. In-place requires `writes`, so a literal in-place default would make every existing task file, including the shipped `compounding/mine`, invalid. SPEC-0127 US12 states the rule.
 
+- 2026-11-22T18:40:00Z, routine resolution within the approved plan (phase 2 data-safety review): in-place landing no longer shells out to `git merge --ff-only`, `git commit --only`, or `git pull --rebase`, which can autostash, run hooks, overwrite ignored files, commit a folder swap over staged work, land on a branch switched to midway, or rewrite a person's commit. It fast-forwards with `read-tree` and commits with `commit-tree`, moving the branch under a `git update-ref` transaction that locks HEAD and the branch; on divergence it remakes its single commit on the fetched upstream. Pushes check the push destination's own ref, push only commits Rhizome landed, and carry a lease on that ref. Approval accepts only the landing the notice described. US12 and US13 now state these behaviours; each situation Rhizome cannot handle safely skips with one notice.
+
 ## Closure Checklist
 
 - [ ] Required quality gates pass.
