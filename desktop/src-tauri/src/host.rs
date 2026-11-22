@@ -28,7 +28,7 @@ mod notices;
 mod release;
 
 pub use api::{Api, HostStatus};
-pub use release::{drain_all, release_all, stop_runs, terminate, wait_idle, Busy};
+pub use release::{drain_all, freeze, release_all, stop_runs, terminate, wait_idle, Busy};
 
 /// How often the loop lists hosted repositories when nothing wakes it.
 const SYNC: Duration = Duration::from_secs(30);

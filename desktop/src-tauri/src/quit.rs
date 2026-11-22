@@ -111,6 +111,8 @@ pub fn quit_completely(app: &AppHandle) {
         }
         let first = !WAITING.swap(true, Ordering::SeqCst);
         crate::tray::refresh(&app);
+        // No runtime joins the host while quitting, so the drain sees them all.
+        host::freeze(&app).await;
         let busy = host::drain_all(&app).await;
         let started = host::Busy::describe(&busy);
         let stop = match choice {

@@ -107,3 +107,17 @@ fn waiting_lasts_until_the_drain_reports_no_work() {
     block_on(wait_idle(&busy));
     assert_eq!(seen.iter().take(3).count(), 3, "drained until idle");
 }
+
+#[test]
+fn waiting_does_not_treat_a_failed_answer_as_idle() {
+    // The runtime answers once that a run is going, then stops answering.
+    let (api, seen) = runtime(&[RUNNING]);
+    let busy = block_on(drain(vec![("notes".into(), api)]));
+    let started = std::time::Instant::now();
+    block_on(wait_idle_up_to(&busy, 3));
+    assert!(
+        started.elapsed() >= POLL * 2,
+        "kept asking after failed answers instead of quitting at once"
+    );
+    assert_eq!(seen.iter().count(), 1, "only the first drain was answered");
+}

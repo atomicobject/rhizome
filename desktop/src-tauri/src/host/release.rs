@@ -15,6 +15,9 @@ use tauri::{AppHandle, Manager};
 const REQUEST: Duration = Duration::from_secs(10);
 /// How often Quit Completely asks whether the run it waits for has ended.
 const POLL: Duration = Duration::from_secs(1);
+/// Failed drain answers in a row after which waiting gives up on a runtime,
+/// asks it once more to stop its run, and moves on.
+const WAIT_FAILURES: u32 = 30;
 /// The exit path drains and stops runs within this, all hosts together.
 const EXIT_BUDGET: Duration = Duration::from_secs(3);
 
@@ -39,6 +42,15 @@ impl Busy {
             })
             .collect()
     }
+}
+
+/// Stops the host loop from opening or reconnecting runtimes, and waits for
+/// an open already in flight, so the drain that follows covers every runtime
+/// the app will hold. Quit Completely calls it once it is committed to quit.
+pub async fn freeze(app: &AppHandle) {
+    let host = app.state::<Host>();
+    host.closing.store(true, Ordering::SeqCst);
+    drop(host.syncing.lock().await);
 }
 
 /// Drains every held runtime, so no new run starts, and returns those whose
@@ -76,11 +88,29 @@ pub async fn stop_runs(busy: &[Busy]) {
     }
 }
 
-/// Waits until no busy runtime's drain reports work. A runtime that stops
-/// answering has nothing left to wait for.
+/// Waits until no busy runtime's drain reports work. A failed answer is not
+/// an idle one: the runtime may be briefly unresponsive while its task runs.
+/// After [`WAIT_FAILURES`] failures in a row, it asks the runtime once more
+/// to stop the run and moves on.
 pub async fn wait_idle(busy: &[Busy]) {
-    for b in busy.iter().filter(|b| b.running.is_some()) {
-        while let Ok(Some(_)) = b.api.drain(REQUEST).await {
+    wait_idle_up_to(busy, WAIT_FAILURES).await
+}
+
+async fn wait_idle_up_to(busy: &[Busy], failures: u32) {
+    for b in busy {
+        let mut failed = 0;
+        loop {
+            match b.api.drain(REQUEST).await {
+                Ok(None) => break,
+                Ok(Some(_)) => failed = 0,
+                Err(_) => {
+                    failed += 1;
+                    if failed >= failures {
+                        let _ = b.api.stop_run(REQUEST).await;
+                        break;
+                    }
+                }
+            }
             tokio::time::sleep(POLL).await;
         }
     }
