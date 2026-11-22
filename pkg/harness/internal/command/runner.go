@@ -78,20 +78,27 @@ func (r OSRunner) Run(ctx context.Context, spec Spec) (Result, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	corr := processlog.CorrelationID()
+	// The tree is known only after Start, but Cancel must be set before it;
+	// Cancel reads the tree through this pointer.
+	var tree atomic.Pointer[proctree.Tracker]
 	if spec.KillTree {
 		proctree.Configure(cmd)
+		cmd.Cancel = func() error {
+			interrupted.Store(true)
+			if t := tree.Load(); t != nil {
+				return t.Kill()
+			}
+			return cmd.Process.Kill()
+		}
 	}
 	if err := cmd.Start(); err != nil {
 		return Result{}, err
 	}
 	processlog.Spawn(r.Label, spec.Path, spec.Dir, corr, cmd.Process.Pid)
 	if spec.KillTree {
-		tree := proctree.Track(cmd.Process, proctree.DefaultInterval)
-		defer func() { tree.Stop(); _ = tree.Kill() }()
-		cmd.Cancel = func() error {
-			interrupted.Store(true)
-			return tree.Kill()
-		}
+		t := proctree.Track(cmd.Process, proctree.DefaultInterval)
+		tree.Store(t)
+		defer func() { t.Stop(); _ = t.Kill() }()
 	}
 	err := cmd.Wait()
 	processlog.Exit(r.Label, corr, cmd.Process.Pid, cmd.ProcessState, err)
