@@ -164,10 +164,10 @@ A `person` task is due when your own last run is older than its cadence. A `team
 
 - repository trust;
 - the primary branch and when the repository last fetched it;
-- `git push --dry-run` to the primary branch's remote, when your push setting is on;
+- `git push --dry-run` to the primary branch's remote, when your push setting is on, with the repository's hooks turned off; in an untrusted repository it is skipped, because a push runs commands the repository configures;
 - Obsidian Git in the host checkout: a timed auto commit-and-sync (`autoSaveInterval`) or auto pull (`autoPullInterval`) moves HEAD under an in-place run;
 - each `requires.commands` entry on your login shell's `PATH`;
-- for a task with a prompt: whether your harness is installed and signed in, whether it can enforce `deny`, and each `requires.mcp` server's status as the harness lists it. Claude Code connects to each server; Codex reports only whether a server is enabled and signed in.
+- for a task with a prompt: whether your harness is installed and signed in, whether it can enforce `deny`, and each `requires.mcp` server's status as the harness lists it. Claude Code connects to each server. Codex does not start its servers to list them, so doctor reports a Codex server as configured (Codex does not report connection status), or as disabled or not logged in; a configured server can still fail to connect when the task runs.
 
 ## Background runs
 

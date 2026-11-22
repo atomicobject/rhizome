@@ -92,6 +92,10 @@ func mcpState(kind harness.Kind, name string, servers []harness.MCPServerState) 
 	if i < 0 {
 		return false, fmt.Sprintf("MCP server %q is not configured for %s", name, kind)
 	}
+	if kind == harness.KindCodex && servers[i].Usable {
+		// `codex mcp list` reads configuration and starts nothing.
+		return true, fmt.Sprintf("MCP server %q for codex is configured (Codex does not report connection status)", name)
+	}
 	return servers[i].Usable, fmt.Sprintf("MCP server %q for %s reports %q", name, kind, servers[i].Status)
 }
 
