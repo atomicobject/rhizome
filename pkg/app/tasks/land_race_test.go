@@ -102,3 +102,24 @@ func TestInPlaceKeepsAFileStagedWhileItCommits(t *testing.T) {
 		t.Fatalf("the index lock must be released: %v", err)
 	}
 }
+
+func TestInPlacePushNeverRepublishesARewoundRemote(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	base := run(t, f.remote, "rev-parse", "main")
+	f.push("other/p.md", "published, then rewound\n")
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	rewound := false
+	f.onStep("push-checked", func() {
+		if !rewound {
+			rewound = true
+			run(t, f.remote, "update-ref", "refs/heads/main", base)
+		}
+	})
+	o := f.pass()
+	if got := run(t, f.remote, "rev-parse", "main"); got != base {
+		t.Fatalf("a remote rewound after the check must not get the rewound commit back: main is %s, not %s (%+v)", got, base, o)
+	}
+	if o.Outcome != OutcomeLanded || !strings.Contains(o.Reason, "not Rhizome's task commits") {
+		t.Fatalf("%+v", o)
+	}
+}
