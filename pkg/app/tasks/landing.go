@@ -3,7 +3,6 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -185,11 +184,4 @@ func (s *Service) slotDone(ctx context.Context, def Definition, slot, landed, co
 		return nil
 	})
 	return Outcome{Task: def.ID, Outcome: OutcomeSkipped, Reason: reason}
-}
-
-// ownsWorktree reports whether Rhizome made dir under the state folder;
-// cleanup never removes anything else, such as the open checkout.
-func (s *Service) ownsWorktree(dir string) bool {
-	rel, err := filepath.Rel(s.stateDir, dir)
-	return err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }

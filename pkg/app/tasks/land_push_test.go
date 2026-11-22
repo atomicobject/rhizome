@@ -2,12 +2,14 @@ package tasks
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
@@ -152,5 +154,40 @@ func TestApproveAcceptsOnlyTheLandingTheNoticeShowed(t *testing.T) {
 	}
 	if got := mustState(t, f.svc).Landings["tend"]; !slices.Contains(got.Writes, "**") {
 		t.Fatalf("%+v", got)
+	}
+}
+
+func TestDiscardNeverRemovesTheHostCheckout(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n")
+	f.svc = f.service(repoconfig.LocalTasksConfig{PrimaryRef: "origin/main", DefaultMode: "auto"}, false)
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	if o := f.pass(); o.Outcome != OutcomeReady {
+		t.Fatalf("%+v", o)
+	}
+	it := taskItems(mustState(t, f.svc), "tend")[0]
+	// The person makes the run's worktree the checkout tasks run in.
+	f.svc.opts.Env = vaultconfig.Env{CLIConfigFile: filepath.Join(t.TempDir(), "config.yml")}
+	if err := f.svc.SetHostCheckout(context.Background(), it.Worktree); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(it.Worktree, "notes/mine.md"), "the person's work\n")
+	if err := f.svc.Discard(context.Background(), it.ID); err == nil || !strings.Contains(err.Error(), "holds the checkout") {
+		t.Fatalf("Discard must refuse the host checkout, got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(it.Worktree, "notes/mine.md")); err != nil {
+		t.Fatalf("the host checkout must survive: %v", err)
+	}
+
+	// A worktree the person switched to their own branch is theirs too.
+	if err := f.svc.SetHostCheckout(context.Background(), ""); err != nil {
+		t.Fatal(err)
+	}
+	run(t, it.Worktree, "switch", "--quiet", "-c", "mine")
+	if err := f.svc.Discard(context.Background(), it.ID); err == nil || !strings.Contains(err.Error(), "is on mine") {
+		t.Fatalf("Discard must refuse a worktree on another branch, got %v", err)
+	}
+	run(t, it.Worktree, "switch", "--quiet", it.Branch)
+	if err := f.svc.Discard(context.Background(), it.ID); err != nil {
+		t.Fatalf("Discard removes the run's own worktree: %v", err)
 	}
 }

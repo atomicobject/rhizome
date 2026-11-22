@@ -217,17 +217,16 @@ func (s *Service) freeBranch(ctx context.Context, def Definition) (string, error
 }
 
 // removeWorktree removes a run's worktree and local branch. Ones already
-// gone are not errors. It refuses anything Rhizome did not make: a folder
-// outside the state folder, such as the open checkout, or a branch outside
-// rzm/.
+// gone are not errors. It refuses anything Rhizome did not make (see
+// removable) and a branch outside rzm/.
 func (s *Service) removeWorktree(ctx context.Context, branch, dir string) error {
-	if dir != "" && !s.ownsWorktree(dir) {
-		return fmt.Errorf("%s is not a worktree Rhizome made, so it was left alone", dir)
-	}
 	if branch != "" && !strings.HasPrefix(branch, "rzm/") {
 		return fmt.Errorf("%s is not a branch Rhizome made, so it was left alone", branch)
 	}
 	if dir != "" {
+		if err := s.removable(ctx, branch, dir); err != nil {
+			return err
+		}
 		if _, err := os.Stat(dir); err == nil {
 			if _, err := s.opts.Repo.git(ctx, "worktree", "remove", "--force", dir); err != nil {
 				return err
@@ -244,6 +243,70 @@ func (s *Service) removeWorktree(ctx context.Context, branch, dir string) error 
 		}
 	}
 	return nil
+}
+
+// removable refuses to remove dir unless it is a run or test worktree
+// folder under the state folder, is not and does not hold the main
+// checkout, the host checkout, or the selected checkout, and, when it
+// exists, Git lists it as a linked worktree on the run's branch (a test
+// worktree may be on any). The open checkout and a worktree the person
+// took over are never removed.
+func (s *Service) removable(ctx context.Context, branch, dir string) error {
+	dir = filepath.Clean(dir)
+	refused := func(why string) error {
+		return fmt.Errorf("%s %s, so it was left alone", dir, why)
+	}
+	if parent := filepath.Dir(dir); parent != filepath.Join(s.stateDir, "worktrees") && parent != filepath.Join(s.stateDir, "tests") {
+		return refused("is not a worktree Rhizome made")
+	}
+	for _, keep := range []string{s.opts.Repo.MainCheckout, s.hostCheckout(), s.opts.Checkout} {
+		if keep != "" && holds(dir, keep) {
+			return refused("is or holds the checkout " + keep)
+		}
+	}
+	if _, err := os.Stat(dir); err != nil {
+		return nil
+	}
+	out, err := s.opts.Repo.git(ctx, "worktree", "list", "--porcelain")
+	if err != nil {
+		return err
+	}
+	for i, entry := range strings.Split(out, "\n\n") {
+		lines := strings.Split(entry, "\n")
+		path, ok := strings.CutPrefix(lines[0], "worktree ")
+		if !ok || !samePath(path, dir) {
+			continue
+		}
+		on := "detached"
+		for _, line := range lines[1:] {
+			if b, ok := strings.CutPrefix(line, "branch "); ok {
+				on = b
+			}
+		}
+		switch {
+		case i == 0:
+			return refused("is the main worktree")
+		case branch != "" && on != "refs/heads/"+branch:
+			return refused("is on " + strings.TrimPrefix(on, "refs/heads/") + ", not the run's branch " + branch)
+		}
+		return nil
+	}
+	return refused("is not a Git worktree of this repository")
+}
+
+// holds reports whether path is dir or inside it.
+func holds(dir, path string) bool {
+	rel, err := filepath.Rel(resolved(dir), resolved(path))
+	return err == nil && (rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))))
+}
+
+func samePath(a, b string) bool { return resolved(a) == resolved(b) }
+
+func resolved(path string) string {
+	if r, err := filepath.EvalSymlinks(path); err == nil {
+		return r
+	}
+	return filepath.Clean(path)
 }
 
 // commitWork commits every change in dir with the work's message and the
