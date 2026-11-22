@@ -161,7 +161,11 @@ func TestStopHelper(t *testing.T) {
 	if err := child.Start(); err != nil {
 		os.Exit(3)
 	}
-	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(child.Process.Pid)), 0o600); err != nil {
+	// Write then rename, so the test never reads the file half written.
+	if err := os.WriteFile(pidFile+".tmp", []byte(strconv.Itoa(child.Process.Pid)), 0o600); err != nil {
+		os.Exit(2)
+	}
+	if err := os.Rename(pidFile+".tmp", pidFile); err != nil {
 		os.Exit(4)
 	}
 	<-terminated
