@@ -97,6 +97,14 @@ func (s *Service) noHooks(a attempt) (string, error) {
 	return "core.hooksPath=" + hooks, nil
 }
 
+// passNoHooks is noHooks for Git commands a pass runs outside any one run,
+// such as its fetch and the check checkout.
+func (s *Service) passNoHooks() string {
+	hooks := filepath.Join(s.stateDir, "no-hooks")
+	_ = os.MkdirAll(hooks, 0o700)
+	return "core.hooksPath=" + hooks
+}
+
 // captureTree writes the checkout's effective working-tree contents as a
 // Git tree through a private copy of its index, so the author's index,
 // HEAD, and working tree never change. The runner's state folder is left

@@ -173,16 +173,17 @@ func runBounded(ctx context.Context, cmd *exec.Cmd, log io.Writer) ([]byte, erro
 // and cleaning it, and creates it the first time.
 func (s *Service) prepareCheckout(ctx context.Context, commit string) (string, error) {
 	dir := filepath.Join(s.stateDir, "checkout")
+	noHooks := s.passNoHooks()
 	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
-		if _, err := gitOutput(ctx, dir, "checkout", "--quiet", "--detach", "--force", commit); err == nil {
-			if _, err := gitOutput(ctx, dir, "clean", "-ffdxq"); err == nil {
+		if _, err := gitOutput(ctx, dir, "-c", noHooks, "checkout", "--quiet", "--detach", "--force", commit); err == nil {
+			if _, err := gitOutput(ctx, dir, "-c", noHooks, "clean", "-ffdxq"); err == nil {
 				return dir, nil
 			}
 		}
 	}
 	_ = os.RemoveAll(dir)
 	_, _ = s.opts.Repo.git(ctx, "worktree", "prune")
-	if _, err := s.opts.Repo.git(ctx, "worktree", "add", "--quiet", "--detach", "--force", dir, commit); err != nil {
+	if _, err := s.opts.Repo.git(ctx, "-c", noHooks, "worktree", "add", "--quiet", "--detach", "--force", dir, commit); err != nil {
 		return "", err
 	}
 	return dir, nil

@@ -191,3 +191,29 @@ func TestDiscardNeverRemovesTheHostCheckout(t *testing.T) {
 		t.Fatalf("Discard removes the run's own worktree: %v", err)
 	}
 }
+
+func TestLandingsRunNoRepositoryHooks(t *testing.T) {
+	saved := openPullRequest
+	t.Cleanup(func() { openPullRequest = saved })
+	openPullRequest = func(context.Context, string, string, string, string, string) (string, error) {
+		return "https://example.test/pull/1", nil
+	}
+	for _, task := range []string{inPlaceTask, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n"} {
+		f := newLandFixture(t, task)
+		marker := filepath.Join(t.TempDir(), "hook-ran")
+		for _, hook := range []string{"post-checkout", "pre-commit", "commit-msg", "post-commit", "post-index-change", "reference-transaction", "pre-push"} {
+			path := filepath.Join(f.host, ".git", "hooks", hook)
+			writeFile(t, path, "#!/bin/sh\necho "+hook+" >> "+marker+"\n")
+			if err := os.Chmod(path, 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+		if o := f.pass(); o.Outcome != OutcomeLanded && o.Outcome != OutcomeReady {
+			t.Fatalf("%+v", o)
+		}
+		if ran, err := os.ReadFile(marker); err == nil {
+			t.Fatalf("hooks ran for %q: %s", strings.SplitN(task, "\n", 4)[2], ran)
+		}
+	}
+}

@@ -102,7 +102,7 @@ func (s *Service) fetchPrimary(ctx context.Context, ref string) {
 	}
 	fetchCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
-	_, err = s.opts.Repo.git(fetchCtx, "fetch", "--quiet", "--no-tags", name, "+refs/heads/"+branch+":"+full)
+	_, err = s.opts.Repo.git(fetchCtx, "-c", s.passNoHooks(), "fetch", "--quiet", "--no-tags", name, "+refs/heads/"+branch+":"+full)
 	status := &FetchStatus{At: s.opts.Now()}
 	if err != nil {
 		status.Error = redactURLCredentials(err.Error())

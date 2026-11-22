@@ -1,12 +1,10 @@
 package tasks
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -48,7 +46,11 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	if s.opts.Agent == nil {
 		return s.fail(ctx, def, a, itemID, commit, "no agent harness is available to run the prompt", 0)
 	}
-	branch, dir, err := s.createWorktree(ctx, def, commit)
+	noHooks, err := s.noHooks(a)
+	if err != nil {
+		return s.fail(ctx, def, a, itemID, commit, err.Error(), 0)
+	}
+	branch, dir, err := s.createWorktree(ctx, def, commit, noHooks)
 	if err != nil {
 		return s.fail(ctx, def, a, itemID, commit, "create worktree: "+err.Error(), 0)
 	}
@@ -100,7 +102,7 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	if len(message) > maxMessage {
 		message = message[:maxMessage]
 	}
-	changed, committed, err := commitWork(ctx, def, dir, commit, message)
+	changed, committed, err := commitWork(ctx, def, dir, commit, message, noHooks)
 	if err != nil {
 		return s.fail(ctx, def, a, itemID, commit, fmt.Sprintf("commit: %v (worktree kept at %s)", err, dir), res.Tokens)
 	}
@@ -177,8 +179,9 @@ func writeLocations(b *strings.Builder, loc Locations, check CheckResult) {
 }
 
 // createWorktree makes the branch rzm/<task>/<date>, suffixed when taken,
-// and a worktree for it under the state folder.
-func (s *Service) createWorktree(ctx context.Context, def Definition, commit string) (branch, dir string, err error) {
+// and a worktree for it under the state folder, running no repository
+// hooks.
+func (s *Service) createWorktree(ctx context.Context, def Definition, commit, noHooks string) (branch, dir string, err error) {
 	branch, err = s.freeBranch(ctx, def)
 	if err != nil {
 		return "", "", err
@@ -187,7 +190,7 @@ func (s *Service) createWorktree(ctx context.Context, def Definition, commit str
 	if err := os.MkdirAll(filepath.Dir(dir), 0o700); err != nil {
 		return "", "", err
 	}
-	if _, err := s.opts.Repo.git(ctx, "worktree", "add", "--quiet", "-b", branch, dir, commit); err != nil {
+	if _, err := s.opts.Repo.git(ctx, "-c", noHooks, "worktree", "add", "--quiet", "-b", branch, dir, commit); err != nil {
 		return "", "", err
 	}
 	return branch, dir, nil
@@ -313,12 +316,12 @@ func resolved(path string) string {
 // task tag. When the work committed everything itself, an empty commit
 // carries the tag. It returns the files changed since base, and whether
 // there was anything to keep: changes, or commits the work made even if
-// they cancel out.
-func commitWork(ctx context.Context, def Definition, dir, base, message string) ([]string, bool, error) {
-	if _, err := gitOutput(ctx, dir, "add", "-A"); err != nil {
+// they cancel out. Repository hooks do not run.
+func commitWork(ctx context.Context, def Definition, dir, base, message, noHooks string) ([]string, bool, error) {
+	if _, err := gitOutput(ctx, dir, "-c", noHooks, "add", "-A"); err != nil {
 		return nil, false, err
 	}
-	status, err := gitOutput(ctx, dir, "status", "--porcelain")
+	status, err := gitOutput(ctx, dir, "-c", noHooks, "status", "--porcelain")
 	if err != nil {
 		return nil, false, err
 	}
@@ -333,11 +336,11 @@ func commitWork(ctx context.Context, def Definition, dir, base, message string) 
 		message = "The task's agent left no message."
 	}
 	body := fmt.Sprintf("chore(tasks): %s\n\n%s\n\n%s\n", truncate(def.Name, 60), message, def.Tag())
-	args := []string{"commit", "--quiet", "-F", "-"}
+	args := []string{"-c", noHooks, "commit", "--quiet", "--no-verify", "-F", "-"}
 	if status == "" {
 		args = append(args, "--allow-empty")
 	}
-	if err := gitWithInput(ctx, dir, body, args...); err != nil {
+	if _, err := gitBytesInput(ctx, dir, nil, []byte(body), args...); err != nil {
 		return nil, false, err
 	}
 	out, err := gitOutput(ctx, dir, "diff", "--name-only", base, "HEAD")
@@ -348,19 +351,6 @@ func commitWork(ctx context.Context, def Definition, dir, base, message string) 
 		return []string{}, true, nil
 	}
 	return strings.Split(out, "\n"), true, nil
-}
-
-func gitWithInput(ctx context.Context, dir, input string, args ...string) error {
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
-	cmd.Stdin = strings.NewReader(input)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("git %s: %v: %s", args[0], err, strings.TrimSpace(stderr.String()))
-	}
-	return nil
 }
 
 func firstLine(s string) string {
