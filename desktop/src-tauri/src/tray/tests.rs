@@ -48,6 +48,20 @@ fn says_when_the_next_task_runs_in_local_time() {
 }
 
 #[test]
+fn a_failed_pass_names_no_task() {
+    let status = HostStatus {
+        run_here: true,
+        last_failure: Some(LastFailure {
+            message: "this repository is not trusted".into(),
+            ..LastFailure::default()
+        }),
+        ..HostStatus::default()
+    };
+    let model = model(&[view("notes", Some(status))], None, true, false, now());
+    assert!(texts(&model).contains(&"Last failure: this repository is not trusted".into()));
+}
+
+#[test]
 fn each_repository_shows_its_next_task_running_task_inbox_and_last_failure() {
     let busy = HostStatus {
         run_here: true,

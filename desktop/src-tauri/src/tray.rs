@@ -120,10 +120,12 @@ pub fn model(
             n => model.entries.push(text(format!("{n} items need you"))),
         }
         if let Some(failure) = &status.last_failure {
-            let task = label(&failure.name, &failure.task);
-            model
-                .entries
-                .push(text(format!("Last failure: {task}: {}", failure.message)));
+            // A failed run-due pass (such as an untrusted repository) names no task.
+            let line = match label(&failure.name, &failure.task) {
+                "" => format!("Last failure: {}", failure.message),
+                task => format!("Last failure: {task}: {}", failure.message),
+            };
+            model.entries.push(text(line));
         }
         if let (Some(next), None, false) = (&status.next, &status.running, status.draining) {
             model.entries.push(Entry::Item {
