@@ -85,6 +85,11 @@ type Definition struct {
 	Prompt      string `yaml:"prompt,omitempty"`
 	Timeout     string `yaml:"timeout,omitempty"`
 
+	// Landing (SPEC-0127 US12, US13): where a background run's changes go.
+	// ParseDefinition resolves Land's default.
+	Land   string   `yaml:"land,omitempty"`
+	Writes []string `yaml:"writes,omitempty"`
+
 	Cadence time.Duration `yaml:"-"`
 	Limit   time.Duration `yaml:"-"`
 }
@@ -138,6 +143,9 @@ func ParseDefinition(filePath string, data []byte) (Definition, error) {
 	}
 	if def.Check == nil && strings.TrimSpace(def.Prompt) == "" {
 		return Definition{}, errors.New("a task needs a check, a prompt, or both")
+	}
+	if err := def.parseLanding(); err != nil {
+		return Definition{}, err
 	}
 	def.Limit = defaultTimeout
 	if def.Timeout != "" {

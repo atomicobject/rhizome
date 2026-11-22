@@ -29,6 +29,9 @@ type Options struct {
 	// Trusted reports whether the person trusted a checkout; nil trusts all.
 	Trusted func(checkout string) (bool, error)
 	Now     func() time.Time
+	// Push is the person's per-machine push setting for this repository
+	// (SPEC-0127 US13); pushing also needs the repository's allowPush.
+	Push bool
 }
 
 // Service runs and reports on one repository's tasks for one person.
@@ -41,6 +44,9 @@ type Service struct {
 		value string
 		at    time.Time
 	}
+	// slotFor names a task's due slot; nil means runs have no slot but
+	// their own ID. See slotOf.
+	slotFor func(Definition, time.Time) string
 }
 
 // New prepares a Service for the repository.
@@ -155,6 +161,7 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 			break
 		}
 		mode, _ := st.ResolveMode(def.ID, s.opts.Config.DefaultMode)
+		mode = st.landingMode(def.ID, mode)
 		// An open item blocks the task, except a needs-attention item, which
 		// waits only for the next cadence, and a due item, whose check runs
 		// again to keep it current.
@@ -169,6 +176,12 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 		if it != nil && it.State == StateDue {
 			summary.Outcomes = append(summary.Outcomes, s.recheck(ctx, def, it.ID, commit))
 			continue
+		}
+		if slot := s.slotOf(def, now); slot != "" {
+			if landed, ok, _ := s.opts.Repo.SlotLanded(ctx, ref, def.ID, slot); ok {
+				summary.Outcomes = append(summary.Outcomes, s.slotDone(ctx, def, slot, landed, commit))
+				continue
+			}
 		}
 		summary.Outcomes = append(summary.Outcomes, s.runTask(ctx, def, mode, ref, commit))
 	}
@@ -192,13 +205,14 @@ func (s *Service) bookkeep(ctx context.Context, st *State, defs []Definition, ta
 	if st.Seen == nil {
 		st.Seen = map[string]time.Time{}
 	}
+	reviewLandings(st, defs, now)
 	for _, def := range defs {
 		if _, ok := st.Seen[def.ID]; ok {
 			continue
 		}
 		st.Seen[def.ID] = now
 		mode, _ := st.ResolveMode(def.ID, s.opts.Config.DefaultMode)
-		text := fmt.Sprintf("New task %q runs every %s in %s mode.", def.Name, def.Every, mode)
+		text := fmt.Sprintf("New task %q runs every %s in %s mode. It %s.", def.Name, def.Every, mode, landingOf(def).describe())
 		if def.Description != "" {
 			text += " " + def.Description
 		}
@@ -217,7 +231,9 @@ func (s *Service) bookkeep(ctx context.Context, st *State, defs []Definition, ta
 			}
 			it.interrupt(now)
 		}
-		if t := tagged[it.Task]; it.Kind == KindTask && it.Active() && t != nil && s.newlyMerged(ctx, *t, *it) {
+		// An in-place item's work is already on the branch; only a pr
+		// branch's merge closes its item.
+		if t := tagged[it.Task]; it.Kind == KindTask && it.Active() && it.Landing != taskdef.LandInPlace && t != nil && s.newlyMerged(ctx, *t, *it) {
 			it.set(StateDone, now)
 			it.Reason = fmt.Sprintf("%s's commit %s reached the primary ref", t.Author, short(t.Commit))
 		}
@@ -252,6 +268,7 @@ func (s *Service) lastTagged(ctx context.Context, ref string, defs []Definition)
 // runTask runs one due task's check, then notifies or does the work.
 func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, commit string) Outcome {
 	a := s.newAttempt(false)
+	a.slot = s.slotOf(def, s.opts.Now())
 	base := a.record(def.ID, "", time.Time{})
 	base.Commit = commit
 	if err := s.begin(ctx, a, base, nil); err != nil {
@@ -293,9 +310,12 @@ func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, c
 		}
 		return Outcome{Task: def.ID, Outcome: OutcomeNotified, Item: id}
 	}
+	if def.Land == taskdef.LandInPlace {
+		return s.runInPlace(ctx, def, a, "", check, ref, commit)
+	}
 	var id string
 	if err := s.store.Update(ctx, func(st *State) error {
-		id = st.AddItem(Item{Task: def.ID, Kind: KindTask, State: StateRunning, Summary: check.Summary, Context: check.Context, Commit: commit}, now).ID
+		id = st.AddItem(Item{Task: def.ID, Kind: KindTask, State: StateRunning, Summary: check.Summary, Context: check.Context, Commit: commit, Landing: def.Land}, now).ID
 		running(st, a, func(r *RunRecord) { r.Item = id })
 		return nil
 	}); err != nil {
@@ -377,6 +397,12 @@ func (s *Service) failRecheck(ctx context.Context, def Definition, a attempt, it
 // The record takes the item's branch and worktree only when this attempt
 // made them.
 func (s *Service) fail(ctx context.Context, def Definition, a attempt, itemID, commit, reason string, tokens int64) Outcome {
+	return s.failWith(ctx, def, a, itemID, commit, OutcomeFailed, reason, tokens, nil)
+}
+
+// failWith is fail with another outcome, such as a skipped in-place run,
+// and extra changes made in the same state update.
+func (s *Service) failWith(ctx context.Context, def Definition, a attempt, itemID, commit, outcome, reason string, tokens int64, extra func(*State, *Item, *RunRecord)) Outcome {
 	now := s.opts.Now()
 	_ = s.store.Update(ctx, func(st *State) error {
 		var it *Item
@@ -392,22 +418,25 @@ func (s *Service) fail(ctx context.Context, def Definition, a attempt, itemID, c
 			}
 		}
 		if it == nil {
-			it = st.AddItem(Item{Task: def.ID, Kind: KindTask, Commit: commit}, now)
+			it = st.AddItem(Item{Task: def.ID, Kind: KindTask, Commit: commit, Landing: def.Land}, now)
 		}
 		if !closed {
 			it.set(StateAttention, now)
 			it.Reason, it.Tokens = reason, tokens
 		}
 		itemID = it.ID
-		r := a.record(def.ID, OutcomeFailed, now)
-		r.Message, r.Tokens, r.Item, r.Commit = reason, tokens, it.ID, commit
+		r := a.record(def.ID, outcome, now)
+		r.Message, r.Tokens, r.Item, r.Commit, r.Landing = reason, tokens, it.ID, commit, def.Land
 		if it.Run == a.id {
 			r.Branch, r.Worktree = it.Branch, it.Worktree
+		}
+		if extra != nil {
+			extra(st, it, &r)
 		}
 		st.Record(r)
 		return nil
 	})
-	return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: reason}
+	return Outcome{Task: def.ID, Outcome: outcome, Item: itemID, Reason: reason}
 }
 
 // untrusted explains why tasks may not run here, or returns "".

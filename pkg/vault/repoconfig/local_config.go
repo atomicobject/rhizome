@@ -99,6 +99,9 @@ type LocalRuntimeConfig struct {
 type LocalTasksConfig struct {
 	PrimaryRef  string `yaml:"primaryRef,omitempty"`
 	DefaultMode string `yaml:"defaultMode,omitempty"`
+	// AllowPush lets task runs push when the person also turns push on
+	// for the repository on their machine.
+	AllowPush bool `yaml:"allowPush,omitempty"`
 }
 
 // TemplateConfig configures output directories for template artifacts.

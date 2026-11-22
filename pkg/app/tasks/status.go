@@ -27,6 +27,10 @@ type TaskStatus struct {
 	// CheckOnly marks a task with no prompt: its items cannot be run,
 	// started, or copied, only handled by hand.
 	CheckOnly bool `json:"checkOnly,omitempty"`
+	// Land and Writes are the task's landing (SPEC-0127 US12). ModeSource
+	// "approval" means a widened landing waits for `rzm tasks approve`.
+	Land   string   `json:"land"`
+	Writes []string `json:"writes,omitempty"`
 }
 
 // Report is the whole `rzm tasks status` result.
@@ -75,7 +79,10 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 	now := s.opts.Now()
 	for _, def := range defs {
 		mode, source := st.ResolveMode(def.ID, s.opts.Config.DefaultMode)
-		ts := TaskStatus{Scheduled: true, ID: def.ID, Name: def.Name, Scope: def.Scope, Every: def.Every, Mode: mode, ModeSource: source, LastTagged: tagged[def.ID], CheckOnly: strings.TrimSpace(def.Prompt) == ""}
+		if m := st.landingMode(def.ID, mode); m != mode {
+			mode, source = m, "approval"
+		}
+		ts := TaskStatus{Scheduled: true, ID: def.ID, Name: def.Name, Scope: def.Scope, Every: def.Every, Mode: mode, ModeSource: source, LastTagged: tagged[def.ID], CheckOnly: strings.TrimSpace(def.Prompt) == "", Land: def.Land, Writes: def.Writes}
 		if last, ok := st.LastRun(def.ID); ok {
 			ts.LastRun = &last
 		}

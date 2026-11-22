@@ -78,6 +78,16 @@ type attempt struct {
 	started time.Time
 	draft   bool
 	source  string
+	// slot is the scheduled slot the run is for; "" means its own ID.
+	slot string
+}
+
+// slotID names the run's slot in its commit's slot line.
+func (a attempt) slotID() string {
+	if a.slot != "" {
+		return a.slot
+	}
+	return a.id
 }
 
 func (s *Service) newAttempt(draft bool) attempt {

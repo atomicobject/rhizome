@@ -91,8 +91,9 @@ func newTasksCmd(registry harnessRegistry) *cobra.Command {
 		fn         func(*tasks.Service, context.Context, string) error
 	}{
 		{"skip <item>", "Skip a due task until its next cadence", (*tasks.Service).Skip},
-		{"discard <item>", "Remove a finished run's worktree and branch", (*tasks.Service).Discard},
+		{"discard <item>", "Remove a finished run's worktree and branch, or dismiss an in-place notice", (*tasks.Service).Discard},
 		{"done <item>", "Mark an item done", (*tasks.Service).Done},
+		{"approve <task>", "Approve a task whose landing widened, so it runs in its own mode again", (*tasks.Service).Approve},
 	} {
 		cmd.AddCommand(&cobra.Command{
 			Use: action.use, Short: action.short, Args: cobra.ExactArgs(1),

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 )
 
 // ErrBusy means another task run holds the repository's run lock.
@@ -119,6 +121,9 @@ func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
 			})
 			return Outcome{Task: def.ID, Outcome: OutcomeNotNeeded, Item: itemID}, err
 		}
+	}
+	if def.Land == taskdef.LandInPlace {
+		return s.runInPlace(ctx, def, a, itemID, check, ref, commit), nil
 	}
 	if err := s.store.Update(ctx, func(st *State) error {
 		it, err := st.Item(itemID)
@@ -280,8 +285,10 @@ func (s *Service) Skip(ctx context.Context, itemID string) error {
 }
 
 // Discard removes a finished run's worktree and local branch, then
-// dismisses the item. When removal fails, the item keeps its location. It
-// holds the run lock, so no run can reuse the item meanwhile.
+// dismisses the item. When removal fails, the item keeps its location. An
+// in-place item owns no worktree, so Discard only dismisses it and never
+// touches the open checkout. It holds the run lock, so no run can reuse the
+// item meanwhile.
 func (s *Service) Discard(ctx context.Context, itemID string) error {
 	release, err := s.lockRun(ctx, 0)
 	if errors.Is(err, errLocked) {
@@ -302,8 +309,10 @@ func (s *Service) Discard(ctx context.Context, itemID string) error {
 	if it.State != StateReady && it.State != StateAttention {
 		return fmt.Errorf("item %s is %s; only a ready or needs-attention item can be discarded", it.ID, it.State)
 	}
-	if err := s.removeWorktree(ctx, it.Branch, it.Worktree); err != nil {
-		return fmt.Errorf("remove %s: %w", it.Worktree, err)
+	if it.Landing != taskdef.LandInPlace {
+		if err := s.removeWorktree(ctx, it.Branch, it.Worktree); err != nil {
+			return fmt.Errorf("remove %s: %w", it.Worktree, err)
+		}
 	}
 	return s.updateItem(ctx, itemID, func(st *State, it *Item) error {
 		it.set(StateDismissed, s.opts.Now())
