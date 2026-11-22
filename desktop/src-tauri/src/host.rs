@@ -28,7 +28,7 @@ mod notices;
 mod release;
 
 pub use api::{Api, HostStatus};
-pub use release::{drain_all, release_all, stop_runs, terminate};
+pub use release::{drain_all, release_all, stop_runs, terminate, wait_idle, Busy};
 
 /// How often the loop lists hosted repositories when nothing wakes it.
 const SYNC: Duration = Duration::from_secs(30);
@@ -134,6 +134,14 @@ impl Host {
     pub fn apis(&self) -> Vec<Api> {
         let hosts = self.hosts.lock().unwrap();
         hosts.values().filter_map(|held| held.api.clone()).collect()
+    }
+
+    /// Each held runtime with its repository's name.
+    pub fn named_apis(&self) -> Vec<(String, Api)> {
+        let hosts = self.hosts.lock().unwrap();
+        (hosts.values())
+            .filter_map(|held| Some((held.name.clone(), held.api.clone()?)))
+            .collect()
     }
 
     /// Repository and task names of the runs going on now.

@@ -1,7 +1,10 @@
 //! Letting go of held runtimes: Quit Rhizome Completely drains, stops or
 //! waits for the run, then stops the runtimes; the native terminate path does
 //! the same within a short budget without waiting on anything.
-use super::Host;
+use super::{
+    api::{label, Running},
+    Api, Host,
+};
 use crate::{
     bridge::{self, Request},
     commands::Desktop,
@@ -10,20 +13,76 @@ use std::{sync::atomic::Ordering, time::Duration};
 use tauri::{AppHandle, Manager};
 
 const REQUEST: Duration = Duration::from_secs(10);
+/// How often Quit Completely asks whether the run it waits for has ended.
+const POLL: Duration = Duration::from_secs(1);
 /// The exit path drains and stops runs within this, all hosts together.
 const EXIT_BUDGET: Duration = Duration::from_secs(3);
 
-/// Drains every held runtime, so no new run starts.
-pub async fn drain_all(app: &AppHandle) {
-    for api in app.state::<Host>().apis() {
-        let _ = api.drain(REQUEST).await;
+/// A held runtime whose drain reported work, or did not answer.
+pub struct Busy {
+    pub api: Api,
+    pub repository: String,
+    /// The run the drain reported; `None` when the drain failed.
+    pub running: Option<Running>,
+}
+
+impl Busy {
+    /// Repository and task name, for the quit question.
+    pub fn describe(busy: &[Busy]) -> Vec<(String, String)> {
+        busy.iter()
+            .filter_map(|b| {
+                let running = b.running.as_ref()?;
+                Some((
+                    b.repository.clone(),
+                    label(&running.name, &running.task).to_string(),
+                ))
+            })
+            .collect()
     }
 }
 
-/// Stops each active run, recorded as stopped.
-pub async fn stop_runs(app: &AppHandle) {
-    for api in app.state::<Host>().apis() {
-        let _ = api.stop_run(REQUEST).await;
+/// Drains every held runtime, so no new run starts, and returns those whose
+/// drain answer reports a run or a started pass, or that did not answer.
+pub async fn drain_all(app: &AppHandle) -> Vec<Busy> {
+    drain(app.state::<Host>().named_apis()).await
+}
+
+async fn drain(apis: Vec<(String, Api)>) -> Vec<Busy> {
+    let mut busy = vec![];
+    for (repository, api) in apis {
+        let running = match api.drain(REQUEST).await {
+            Ok(None) => continue,
+            Ok(Some(running)) => Some(running),
+            Err(_) => None,
+        };
+        busy.push(Busy {
+            api,
+            repository,
+            running,
+        });
+    }
+    busy
+}
+
+/// Stops each busy runtime's run, recorded as stopped, and returns once
+/// every stop has answered or timed out.
+pub async fn stop_runs(busy: &[Busy]) {
+    let stops = busy.iter().map(|b| {
+        let api = b.api.clone();
+        tauri::async_runtime::spawn(async move { api.stop_run(REQUEST).await })
+    });
+    for stop in stops.collect::<Vec<_>>() {
+        let _ = stop.await;
+    }
+}
+
+/// Waits until no busy runtime's drain reports work. A runtime that stops
+/// answering has nothing left to wait for.
+pub async fn wait_idle(busy: &[Busy]) {
+    for b in busy.iter().filter(|b| b.running.is_some()) {
+        while let Ok(Some(_)) = b.api.drain(REQUEST).await {
+            tokio::time::sleep(POLL).await;
+        }
     }
 }
 
@@ -103,3 +162,7 @@ pub fn terminate(app: &AppHandle) {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "release_tests.rs"]
+mod tests;

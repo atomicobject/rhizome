@@ -6,10 +6,7 @@
 //! completely.
 use crate::{commands::Desktop, host, login, state::Preferences, windows};
 use serde_json::{json, Value};
-use std::{
-    sync::atomic::{AtomicBool, Ordering},
-    time::Duration,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
     menu::{MenuItem, Submenu},
     AppHandle, Manager, Wry,
@@ -77,24 +74,72 @@ enum Choice {
     Cancel,
 }
 
+/// Which quit question to ask.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Question {
+    /// Before draining: wait, stop, or keep Rhizome running.
+    Quit,
+    /// The drain found work the status had not shown; quitting has begun,
+    /// so the only choice is wait or stop.
+    Started,
+    /// An earlier Quit Completely is waiting: stop now, or keep waiting.
+    Waiting,
+}
+
 const WAIT: &str = "Wait";
 const STOP: &str = "Stop Task";
 const KEEP_WAITING: &str = "Keep Waiting";
 
-/// Quit Rhizome Completely.
+/// Quit Rhizome Completely. The streamed status decides whether to ask
+/// before draining; each runtime's drain answer then decides what to stop
+/// or wait for, so a run that started since the last status, or one whose
+/// stream dropped, is never left behind.
 pub fn quit_completely(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        let running = app.state::<host::Host>().running();
-        let choice = match running.is_empty() {
-            true => Choice::Wait,
-            false => ask(&app, &running).await,
+        let asked = match waiting() {
+            true => Question::Waiting,
+            false => Question::Quit,
         };
-        match choice {
-            Choice::Cancel => {}
-            Choice::Wait => finish(&app, false).await,
-            Choice::Stop => finish(&app, true).await,
+        let running = app.state::<host::Host>().running();
+        let mut choice = None;
+        if !running.is_empty() {
+            match ask(&app, &running, asked).await {
+                Choice::Cancel => return,
+                answer => choice = Some(answer),
+            }
         }
+        let first = !WAITING.swap(true, Ordering::SeqCst);
+        crate::tray::refresh(&app);
+        let busy = host::drain_all(&app).await;
+        let started = host::Busy::describe(&busy);
+        let stop = match choice {
+            Some(answer) => answer == Choice::Stop,
+            None if started.is_empty() => false,
+            None => {
+                let question = if first {
+                    Question::Started
+                } else {
+                    Question::Waiting
+                };
+                match ask(&app, &started, question).await {
+                    Choice::Cancel => return,
+                    answer => answer == Choice::Stop,
+                }
+            }
+        };
+        if stop {
+            host::stop_runs(&busy).await;
+        }
+        // A later Quit Completely only stops; the first one finishes.
+        if !first {
+            return;
+        }
+        if !stop {
+            host::wait_idle(&busy).await;
+        }
+        host::release_all(&app).await;
+        app.exit(0);
     });
 }
 
@@ -113,16 +158,26 @@ fn describe(running: &[(String, String)]) -> String {
     }
 }
 
-async fn ask(app: &AppHandle, running: &[(String, String)]) -> Choice {
+async fn ask(app: &AppHandle, running: &[(String, String)], question: Question) -> Choice {
     let (sent, chosen) = tokio::sync::oneshot::channel();
-    let waiting = waiting();
-    let (message, buttons) = match waiting {
-        false => (
-            format!("{} Wait for it to finish before quitting, or stop it now? A stopped run is recorded as stopped.", describe(running)),
+    let wait_or_stop = format!(
+        "{} Wait for it to finish before quitting, or stop it now? A stopped run is recorded as stopped.",
+        describe(running)
+    );
+    let (message, buttons) = match question {
+        Question::Quit => (
+            wait_or_stop,
             MessageDialogButtons::YesNoCancelCustom(WAIT.into(), STOP.into(), "Cancel".into()),
         ),
-        true => (
-            format!("{} Rhizome quits when it finishes. Stop it and quit now?", describe(running)),
+        Question::Started => (
+            wait_or_stop,
+            MessageDialogButtons::OkCancelCustom(WAIT.into(), STOP.into()),
+        ),
+        Question::Waiting => (
+            format!(
+                "{} Rhizome quits when it finishes. Stop it and quit now?",
+                describe(running)
+            ),
             MessageDialogButtons::OkCancelCustom(STOP.into(), KEEP_WAITING.into()),
         ),
     };
@@ -137,38 +192,20 @@ async fn ask(app: &AppHandle, running: &[(String, String)]) -> Choice {
     dialog.show_with_result(move |result| {
         let _ = sent.send(result);
     });
-    choice(chosen.await.unwrap_or_default(), waiting)
+    choice(chosen.await.unwrap_or_default(), question)
 }
 
-fn choice(result: MessageDialogResult, waiting: bool) -> Choice {
-    match (result, waiting) {
+fn choice(result: MessageDialogResult, question: Question) -> Choice {
+    match (result, question) {
         (MessageDialogResult::Custom(label), _) if label == WAIT => Choice::Wait,
         (MessageDialogResult::Custom(label), _) if label == STOP => Choice::Stop,
-        (MessageDialogResult::Yes, false) => Choice::Wait,
-        (MessageDialogResult::No, false) | (MessageDialogResult::Ok, true) => Choice::Stop,
+        (MessageDialogResult::Yes, Question::Quit) => Choice::Wait,
+        (MessageDialogResult::No, Question::Quit)
+        | (MessageDialogResult::Ok, Question::Waiting) => Choice::Stop,
+        // Quitting has begun, so dismissing the question waits.
+        (_, Question::Started) => Choice::Wait,
         _ => Choice::Cancel,
     }
-}
-
-/// Drains every held runtime, stops or waits for its run, stops the runtimes,
-/// then exits. A second Quit Completely while waiting can stop the run; the
-/// first one then finishes the quit.
-async fn finish(app: &AppHandle, stop: bool) {
-    let first = !WAITING.swap(true, Ordering::SeqCst);
-    crate::tray::refresh(app);
-    host::drain_all(app).await;
-    if stop {
-        host::stop_runs(app).await;
-    }
-    if !first {
-        return;
-    }
-    // Status keeps streaming while the run finishes.
-    while !app.state::<host::Host>().running().is_empty() {
-        tokio::time::sleep(Duration::from_secs(1)).await;
-    }
-    host::release_all(app).await;
-    app.exit(0);
 }
 
 /// The app menu's Quit Rhizome Completely, shown only while ⌘Q keeps
@@ -245,16 +282,21 @@ mod tests {
     #[test]
     fn the_running_task_question_maps_each_answer() {
         let custom = |label: &str| MessageDialogResult::Custom(label.into());
-        assert_eq!(choice(custom(WAIT), false), Choice::Wait);
-        assert_eq!(choice(custom(STOP), false), Choice::Stop);
-        assert_eq!(choice(custom("Cancel"), false), Choice::Cancel);
-        assert_eq!(choice(MessageDialogResult::Cancel, false), Choice::Cancel);
-        assert_eq!(choice(MessageDialogResult::Yes, false), Choice::Wait);
-        assert_eq!(choice(MessageDialogResult::No, false), Choice::Stop);
+        use Question::*;
+        assert_eq!(choice(custom(WAIT), Quit), Choice::Wait);
+        assert_eq!(choice(custom(STOP), Quit), Choice::Stop);
+        assert_eq!(choice(custom("Cancel"), Quit), Choice::Cancel);
+        assert_eq!(choice(MessageDialogResult::Cancel, Quit), Choice::Cancel);
+        assert_eq!(choice(MessageDialogResult::Yes, Quit), Choice::Wait);
+        assert_eq!(choice(MessageDialogResult::No, Quit), Choice::Stop);
+        // A run the drain found after quitting began: wait or stop, never cancel.
+        assert_eq!(choice(custom(STOP), Started), Choice::Stop);
+        assert_eq!(choice(custom(WAIT), Started), Choice::Wait);
+        assert_eq!(choice(MessageDialogResult::Cancel, Started), Choice::Wait);
         // While already waiting, the question is only whether to stop.
-        assert_eq!(choice(custom(STOP), true), Choice::Stop);
-        assert_eq!(choice(MessageDialogResult::Ok, true), Choice::Stop);
-        assert_eq!(choice(custom(KEEP_WAITING), true), Choice::Cancel);
+        assert_eq!(choice(custom(STOP), Waiting), Choice::Stop);
+        assert_eq!(choice(MessageDialogResult::Ok, Waiting), Choice::Stop);
+        assert_eq!(choice(custom(KEEP_WAITING), Waiting), Choice::Cancel);
     }
 
     #[test]
