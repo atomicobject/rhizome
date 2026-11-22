@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -21,8 +22,10 @@ type inPlace struct {
 	dir, branch, head, tree string
 	// noHooks disables repository hooks for runner-owned Git commands.
 	noHooks string
-	// status is each path's `git status --porcelain` code before the run.
-	status map[string]string
+	// The person's paths before the run: dirty differ from HEAD in the
+	// snapshot (staged, unstaged, or untracked), staged differ in the
+	// index, and flagged are marked assume-unchanged or skip-worktree.
+	dirty, staged, flagged map[string]bool
 }
 
 // hostCheckout is the checkout in-place tasks land in: the person's
@@ -57,14 +60,18 @@ func (s *Service) runInPlace(ctx context.Context, def Definition, a attempt, ite
 	if s.opts.Agent == nil {
 		return s.fail(ctx, def, a, itemID, commit, "no agent harness is available to run the prompt", 0)
 	}
-	ip, notice, err := s.prepareInPlace(ctx, a, ref)
+	ip, notice, err := s.prepareInPlace(ctx, def, a, ref)
 	if notice != "" {
 		return s.failWith(ctx, def, a, itemID, commit, OutcomeSkipped, notice, 0, nil)
+	}
+	var done slotLandedError
+	if errors.As(err, &done) {
+		return s.slotLandedRun(ctx, def, a, done.commit, commit)
 	}
 	if err != nil {
 		return s.fail(ctx, def, a, itemID, commit, "prepare the checkout: "+err.Error(), 0)
 	}
-	var leftover []string
+	var leftover map[string]string
 	if err := s.store.Update(ctx, func(st *State) error {
 		now := s.opts.Now()
 		var it *Item
@@ -89,7 +96,7 @@ func (s *Service) runInPlace(ctx context.Context, def Definition, a attempt, ite
 		it.Reason, it.Summary, it.Context = "", check.Summary, check.Context
 		it.Commit, it.Landing, it.Run = commit, def.Land, a.id
 		running(st, a, func(r *RunRecord) { r.Stage, r.Item, r.Landing = StageAgent, itemID, def.Land })
-		leftover = slices.Clone(st.Leftover[def.ID])
+		leftover = maps.Clone(st.Leftover[def.ID])
 		return nil
 	}); err != nil {
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: err.Error()}
@@ -108,10 +115,17 @@ func (s *Service) runInPlace(ctx context.Context, def Definition, a attempt, ite
 	return s.settleInPlace(context.WithoutCancel(ctx), def, a, itemID, commit, ip, leftover, res, runErr)
 }
 
+// slotLandedError means another machine landed the run's slot while the
+// checkout was being brought up to date.
+type slotLandedError struct{ commit string }
+
+func (e slotLandedError) Error() string { return "slot already landed as " + e.commit }
+
 // prepareInPlace brings the open checkout up to the primary ref and
 // snapshots it. A notice means the task does not run: the checkout is not
-// on the primary ref's branch, or Git refused to fast-forward it.
-func (s *Service) prepareInPlace(ctx context.Context, a attempt, ref string) (*inPlace, string, error) {
+// on the primary ref's branch, a Git operation is under way there, or the
+// fast-forward could overwrite the person's files or was refused.
+func (s *Service) prepareInPlace(ctx context.Context, def Definition, a attempt, ref string) (*inPlace, string, error) {
 	dir := s.hostCheckout()
 	if dir == "" {
 		return nil, "in-place tasks need a checkout, and this repository has none", nil
@@ -120,33 +134,111 @@ func (s *Service) prepareInPlace(ctx context.Context, a attempt, ref string) (*i
 	if !onBranchOf(ctx, dir, branch, ref) {
 		return nil, fmt.Sprintf("the checkout %s is on %s, not the branch of %s, so the in-place task did not run", dir, cmp.Or(branch, "a detached HEAD"), ref), nil
 	}
+	if op := operationInProgress(ctx, dir); op != "" {
+		return nil, fmt.Sprintf("%s is in progress in %s, so the in-place task did not run", op, dir), nil
+	}
 	noHooks, err := s.noHooks(a)
 	if err != nil {
 		return nil, "", err
 	}
+	ip := &inPlace{dir: dir, branch: branch, noHooks: noHooks}
 	if branch != ref {
 		if remote, _ := gitOutput(ctx, dir, "config", "branch."+branch+".remote"); remote != "" && remote != "." {
+			landingStep("fetch")
 			// A failed fetch falls back to the last fetched ref.
-			_, _ = gitOutput(ctx, dir, "-c", noHooks, "fetch", "--quiet", remote)
-		}
-		// Dirty files are fine; Git refuses when incoming changes touch them.
-		if _, err := gitOutput(ctx, dir, "-c", noHooks, "merge", "--ff-only", "--quiet", ref); err != nil {
-			return nil, fmt.Sprintf("could not fast-forward %s to %s, so the in-place task did not run: %v", branch, ref, err), nil
+			fetchCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
+			_, _ = gitOutput(fetchCtx, dir, "-c", noHooks, "fetch", "--quiet", remote)
+			cancel()
+			if now, _ := gitOutput(ctx, dir, "symbolic-ref", "--quiet", "--short", "HEAD"); now != branch {
+				return nil, fmt.Sprintf("the checkout %s switched from %s to %s while Rhizome fetched, so the in-place task did not run", dir, branch, cmp.Or(now, "a detached HEAD")), nil
+			}
 		}
 	}
-	ip := &inPlace{dir: dir, branch: branch, noHooks: noHooks}
 	if ip.head, err = gitOutput(ctx, dir, "rev-parse", "HEAD"); err != nil {
 		return nil, "", err
 	}
-	// Status first: a person's edit landing between the two reads is then
-	// in the snapshot, so the run never claims it.
-	if ip.status, err = gitStatus(ctx, dir); err != nil {
+	target, err := gitOutput(ctx, dir, "rev-parse", "--verify", "--quiet", ref+"^{commit}")
+	if err != nil {
 		return nil, "", err
+	}
+	// The fetch may have brought another machine's commit for this slot.
+	if a.slot != "" {
+		if landed, ok, _ := s.opts.Repo.SlotLanded(ctx, target, def.ID, a.slot); ok {
+			return nil, "", slotLandedError{landed}
+		}
+	}
+	if branch != ref && target != ip.head && !isAncestor(ctx, dir, target, ip.head) {
+		if notice := s.fastForward(ctx, ip, ref, target); notice != "" {
+			return nil, notice, nil
+		}
+		ip.head = target
 	}
 	if ip.tree, err = s.captureTree(ctx, dir, noHooks); err != nil {
 		return nil, "", err
 	}
+	// The snapshot decides what the person had changed: `git status` does
+	// not report edits to assume-unchanged or skip-worktree files.
+	dirty, err := diffTrees(ctx, dir, ip.head, ip.tree)
+	if err != nil {
+		return nil, "", err
+	}
+	ip.dirty = map[string]bool{}
+	for _, p := range dirty {
+		ip.dirty[p] = true
+	}
+	if ip.staged, err = stagedPaths(ctx, dir); err != nil {
+		return nil, "", err
+	}
+	if ip.flagged, err = flaggedPaths(ctx, dir); err != nil {
+		return nil, "", err
+	}
 	return ip, "", nil
+}
+
+// fastForward moves the checkout from ip.head to target as `git merge
+// --ff-only` would, but never autostashes, runs hooks, overwrites an
+// ignored or untracked file, or lands on a branch the person switched to.
+// It returns a notice when the checkout cannot take it.
+func (s *Service) fastForward(ctx context.Context, ip *inPlace, ref, target string) string {
+	refused := func(why string) string {
+		return fmt.Sprintf("could not fast-forward %s to %s, so the in-place task did not run: %s", ip.branch, ref, why)
+	}
+	if !isAncestor(ctx, ip.dir, ip.head, target) {
+		return refused(fmt.Sprintf("%s has commits that %s lacks", ip.branch, ref))
+	}
+	if op := operationInProgress(ctx, ip.dir); op != "" {
+		return refused(op + " is in progress")
+	}
+	notice, err := incomingNotice(ctx, ip.dir, ip.head, target)
+	if err != nil {
+		return refused(err.Error())
+	}
+	if notice != "" {
+		return refused(notice)
+	}
+	landingStep("fast-forward")
+	if err := moveHead(ctx, ip, ip.head, target, "rhizome tasks: fast-forward to "+ref, func() error {
+		return readTree(ctx, ip, ip.head, target)
+	}); err != nil {
+		if errors.Is(err, errHeadMoved) {
+			return refused(ip.moved(ctx))
+		}
+		return refused(err.Error())
+	}
+	return ""
+}
+
+// slotLandedRun records a run whose slot another machine landed while the
+// checkout was fetched as skipped, so the task waits for its next slot.
+func (s *Service) slotLandedRun(ctx context.Context, def Definition, a attempt, landed, commit string) Outcome {
+	reason := fmt.Sprintf("slot %s already landed as commit %s", a.slot, short(landed))
+	_ = s.store.Update(ctx, func(st *State) error {
+		r := a.record(def.ID, OutcomeSkipped, s.opts.Now())
+		r.Message, r.Commit, r.Landing, r.Landed = reason, commit, def.Land, landed
+		st.Record(r)
+		return nil
+	})
+	return Outcome{Task: def.ID, Outcome: OutcomeSkipped, Reason: reason}
 }
 
 // onBranchOf reports whether a local branch is the primary ref or tracks it.
@@ -160,28 +252,6 @@ func onBranchOf(ctx context.Context, dir, branch, ref string) bool {
 	up, err := gitOutput(ctx, dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", branch+"@{upstream}")
 	return err == nil && (up == ref || "refs/remotes/"+up == ref)
 }
-
-// gitStatus maps each path that differs from HEAD, in the index or the
-// working tree, untracked ones included, to its two-letter status code.
-func gitStatus(ctx context.Context, dir string, paths ...string) (map[string]string, error) {
-	args := []string{"--no-optional-locks", "--literal-pathspecs", "status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames"}
-	if len(paths) > 0 {
-		args = append(append(args, "--"), paths...)
-	}
-	out, err := gitBytes(ctx, dir, nil, args...)
-	if err != nil {
-		return nil, err
-	}
-	status := map[string]string{}
-	for _, entry := range strings.Split(string(out), "\x00") {
-		if len(entry) > 3 {
-			status[entry[3:]] = entry[:2]
-		}
-	}
-	return status, nil
-}
-
-func staged(code string) bool { return code != "" && code[0] != ' ' && code[0] != '?' }
 
 // moved describes how the checkout's branch or HEAD changed since the
 // snapshot, or returns "".
@@ -197,13 +267,22 @@ func (ip *inPlace) moved(ctx context.Context) string {
 // settleInPlace works out what the run changed, restores protected paths,
 // and commits the task's own changes: paths that changed during the run,
 // were clean before it, and match writes, plus files an earlier failed run
-// left. A failed run, or one during which HEAD moved, commits nothing and
-// leaves its files for the task's next successful run.
-func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, itemID, commit string, ip *inPlace, leftover []string, res AgentResult, runErr error) Outcome {
+// left that are still as it left them. A failed run, or one during which
+// HEAD moved, commits nothing and leaves its files for the task's next
+// successful run.
+func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, itemID, commit string, ip *inPlace, leftover map[string]string, res AgentResult, runErr error) Outcome {
 	after, err := s.captureTree(ctx, ip.dir, ip.noHooks)
 	var changed []string
 	if err == nil {
 		changed, err = diffTrees(ctx, ip.dir, ip.tree, after)
+	}
+	var stagedNow map[string]bool
+	if err == nil {
+		stagedNow, err = stagedPaths(ctx, ip.dir)
+	}
+	var before map[string]string
+	if err == nil {
+		before, err = treeEntries(ctx, ip.dir, ip.tree, slices.Sorted(maps.Keys(leftover)))
 	}
 	if err != nil {
 		return s.fail(ctx, def, a, itemID, commit, "read what the run changed: "+err.Error(), res.Tokens)
@@ -216,20 +295,23 @@ func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, 
 		}
 	}
 	if len(guarded) > 0 {
-		diff := s.runFile(a.id, protectedDiffFile)
-		if err := restoreProtected(ctx, ip, after, guarded, diff); err != nil {
-			notices = append(notices, fmt.Sprintf("The run changed protected files (%s), and restoring them failed: %v.", strings.Join(guarded, ", "), err))
-		} else {
-			notices = append(notices, fmt.Sprintf("The run changed protected files (%s); Rhizome restored them and saved the run's diff to %s.", strings.Join(guarded, ", "), diff))
-		}
+		notices = append(notices, restoreProtected(ctx, ip, after, guarded, s.runFile(a.id, protectedDiffFile)))
 	}
-	owned, left := ownPaths(def, ip, leftover, changed, guarded)
+	owned, left := ownPaths(def, ip, leftover, before, stagedNow, changed, guarded)
+	entries, err := treeEntries(ctx, ip.dir, after, owned)
+	if err != nil {
+		return s.fail(ctx, def, a, itemID, commit, "read what the run changed: "+err.Error(), res.Tokens)
+	}
 	keep := func(st *State, it *Item, r *RunRecord) {
 		r.Landing, r.Changed, r.Left = def.Land, owned, left.paths()
 		if st.Leftover == nil {
-			st.Leftover = map[string][]string{}
+			st.Leftover = map[string]map[string]string{}
 		}
-		st.Leftover[def.ID] = owned
+		files := map[string]string{}
+		for _, p := range owned {
+			files[p] = entries[p]
+		}
+		st.Leftover[def.ID] = files
 	}
 	if runErr != nil {
 		reason := fmt.Sprintf("Prompt run failed: %v.", runErr)
@@ -244,7 +326,7 @@ func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, 
 	}
 	landed := ""
 	if len(owned) > 0 {
-		if landed, err = s.commitInPlace(ctx, def, a, ip, owned, message); err != nil {
+		if landed, err = s.commitInPlace(ctx, def, a, ip, owned, entries, message); err != nil {
 			reason := "Commit failed: " + err.Error()
 			if errors.Is(err, errHeadMoved) {
 				reason = ip.moved(ctx) + ", so Rhizome did not commit"
@@ -310,73 +392,72 @@ func (l leftPaths) text() string {
 }
 
 // ownPaths splits the run's changed paths into the task's own and the ones
-// it leaves. Paths an earlier failed run left count as the task's while
-// they are still changed and not staged.
+// it leaves. Anything the person had changed, staged, or flagged before the
+// run is theirs, except a path an earlier failed run left (leftover) whose
+// content before this run (before) is still what that run left. A path
+// staged since the snapshot (stagedNow) is theirs too, and so is any task
+// path whose commit would replace a file or folder that is not the task's.
 // ponytail: a person's edit to a clean file inside writes during the run
 // is indistinguishable from the task's and is committed with it (US12).
-func ownPaths(def Definition, ip *inPlace, leftover, changed, guarded []string) ([]string, leftPaths) {
+func ownPaths(def Definition, ip *inPlace, leftover, before map[string]string, stagedNow map[string]bool, changed, guarded []string) ([]string, leftPaths) {
+	adopted := func(p string) bool {
+		want, ok := leftover[p]
+		return ok && before[p] == want
+	}
+	why := func(p string) string {
+		switch {
+		case ip.staged[p]:
+			return "staged before the run"
+		case stagedNow[p]:
+			return "staged during the run"
+		case ip.flagged[p]:
+			return "marked assume-unchanged or skip-worktree"
+		case ip.dirty[p] && !adopted(p):
+			return "changed before the run"
+		case !def.MayWrite(p):
+			return "outside writes"
+		}
+		return ""
+	}
 	var owned []string
 	var left leftPaths
 	for _, p := range changed {
-		code := ip.status[p]
-		switch {
-		case slices.Contains(guarded, p):
-		case staged(code):
-			left = append(left, [2]string{p, "staged before the run"})
-		case code != "" && !slices.Contains(leftover, p):
-			left = append(left, [2]string{p, "changed before the run"})
-		case !def.MayWrite(p):
-			left = append(left, [2]string{p, "outside writes"})
-		default:
+		if slices.Contains(guarded, p) {
+			continue
+		}
+		if reason := why(p); reason != "" {
+			left = append(left, [2]string{p, reason})
+		} else {
 			owned = append(owned, p)
 		}
 	}
-	for _, p := range leftover {
-		if code := ip.status[p]; code != "" && !staged(code) && !slices.Contains(changed, p) && def.MayWrite(p) && !protected(def, p) {
+	for p := range leftover {
+		if !slices.Contains(changed, p) && ip.dirty[p] && adopted(p) && why(p) == "" && !protected(def, p) {
 			owned = append(owned, p)
 		}
 	}
+	// ponytail: owned x others string scan; index by folder if checkouts
+	// with many thousands of changed files make it slow.
+	others := slices.Concat(guarded, left.paths(), slices.Collect(maps.Keys(ip.dirty)), slices.Collect(maps.Keys(ip.staged)), slices.Collect(maps.Keys(stagedNow)))
+	mine := map[string]bool{}
+	for _, p := range owned {
+		mine[p] = true
+	}
+	owned = slices.DeleteFunc(owned, func(p string) bool {
+		for _, o := range others {
+			if !mine[o] && nested(p, o) {
+				left = append(left, [2]string{p, "replaces " + o + ", which is not the task's"})
+				return true
+			}
+		}
+		return false
+	})
 	slices.Sort(owned)
 	return owned, left
 }
 
 func joinNotices(parts ...string) string {
 	return strings.Join(slices.DeleteFunc(parts, func(p string) bool { return p == "" }), " ")
-}
-
-var errHeadMoved = errors.New("HEAD moved during the run")
-
-// commitInPlace commits exactly paths with `git commit --only`, so changes
-// the person staged stay staged, with the task tag and slot line. Hooks
-// and signing are off. It rechecks the branch and HEAD first.
-func (s *Service) commitInPlace(ctx context.Context, def Definition, a attempt, ip *inPlace, paths []string, message string) (string, error) {
-	if ip.moved(ctx) != "" {
-		return "", errHeadMoved
-	}
-	now, err := gitStatus(ctx, ip.dir, paths...)
-	if err != nil {
-		return "", err
-	}
-	var added []string
-	for _, p := range paths {
-		if now[p] == "??" {
-			added = append(added, p)
-		}
-	}
-	// commit --only accepts only paths Git knows.
-	if len(added) > 0 {
-		if _, err := gitOutput(ctx, ip.dir, append([]string{"--literal-pathspecs", "-c", ip.noHooks, "add", "--intent-to-add", "--"}, added...)...); err != nil {
-			return "", err
-		}
-	}
-	args := append([]string{"--literal-pathspecs", "-c", ip.noHooks, "-c", "commit.gpgSign=false", "commit", "--quiet", "--no-verify", "--only", "-F", "-", "--"}, paths...)
-	if _, err := gitBytesInput(ctx, ip.dir, nil, []byte(inPlaceMessage(def, message, a.slotID())), args...); err != nil {
-		if len(added) > 0 {
-			_, _ = gitOutput(ctx, ip.dir, append([]string{"--literal-pathspecs", "reset", "--quiet", "--"}, added...)...)
-		}
-		return "", err
-	}
-	return gitOutput(ctx, ip.dir, "rev-parse", "HEAD")
 }
 
 // inPlaceMessage is the commit message: the agent's message without lines
@@ -404,63 +485,6 @@ func diffTrees(ctx context.Context, dir, from, to string) ([]string, error) {
 		}
 	}
 	return paths, nil
-}
-
-// restoreProtected saves the run's diff of protected paths to diffFile,
-// then puts each back to its snapshot content, removing ones the run
-// created.
-func restoreProtected(ctx context.Context, ip *inPlace, after string, paths []string, diffFile string) error {
-	diff, err := gitBytes(ctx, ip.dir, nil, append([]string{"--literal-pathspecs", "diff", "--binary", "--no-renames", ip.tree, after, "--"}, paths...)...)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(diffFile), 0o700); err != nil {
-		return err
-	}
-	if err := os.WriteFile(diffFile, diff, 0o600); err != nil {
-		return err
-	}
-	for _, p := range paths {
-		if err := restorePath(ctx, ip.dir, ip.tree, p); err != nil {
-			return fmt.Errorf("%s: %w", p, err)
-		}
-	}
-	return nil
-}
-
-func restorePath(ctx context.Context, dir, tree, path string) error {
-	full := filepath.Join(dir, filepath.FromSlash(path))
-	entry, err := gitOutput(ctx, dir, "ls-tree", "-z", tree, "--", path)
-	if err != nil {
-		return err
-	}
-	meta, name, _ := strings.Cut(strings.TrimSuffix(entry, "\x00"), "\t")
-	fields := strings.Fields(meta)
-	if name != path || len(fields) != 3 {
-		// The run created it.
-		if err := os.Remove(full); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-		return nil
-	}
-	data, err := gitBytes(ctx, dir, nil, "cat-file", "blob", fields[2])
-	if err != nil {
-		return err
-	}
-	if err := os.RemoveAll(full); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-		return err
-	}
-	switch fields[0] {
-	case "120000":
-		return os.Symlink(string(data), full)
-	case "100755":
-		return os.WriteFile(full, data, 0o755)
-	default:
-		return os.WriteFile(full, data, 0o644)
-	}
 }
 
 // InPlacePrompt is the preamble plus the task's prompt for a run in the

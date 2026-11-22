@@ -2,72 +2,215 @@ package tasks
 
 import (
 	"bytes"
+	"cmp"
 	"context"
+	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 )
 
 // pushInPlace pushes an in-place run's commit when it fast-forwards the
-// branch's upstream (SPEC-0127 US13), returning the commit that reached
-// the upstream, or a notice for the person. After a failed push it fetches
-// and looks for the slot's commit before retrying; when the upstream
-// diverged it rebases only a clean tracked tree, aborting on conflict. It
-// never force-pushes or autostashes, and never pushes commits that are not
-// task commits.
+// branch as the push destination has it (SPEC-0127 US13), returning the
+// commit that reached it, or a notice for the person. After a failed push
+// it fetches and looks for its commit or the slot's before retrying; when
+// the upstream diverged it remakes the task's commit on the upstream
+// (replay). It never force-pushes, rebases, or autostashes, and pushes
+// only commits Rhizome made.
 func (s *Service) pushInPlace(ctx context.Context, def Definition, ip *inPlace, landed, slot string) (string, string) {
 	remote, branch, ok := remoteBranch(ctx, ip.dir, ip.branch)
 	if !ok {
 		return "", fmt.Sprintf("%s has no upstream branch, so commit %s was not pushed.", ip.branch, short(landed))
 	}
-	tracking := "refs/remotes/" + remote + "/" + branch
-	push := func(c string) (string, error) {
-		// Everything between the upstream and c is pushed, so a person's
-		// own unpushed commits there stop the push.
-		n, err := gitOutput(ctx, ip.dir, "rev-list", "--count", "--invert-grep", "--grep=^"+TagKey+": ", tracking+".."+c)
-		if err != nil {
-			return "", err
-		}
-		if n != "0" {
-			return fmt.Sprintf("%s has local commits that are not task commits, so Rhizome did not push commit %s; push them yourself.", ip.branch, short(c)), nil
-		}
-		_, err = gitOutput(ctx, ip.dir, "-c", ip.noHooks, "push", "--quiet", "--no-verify", remote, c+":refs/heads/"+branch)
-		return "", err
-	}
-	notice, err := push(landed)
+	landingStep("push")
+	made := s.madeCommits(landed)
+	notice, err := s.pushCommit(ctx, ip, remote, branch, landed, made)
 	if notice != "" || err == nil {
 		return pushedOr(landed, notice)
 	}
-	_, _ = gitOutput(ctx, ip.dir, "-c", ip.noHooks, "fetch", "--quiet", remote)
-	if isAncestor(ctx, ip.dir, landed, tracking) {
+	fetchCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	_, _ = gitOutput(fetchCtx, ip.dir, "-c", ip.noHooks, "fetch", "--quiet", remote)
+	cancel()
+	upstream, upErr := gitOutput(ctx, ip.dir, "rev-parse", "--verify", "--quiet", "refs/remotes/"+remote+"/"+branch+"^{commit}")
+	if upErr != nil {
+		return "", fmt.Sprintf("Push failed, so commit %s stays local: %v.", short(landed), err)
+	}
+	if isAncestor(ctx, ip.dir, landed, upstream) {
 		return landed, ""
 	}
-	if other, ok, _ := s.opts.Repo.SlotLanded(ctx, tracking, def.ID, slot); ok {
+	if other, ok, _ := s.opts.Repo.SlotLanded(ctx, upstream, def.ID, slot); ok {
 		return "", fmt.Sprintf("Slot %s already reached %s/%s as commit %s, so commit %s stays local.", slot, remote, branch, short(other), short(landed))
 	}
-	if isAncestor(ctx, ip.dir, tracking, landed) {
+	if isAncestor(ctx, ip.dir, upstream, landed) {
 		// The upstream did not move, so this was not a race; try once more.
-		if notice, err = push(landed); notice == "" && err != nil {
+		if notice, err = s.pushCommit(ctx, ip, remote, branch, landed, made); notice == "" && err != nil {
 			notice = fmt.Sprintf("Push failed, so commit %s stays local: %v.", short(landed), err)
 		}
 		return pushedOr(landed, notice)
 	}
+	replayed, notice := s.replay(ctx, def, ip, landed, upstream)
+	if notice != "" {
+		return "", fmt.Sprintf("%s/%s moved and %s, so Rhizome did not rebase; commit %s stays local.", remote, branch, notice, short(landed))
+	}
+	made[replayed] = true
+	if notice, err = s.pushCommit(ctx, ip, remote, branch, replayed, made); notice == "" && err != nil {
+		notice = fmt.Sprintf("Push after rebasing failed, so commit %s stays local: %v.", short(replayed), err)
+	}
+	return pushedOr(replayed, notice)
+}
+
+// errDiverged means the push destination has commits the task's commit
+// lacks.
+var errDiverged = errors.New("the remote branch has commits this checkout lacks")
+
+// pushCommit pushes c to remote's branch when that fast-forwards the branch
+// as the push destination has it now (not as the fetch remote's tracking
+// ref says), and every commit it adds is one Rhizome made. The push holds a
+// lease on the commit it checked, so it updates nothing if the branch moved
+// meanwhile; with c descending from that commit it is never a forced
+// update. A notice means Rhizome chose not to push.
+func (s *Service) pushCommit(ctx context.Context, ip *inPlace, remote, branch, c string, made map[string]bool) (string, error) {
+	urls, err := gitOutput(ctx, ip.dir, "remote", "get-url", "--push", "--all", remote)
+	if err != nil {
+		return "", err
+	}
+	if n := len(strings.Split(urls, "\n")); urls == "" || n != 1 {
+		return fmt.Sprintf("%s has %d push URLs, so Rhizome did not push commit %s; push it yourself.", remote, n, short(c)), nil
+	}
+	netCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	defer cancel()
+	ref := "refs/heads/" + branch
+	out, err := gitOutput(netCtx, ip.dir, "ls-remote", "--", urls, ref)
+	if err != nil {
+		return "", errors.New(redactURLCredentials(err.Error()))
+	}
+	dest := ""
+	for _, line := range strings.Split(out, "\n") {
+		if id, name, _ := strings.Cut(line, "\t"); name == ref {
+			dest = id
+		}
+	}
+	switch {
+	case dest == "":
+		return fmt.Sprintf("%s has no branch %s, so commit %s was not pushed.", remote, branch, short(c)), nil
+	case dest == c:
+		return "", nil
+	case !hasCommit(ctx, ip.dir, dest) || !isAncestor(ctx, ip.dir, dest, c):
+		return "", errDiverged
+	}
+	commits, err := gitOutput(ctx, ip.dir, "rev-list", dest+".."+c)
+	if err != nil {
+		return "", err
+	}
+	for _, id := range strings.Fields(commits) {
+		if !made[id] {
+			return fmt.Sprintf("%s has commits that are not Rhizome's task commits (%s), so Rhizome did not push commit %s; push them yourself.", ip.branch, short(id), short(c)), nil
+		}
+	}
+	_, err = gitOutput(netCtx, ip.dir, "-c", ip.noHooks, "push", "--quiet", "--no-verify", "--force-with-lease="+ref+":"+dest, remote, c+":"+ref)
+	if err != nil {
+		return "", errors.New(redactURLCredentials(err.Error()))
+	}
+	return "", nil
+}
+
+// madeCommits are the commits Rhizome landed in place on this machine, as
+// its run records name them, plus own.
+func (s *Service) madeCommits(own ...string) map[string]bool {
+	made := map[string]bool{}
+	for _, c := range own {
+		made[c] = true
+	}
+	st, err := s.store.Load()
+	if err != nil {
+		return made
+	}
+	for _, r := range slices.Concat(st.History, slices.Collect(maps.Values(st.Last))) {
+		if r.Outcome == OutcomeLanded && r.Landing == taskdef.LandInPlace && r.Landed != "" {
+			made[r.Landed] = true
+		}
+	}
+	return made
+}
+
+func hasCommit(ctx context.Context, dir, id string) bool {
+	_, err := gitOutput(ctx, dir, "cat-file", "-e", id+"^{commit}")
+	return err == nil
+}
+
+// replay remakes the task's commit on top of upstream and moves the checkout
+// there, as `git pull --rebase` would for one commit, but with nothing in
+// progress to abort. It returns a notice instead when the person committed
+// or switched branches since the task's commit, other local commits sit
+// under it, a Git operation is under way, a tracked file has uncommitted
+// changes, the upstream changed the task's files, or the move could
+// overwrite the person's files.
+func (s *Service) replay(ctx context.Context, def Definition, ip *inPlace, landed, upstream string) (string, string) {
+	if head, _ := gitOutput(ctx, ip.dir, "rev-parse", "HEAD"); head != landed {
+		return "", "HEAD is no longer the task's commit"
+	}
+	if op := operationInProgress(ctx, ip.dir); op != "" {
+		return "", op + " is in progress"
+	}
+	if ahead, err := gitOutput(ctx, ip.dir, "rev-list", upstream+".."+landed); err != nil || ahead != landed {
+		return "", "other local commits are not on the upstream"
+	}
 	if status, err := gitOutput(ctx, ip.dir, "--no-optional-locks", "status", "--porcelain", "--untracked-files=no"); err != nil || status != "" {
-		return "", fmt.Sprintf("%s/%s moved and the checkout has uncommitted changes, so Rhizome did not rebase; commit %s stays local.", remote, branch, short(landed))
+		return "", "the checkout has uncommitted changes"
 	}
-	if _, err := gitOutput(ctx, ip.dir, "-c", ip.noHooks, "-c", "rebase.autoStash=false", "pull", "--rebase", "--no-autostash", "--quiet", remote, branch); err != nil {
-		_, _ = gitOutput(ctx, ip.dir, "-c", ip.noHooks, "rebase", "--abort")
-		return "", fmt.Sprintf("Rebasing onto %s/%s failed, so Rhizome aborted it; commit %s stays local: %v.", remote, branch, short(landed), err)
-	}
-	head, err := gitOutput(ctx, ip.dir, "rev-parse", "HEAD")
+	parent := landed + "^"
+	ours, err := diffTrees(ctx, ip.dir, parent, landed)
 	if err != nil {
 		return "", err.Error()
 	}
-	if notice, err = push(head); notice == "" && err != nil {
-		notice = fmt.Sprintf("Push after rebasing failed, so commit %s stays local: %v.", short(head), err)
+	theirs, err := diffTrees(ctx, ip.dir, parent, upstream)
+	if err != nil {
+		return "", err.Error()
 	}
-	return pushedOr(head, notice)
+	for _, p := range ours {
+		for _, q := range theirs {
+			if p == q || nested(p, q) {
+				return "", "the upstream changed " + q + ", which the task's commit changes too"
+			}
+		}
+	}
+	entries, err := treeEntries(ctx, ip.dir, landed, ours)
+	if err != nil {
+		return "", err.Error()
+	}
+	tree, err := buildTree(ctx, ip.dir, ip.noHooks, upstream, indexInfo(ours, entries, len(landed)))
+	if err != nil {
+		return "", err.Error()
+	}
+	message, err := gitBytes(ctx, ip.dir, nil, "log", "-1", "--format=%B", landed)
+	if err != nil {
+		return "", err.Error()
+	}
+	out, err := gitBytesInput(ctx, ip.dir, nil, message, "-c", ip.noHooks, "commit-tree", "--no-gpg-sign", "-p", upstream, "-F", "-", tree)
+	if err != nil {
+		return "", err.Error()
+	}
+	replayed := strings.TrimSpace(string(out))
+	if notice, err := incomingNotice(ctx, ip.dir, landed, replayed); err != nil || notice != "" {
+		return "", cmp.Or(notice, fmt.Sprint(err))
+	}
+	moving := *ip
+	moving.head = landed
+	landingStep("replay")
+	if err := moveHead(ctx, &moving, landed, replayed, "rhizome tasks: "+def.ID+" onto "+short(upstream), func() error {
+		return readTree(ctx, &moving, landed, replayed)
+	}); err != nil {
+		if errors.Is(err, errHeadMoved) {
+			return "", "HEAD moved"
+		}
+		return "", err.Error()
+	}
+	return replayed, ""
 }
 
 func pushedOr(commit, notice string) (string, string) {

@@ -119,7 +119,8 @@ var protectedPrefixes = []string{".agents/", ".rhizome/"}
 
 func protected(def Definition, path string) bool {
 	for _, prefix := range protectedPrefixes {
-		if !strings.HasPrefix(path, prefix) {
+		// `.Agents/` is `.agents/` on a case-insensitive file system.
+		if !strings.HasPrefix(strings.ToLower(path), prefix) {
 			continue
 		}
 		for _, p := range def.Writes {

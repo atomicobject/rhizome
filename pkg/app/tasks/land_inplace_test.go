@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -111,7 +112,7 @@ func TestInPlaceRestoresProtectedPaths(t *testing.T) {
 		t.Fatalf("only writes outside protected folders, or naming them, are committed: %v", got)
 	}
 	if f.read(".agents/skills/a/SKILL.md") != "agent skill\n" || f.read(".agents/skills/a/notes/x.md") != "x\n" || !strings.HasPrefix(f.read(".rhizome/tasks/tend.yml"), "name: Tend notes") {
-		t.Fatal("protected files must be restored to their snapshot content")
+		t.Fatalf("protected files must be restored to their snapshot content: %+v", f.attention())
 	}
 	if _, err := os.Stat(filepath.Join(f.host, ".rhizome/new.yml")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("a protected file the run created must be removed: %v", err)
@@ -158,7 +159,7 @@ func TestInPlaceAdoptsAFailedRunsFiles(t *testing.T) {
 	if o := f.pass(); o.Outcome != OutcomeFailed {
 		t.Fatalf("%+v", o)
 	}
-	if got := mustState(t, f.svc).Leftover["tend"]; !slices.Equal(got, []string{"notes/a.md"}) {
+	if got := slices.Sorted(maps.Keys(mustState(t, f.svc).Leftover["tend"])); !slices.Equal(got, []string{"notes/a.md"}) {
 		t.Fatalf("a failed run records the task's files, got %v", got)
 	}
 	failed := f.attention()
@@ -209,7 +210,7 @@ func TestInPlaceHeadMovedDuringTheRunDoesNotCommit(t *testing.T) {
 	if run(t, f.host, "log", "-1", "--format=%s") != "person commits during the run" || f.status() != "?? notes/a.md" {
 		t.Fatal("Rhizome must not commit after HEAD moved")
 	}
-	if got := mustState(t, f.svc).Leftover["tend"]; !slices.Equal(got, []string{"notes/a.md"}) {
+	if got := slices.Sorted(maps.Keys(mustState(t, f.svc).Leftover["tend"])); !slices.Equal(got, []string{"notes/a.md"}) {
 		t.Fatalf("the files must be recorded, got %v", got)
 	}
 	if len(f.attention()) != 1 {

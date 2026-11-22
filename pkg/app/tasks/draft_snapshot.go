@@ -130,7 +130,8 @@ func (s *Service) captureTree(ctx context.Context, root, noHooks string) (string
 	if _, err = gitBytesInput(ctx, root, env, tracked, "-c", noHooks, "update-index", "--no-assume-unchanged", "-z", "--stdin"); err != nil {
 		return "", err
 	}
-	args := []string{"-c", noHooks, "-c", "core.splitIndex=false", "add", "-A", "--", "."}
+	// A stale file-system monitor would hide edits from the snapshot.
+	args := []string{"-c", noHooks, "-c", "core.splitIndex=false", "-c", "core.fsmonitor=false", "add", "-A", "--", "."}
 	// The executing runner owns this directory, including its changing locks.
 	if rel, err := filepath.Rel(root, s.stateDir); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		rel = filepath.ToSlash(rel)
