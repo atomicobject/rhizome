@@ -1,9 +1,14 @@
 package tasks
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // These tests cover how an in-place run moves the person's checkout to the
@@ -24,5 +29,49 @@ func TestInPlaceChecksIncomingFilesUnderTheLock(t *testing.T) {
 	}
 	if o.Outcome != OutcomeSkipped || !strings.Contains(o.Reason, "secret.env") {
 		t.Fatalf("%+v", o)
+	}
+}
+
+func TestInPlaceStopDuringTheFastForwardLeavesNoGitLocks(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	f.push("other/x.md", "x\n")
+	// A git that pauses in the fast-forward's read-tree, so the stop lands
+	// while Git holds its locks.
+	real, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	started := filepath.Join(bin, "read-tree-started")
+	writeFile(t, filepath.Join(bin, "git"), fmt.Sprintf("#!/bin/sh\ncase \" $* \" in *\" read-tree -m -u \"*) : > '%s'; sleep 1 ;; esac\nexec '%s' \"$@\"\n", started, real))
+	if err := os.Chmod(filepath.Join(bin, "git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	f.now = f.now.Add(2 * time.Hour)
+	go func() {
+		defer close(done)
+		_, _ = f.svc.RunDue(ctx)
+	}()
+	for !fileExists(started) {
+		select {
+		case <-done:
+			t.Fatal("the pass ended before the fast-forward")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	cancel()
+	<-done
+	gitDir := run(t, f.host, "rev-parse", "--absolute-git-dir")
+	for _, lock := range []string{"index.lock", "HEAD.lock", "refs/heads/main.lock"} {
+		if fileExists(filepath.Join(gitDir, lock)) {
+			t.Fatalf("a stop during the fast-forward left %s behind", lock)
+		}
+	}
+	if run(t, f.host, "rev-parse", "HEAD") != run(t, f.host, "rev-parse", "origin/main") || f.status() != "" {
+		t.Fatalf("the fast-forward must finish whole: %q", f.status())
 	}
 }

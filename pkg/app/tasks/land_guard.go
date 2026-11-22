@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -174,11 +175,19 @@ func incomingNotice(ctx context.Context, dir string, incoming [][2]string) (stri
 	return "", nil
 }
 
+// localGitTimeout bounds the Git commands that move the checkout, which a
+// stop does not interrupt.
+const localGitTimeout = 5 * time.Minute
+
 // moveCheckout moves the checkout's branch, index, and working tree from
 // one commit to another, as a fast-forward checkout does, under moveHead.
 // It checks with incomingNotice while the locks are held, returning the
-// notice when the move could overwrite the person's files.
+// notice when the move could overwrite the person's files. A stop does not
+// cut it short: Git killed mid-move leaves its lock files behind, so it
+// runs on until done or localGitTimeout.
 func moveCheckout(ctx context.Context, ip *inPlace, from, to, reason string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), localGitTimeout)
+	defer cancel()
 	moving := *ip
 	moving.head = from
 	var notice string
