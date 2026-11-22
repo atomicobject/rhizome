@@ -2,7 +2,10 @@
 //! does not repeat them.
 use super::api::Notice;
 use serde::{Deserialize, Serialize};
-use std::{collections::VecDeque, path::Path};
+use std::{
+    collections::{HashSet, VecDeque},
+    path::Path,
+};
 
 const FILE: &str = "host-notices.json";
 /// Notice ids are stable, and a runtime reports only recent ones.
@@ -32,20 +35,29 @@ impl Notified {
         }
     }
 
-    /// The notices from `repository` not shown before, now recorded.
+    /// The notices from `repository` not shown before, now recorded. Past
+    /// [`KEEP`] ids, the oldest of this repository's ids that `notices` no
+    /// longer lists are forgotten, so a visible notice, here or in another
+    /// repository, is never shown twice.
     pub fn fresh(&mut self, repository: &str, notices: &[Notice]) -> Vec<Notice> {
+        let prefix = format!("{repository}\n");
+        let key = |notice: &Notice| format!("{prefix}{}", notice.id);
+        let visible: HashSet<String> = notices.iter().map(key).collect();
         let mut fresh = vec![];
         for notice in notices.iter().filter(|n| !n.id.is_empty()) {
-            let key = format!("{repository}\n{}", notice.id);
+            let key = key(notice);
             if self.shown.contains(&key) {
                 continue;
             }
             self.shown.push_back(key);
-            if self.shown.len() > KEEP {
-                self.shown.pop_front();
-            }
             fresh.push(notice.clone());
         }
+        let mut excess = self.shown.len().saturating_sub(KEEP);
+        self.shown.retain(|id| {
+            let forget = excess > 0 && id.starts_with(&prefix) && !visible.contains(id);
+            excess -= usize::from(forget);
+            !forget
+        });
         fresh
     }
 }

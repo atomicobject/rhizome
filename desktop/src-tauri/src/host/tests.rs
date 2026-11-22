@@ -201,6 +201,29 @@ fn each_notice_is_shown_once_even_after_a_relaunch() {
 }
 
 #[test]
+fn more_visible_notices_than_the_record_keeps_are_still_shown_once() {
+    let directory = tempfile::tempdir().unwrap();
+    let ids: Vec<String> = (0..600).map(|i| format!("n{i}")).collect();
+    let visible = status(0, &ids.iter().map(String::as_str).collect::<Vec<_>>()).notices;
+    let mut notified = notices::Notified::load(directory.path());
+    let gone = status(0, &["gone"]).notices;
+    let other = status(0, &["other"]).notices;
+    notified.fresh("/a/.git", &gone);
+    notified.fresh("/b/.git", &other);
+    assert_eq!(notified.fresh("/a/.git", &visible).len(), 600);
+    assert!(
+        notified.fresh("/a/.git", &visible).is_empty(),
+        "no visible notice repeats"
+    );
+    assert!(
+        notified.fresh("/b/.git", &other).is_empty(),
+        "another repository's notices are kept"
+    );
+    // What gets forgotten is this repository's ids no longer listed.
+    assert_eq!(notified.fresh("/a/.git", &gone).len(), 1);
+}
+
+#[test]
 fn hosts_reads_the_cli_listing() {
     let listing: Vec<Listed> = serde_json::from_str(
         r#"[{"commonDir":"/work/notes/.git","checkout":"/work/notes","runHere":true,"extra":1},
