@@ -60,9 +60,14 @@ func TestNextDueAtSkipsWhatRunDueSkips(t *testing.T) {
 	setState(t, svc, func(st *State) {
 		st.AddItem(Item{Task: "notes", Kind: KindTask, State: StateReady}, hostNow)
 		st.Modes = map[string]Mode{"lint": ModeOff}
+		st.LastPass = hostNow
 	})
 	at, _ = nextDueAt(t, svc)
-	require.Equal(t, hostNow.Add(22*time.Hour), at, "a ready item blocks Notes and Lint is off")
+	require.Equal(t, hostNow.Add(settleInterval), at, "a ready item blocks Notes and Lint is off; only a pass settling the item comes due")
+	setState(t, svc, func(st *State) { st.Items[0].State = StateDone })
+	at, _ = nextDueAt(t, svc)
+	require.Equal(t, hostNow.Add(10*time.Minute), at)
+	setState(t, svc, func(st *State) { st.Items[0].State = StateReady })
 
 	until := hostNow.Add(48 * time.Hour)
 	require.NoError(t, svc.PauseUntil(context.Background(), until))
@@ -83,7 +88,9 @@ func TestNextDueAtSkipsWhatRunDueSkips(t *testing.T) {
 	require.False(t, ok, "once reported, an untrusted repository runs nothing")
 }
 
-func TestNextDueAtTreatsANewTaskAsDueNow(t *testing.T) {
+// A task that never ran is due from when a pass first saw it, so its due
+// time does not move with the clock and the runtime's retry wait holds.
+func TestNextDueAtTreatsANewTaskAsDueWhenSeen(t *testing.T) {
 	svc := statusHostService(t)
 	seen := hostNow.Add(-time.Minute)
 	setState(t, svc, func(st *State) {
@@ -91,7 +98,10 @@ func TestNextDueAtTreatsANewTaskAsDueNow(t *testing.T) {
 	})
 	at, ok := nextDueAt(t, svc)
 	require.True(t, ok)
-	require.Equal(t, hostNow, at)
+	require.Equal(t, seen, at)
+	svc.opts.Now = func() time.Time { return hostNow.Add(30 * time.Second) }
+	at, _ = nextDueAt(t, svc)
+	require.Equal(t, seen, at, "a later check sees the same due time")
 }
 
 func TestHostStatusShape(t *testing.T) {
@@ -127,9 +137,9 @@ func TestHostStatusShape(t *testing.T) {
 			"task": "lint", "name": "Lint", "at": "2026-11-22T11:30:00Z", "message": "check failed: exit 1", "item": "2",
 		},
 		"notices": []any{
-			map[string]any{"id": "item-1-ready", "kind": "ready", "task": "digest", "title": "Digest is ready for review", "body": "Wrote the digest."},
-			map[string]any{"id": "item-2-needs-attention", "kind": "failed", "task": "lint", "title": "Lint failed", "body": "check failed: exit 1"},
-			map[string]any{"id": "item-3-due", "kind": "due", "task": "notes", "title": "New task: Notes", "body": "New task \"Notes\" runs every 1h."},
+			map[string]any{"id": "item-1-ready", "kind": "ready", "task": "digest", "name": "Digest", "title": "Digest is ready for review", "body": "Wrote the digest."},
+			map[string]any{"id": "item-2-needs-attention", "kind": "failed", "task": "lint", "name": "Lint", "title": "Lint failed", "body": "check failed: exit 1"},
+			map[string]any{"id": "item-3-due", "kind": "due", "task": "notes", "name": "Notes", "title": "New task: Notes", "body": "New task \"Notes\" runs every 1h."},
 		},
 	}, raw, "a stale running record and a snoozed item are left out")
 
@@ -137,6 +147,23 @@ func TestHostStatusShape(t *testing.T) {
 	again, err := svc.HostStatus(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, status.Notices, again.Notices)
+
+	// A pass-level failure has every key too: no task, a readable name.
+	passAt := hostNow.Add(-time.Minute)
+	setState(t, svc, func(st *State) { st.PassError = &PassError{At: passAt, Message: "primary ref missing"} })
+	failed, err := svc.HostStatus(context.Background())
+	require.NoError(t, err)
+	data, err = json.Marshal(failed)
+	require.NoError(t, err)
+	var pass struct {
+		LastFailure map[string]any   `json:"lastFailure"`
+		Notices     []map[string]any `json:"notices"`
+	}
+	require.NoError(t, json.Unmarshal(data, &pass))
+	require.Equal(t, map[string]any{"task": "", "name": passName, "at": "2026-11-22T11:59:00Z", "message": "primary ref missing", "item": ""}, pass.LastFailure)
+	last := pass.Notices[len(pass.Notices)-1]
+	require.Equal(t, "", last["task"])
+	require.Equal(t, passName, last["name"])
 
 	until := hostNow.Add(time.Hour)
 	require.NoError(t, svc.PauseUntil(context.Background(), until))

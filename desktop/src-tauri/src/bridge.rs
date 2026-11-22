@@ -91,6 +91,31 @@ pub async fn call(
     call_sidecar(directory, request, timeout, &sidecar()?).await
 }
 
+/// Sends `request` to a companion without waiting for its answer, for the
+/// exit path: the companion finishes after the app has gone.
+pub fn send(directory: &Path, request: Request<'_>) -> Result<(), String> {
+    use std::io::Write;
+    let mut bytes = serde_json::to_value(request).map_err(|e| e.to_string())?;
+    bytes["protocol"] = 1.into();
+    let mut child = std::process::Command::new(sidecar()?)
+        .arg("desktop-bridge")
+        .arg("--state-dir")
+        .arg(directory)
+        .current_dir(directory)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| format!("Cannot start the Rhizome companion: {e}"))?;
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or("Cannot contact the Rhizome companion.")?;
+    stdin
+        .write_all(bytes.to_string().as_bytes())
+        .map_err(|e| e.to_string())
+}
+
 /// The immutable portable companion, or the bundled macOS executable.
 pub fn sidecar() -> Result<std::path::PathBuf, String> {
     if !cfg!(target_os = "macos") {

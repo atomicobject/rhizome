@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -92,18 +93,58 @@ func TestDoctorReportsEachTasksNeeds(t *testing.T) {
 	require.True(t, got[CheckDeny].OK)
 	require.Equal(t, 1, driver.listed)
 
-	// One task, a remote that refuses the push, and an untrusted repository.
+	// One task in an untrusted repository: the push check is skipped.
 	run(t, dir, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "gone.git"))
 	report, err = doctorService(t, dir, resolvingAgent{fakeAgent: &fakeAgent{}, kind: harness.KindCodex, driver: driver}, false).Doctor(ctx, DoctorOptions{Task: "triage", Push: true})
 	require.NoError(t, err)
 	require.Len(t, report.Tasks, 1)
 	repo = checksByName(report.Checks)
 	require.False(t, repo[CheckTrust].OK)
-	require.False(t, repo[CheckPush].OK)
+	require.True(t, repo[CheckPush].Skipped)
 	require.Contains(t, checksByName(report.Tasks[0].Checks)[CheckDeny].Detail, "codex cannot enforce deny")
 
 	_, err = doctorService(t, dir, agent, true).Doctor(ctx, DoctorOptions{Task: "nope"})
 	require.ErrorContains(t, err, `task "nope" is not declared`)
+}
+
+// The push check never runs the repository's hooks: it is skipped in an
+// untrusted repository and runs with hooks off in a trusted one.
+func TestDoctorPushCheckRunsNoHooks(t *testing.T) {
+	shellAvailable(t)
+	dir := newRemoteRepo(t, map[string]string{"look.yml": "name: Look\nevery: 1d\ncheck:\n  command: [\"true\"]\n"})
+	ran := filepath.Join(t.TempDir(), "pre-push-ran")
+	writeFile(t, filepath.Join(dir, ".git", "hooks", "pre-push"), "#!/bin/sh\ntouch "+ran+"\n")
+	require.NoError(t, os.Chmod(filepath.Join(dir, ".git", "hooks", "pre-push"), 0o755))
+	ctx := context.Background()
+
+	report, err := doctorService(t, dir, &fakeAgent{}, false).Doctor(ctx, DoctorOptions{Push: true})
+	require.NoError(t, err)
+	push := checksByName(report.Checks)[CheckPush]
+	require.True(t, push.Skipped, push.Detail)
+	require.Contains(t, push.Detail, "not trusted")
+	require.NoFileExists(t, ran, "doctor ran a hook in an untrusted repository")
+
+	report, err = doctorService(t, dir, &fakeAgent{}, true).Doctor(ctx, DoctorOptions{Push: true})
+	require.NoError(t, err)
+	push = checksByName(report.Checks)[CheckPush]
+	require.True(t, push.OK, push.Detail)
+	require.NoFileExists(t, ran, "the push dry run ran the repository's pre-push hook")
+}
+
+// Codex lists its configured MCP servers without starting them, so doctor
+// says a server is configured, not that it is reachable.
+func TestDoctorDoesNotClaimCodexReachesMCP(t *testing.T) {
+	dir := newRemoteRepo(t, map[string]string{"triage.yml": "name: Triage\nevery: 1d\nrequires:\n  mcp: [linear]\nprompt: Triage.\n"})
+	driver := &listingHarness{
+		Harness: harnesstest.Harness{StatusResult: harness.Status{Installed: true, LoggedIn: true}},
+		servers: []harness.MCPServerState{{Name: "linear", Status: "enabled", Usable: true}},
+	}
+	agent := resolvingAgent{fakeAgent: &fakeAgent{}, kind: harness.KindCodex, driver: driver}
+	report, err := doctorService(t, dir, agent, true).Doctor(context.Background(), DoctorOptions{})
+	require.NoError(t, err)
+	mcp := checksByName(report.Tasks[0].Checks)[CheckMCP]
+	require.True(t, mcp.OK)
+	require.Equal(t, `MCP server "linear" for codex is configured (Codex does not report connection status)`, mcp.Detail)
 }
 
 func TestDoctorSpotsObsidianGitTimers(t *testing.T) {
@@ -133,4 +174,14 @@ func TestDoctorSpotsObsidianGitTimers(t *testing.T) {
 			require.Equal(t, tc.ok, check.OK, check.Detail)
 		})
 	}
+}
+
+func TestDoctorReportsInvalidTaskFiles(t *testing.T) {
+	dir := newRemoteRepo(t, map[string]string{"broken.yml": "name: Broken\nprompt: no cadence\n"})
+	report, err := doctorService(t, dir, &fakeAgent{}, true).Doctor(context.Background(), DoctorOptions{})
+	require.NoError(t, err)
+	require.False(t, report.OK, "a repository whose only task file is invalid is not ready")
+	file := checksByName(report.Checks)[CheckTaskFile]
+	require.False(t, file.OK)
+	require.Contains(t, file.Detail, "broken.yml")
 }

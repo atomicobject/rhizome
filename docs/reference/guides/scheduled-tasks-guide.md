@@ -51,7 +51,7 @@ schedule:
     days: [sat, sun]
 ```
 
-A slot is due once its time has passed and no run of the task started at or after it. A slot missed while the machine slept or Rhizome was closed still runs if the next check comes within `late` of it; several missed slots run once. A slot inside a daylight-saving gap runs at the first instant after the gap, and a slot in a repeated hour runs once. The zone is the entry's `timezone`, else your `tasks.timezone` setting (below), else the machine's. Windows that cross midnight, cron strings, and RRULEs are not supported.
+A slot is due once its time has passed and no run of the task started at or after it. A slot missed while the machine slept or Rhizome was closed still runs if the next check comes within `late` of it; several missed slots run once. A slot inside a daylight-saving gap runs at the first instant after the gap, and a slot in a repeated hour runs once, at its first occurrence; a run that started in either occurrence counts for it. The zone is the entry's `timezone`, else your `tasks.timezone` setting (below), else the machine's. Windows that cross midnight, cron strings, and RRULEs are not supported.
 
 Rhizome versions before `schedule` reject a task file that uses it, because task files reject unknown fields. A starter that ships scheduled tasks states its minimum Rhizome version.
 
@@ -152,11 +152,11 @@ A task's `harness`, `model`, and `effort` override your chat agent settings for 
 
 Scheduled tasks run on a machine where you turned on **Run tasks on this machine** (the Tasks page or `rzm tasks machine on`), while Rhizome Desktop runs there, even with every window closed. A runtime that Desktop does not hold, such as one started by `rzm` commands or MCP, runs no scheduled tasks. `rzm tasks stop` stops a run in progress and records it as stopped.
 
-While Rhizome Desktop holds the runtime of a repository you turned on here, it checks the clock every 30 seconds and starts `rzm tasks run-due --host` when a task is due. `--host` runs nothing unless the repository runs here, so a runtime on another machine never does the work. You can also run `rzm tasks run-due` yourself. Each due task runs once per person and repository, however many worktrees or runtimes are open. A task missed while Rhizome was closed runs once at the next pass, within its `late` window for a scheduled slot. When several tasks are due, the one with the nearest deadline runs first: a slot by the end of its `late` window, an `every` task by its due time.
+While Rhizome Desktop holds the runtime of a repository you turned on here, it checks the clock every 30 seconds and starts `rzm tasks run-due --host` when a task is due. `--host` runs nothing unless the repository runs here, so a runtime on another machine never does the work; turning **Run tasks on this machine** off during a pass stops it before the next task. You can also run `rzm tasks run-due` yourself. Each due task runs once per person and repository, however many worktrees or runtimes are open. A task missed while Rhizome was closed runs once at the next pass, within its `late` window for a scheduled slot. When several tasks are due, the one with the nearest deadline runs first: a slot by the end of its `late` window, an `every` task by its due time.
 
 Deciding what is due reads only the local primary ref. A pass with something due first fetches the primary ref's remote, without prompting and with a time limit, then reads the tasks again; if the fetch fails, the pass uses the last fetched ref and `rzm tasks status` shows the failure. A task added on the remote is seen at the next pass that fetches.
 
-`rzm tasks status` says why each task is not running: tasks do not run on this machine, the repository is untrusted, work is paused (and until when), the task is off, or an open item waits for you. `--json` reports the same as a stable `blockedBy` code (`not-run-here`, `no-host`, `untrusted`, `paused`, `off`, `open-item`, `wrong-branch`, `requires`, `fetch-failed`), with each task's `nextAt` and `timezone` and the repository's `runHere`, `pausedUntil`, and last `fetch`. An untrusted repository is reported once, as the last pass's error. To run a task without waiting for a pass, choose **Run now** on its page or run `rzm tasks run --task <task>`. Its check runs first, and the work starts only if the check finds some. A task with an open inbox item runs from that item instead.
+`rzm tasks status` says why each task is not running: tasks do not run on this machine, the repository is untrusted, work is paused (and until when), the task is off, or an open item waits for you. `--json` reports the same as a stable `blockedBy` code (`not-run-here`, `no-host`, `untrusted`, `paused`, `off`, `open-item`, `wrong-branch`, `requires`, `fetch-failed`), with each task's `nextAt` and `timezone` and the repository's `runHere`, `pausedUntil`, and last `fetch`. Only the runtime knows whether Rhizome Desktop hosts it, so `no-host` appears on the Tasks page (with tasks on here and no Desktop host) and never in `rzm tasks status`. A failed fetch never blocks a task, since the pass falls back to the last fetched branch, so `fetch-failed` is reserved and the failure shows only as the report's `fetch`. An untrusted repository is reported once, as the last pass's error. To run a task without waiting for a pass, choose **Run now** on its page or run `rzm tasks run --task <task>`. Its check runs first, and the work starts only if the check finds some. A task with an open inbox item runs from that item instead.
 
 A `person` task is due when your own last run is older than its cadence. A `team` task also counts teammates: when a commit tagged `Rhizome-Task: <id>` reaches the primary branch, everyone's clock resets. Squash merges keep the tag when the repository squashes with commit messages. They drop it when it squashes with the pull request title alone.
 
@@ -166,10 +166,10 @@ A `person` task is due when your own last run is older than its cadence. A `team
 
 - repository trust;
 - the primary branch and when the repository last fetched it;
-- `git push --dry-run` to the primary branch's remote, when your push setting is on;
+- `git push --dry-run` to the primary branch's remote, when your push setting is on, with the repository's hooks turned off; in an untrusted repository it is skipped, because a push runs commands the repository configures;
 - Obsidian Git in the host checkout: a timed auto commit-and-sync (`autoSaveInterval`) or auto pull (`autoPullInterval`) moves HEAD under an in-place run;
 - each `requires.commands` entry on your login shell's `PATH`;
-- for a task with a prompt: whether your harness is installed and signed in, whether it can enforce `deny`, and each `requires.mcp` server's status as the harness lists it. Claude Code connects to each server; Codex reports only whether a server is enabled and signed in.
+- for a task with a prompt: whether your harness is installed and signed in, whether it can enforce `deny`, and each `requires.mcp` server's status as the harness lists it. Claude Code connects to each server. Codex does not start its servers to list them, so doctor reports a Codex server as configured (Codex does not report connection status), or as disabled or not logged in; a configured server can still fail to connect when the task runs.
 
 ## Where changes land
 
@@ -248,7 +248,7 @@ From a terminal, `rzm tasks inbox` lists the items and `rzm tasks <action> <item
 
 A due item stays current. Each time its task comes due again, Rhizome runs the check again: if nothing is needed now, the item closes as done; if it is still needed, its summary and context are refreshed in place, and any snooze is kept. A re-check never adds a second item or starts work, and a check that fails moves the item to needs attention. Running, ready, and started items keep their task from checking until they close.
 
-An item closes by itself when a commit carrying its task's tag reaches the primary branch, whoever made it.
+An item closes by itself when a commit carrying its task's tag reaches the primary branch, whoever made it. A pass notices that: while an item waits for its work to reach the primary branch, the Desktop host starts a pass at most every 15 minutes that fetches and closes it, and runs nothing else for that task.
 
 ## The Tasks page
 
@@ -262,6 +262,8 @@ In Rhizome Desktop, the Dock icon's badge counts the task items that need you (d
 
 - **Open worktree** opens a ready or needs-attention item's worktree in a new window.
 - **Start** opens Terminal in the main checkout running `rzm tasks start <item>`. The first time, macOS asks to let Rhizome control Terminal.
+
+On a Mac, Rhizome Desktop hosts scheduled tasks from the menu bar for every repository with **Run tasks on this machine** on, with or without windows. ⌘Q (Quit Rhizome) closes the windows and keeps the menu bar icon; opening Rhizome again brings the windows back. The menu bar menu shows each repository's running and next task, the inbox count, and the last failure, and offers Run now, Pause Tasks, and Open Rhizome. **Quit Rhizome Completely** (⌥⌘Q, or in the menu bar menu) stops hosting: it asks whether to wait for or stop a running task first. Logging out, restarting, or quitting from the Dock stops a running task without asking. Settings > Menu bar turns off "Keep running in the menu bar", so ⌘Q quits completely, or turns on "Launch at login".
 
 ## Where state lives
 

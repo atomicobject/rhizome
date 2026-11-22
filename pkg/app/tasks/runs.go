@@ -158,8 +158,9 @@ func (l *checkLog) Close() {
 
 // begin marks the attempt as the running one, including explicit tests.
 func (s *Service) begin(ctx context.Context, a attempt, r RunRecord, fn func(*State)) error {
+	holder := s.lockHolder()
 	return s.store.Update(ctx, func(st *State) error {
-		r.Stage = StageCheck
+		r.Stage, r.Holder = StageCheck, holder
 		st.Running = &r
 		if fn != nil {
 			fn(st)

@@ -202,6 +202,9 @@ fn copy_page_url(window: &Window) -> Result<(), String> {
 }
 
 const SIDEBAR_SHORTCUT: &str = "CmdOrCtrl+B";
+/// ⌥⌘Q: no system shortcut, and Quit Rhizome keeps ⌘Q.
+#[cfg(any(target_os = "macos", test))]
+const QUIT_COMPLETELY: &str = "Alt+CmdOrCtrl+Q";
 
 fn sidebar_label(collapsed: bool) -> &'static str {
     if collapsed {
@@ -267,7 +270,9 @@ fn command(app: &AppHandle, name: &str, window: Option<Window>) {
             });
         }
         None => {
-            create_from_event(app, WindowSession::default());
+            if !crate::windows::resume_from_event(app) {
+                create_from_event(app, WindowSession::default());
+            }
         }
     }
 }
@@ -304,9 +309,28 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
     let (appearance_menu, theme_menu) = appearance::submenus(app)?;
     // GTK does not implement the predefined quit, minimize, maximize, or
     // fullscreen items, and Windows needs fullscreen and minimize routed
-    // through dispatch, so those platforms use ordinary items.
-    #[cfg(not(target_os = "linux"))]
+    // through dispatch, so those platforms use ordinary items. macOS has
+    // its own quits (SPEC-0104 US8).
+    #[cfg(windows)]
     let quit = PredefinedMenuItem::quit(app, None)?;
+    #[cfg(target_os = "macos")]
+    let name = &app.package_info().name;
+    #[cfg(target_os = "macos")]
+    let quit = MenuItem::with_id(
+        app,
+        "quit",
+        format!("Quit {name}"),
+        true,
+        Some("CmdOrCtrl+Q"),
+    )?;
+    #[cfg(target_os = "macos")]
+    let quit_completely = MenuItem::with_id(
+        app,
+        "quit-completely",
+        format!("Quit {name} Completely"),
+        true,
+        Some(QUIT_COMPLETELY),
+    )?;
     #[cfg(target_os = "linux")]
     let quit = MenuItem::with_id(app, "quit", "Quit", true, Some("Ctrl+Q"))?;
     let app_menu = Submenu::with_items(
@@ -328,8 +352,12 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
             #[cfg(not(windows))]
             &PredefinedMenuItem::separator(app)?,
             &quit,
+            #[cfg(target_os = "macos")]
+            &quit_completely,
         ],
     )?;
+    #[cfg(target_os = "macos")]
+    crate::quit::manage_items(app, app_menu.clone(), quit_completely);
     let file_menu = Submenu::with_items(
         app,
         "File",
@@ -430,6 +458,9 @@ fn dispatch(app: &AppHandle, id: &str, window: Option<Window>) {
     }
     match id {
         "new-window" => {
+            if crate::windows::resume_from_event(app) {
+                return;
+            }
             let session = match app.windows().is_empty() {
                 true => app.state::<Sessions>().last_closed(),
                 false => WindowSession::default(),
@@ -492,6 +523,10 @@ fn dispatch(app: &AppHandle, id: &str, window: Option<Window>) {
         }
         #[cfg(target_os = "linux")]
         "quit" => app.exit(0),
+        #[cfg(target_os = "macos")]
+        "quit" => crate::quit::quit(app),
+        #[cfg(target_os = "macos")]
+        "quit-completely" => crate::quit::quit_completely(app),
         #[cfg(not(target_os = "macos"))]
         "minimize" => {
             if let Some(window) = window {

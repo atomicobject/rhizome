@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/atomicobject/rhizome/pkg/proctree"
 	"io"
 	"os"
 	"os/exec"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/atomicobject/rhizome/pkg/harness/internal/processlog"
 	"github.com/atomicobject/rhizome/pkg/loginpath"
@@ -21,6 +23,10 @@ type Spec struct {
 	Stdin io.Reader
 	// Env adds variables to the inherited environment.
 	Env []string
+	// KillTree runs the command in its own session and, when it exits or its
+	// context ends, kills everything it started, for commands such as an MCP
+	// listing that start servers which may hang.
+	KillTree bool
 }
 
 type Result struct {
@@ -46,6 +52,10 @@ func (OSRunner) LookPath(name string) (string, error) {
 	return exec.LookPath(path)
 }
 
+// waitDelay bounds how long Run waits for output pipes after the process
+// exits or is killed.
+const waitDelay = 5 * time.Second
+
 func (r OSRunner) Run(ctx context.Context, spec Spec) (Result, error) {
 	cmd := exec.CommandContext(ctx, spec.Path, spec.Args...)
 	var interrupted atomic.Bool
@@ -57,6 +67,9 @@ func (r OSRunner) Run(ctx context.Context, spec Spec) (Result, error) {
 		}
 		return err
 	}
+	// A grandchild holding the output pipes must not keep Wait blocked after
+	// the command exits or its context ends.
+	cmd.WaitDelay = waitDelay
 	cmd.Dir = spec.Dir
 	cmd.Env = append(loginpath.WithPath(os.Environ(), loginpath.Extend(os.Getenv("PATH"))), spec.Env...)
 	cmd.Stdin = spec.Stdin
@@ -65,10 +78,21 @@ func (r OSRunner) Run(ctx context.Context, spec Spec) (Result, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	corr := processlog.CorrelationID()
+	if spec.KillTree {
+		proctree.Configure(cmd)
+	}
 	if err := cmd.Start(); err != nil {
 		return Result{}, err
 	}
 	processlog.Spawn(r.Label, spec.Path, spec.Dir, corr, cmd.Process.Pid)
+	if spec.KillTree {
+		tree := proctree.Track(cmd.Process, proctree.DefaultInterval)
+		defer func() { tree.Stop(); _ = tree.Kill() }()
+		cmd.Cancel = func() error {
+			interrupted.Store(true)
+			return tree.Kill()
+		}
+	}
 	err := cmd.Wait()
 	processlog.Exit(r.Label, corr, cmd.Process.Pid, cmd.ProcessState, err)
 	result := Result{Stdout: stdout.String(), Stderr: stderr.String()}

@@ -60,3 +60,8 @@ EOF
 
 build src-tauri/icons
 build src-tauri/icons-dev --dev
+
+# The menu bar's template image: black on transparent, 18 points at 2x. macOS
+# recolors it for light and dark menu bars.
+swift scripts/render-icon.swift "$brand/rhizome-menu-bar.svg" "$tmp/menu-bar.png"
+sips -z 36 36 "$tmp/menu-bar.png" --out src-tauri/icons/menu-bar-template.png >/dev/null

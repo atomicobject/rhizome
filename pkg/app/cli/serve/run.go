@@ -425,7 +425,7 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 		dispatch := &taskDispatch{
 			hosts: taskHosts,
 			open:  func(ctx context.Context) (web.TasksAPI, error) { return opts.OpenTasks(ctx, vaultPath) },
-			start: func() error { return opts.RunTasks(vaultPath) },
+			start: func() (*appruntime.Detached, error) { return opts.RunTasks(vaultPath) },
 			now:   time.Now,
 		}
 		bg.Add(1)

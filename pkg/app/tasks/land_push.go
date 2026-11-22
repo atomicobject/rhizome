@@ -112,7 +112,10 @@ func (s *Service) pushCommit(ctx context.Context, ip *inPlace, remote, branch, c
 			return fmt.Sprintf("%s has commits that are not Rhizome's task commits (%s), so Rhizome did not push commit %s; push them yourself.", ip.branch, short(id), short(c)), nil
 		}
 	}
-	_, err = gitOutput(netCtx, ip.dir, "-c", ip.noHooks, "push", "--quiet", "--no-verify", "--force-with-lease="+ref+":"+dest, remote, c+":"+ref)
+	// A plain push: Git refuses anything but a fast-forward of the remote
+	// branch, so a remote that moved since the check rejects it (SPEC-0127
+	// US13: never force).
+	_, err = gitOutput(netCtx, ip.dir, "-c", ip.noHooks, "push", "--quiet", "--no-verify", remote, c+":"+ref)
 	if err != nil {
 		return "", errors.New(redactURLCredentials(err.Error()))
 	}

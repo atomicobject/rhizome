@@ -95,7 +95,11 @@ type RunSummary struct {
 // RunDue runs every enabled task that is due, once per repository, nearest
 // deadline first: a pass that finds another pass in progress skips, and a
 // pass with due work fetches the primary ref's remote first.
-func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
+func (s *Service) RunDue(ctx context.Context) (RunSummary, error) { return s.runDue(ctx, false) }
+
+// runDue is RunDue; a host pass stops before any task once the person turns
+// off running tasks on this machine.
+func (s *Service) runDue(ctx context.Context, host bool) (RunSummary, error) {
 	// Runtimes call this in every Git checkout. A repository that declares
 	// no tasks, or that the person has not trusted, is left untouched: no
 	// state folder, no lock, no recorded error.
@@ -136,8 +140,9 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 	}
 	zone := s.zone()
 	// Whether anything is due is decided from the local primary ref, with
-	// no network; only a pass with due work fetches, then reloads.
-	if st, err := s.store.Load(); err == nil && len(dueNow(&st, defs, s.lastTagged(ctx, ref, defs), s.opts.Now(), zone, s.opts.Config.DefaultMode)) > 0 {
+	// no network; only a pass with due work, or items waiting for their work
+	// to reach the primary ref, fetches, then reloads.
+	if st, err := s.store.Load(); err == nil && (len(dueNow(&st, defs, s.lastTagged(ctx, ref, defs), s.opts.Now(), zone, s.opts.Config.DefaultMode)) > 0 || settleDue(&st, defs, true, s.opts.Now())) {
 		s.fetchPrimary(ctx, ref)
 		if ref, commit, defs, problems, err = s.primary(ctx); err != nil {
 			return RunSummary{}, s.notePassError(ctx, err)
@@ -151,7 +156,7 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 		order  []dueTask
 	)
 	if err := s.store.Update(ctx, func(st *State) error {
-		st.PassError = nil
+		st.PassError, st.LastPass = nil, now
 		if st.Paused && !st.PausedAt(now) {
 			st.Paused, st.PausedUntil = false, time.Time{}
 		}
@@ -177,6 +182,12 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 		if st.PausedAt(s.opts.Now()) {
 			summary.Skipped = "paused"
 			break
+		}
+		if host {
+			if m, err := s.MachineSettings(); err != nil || !m.Repository.RunHere {
+				summary.Skipped = notRunHere
+				break
+			}
 		}
 		// An earlier task's run took time: decide again now, so a slot whose
 		// late window passed meanwhile waits for its next slot.

@@ -142,6 +142,11 @@ export type UpdateStatus =
   | { state: "disabled" | "idle" | "checking" }
   | { state: "current" | "downloading" | "ready"; version: string }
   | { state: "failed"; message: string };
+/** macOS: what Quit Rhizome (⌘Q) does, and whether Rhizome starts at login. */
+export interface MenuBarSettings {
+  keepInMenuBar: boolean;
+  launchAtLogin: boolean;
+}
 /** Whether new content views record render timings; `always` in Rhizome Dev. */
 export interface RenderProfiling {
   enabled: boolean;
@@ -461,6 +466,8 @@ type Results = {
   "install-update": null;
   "render-profiling": RenderProfiling;
   "set-render-profiling": RenderProfiling;
+  "menu-bar-settings": MenuBarSettings | null;
+  "set-menu-bar-settings": MenuBarSettings;
   "cli-link-status": LinkInfo;
   "cli-link-install": LinkInfo;
   "cli-link-remove": LinkInfo;
@@ -520,6 +527,8 @@ type Args = {
   "install-update": Record<string, never>;
   "render-profiling": Record<string, never>;
   "set-render-profiling": { enabled: boolean };
+  "menu-bar-settings": Record<string, never>;
+  "set-menu-bar-settings": Partial<MenuBarSettings>;
   "cli-link-status": Record<string, never>;
   "cli-link-install": Record<string, never>;
   "cli-link-remove": Record<string, never>;
