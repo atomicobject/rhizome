@@ -295,3 +295,20 @@ func TestFetchErrorsKeepNoCredentials(t *testing.T) {
 		}
 	}
 }
+
+func TestNextDueAtDuringAPauseSkipsASlotWhoseLateWindowCloses(t *testing.T) {
+	dir := newRepo(t, map[string]string{"n.yml": "name: N\nschedule: {at: \"12:52\", timezone: UTC, late: 1h}\nprompt: p\n"})
+	now := time.Date(2026, 11, 23, 12, 55, 0, 0, time.UTC)
+	svc := hostService(t, dir, "main", &now, true)
+	ctx := context.Background()
+	if err := svc.SetRunHere(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.PauseUntil(ctx, time.Date(2026, 11, 23, 14, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatal(err)
+	}
+	want := time.Date(2026, 11, 24, 12, 52, 0, 0, time.UTC)
+	if at, ok, err := svc.NextDueAt(ctx); err != nil || !ok || !at.Equal(want) {
+		t.Fatalf("NextDueAt = %v %v %v, want the next day's slot %v: today's late window closes at 13:52, before the pause lifts", at, ok, err, want)
+	}
+}

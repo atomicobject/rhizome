@@ -186,3 +186,16 @@ fn requests_name_their_route_and_read_the_reply() {
         "{refused}"
     );
 }
+
+#[test]
+fn a_started_pass_counts_as_running() {
+    let status: HostStatus = serde_json::from_value(serde_json::json!({
+        "dispatching": {"pid": 42, "startedAt": "2026-11-22T12:00:00Z"}
+    }))
+    .unwrap();
+    let active = status
+        .active()
+        .expect("a pass that has not recorded a run is still active");
+    assert_eq!(active.started_at, "2026-11-22T12:00:00Z");
+    assert_eq!(label(&active.name, &active.task), "Scheduled tasks");
+}

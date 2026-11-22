@@ -119,6 +119,12 @@ func (s *Service) nextDue(st *State, m MachineSettings, defs []Definition, tagge
 	if st.PausedAt(now) && st.PausedUntil.IsZero() {
 		return Definition{}, time.Time{}, false
 	}
+	// During a timed pause, ask what is due when the pause lifts, so a slot
+	// whose late window closes first is not shown as running then.
+	at := now
+	if st.PausedAt(now) {
+		at = st.PausedUntil
+	}
 	zone, _ := s.personZone(m)
 	var (
 		best  Definition
@@ -126,16 +132,16 @@ func (s *Service) nextDue(st *State, m MachineSettings, defs []Definition, tagge
 		found bool
 	)
 	for _, def := range defs {
-		d, blocked := taskDue(st, def, tagged[def.ID], now, zone, s.opts.Config.DefaultMode)
+		d, blocked := taskDue(st, def, tagged[def.ID], at, zone, s.opts.Config.DefaultMode)
 		if blocked != "" {
 			continue
 		}
-		at := d.due.At
-		if d.due.Now && at.IsZero() {
-			at = st.Seen[def.ID]
+		due := d.due.At
+		if d.due.Now && due.IsZero() {
+			due = st.Seen[def.ID]
 		}
-		if !found || at.Before(next) {
-			best, next, found = def, at, true
+		if !found || due.Before(next) {
+			best, next, found = def, due, true
 		}
 	}
 	if found && st.PausedAt(now) && next.Before(st.PausedUntil) {

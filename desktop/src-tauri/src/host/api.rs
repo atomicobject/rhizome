@@ -22,10 +22,33 @@ pub struct HostStatus {
     pub paused_until: Option<String>,
     pub draining: bool,
     pub running: Option<Running>,
+    /// A pass the runtime started that has not recorded a run yet.
+    pub dispatching: Option<Dispatching>,
     pub next: Option<Next>,
     pub attention: u32,
     pub last_failure: Option<LastFailure>,
     pub notices: Vec<Notice>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Dispatching {
+    pub pid: u32,
+    pub started_at: String,
+}
+
+impl HostStatus {
+    /// The run going on now, counting a pass that has started but not yet
+    /// recorded its first task, so quitting never leaves it behind.
+    pub fn active(&self) -> Option<Running> {
+        self.running.clone().or_else(|| {
+            self.dispatching.as_ref().map(|d| Running {
+                name: Some("Scheduled tasks".into()),
+                started_at: d.started_at.clone(),
+                ..Running::default()
+            })
+        })
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
@@ -203,7 +226,12 @@ impl Api {
         let value = self
             .post(&["api", "tasks", "host", "drain"], json!({}), wait)
             .await?;
-        Ok(serde_json::from_value(value["running"].clone()).unwrap_or(None))
+        let status = HostStatus {
+            running: serde_json::from_value(value["running"].clone()).unwrap_or(None),
+            dispatching: serde_json::from_value(value["dispatching"].clone()).unwrap_or(None),
+            ..HostStatus::default()
+        };
+        Ok(status.active())
     }
 
     /// Stops the active run, recorded as stopped.

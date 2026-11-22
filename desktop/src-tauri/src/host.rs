@@ -142,7 +142,7 @@ impl Host {
         hosts
             .values()
             .filter_map(|held| {
-                let running = held.status.as_ref()?.running.as_ref()?;
+                let running = held.status.as_ref()?.active()?;
                 Some((
                     held.name.clone(),
                     api::label(&running.name, &running.task).to_string(),
@@ -264,7 +264,7 @@ impl Host {
                     api: held.api.take(),
                     checkout: held.checkout.clone(),
                     headless: held.headless,
-                    running: held.status.as_ref().is_some_and(|s| s.running.is_some()),
+                    running: held.status.as_ref().is_some_and(|s| s.active().is_some()),
                 }
             })
             .collect();
