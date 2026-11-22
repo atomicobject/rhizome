@@ -189,24 +189,30 @@ func running(st *State, a attempt, fn func(*RunRecord)) {
 }
 
 // finalizeInterrupted records a Running left by a process that ended
-// mid-run as one interrupted run, keeping its folder, and moves its item to
-// needs attention. Callers hold run.lock, so nothing else is running.
+// mid-run as one interrupted run (stopped, when Stop marked it), keeping its
+// folder, and moves its item to needs attention. Callers hold run.lock, so
+// nothing else is running and any stop request is settled.
 func (s *Service) finalizeInterrupted(ctx context.Context) error {
 	return s.store.Update(ctx, func(st *State) error {
+		defer func() { st.Stopping = "" }()
 		if st.Running == nil {
 			return nil
 		}
 		now := s.opts.Now()
 		r := *st.Running
 		r.At, r.Outcome = now, OutcomeInterrupted
-		r.Message = "the run was interrupted before it finished"
+		r.Message = interruptedMessage
+		reason := interruptedMessage
+		if st.Stopping == r.ID {
+			reason = stoppedMessage
+		}
 		if r.Item != "" {
 			// A manual Run's item is still due or needs attention during
 			// its check; done and dismissed items stay closed.
 			if it, err := st.Item(r.Item); err == nil {
 				switch it.State {
 				case StateRunning, StateDue, StateAttention:
-					it.interrupt(now)
+					it.interrupt(now, reason)
 				}
 			}
 		}

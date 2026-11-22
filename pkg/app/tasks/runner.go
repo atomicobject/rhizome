@@ -41,6 +41,7 @@ type Service struct {
 		value string
 		at    time.Time
 	}
+	due dueInputsCache
 }
 
 // New prepares a Service for the repository.
@@ -133,7 +134,7 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 	if err := s.store.Update(ctx, func(st *State) error {
 		st.PassError = nil
 		s.bookkeep(ctx, st, defs, tagged, now)
-		paused = st.Paused
+		paused = st.PausedAt(now)
 		return nil
 	}); err != nil {
 		return summary, err
@@ -150,7 +151,7 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 		if err != nil {
 			return summary, err
 		}
-		if st.Paused {
+		if st.PausedAt(s.opts.Now()) {
 			summary.Skipped = "paused"
 			break
 		}
@@ -213,9 +214,9 @@ func (s *Service) bookkeep(ctx context.Context, st *State, defs []Definition, ta
 		// here, as phase 1 did.
 		if it.State == StateRunning {
 			if it.Kind == KindTask && it.Run == "" {
-				st.Record(RunRecord{Task: it.Task, At: now, Outcome: OutcomeInterrupted, Item: it.ID, Message: "the run was interrupted before it finished"})
+				st.Record(RunRecord{Task: it.Task, At: now, Outcome: OutcomeInterrupted, Item: it.ID, Message: interruptedMessage})
 			}
-			it.interrupt(now)
+			it.interrupt(now, interruptedMessage)
 		}
 		if t := tagged[it.Task]; it.Kind == KindTask && it.Active() && t != nil && s.newlyMerged(ctx, *t, *it) {
 			it.set(StateDone, now)
@@ -435,8 +436,10 @@ func (s *Service) lockRun(ctx context.Context, wait time.Duration) (func() error
 	if err := os.MkdirAll(s.stateDir, 0o700); err != nil {
 		return nil, err
 	}
-	return acquire(ctx, filepath.Join(s.stateDir, runLock), "tasks/run", wait)
+	return acquire(ctx, s.runLockPath(), "tasks/run", wait)
 }
+
+func (s *Service) runLockPath() string { return filepath.Join(s.stateDir, runLock) }
 
 func short(commit string) string {
 	if len(commit) > 8 {

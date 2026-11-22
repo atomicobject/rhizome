@@ -51,6 +51,8 @@ const (
 	OutcomeSkipped   = "skipped"
 	// OutcomeInterrupted is a run whose process ended before it finished.
 	OutcomeInterrupted = "interrupted"
+	// OutcomeStopped is a run the person stopped (Service.Stop).
+	OutcomeStopped = "stopped"
 )
 
 // Run stages, recorded only on State.Running.
@@ -99,6 +101,12 @@ type State struct {
 	PassError *PassError `json:"passError,omitempty"`
 	Items     []Item     `json:"items,omitempty"`
 	NextID    int        `json:"nextId,omitempty"`
+
+	// PausedUntil ends a pause at that time; nil pauses until resumed.
+	PausedUntil *time.Time `json:"pausedUntil,omitempty"`
+	// Stopping is the run Stop was asked to end. Whichever process records
+	// that run records it as stopped.
+	Stopping string `json:"stopping,omitempty"`
 }
 
 // PassError records a run-due pass that failed before running any task.
@@ -124,6 +132,9 @@ func (s *State) LastRun(task string) (RunRecord, bool) {
 // is this run. Retention trims history at the end of each run.
 func (s *State) Record(r RunRecord) {
 	r.Stage = ""
+	if s.Stopping != "" && r.ID == s.Stopping {
+		r.Outcome, r.Message, s.Stopping = OutcomeStopped, stoppedMessage, ""
+	}
 	if s.Running != nil && r.ID != "" && s.Running.ID == r.ID {
 		s.Running = nil
 	}
@@ -200,6 +211,17 @@ func (s *State) TokensLast30Days(task string, now time.Time) int64 {
 		}
 	}
 	return total
+}
+
+const (
+	interruptedMessage = "the run was interrupted before it finished"
+	stoppedMessage     = "the run was stopped"
+)
+
+// PausedAt reports whether background work is paused at now; a pause with
+// an end time lifts on its own.
+func (s *State) PausedAt(now time.Time) bool {
+	return s.Paused && (s.PausedUntil == nil || now.Before(*s.PausedUntil))
 }
 
 // ResolveMode returns a task's mode and where it came from: the person's

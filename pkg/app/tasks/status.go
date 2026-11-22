@@ -44,6 +44,9 @@ type Report struct {
 	StateDir     string       `json:"stateDir"`
 	Tasks        []TaskStatus `json:"tasks"`
 	Problems     []Problem    `json:"problems,omitempty"`
+
+	// PausedUntil is when a timed pause lifts.
+	PausedUntil *time.Time `json:"pausedUntil,omitempty"`
 }
 
 // Status reports every task's mode, last run, and next due time. It reads
@@ -53,7 +56,10 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	report := Report{Paused: st.Paused, Untrusted: s.untrusted(), PassError: st.PassError, StateDir: s.stateDir, Tasks: []TaskStatus{}}
+	report := Report{Paused: st.PausedAt(s.opts.Now()), Untrusted: s.untrusted(), PassError: st.PassError, StateDir: s.stateDir, Tasks: []TaskStatus{}}
+	if report.Paused {
+		report.PausedUntil = st.PausedUntil
+	}
 	if t, ok := s.opts.Repo.FetchedAt(); ok {
 		report.FetchedAt = t
 	}

@@ -352,7 +352,19 @@ func (s *Service) SetMode(ctx context.Context, task, mode string) error {
 // SetPaused pauses or resumes all background work for the person.
 func (s *Service) SetPaused(ctx context.Context, paused bool) error {
 	return s.store.Update(ctx, func(st *State) error {
-		st.Paused = paused
+		st.Paused, st.PausedUntil = paused, nil
+		return nil
+	})
+}
+
+// PauseUntil pauses all background work for the person until the given
+// time, when it resumes on its own.
+func (s *Service) PauseUntil(ctx context.Context, until time.Time) error {
+	if !until.After(s.opts.Now()) {
+		return errors.New("pause until must be in the future")
+	}
+	return s.store.Update(ctx, func(st *State) error {
+		st.Paused, st.PausedUntil = true, &until
 		return nil
 	})
 }
