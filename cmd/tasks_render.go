@@ -25,11 +25,20 @@ func renderTaskStatus(w io.Writer, r tasks.Report) {
 	if r.PassError != nil {
 		fmt.Fprintf(w, "The last automatic pass failed %s: %s\n", ago(r.PassError.At), r.PassError.Message)
 	}
+	if r.Fetch != nil && r.Fetch.Error != "" {
+		fmt.Fprintf(w, "The last fetch failed %s, so tasks use the last fetched primary ref: %s\n", ago(r.Fetch.At), r.Fetch.Error)
+	}
 	if r.MergeWarning != "" {
 		fmt.Fprintf(w, "Warning: %s.\n", r.MergeWarning)
 	}
-	if r.Paused {
+	switch {
+	case r.Paused && !r.PausedUntil.IsZero():
+		fmt.Fprintf(w, "Paused: background work is off until %s, or `rzm tasks resume`.\n", r.PausedUntil.Local().Format("Mon Jan 2 15:04"))
+	case r.Paused:
 		fmt.Fprintln(w, "Paused: background work is off until `rzm tasks resume`.")
+	}
+	if !r.RunHere && r.RefError == "" {
+		fmt.Fprintln(w, "Scheduled tasks do not run on this machine; `rzm tasks machine on` turns them on.")
 	}
 	if len(r.Tasks) == 0 {
 		fmt.Fprintf(w, "No tasks are declared in %s or a module's tasks folder.\n", tasks.TasksDir)
@@ -46,7 +55,11 @@ func renderTaskStatus(w io.Writer, r tasks.Report) {
 			fmt.Fprintln(w, "  not scheduled (local test only)")
 			continue
 		}
-		fmt.Fprintf(w, "  every %s, %s scope, %s mode (%s)\n", t.Every, t.Scope, t.Mode, t.ModeSource)
+		cadence := "every " + t.Every
+		if t.Schedule != "" {
+			cadence = t.Schedule
+		}
+		fmt.Fprintf(w, "  %s, %s scope, %s mode (%s)\n", cadence, t.Scope, t.Mode, t.ModeSource)
 		last := "never"
 		if t.LastRun != nil {
 			last = fmt.Sprintf("%s by you (%s)", ago(t.LastRun.At), t.LastRun.Outcome)
@@ -61,7 +74,10 @@ func renderTaskStatus(w io.Writer, r tasks.Report) {
 		case t.Due:
 			fmt.Fprintln(w, "  due now")
 		default:
-			fmt.Fprintf(w, "  next due %s\n", t.NextDue.Local().Format("Mon Jan 2 15:04"))
+			fmt.Fprintf(w, "  next due %s\n", slotText(t.NextAt, t.Timezone))
+		}
+		if reason := blockedText[t.BlockedBy]; reason != "" && !shownAbove[t.BlockedBy] {
+			fmt.Fprintf(w, "  not running: %s\n", reason)
 		}
 		if t.Tokens > 0 {
 			fmt.Fprintf(w, "  %d tokens in the last 30 days\n", t.Tokens)
@@ -70,6 +86,35 @@ func renderTaskStatus(w io.Writer, r tasks.Report) {
 	for _, p := range r.Problems {
 		fmt.Fprintf(w, "\nProblem in %s: %s\n", p.Path, p.Message)
 	}
+}
+
+// blockedText explains each status code; repository-wide codes are
+// printed once above the tasks.
+var blockedText = map[string]string{
+	tasks.BlockedNotRunHere:  "tasks do not run on this machine",
+	tasks.BlockedNoHost:      "no Rhizome Desktop host is running",
+	tasks.BlockedUntrusted:   "the repository is not trusted",
+	tasks.BlockedPaused:      "background work is paused",
+	tasks.BlockedOff:         "the task is off",
+	tasks.BlockedOpenItem:    "an open item is waiting for you",
+	tasks.BlockedWrongBranch: "the checkout is not on the primary branch",
+	tasks.BlockedRequires:    "a requirement is missing",
+	tasks.BlockedFetchFailed: "the primary ref could not be fetched",
+}
+
+// shownAbove are codes the repository lines or the waiting line already
+// explain.
+var shownAbove = map[string]bool{tasks.BlockedNotRunHere: true, tasks.BlockedUntrusted: true, tasks.BlockedPaused: true, tasks.BlockedOpenItem: true}
+
+// slotText formats a due time in the task's zone, naming the zone when it
+// is not this machine's.
+func slotText(at time.Time, zone string) string {
+	if loc, err := time.LoadLocation(zone); zone != "" && err == nil {
+		if local := at.Local(); local.Format("-0700 MST") != at.In(loc).Format("-0700 MST") {
+			return at.In(loc).Format("Mon Jan 2 15:04") + " " + zone
+		}
+	}
+	return at.Local().Format("Mon Jan 2 15:04")
 }
 
 func renderInbox(w io.Writer, items []tasks.Item) {
