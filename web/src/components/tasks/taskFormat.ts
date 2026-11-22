@@ -112,6 +112,7 @@ export type StatusPresentation = { label: string; tone: StatusTone };
 
 const OUTCOMES = {
   ready: ["Ready", "success"],
+  landed: ["Landed", "success"],
   "no-changes": ["No changes", "neutral"],
   "not-needed": ["Not needed", "muted"],
   notified: ["Notified", "info"],
