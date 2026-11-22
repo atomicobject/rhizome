@@ -57,7 +57,8 @@ func TestRunDueHostRunsOnlyWhereRunHereIsOn(t *testing.T) {
 	if err := svc.SetRunHere(ctx, true); err != nil {
 		t.Fatal(err)
 	}
-	if at, ok, err := svc.NextDueAt(ctx); err != nil || !ok || !at.Equal(now) {
+	// No pass has seen the task yet, so it is due since it appeared.
+	if at, ok, err := svc.NextDueAt(ctx); err != nil || !ok || !at.IsZero() {
 		t.Fatalf("NextDueAt for a task that never ran = %v %v %v", at, ok, err)
 	}
 	if summary, err = svc.RunDueHost(ctx); err != nil || len(summary.Outcomes) != 1 || summary.Outcomes[0].Outcome != OutcomeNotified {

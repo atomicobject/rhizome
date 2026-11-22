@@ -60,9 +60,14 @@ func TestNextDueAtSkipsWhatRunDueSkips(t *testing.T) {
 	setState(t, svc, func(st *State) {
 		st.AddItem(Item{Task: "notes", Kind: KindTask, State: StateReady}, hostNow)
 		st.Modes = map[string]Mode{"lint": ModeOff}
+		st.LastPass = hostNow
 	})
 	at, _ = nextDueAt(t, svc)
-	require.Equal(t, hostNow.Add(22*time.Hour), at, "a ready item blocks Notes and Lint is off")
+	require.Equal(t, hostNow.Add(settleInterval), at, "a ready item blocks Notes and Lint is off; only a pass settling the item comes due")
+	setState(t, svc, func(st *State) { st.Items[0].State = StateDone })
+	at, _ = nextDueAt(t, svc)
+	require.Equal(t, hostNow.Add(10*time.Minute), at)
+	setState(t, svc, func(st *State) { st.Items[0].State = StateReady })
 
 	until := hostNow.Add(48 * time.Hour)
 	require.NoError(t, svc.PauseUntil(context.Background(), until))
@@ -83,7 +88,9 @@ func TestNextDueAtSkipsWhatRunDueSkips(t *testing.T) {
 	require.False(t, ok, "once reported, an untrusted repository runs nothing")
 }
 
-func TestNextDueAtTreatsANewTaskAsDueNow(t *testing.T) {
+// A task that never ran is due from when a pass first saw it, so its due
+// time does not move with the clock and the runtime's retry wait holds.
+func TestNextDueAtTreatsANewTaskAsDueWhenSeen(t *testing.T) {
 	svc := statusHostService(t)
 	seen := hostNow.Add(-time.Minute)
 	setState(t, svc, func(st *State) {
@@ -91,7 +98,10 @@ func TestNextDueAtTreatsANewTaskAsDueNow(t *testing.T) {
 	})
 	at, ok := nextDueAt(t, svc)
 	require.True(t, ok)
-	require.Equal(t, hostNow, at)
+	require.Equal(t, seen, at)
+	svc.opts.Now = func() time.Time { return hostNow.Add(30 * time.Second) }
+	at, _ = nextDueAt(t, svc)
+	require.Equal(t, seen, at, "a later check sees the same due time")
 }
 
 func TestHostStatusShape(t *testing.T) {

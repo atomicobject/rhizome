@@ -107,9 +107,11 @@ type State struct {
 	// PassError is why the latest run-due pass failed before running tasks.
 	PassError *PassError `json:"passError,omitempty"`
 	// Fetch is the latest fetch of the primary ref's remote.
-	Fetch  *FetchStatus `json:"fetch,omitempty"`
-	Items  []Item       `json:"items,omitempty"`
-	NextID int          `json:"nextId,omitempty"`
+	Fetch *FetchStatus `json:"fetch,omitempty"`
+	// LastPass is when the latest run-due pass settled items (bookkeep).
+	LastPass time.Time `json:"lastPass,omitzero"`
+	Items    []Item    `json:"items,omitempty"`
+	NextID   int       `json:"nextId,omitempty"`
 	// Stopping is the run Stop was asked to end. Whichever process records
 	// that run records it as stopped.
 	Stopping string `json:"stopping,omitempty"`

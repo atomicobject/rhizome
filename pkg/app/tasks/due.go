@@ -138,7 +138,7 @@ func (s *Service) RunDueHost(ctx context.Context) (RunSummary, error) {
 		return RunSummary{}, err
 	}
 	if !m.Repository.RunHere {
-		return RunSummary{Skipped: "tasks do not run on this machine for this repository; turn them on with `rzm tasks machine on`"}, nil
+		return RunSummary{Skipped: notRunHere}, nil
 	}
 	if reason := s.untrusted(); reason != "" {
 		err := s.store.Update(ctx, func(st *State) error {
@@ -149,5 +149,7 @@ func (s *Service) RunDueHost(ctx context.Context) (RunSummary, error) {
 		})
 		return RunSummary{Skipped: reason}, err
 	}
-	return s.RunDue(ctx)
+	return s.runDue(ctx, true)
 }
+
+const notRunHere = "tasks do not run on this machine for this repository; turn them on with `rzm tasks machine on`"

@@ -150,7 +150,7 @@ A task's `harness`, `model`, and `effort` override your chat agent settings for 
 
 Scheduled tasks run on a machine where you turned on **Run tasks on this machine** (the Tasks page or `rzm tasks machine on`), while Rhizome Desktop runs there, even with every window closed. A runtime that Desktop does not hold, such as one started by `rzm` commands or MCP, runs no scheduled tasks. `rzm tasks stop` stops a run in progress and records it as stopped.
 
-While Rhizome Desktop holds the runtime of a repository you turned on here, it checks the clock every 30 seconds and starts `rzm tasks run-due --host` when a task is due. `--host` runs nothing unless the repository runs here, so a runtime on another machine never does the work. You can also run `rzm tasks run-due` yourself. Each due task runs once per person and repository, however many worktrees or runtimes are open. A task missed while Rhizome was closed runs once at the next pass, within its `late` window for a scheduled slot. When several tasks are due, the one with the nearest deadline runs first: a slot by the end of its `late` window, an `every` task by its due time.
+While Rhizome Desktop holds the runtime of a repository you turned on here, it checks the clock every 30 seconds and starts `rzm tasks run-due --host` when a task is due. `--host` runs nothing unless the repository runs here, so a runtime on another machine never does the work; turning **Run tasks on this machine** off during a pass stops it before the next task. You can also run `rzm tasks run-due` yourself. Each due task runs once per person and repository, however many worktrees or runtimes are open. A task missed while Rhizome was closed runs once at the next pass, within its `late` window for a scheduled slot. When several tasks are due, the one with the nearest deadline runs first: a slot by the end of its `late` window, an `every` task by its due time.
 
 Deciding what is due reads only the local primary ref. A pass with something due first fetches the primary ref's remote, without prompting and with a time limit, then reads the tasks again; if the fetch fails, the pass uses the last fetched ref and `rzm tasks status` shows the failure. A task added on the remote is seen at the next pass that fetches.
 
@@ -202,7 +202,7 @@ From a terminal, `rzm tasks inbox` lists the items and `rzm tasks <action> <item
 
 A due item stays current. Each time its task comes due again, Rhizome runs the check again: if nothing is needed now, the item closes as done; if it is still needed, its summary and context are refreshed in place, and any snooze is kept. A re-check never adds a second item or starts work, and a check that fails moves the item to needs attention. Running, ready, and started items keep their task from checking until they close.
 
-An item closes by itself when a commit carrying its task's tag reaches the primary branch, whoever made it.
+An item closes by itself when a commit carrying its task's tag reaches the primary branch, whoever made it. A pass notices that: while an item waits for its work to reach the primary branch, the Desktop host starts a pass at most every 15 minutes that fetches and closes it, and runs nothing else for that task.
 
 ## The Tasks page
 
