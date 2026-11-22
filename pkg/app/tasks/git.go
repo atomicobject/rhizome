@@ -167,6 +167,8 @@ func gitBytesInput(ctx context.Context, dir string, env []string, input []byte, 
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "LC_ALL=C")
 	cmd.Env = append(cmd.Env, env...)
 	cmd.Stdin = bytes.NewReader(input)
+	// A timed-out fetch can leave ssh holding the output pipes.
+	cmd.WaitDelay = 5 * time.Second
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {

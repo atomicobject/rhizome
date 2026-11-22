@@ -85,8 +85,9 @@ type RunSummary struct {
 	Problems []Problem `json:"problems,omitempty"`
 }
 
-// RunDue runs every enabled task that is due, once per repository: a pass
-// that finds another pass in progress skips.
+// RunDue runs every enabled task that is due, once per repository, nearest
+// deadline first: a pass that finds another pass in progress skips, and a
+// pass with due work fetches the primary ref's remote first.
 func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 	// Runtimes call this in every Git checkout. A repository that declares
 	// no tasks, or that the person has not trusted, is left untouched: no

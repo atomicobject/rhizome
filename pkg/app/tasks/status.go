@@ -74,12 +74,14 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 	if report.Paused {
 		report.PausedUntil = st.PausedUntil
 	}
+	// An unreadable user configuration is a problem to show, not a reason
+	// to hide every task.
 	machine, err := s.MachineSettings()
+	zone, warning := s.personZone(machine)
 	if err != nil {
-		return report, err
+		warning = "your user configuration could not be read, so tasks do not run on this machine: " + err.Error()
 	}
 	report.RunHere = machine.Repository.RunHere
-	zone, warning := s.personZone(machine)
 	if t, ok := s.opts.Repo.FetchedAt(); ok {
 		report.FetchedAt = t
 	}
@@ -98,7 +100,7 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 	}
 	report.Problems = problems
 	if warning != "" {
-		report.Problems = append(report.Problems, Problem{Path: "tasks.timezone", Message: warning})
+		report.Problems = append(report.Problems, Problem{Path: "user configuration", Message: warning})
 	}
 	tagged := s.lastTagged(ctx, ref, defs)
 	for _, def := range defs {
