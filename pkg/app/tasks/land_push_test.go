@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -118,6 +120,60 @@ func TestPRLandingPushesTheBranchAndOpensAPullRequest(t *testing.T) {
 	}
 	if f.status() != "" || !strings.HasPrefix(it.Worktree, filepath.Join(f.host, ".rhizome", "task-state")) {
 		t.Fatal("a pr run never touches the open checkout")
+	}
+}
+
+func TestPRLandingStopsAStalledPushOrPullRequest(t *testing.T) {
+	for stalled, want := range map[string]string{
+		"git push":     "so the branch stays local: git timed out after 2s",
+		"gh pr create": "opening its pull request failed: gh timed out after 2s",
+	} {
+		t.Run(stalled, func(t *testing.T) {
+			saved := fetchTimeout
+			fetchTimeout = 2 * time.Second
+			t.Cleanup(func() { fetchTimeout = saved })
+			f := newLandFixture(t, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n")
+			// The stalled command starts a child and waits on it, as ssh
+			// or a credential helper would on a dead connection.
+			bin, pidFile := t.TempDir(), filepath.Join(t.TempDir(), "child.pid")
+			script := filepath.Join(bin, "gh")
+			writeFile(t, script, "#!/bin/sh\nsleep 30 &\necho $! > "+pidFile+".tmp && mv "+pidFile+".tmp "+pidFile+"\nwait\n")
+			if err := os.Chmod(script, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if stalled == "git push" {
+				run(t, f.host, "config", "remote.origin.pushurl", "ssh://example.invalid/remote.git")
+				run(t, f.host, "config", "ssh.variant", "ssh")
+				run(t, f.host, "config", "core.sshCommand", script)
+			} else {
+				t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+			}
+			f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+			start := time.Now()
+			if o := f.pass(); o.Outcome != OutcomeReady {
+				t.Fatalf("%+v", o)
+			}
+			if elapsed := time.Since(start); elapsed > 15*time.Second {
+				t.Fatalf("the stalled %s held the run for %s", stalled, elapsed)
+			}
+			if it := taskItems(mustState(t, f.svc), "tend")[0]; !strings.Contains(it.Reason, want) {
+				t.Fatalf("the item must say the step timed out, got %q", it.Reason)
+			}
+			data, err := os.ReadFile(pidFile)
+			if err != nil {
+				t.Fatalf("the stalled command never ran: %v", err)
+			}
+			pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			child, _ := os.FindProcess(pid)
+			for deadline := time.Now().Add(5 * time.Second); child.Signal(syscall.Signal(0)) == nil; time.Sleep(50 * time.Millisecond) {
+				if time.Now().After(deadline) {
+					t.Fatalf("the stalled command's child %d must be killed", pid)
+				}
+			}
+		})
 	}
 }
 
