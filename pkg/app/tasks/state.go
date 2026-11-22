@@ -82,6 +82,9 @@ type RunRecord struct {
 	Changed        []string  `json:"changed,omitempty"`
 	// Missing names the requirements a failed run lacked (SPEC-0127 US11).
 	Missing []string `json:"missing,omitempty"`
+	// Holder names the run lock acquisition that started the run (PID and
+	// lock time), so Stop marks only its holder's run.
+	Holder string `json:"holder,omitempty"`
 }
 
 // State is one person's task state for one repository.
@@ -153,7 +156,7 @@ func (s *State) LastRun(task string) (RunRecord, bool) {
 // Record appends a run and counts its tokens. It clears Running when that
 // is this run. Retention trims history at the end of each run.
 func (s *State) Record(r RunRecord) {
-	r.Stage = ""
+	r.Stage, r.Holder = "", ""
 	if s.Stopping != "" && r.ID == s.Stopping {
 		r.Outcome, r.Message, s.Stopping = OutcomeStopped, stoppedMessage, ""
 	}
