@@ -343,9 +343,8 @@ func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, 
 		}
 	}
 	if landed != "" && s.pushAllowed() {
-		pushed, notice := s.pushInPlace(ctx, def, ip, landed, a.slotID())
-		landed = cmp.Or(pushed, landed)
-		if notice != "" {
+		var notice string
+		if landed, notice = s.pushInPlace(ctx, def, a, ip, landed); notice != "" {
 			notices = append(notices, notice)
 		}
 	}

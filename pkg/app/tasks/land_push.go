@@ -15,52 +15,66 @@ import (
 )
 
 // pushInPlace pushes an in-place run's commit when it fast-forwards the
-// branch as the push destination has it (SPEC-0127 US13), returning the
-// commit that reached it, or a notice for the person. After a failed push
-// it fetches and looks for its commit or the slot's before retrying; when
-// the upstream diverged it remakes the task's commit on the upstream
-// (replay). It never force-pushes, rebases, or autostashes, and pushes
-// only commits Rhizome made.
-func (s *Service) pushInPlace(ctx context.Context, def Definition, ip *inPlace, landed, slot string) (string, string) {
+// branch as the push destination has it (SPEC-0127 US13). It returns the
+// task's commit the branch now holds, which a replay remakes, with a notice
+// for the person when that commit did not reach the push destination.
+// After a failed push it fetches and looks for its commit or the slot's
+// before retrying; when the upstream diverged it remakes the task's commit
+// on the upstream (replay). It never force-pushes, rebases, or autostashes,
+// and pushes only commits Rhizome made. Each commit is saved on the
+// running record before it is pushed, so a run stopped mid-push still
+// counts it as Rhizome's.
+func (s *Service) pushInPlace(ctx context.Context, def Definition, a attempt, ip *inPlace, landed string) (string, string) {
 	remote, branch, ok := remoteBranch(ctx, ip.dir, ip.branch)
 	if !ok {
-		return "", fmt.Sprintf("%s has no upstream branch, so commit %s was not pushed.", ip.branch, short(landed))
+		return landed, fmt.Sprintf("%s has no upstream branch, so commit %s was not pushed.", ip.branch, short(landed))
 	}
+	s.noteLanded(ctx, a, landed)
 	landingStep("push")
 	made := s.madeCommits(landed)
 	notice, err := s.pushCommit(ctx, ip, remote, branch, landed, made)
 	if notice != "" || err == nil {
-		return pushedOr(landed, notice)
+		return landed, notice
 	}
 	fetchCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	_, _ = gitOutput(fetchCtx, ip.dir, "-c", ip.noHooks, "fetch", "--quiet", remote)
 	cancel()
 	upstream, upErr := gitOutput(ctx, ip.dir, "rev-parse", "--verify", "--quiet", "refs/remotes/"+remote+"/"+branch+"^{commit}")
 	if upErr != nil {
-		return "", fmt.Sprintf("Push failed, so commit %s stays local: %v.", short(landed), err)
+		return landed, fmt.Sprintf("Push failed, so commit %s stays local: %v.", short(landed), err)
 	}
 	if isAncestor(ctx, ip.dir, landed, upstream) {
 		return landed, ""
 	}
+	slot := a.slotID()
 	if other, ok, _ := s.opts.Repo.SlotLanded(ctx, upstream, def.ID, slot); ok {
-		return "", fmt.Sprintf("Slot %s already reached %s/%s as commit %s, so commit %s stays local.", slot, remote, branch, short(other), short(landed))
+		return landed, fmt.Sprintf("Slot %s already reached %s/%s as commit %s, so commit %s stays local.", slot, remote, branch, short(other), short(landed))
 	}
 	if isAncestor(ctx, ip.dir, upstream, landed) {
 		// The upstream did not move, so this was not a race; try once more.
 		if notice, err = s.pushCommit(ctx, ip, remote, branch, landed, made); notice == "" && err != nil {
 			notice = fmt.Sprintf("Push failed, so commit %s stays local: %v.", short(landed), err)
 		}
-		return pushedOr(landed, notice)
+		return landed, notice
 	}
 	replayed, notice := s.replay(ctx, def, ip, landed, upstream)
 	if notice != "" {
-		return "", fmt.Sprintf("%s/%s moved and %s, so Rhizome did not rebase; commit %s stays local.", remote, branch, notice, short(landed))
+		return landed, fmt.Sprintf("%s/%s moved and %s, so Rhizome did not rebase; commit %s stays local.", remote, branch, notice, short(landed))
 	}
+	s.noteLanded(ctx, a, replayed)
 	made[replayed] = true
 	if notice, err = s.pushCommit(ctx, ip, remote, branch, replayed, made); notice == "" && err != nil {
 		notice = fmt.Sprintf("Push after rebasing failed, so commit %s stays local: %v.", short(replayed), err)
 	}
-	return pushedOr(replayed, notice)
+	return replayed, notice
+}
+
+// noteLanded saves commit as the running attempt's landed commit.
+func (s *Service) noteLanded(ctx context.Context, a attempt, commit string) {
+	_ = s.store.Update(ctx, func(st *State) error {
+		running(st, a, func(r *RunRecord) { r.Landed = commit })
+		return nil
+	})
 }
 
 // errDiverged means the push destination has commits the task's commit
@@ -69,10 +83,10 @@ var errDiverged = errors.New("the remote branch has commits this checkout lacks"
 
 // pushCommit pushes c to remote's branch when that fast-forwards the branch
 // as the push destination has it now (not as the fetch remote's tracking
-// ref says), and every commit it adds is one Rhizome made. The push holds a
-// lease on the commit it checked, so it updates nothing if the branch moved
-// meanwhile; with c descending from that commit it is never a forced
-// update. A notice means Rhizome chose not to push.
+// ref says), and every commit it adds is one Rhizome made. The push is a
+// plain one, so the destination accepts it only as a fast-forward and a
+// branch that moved since the check rejects it. A notice means Rhizome
+// chose not to push.
 func (s *Service) pushCommit(ctx context.Context, ip *inPlace, remote, branch, c string, made map[string]bool) (string, error) {
 	urls, err := gitOutput(ctx, ip.dir, "remote", "get-url", "--push", "--all", remote)
 	if err != nil {
@@ -122,7 +136,8 @@ func (s *Service) pushCommit(ctx context.Context, ip *inPlace, remote, branch, c
 }
 
 // madeCommits are the commits Rhizome landed in place on this machine, as
-// its run records name them, plus own.
+// its run records name them, plus own. A stopped or interrupted run's
+// record counts too: its commit may already be on the branch.
 func (s *Service) madeCommits(own ...string) map[string]bool {
 	made := map[string]bool{}
 	for _, c := range own {
@@ -133,7 +148,8 @@ func (s *Service) madeCommits(own ...string) map[string]bool {
 		return made
 	}
 	for _, r := range slices.Concat(st.History, slices.Collect(maps.Values(st.Last))) {
-		if r.Outcome == OutcomeLanded && r.Landing == taskdef.LandInPlace && r.Landed != "" {
+		landedHere := r.Outcome == OutcomeLanded || r.Outcome == OutcomeStopped || r.Outcome == OutcomeInterrupted
+		if landedHere && r.Landing == taskdef.LandInPlace && r.Landed != "" {
 			made[r.Landed] = true
 		}
 	}
@@ -209,13 +225,6 @@ func (s *Service) replay(ctx context.Context, def Definition, ip *inPlace, lande
 		return "", notice
 	}
 	return replayed, ""
-}
-
-func pushedOr(commit, notice string) (string, string) {
-	if notice != "" {
-		return "", notice
-	}
-	return commit, ""
 }
 
 func isAncestor(ctx context.Context, dir, a, b string) bool {

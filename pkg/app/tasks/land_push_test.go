@@ -217,3 +217,65 @@ func TestLandingsRunNoRepositoryHooks(t *testing.T) {
 		}
 	}
 }
+
+// breakPush points the host's push URL at a missing repository, so pushes
+// fail while fetches still work, until the returned func undoes it.
+func (f *landFixture) breakPush() func() {
+	run(f.t, f.host, "config", "remote.origin.pushurl", filepath.Join(f.t.TempDir(), "missing.git"))
+	return func() { run(f.t, f.host, "config", "--unset", "remote.origin.pushurl") }
+}
+
+func TestInPlaceRecordsAReplayedCommitWhosePushFailed(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	var fixPush func()
+	f.onStep("push", func() {
+		f.push("other/race.md", "race\n")
+		fixPush = f.breakPush()
+	})
+	if o := f.pass(); !strings.Contains(o.Reason, "Push after rebasing failed") {
+		t.Fatalf("the replayed commit's push must fail: %+v", o)
+	}
+	head := run(t, f.host, "rev-parse", "HEAD")
+	if r := mustState(t, f.svc).Last["tend"]; r.Landed != head || !isAncestor(context.Background(), f.host, "origin/main", head) {
+		t.Fatalf("the record must name the replayed commit the branch holds, %s: %+v", short(head), r)
+	}
+	landingHook = nil
+	fixPush()
+	f.edits(map[string]string{"notes/b.md": "b\n"}, nil)
+	if o := f.pass(); o.Outcome != OutcomeLanded || o.Reason != "" {
+		t.Fatalf("the next run must push the replayed commit with its own: %+v", o)
+	}
+	if got := run(t, f.remote, "rev-parse", "main"); got != run(t, f.host, "rev-parse", "HEAD") {
+		t.Fatalf("the remote must hold both task commits, it is at %s", short(got))
+	}
+}
+
+func TestInPlacePushesTheCommitOfAStoppedLanding(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	var fixPush func()
+	f.onStep("push", func() {
+		// The person stops the run as it pushes, and the push fails.
+		if err := f.svc.Store().Update(context.Background(), func(st *State) error {
+			st.Stopping = st.Running.ID
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		fixPush = f.breakPush()
+	})
+	f.pass()
+	if r := mustState(t, f.svc).Last["tend"]; r.Outcome != OutcomeStopped || r.Landed == "" {
+		t.Fatalf("the stopped run must record the commit it landed: %+v", r)
+	}
+	landingHook = nil
+	fixPush()
+	f.edits(map[string]string{"notes/b.md": "b\n"}, nil)
+	if o := f.pass(); o.Outcome != OutcomeLanded || o.Reason != "" {
+		t.Fatalf("the next run must push the stopped run's commit with its own: %+v", o)
+	}
+	if got := run(t, f.remote, "rev-parse", "main"); got != run(t, f.host, "rev-parse", "HEAD") {
+		t.Fatalf("the remote must hold both task commits, it is at %s", short(got))
+	}
+}
