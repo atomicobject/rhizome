@@ -158,6 +158,7 @@ Before sampling, the harness asks the selected executable's `agent surface` to r
 tasks:
   defaultMode: auto      # auto or notify (default notify)
   primaryRef: origin/dev # branch tasks are read from and work starts from (default origin/HEAD)
+  allowPush: true        # task runs may push when the person also turns push on (default false)
 ```
 
 ## Related

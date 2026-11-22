@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Scheduled tasks can land in place: a task that declares `writes:` runs in the open checkout and commits only its own matching files with `git commit --only`, leaving your uncommitted and staged work alone, restoring changes to `.agents/` and `.rhizome/`, and adopting a failed run's files on its next success. With `tasks.allowPush: true` and your push setting on, Rhizome pushes in-place commits safely and pushes `land: pr` branches with a pull request. A task whose landing widens runs as notify until `rzm tasks approve <task>`.
+
 ## [v0.54.0] - 2026-11-20
 
 - File path selectors and explicit note references follow the vault filesystem's casing behavior. AO KB setup now accepts `mocs` when its schema selects `MOCs`, while returned paths keep their actual spelling and sensitive filesystems retain distinct files.

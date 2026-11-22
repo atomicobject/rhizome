@@ -102,13 +102,13 @@ func (s *Service) prepareInPlace(ctx context.Context, a attempt, ref string) (*i
 	if dir == "" {
 		return nil, "in-place tasks need a checkout, and this repository has none", nil
 	}
-	noHooks, err := s.noHooks(a)
-	if err != nil {
-		return nil, "", err
-	}
 	branch, _ := gitOutput(ctx, dir, "symbolic-ref", "--quiet", "--short", "HEAD")
 	if !onBranchOf(ctx, dir, branch, ref) {
 		return nil, fmt.Sprintf("the checkout %s is on %s, not the branch of %s, so the in-place task did not run", dir, cmp.Or(branch, "a detached HEAD"), ref), nil
+	}
+	noHooks, err := s.noHooks(a)
+	if err != nil {
+		return nil, "", err
 	}
 	if branch != ref {
 		if remote, _ := gitOutput(ctx, dir, "config", "branch."+branch+".remote"); remote != "" && remote != "." {
@@ -218,7 +218,10 @@ func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, 
 		st.Leftover[def.ID] = owned
 	}
 	if runErr != nil {
-		reason := fmt.Sprintf("Prompt run failed: %v. Its changes stay in %s; the task's next successful run commits them.", runErr, ip.dir)
+		reason := fmt.Sprintf("Prompt run failed: %v.", runErr)
+		if len(owned) > 0 {
+			reason += fmt.Sprintf(" Its changes stay in %s (%s); the task's next successful run commits them.", ip.dir, strings.Join(owned, ", "))
+		}
 		return s.failWith(ctx, def, a, itemID, commit, OutcomeFailed, joinNotices(append([]string{reason, left.text()}, notices...)...), res.Tokens, keep)
 	}
 	message := strings.TrimSpace(res.Message)
