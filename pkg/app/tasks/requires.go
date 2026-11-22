@@ -79,15 +79,20 @@ func listMCP(ctx context.Context, kind harness.Kind, driver harness.Harness, dir
 func missingMCP(kind harness.Kind, required []string, servers []harness.MCPServerState) []string {
 	var missing []string
 	for _, name := range required {
-		i := slices.IndexFunc(servers, func(s harness.MCPServerState) bool { return s.Name == name })
-		switch {
-		case i < 0:
-			missing = append(missing, fmt.Sprintf("MCP server %q is not configured for %s", name, kind))
-		case !servers[i].Usable:
-			missing = append(missing, fmt.Sprintf("MCP server %q for %s reports %q", name, kind, servers[i].Status))
+		if ok, detail := mcpState(kind, name, servers); !ok {
+			missing = append(missing, detail)
 		}
 	}
 	return missing
+}
+
+// mcpState says whether the harness lists a server as usable, and how.
+func mcpState(kind harness.Kind, name string, servers []harness.MCPServerState) (bool, string) {
+	i := slices.IndexFunc(servers, func(s harness.MCPServerState) bool { return s.Name == name })
+	if i < 0 {
+		return false, fmt.Sprintf("MCP server %q is not configured for %s", name, kind)
+	}
+	return servers[i].Usable, fmt.Sprintf("MCP server %q for %s reports %q", name, kind, servers[i].Status)
 }
 
 func requirementsMessage(missing []string) string {
