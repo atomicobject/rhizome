@@ -130,6 +130,7 @@ pub enum Action {
     /// macOS: "Keep running in the menu bar" and "Launch at login".
     MenuBarSettings,
     #[serde(rename_all = "camelCase")]
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     SetMenuBarSettings {
         keep_in_menu_bar: Option<bool>,
         launch_at_login: Option<bool>,
