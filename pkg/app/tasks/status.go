@@ -83,7 +83,8 @@ func (s *Service) Status(ctx context.Context) (Report, error) {
 		if ts.LastRun != nil {
 			clock.LastLocal = ts.LastRun.At
 		}
-		ts.NextDue, ts.Due = clock.NextDue(def), clock.Due(def, now)
+		due := clock.Next(def, now)
+		ts.NextDue, ts.Due = due.At, due.Now
 		if it := st.ActiveTaskItem(def.ID); it != nil {
 			copy := *it
 			ts.Item = &copy
