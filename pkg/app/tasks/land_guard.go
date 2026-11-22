@@ -184,7 +184,9 @@ const localGitTimeout = 5 * time.Minute
 // It checks with incomingNotice while the locks are held, returning the
 // notice when the move could overwrite the person's files. A stop does not
 // cut it short: Git killed mid-move leaves its lock files behind, so it
-// runs on until done or localGitTimeout.
+// runs on until done or localGitTimeout. When Git fails after changing
+// files, the error says the checkout may be partly updated and how to
+// recover; nothing is undone automatically.
 func moveCheckout(ctx context.Context, ip *inPlace, from, to, reason string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), localGitTimeout)
 	defer cancel()
@@ -200,12 +202,71 @@ func moveCheckout(ctx context.Context, ip *inPlace, from, to, reason string) (st
 		if notice, err = incomingNotice(ctx, ip.dir, incoming); err != nil || notice != "" {
 			return cmp.Or(err, errRefused)
 		}
-		return readTree(ctx, &moving, from, to)
+		before := stamps(ip.dir, incoming)
+		if err := readTree(ctx, &moving, from, to); err != nil {
+			return partlyUpdated(err, ip.dir, incoming, before)
+		}
+		return nil
 	})
 	if notice != "" {
 		return notice, nil
 	}
 	return "", err
+}
+
+// stamps records each incoming path's size, time, and mode on disk, or ""
+// when it is absent, to tell afterwards which ones Git changed.
+func stamps(dir string, incoming [][2]string) []string {
+	out := make([]string, len(incoming))
+	for i, c := range incoming {
+		if info, err := os.Lstat(filepath.Join(dir, filepath.FromSlash(c[1]))); err == nil {
+			out[i] = fmt.Sprint(info.Size(), info.ModTime().UnixNano(), info.Mode())
+		}
+	}
+	return out
+}
+
+// partlyUpdated adds to a failed read-tree's error which files it changed
+// before failing, with how to put them back: HEAD and the index stay at
+// the old commit, so those files now show as local changes.
+func partlyUpdated(err error, dir string, incoming [][2]string, before []string) error {
+	var touched, tracked, added []string
+	for i, now := range stamps(dir, incoming) {
+		if now == before[i] {
+			continue
+		}
+		p := incoming[i][1]
+		touched = append(touched, p)
+		if len(touched) > maxNamed {
+			continue
+		}
+		if incoming[i][0] == "A" {
+			added = append(added, p)
+		} else {
+			tracked = append(tracked, p)
+		}
+	}
+	if len(touched) == 0 {
+		return err
+	}
+	msg := fmt.Sprintf("%v. The checkout may be partly updated: Git changed %s before it stopped, while HEAD and the index stayed put. Check `git status`", err, namedPaths(touched))
+	if len(tracked) > 0 {
+		msg += "; `git checkout -- " + strings.Join(tracked, " ") + "` puts back the tracked files"
+	}
+	if len(added) > 0 {
+		msg += "; " + strings.Join(added, ", ") + " are new files it added"
+	}
+	return errors.New(msg + ".")
+}
+
+// maxNamed caps how many paths one notice names.
+const maxNamed = 10
+
+func namedPaths(paths []string) string {
+	if len(paths) <= maxNamed {
+		return strings.Join(paths, ", ")
+	}
+	return fmt.Sprintf("%s, and %d more", strings.Join(paths[:maxNamed], ", "), len(paths)-maxNamed)
 }
 
 // moveHead moves the checkout's branch from old to new inside one Git ref

@@ -75,3 +75,27 @@ func TestInPlaceStopDuringTheFastForwardLeavesNoGitLocks(t *testing.T) {
 		t.Fatalf("the fast-forward must finish whole: %q", f.status())
 	}
 }
+
+func TestInPlaceSaysWhenAFastForwardStopsPartway(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	if os.Geteuid() == 0 {
+		t.Skip("folder permissions do not stop root")
+	}
+	f.push("README.md", "teammate's readme\n")
+	f.push("other/new.md", "new\n")
+	// Git updates README.md, then cannot create other/new.md.
+	locked := filepath.Join(f.host, "other")
+	if err := os.Chmod(locked, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+	o := f.pass()
+	if o.Outcome != OutcomeSkipped || f.agent.calls() != 0 {
+		t.Fatalf("%+v", o)
+	}
+	for _, want := range []string{"partly updated", "README.md", "git status", "git checkout -- README.md"} {
+		if !strings.Contains(o.Reason, want) {
+			t.Fatalf("the notice must say the checkout may be partly updated and how to recover (%q): %s", want, o.Reason)
+		}
+	}
+}
