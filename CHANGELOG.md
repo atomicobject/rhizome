@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Scheduled tasks run only while Rhizome Desktop hosts a repository's runtime, checked against the wall clock every 30 seconds instead of every 15 minutes. The runtime serves a host stream, drain, stop, and Run now for Desktop; `rzm tasks stop` stops a run in progress and records it as stopped; the Tasks page has a "Run tasks on this machine" toggle and says when a timed pause lifts.
+
 ## [v0.54.0] - 2026-11-20
 
 - File path selectors and explicit note references follow the vault filesystem's casing behavior. AO KB setup now accepts `mocs` when its schema selects `MOCs`, while returned paths keep their actual spelling and sensitive filesystems retain distinct files.
