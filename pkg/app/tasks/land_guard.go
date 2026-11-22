@@ -114,26 +114,36 @@ func flaggedPaths(ctx context.Context, dir string) (map[string]bool, error) {
 	return set, nil
 }
 
-// incomingNotice explains why moving the checkout from one commit to
-// another could overwrite the person's files, or returns "": the move
-// changes a path flagged assume-unchanged or skip-worktree, or adds a path
-// where an untracked or ignored file, folder, or symlink is. Git itself
-// refuses to overwrite local changes to tracked files, but it replaces
-// ignored files without asking.
-func incomingNotice(ctx context.Context, dir, from, to string) (string, error) {
+// nameStatus lists the paths that differ between two commits with their
+// `git diff-tree --name-status` letter.
+func nameStatus(ctx context.Context, dir, from, to string) ([][2]string, error) {
 	out, err := gitBytes(ctx, dir, nil, "diff-tree", "-r", "-z", "--no-renames", "--name-status", from, to)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+	fields := strings.Split(string(out), "\x00")
+	var changes [][2]string
+	for i := 0; i+1 < len(fields); i += 2 {
+		changes = append(changes, [2]string{fields[i], fields[i+1]})
+	}
+	return changes, nil
+}
+
+// incomingNotice explains why a move that makes the incoming changes could
+// overwrite the person's files, or returns "": it changes a path flagged
+// assume-unchanged or skip-worktree, or adds a path where an untracked or
+// ignored file, folder, or symlink is. Git itself refuses to overwrite
+// local changes to tracked files, but it replaces ignored files without
+// asking.
+func incomingNotice(ctx context.Context, dir string, incoming [][2]string) (string, error) {
 	flagged, err := flaggedPaths(ctx, dir)
 	if err != nil {
 		return "", err
 	}
-	fields := strings.Split(string(out), "\x00")
 	removed := map[string]bool{}
 	var added []string
-	for i := 0; i+1 < len(fields); i += 2 {
-		status, p := fields[i], fields[i+1]
+	for _, c := range incoming {
+		status, p := c[0], c[1]
 		// A sparse checkout's skipped files are absent, so nothing of the
 		// person's is there to overwrite.
 		if _, err := os.Lstat(filepath.Join(dir, filepath.FromSlash(p))); flagged[p] && err == nil {
@@ -162,6 +172,31 @@ func incomingNotice(ctx context.Context, dir, from, to string) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+// moveCheckout moves the checkout's branch, index, and working tree from
+// one commit to another, as a fast-forward checkout does, under moveHead.
+// It checks with incomingNotice while the locks are held, returning the
+// notice when the move could overwrite the person's files.
+func moveCheckout(ctx context.Context, ip *inPlace, from, to, reason string) (string, error) {
+	moving := *ip
+	moving.head = from
+	var notice string
+	errRefused := errors.New("refused")
+	err := moveHead(ctx, &moving, from, to, reason, func() error {
+		incoming, err := nameStatus(ctx, ip.dir, from, to)
+		if err != nil {
+			return err
+		}
+		if notice, err = incomingNotice(ctx, ip.dir, incoming); err != nil || notice != "" {
+			return cmp.Or(err, errRefused)
+		}
+		return readTree(ctx, &moving, from, to)
+	})
+	if notice != "" {
+		return notice, nil
+	}
+	return "", err
 }
 
 // moveHead moves the checkout's branch from old to new inside one Git ref

@@ -217,21 +217,15 @@ func (s *Service) fastForward(ctx context.Context, ip *inPlace, ref, target stri
 	if op := operationInProgress(ctx, ip.dir); op != "" {
 		return refused(op + " is in progress")
 	}
-	notice, err := incomingNotice(ctx, ip.dir, ip.head, target)
-	if err != nil {
-		return refused(err.Error())
-	}
-	if notice != "" {
-		return refused(notice)
-	}
 	landingStep("fast-forward")
-	if err := moveHead(ctx, ip, ip.head, target, "rhizome tasks: fast-forward to "+ref, func() error {
-		return readTree(ctx, ip, ip.head, target)
-	}); err != nil {
-		if errors.Is(err, errHeadMoved) {
-			return refused(ip.moved(ctx))
-		}
+	notice, err := moveCheckout(ctx, ip, ip.head, target, "rhizome tasks: fast-forward to "+ref)
+	switch {
+	case errors.Is(err, errHeadMoved):
+		return refused(ip.moved(context.WithoutCancel(ctx)))
+	case err != nil:
 		return refused(err.Error())
+	case notice != "":
+		return refused(notice)
 	}
 	return ""
 }

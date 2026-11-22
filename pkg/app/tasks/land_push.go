@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"bytes"
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -199,19 +198,15 @@ func (s *Service) replay(ctx context.Context, def Definition, ip *inPlace, lande
 		return "", err.Error()
 	}
 	replayed := strings.TrimSpace(string(out))
-	if notice, err := incomingNotice(ctx, ip.dir, landed, replayed); err != nil || notice != "" {
-		return "", cmp.Or(notice, fmt.Sprint(err))
-	}
-	moving := *ip
-	moving.head = landed
 	landingStep("replay")
-	if err := moveHead(ctx, &moving, landed, replayed, "rhizome tasks: "+def.ID+" onto "+short(upstream), func() error {
-		return readTree(ctx, &moving, landed, replayed)
-	}); err != nil {
-		if errors.Is(err, errHeadMoved) {
-			return "", "HEAD moved"
-		}
+	notice, err := moveCheckout(ctx, ip, landed, replayed, "rhizome tasks: "+def.ID+" onto "+short(upstream))
+	switch {
+	case errors.Is(err, errHeadMoved):
+		return "", "HEAD moved"
+	case err != nil:
 		return "", err.Error()
+	case notice != "":
+		return "", notice
 	}
 	return replayed, ""
 }
