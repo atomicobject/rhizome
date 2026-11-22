@@ -1,10 +1,13 @@
 package tasks
 
 import (
+	"slices"
+
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -144,6 +147,10 @@ type State struct {
 	// Leftover is the files each task's failed, stopped, or uncommitted
 	// in-place run left, by task.
 	Leftover map[string]Leftover `json:"leftoverFiles,omitempty"`
+	// Made is the in-place commits Rhizome landed on this machine, newest
+	// last, kept apart from the trimmed run history so commits that waited
+	// while push was off are still recognised as Rhizome's (US13).
+	Made []string `json:"madeCommits,omitempty"`
 
 	// TokenCapNotified is the UTC day the daily token cap last stopped
 	// work and notified, so it notifies once a day (SPEC-0127 US14).
@@ -211,6 +218,9 @@ func (s *State) LastRun(task string) (RunRecord, bool) {
 // is this run. Retention trims history at the end of each run.
 func (s *State) Record(r RunRecord) {
 	r.Stage, r.Holder = "", ""
+	if r.Landing == taskdef.LandInPlace && r.Landed != "" {
+		s.noteMade(r.Landed)
+	}
 	if s.Stopping != "" && r.ID == s.Stopping {
 		r.Outcome, r.Message, s.Stopping = OutcomeStopped, stoppedMessage, ""
 	}
@@ -395,4 +405,19 @@ var errLocked = errors.New("lock is held by another process")
 func (s *State) newItemID() string {
 	s.NextID++
 	return strconv.Itoa(s.NextID)
+}
+
+// maxMade bounds State.Made; a commit older than this many landings is long
+// since pushed or abandoned.
+const maxMade = 1000
+
+// noteMade records an in-place commit Rhizome landed.
+func (s *State) noteMade(c string) {
+	if slices.Contains(s.Made, c) {
+		return
+	}
+	s.Made = append(s.Made, c)
+	if over := len(s.Made) - maxMade; over > 0 {
+		s.Made = s.Made[over:]
+	}
 }

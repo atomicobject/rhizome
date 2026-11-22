@@ -77,6 +77,7 @@ func (s *Service) pushInPlace(ctx context.Context, def Definition, a attempt, ip
 func (s *Service) noteLanded(ctx context.Context, a attempt, commit string) {
 	_ = s.store.Update(ctx, func(st *State) error {
 		running(st, a, func(r *RunRecord) { r.Landed = commit })
+		st.noteMade(commit)
 		return nil
 	})
 }
@@ -164,6 +165,9 @@ func (s *Service) madeCommits(own ...string) map[string]bool {
 	st, err := s.store.Load()
 	if err != nil {
 		return made
+	}
+	for _, c := range st.Made {
+		made[c] = true
 	}
 	for _, r := range slices.Concat(st.History, slices.Collect(maps.Values(st.Last))) {
 		landedHere := r.Outcome == OutcomeLanded || r.Outcome == OutcomeStopped || r.Outcome == OutcomeInterrupted
