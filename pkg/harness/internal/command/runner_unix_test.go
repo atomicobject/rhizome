@@ -40,3 +40,13 @@ func TestKillTreeStopsWhatTheCommandStarted(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 }
+
+func TestKillTreeCancelStopsTheTree(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	_, err := OSRunner{}.Run(ctx, Spec{Path: "/bin/sh", Args: []string{"-c", "sleep 60"}, KillTree: true})
+	if err == nil || time.Since(start) > waitDelay+5*time.Second {
+		t.Fatalf("Run = %v after %s, want a prompt context error", err, time.Since(start))
+	}
+}

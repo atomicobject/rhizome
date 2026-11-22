@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -69,6 +70,35 @@ func stagedPaths(ctx context.Context, dir string) (map[string]bool, error) {
 	return nameSet(ctx, dir, "diff-index", "--cached", "--name-only", "-z", "--no-renames", "HEAD")
 }
 
+// ignoredPaths are the untracked files and folders Git ignores, which a
+// snapshot leaves out; an ignored folder is one entry, without its slash.
+func ignoredPaths(ctx context.Context, dir string) (map[string]bool, error) {
+	listed, err := nameSet(ctx, dir, "-c", "core.fsmonitor=false", "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory")
+	if err != nil {
+		return nil, err
+	}
+	set := map[string]bool{}
+	for p := range listed {
+		set[strings.TrimSuffix(p, "/")] = true
+	}
+	return set, nil
+}
+
+// excludeRules reads the repository's info/exclude file, returning its
+// name as Git gives it and its content ("" when absent).
+func excludeRules(ctx context.Context, dir string) (string, string) {
+	name, err := gitOutput(ctx, dir, "rev-parse", "--git-path", "info/exclude")
+	if err != nil {
+		return "", ""
+	}
+	full := name
+	if !filepath.IsAbs(full) {
+		full = filepath.Join(dir, full)
+	}
+	data, _ := os.ReadFile(full)
+	return name, string(data)
+}
+
 // flaggedPaths are index entries marked assume-unchanged or skip-worktree:
 // Git does not report their working-tree edits, so they are the person's.
 func flaggedPaths(ctx context.Context, dir string) (map[string]bool, error) {
@@ -85,26 +115,36 @@ func flaggedPaths(ctx context.Context, dir string) (map[string]bool, error) {
 	return set, nil
 }
 
-// incomingNotice explains why moving the checkout from one commit to
-// another could overwrite the person's files, or returns "": the move
-// changes a path flagged assume-unchanged or skip-worktree, or adds a path
-// where an untracked or ignored file, folder, or symlink is. Git itself
-// refuses to overwrite local changes to tracked files, but it replaces
-// ignored files without asking.
-func incomingNotice(ctx context.Context, dir, from, to string) (string, error) {
+// nameStatus lists the paths that differ between two commits with their
+// `git diff-tree --name-status` letter.
+func nameStatus(ctx context.Context, dir, from, to string) ([][2]string, error) {
 	out, err := gitBytes(ctx, dir, nil, "diff-tree", "-r", "-z", "--no-renames", "--name-status", from, to)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+	fields := strings.Split(string(out), "\x00")
+	var changes [][2]string
+	for i := 0; i+1 < len(fields); i += 2 {
+		changes = append(changes, [2]string{fields[i], fields[i+1]})
+	}
+	return changes, nil
+}
+
+// incomingNotice explains why a move that makes the incoming changes could
+// overwrite the person's files, or returns "": it changes a path flagged
+// assume-unchanged or skip-worktree, or adds a path where an untracked or
+// ignored file, folder, or symlink is. Git itself refuses to overwrite
+// local changes to tracked files, but it replaces ignored files without
+// asking.
+func incomingNotice(ctx context.Context, dir string, incoming [][2]string) (string, error) {
 	flagged, err := flaggedPaths(ctx, dir)
 	if err != nil {
 		return "", err
 	}
-	fields := strings.Split(string(out), "\x00")
 	removed := map[string]bool{}
 	var added []string
-	for i := 0; i+1 < len(fields); i += 2 {
-		status, p := fields[i], fields[i+1]
+	for _, c := range incoming {
+		status, p := c[0], c[1]
 		// A sparse checkout's skipped files are absent, so nothing of the
 		// person's is there to overwrite.
 		if _, err := os.Lstat(filepath.Join(dir, filepath.FromSlash(p))); flagged[p] && err == nil {
@@ -133,6 +173,100 @@ func incomingNotice(ctx context.Context, dir, from, to string) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+// localGitTimeout bounds the Git commands that move the checkout, which a
+// stop does not interrupt.
+const localGitTimeout = 5 * time.Minute
+
+// moveCheckout moves the checkout's branch, index, and working tree from
+// one commit to another, as a fast-forward checkout does, under moveHead.
+// It checks with incomingNotice while the locks are held, returning the
+// notice when the move could overwrite the person's files. A stop does not
+// cut it short: Git killed mid-move leaves its lock files behind, so it
+// runs on until done or localGitTimeout. When Git fails after changing
+// files, the error says the checkout may be partly updated and how to
+// recover; nothing is undone automatically.
+func moveCheckout(ctx context.Context, ip *inPlace, from, to, reason string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), localGitTimeout)
+	defer cancel()
+	moving := *ip
+	moving.head = from
+	var notice string
+	errRefused := errors.New("refused")
+	err := moveHead(ctx, &moving, from, to, reason, func() error {
+		incoming, err := nameStatus(ctx, ip.dir, from, to)
+		if err != nil {
+			return err
+		}
+		if notice, err = incomingNotice(ctx, ip.dir, incoming); err != nil || notice != "" {
+			return cmp.Or(err, errRefused)
+		}
+		before := stamps(ip.dir, incoming)
+		if err := readTree(ctx, &moving, from, to); err != nil {
+			return partlyUpdated(err, ip.dir, incoming, before)
+		}
+		return nil
+	})
+	if notice != "" {
+		return notice, nil
+	}
+	return "", err
+}
+
+// stamps records each incoming path's size, time, and mode on disk, or ""
+// when it is absent, to tell afterwards which ones Git changed.
+func stamps(dir string, incoming [][2]string) []string {
+	out := make([]string, len(incoming))
+	for i, c := range incoming {
+		if info, err := os.Lstat(filepath.Join(dir, filepath.FromSlash(c[1]))); err == nil {
+			out[i] = fmt.Sprint(info.Size(), info.ModTime().UnixNano(), info.Mode())
+		}
+	}
+	return out
+}
+
+// partlyUpdated adds to a failed read-tree's error which files it changed
+// before failing, with how to put them back: HEAD and the index stay at
+// the old commit, so those files now show as local changes.
+func partlyUpdated(err error, dir string, incoming [][2]string, before []string) error {
+	var touched, tracked, added []string
+	for i, now := range stamps(dir, incoming) {
+		if now == before[i] {
+			continue
+		}
+		p := incoming[i][1]
+		touched = append(touched, p)
+		if len(touched) > maxNamed {
+			continue
+		}
+		if incoming[i][0] == "A" {
+			added = append(added, p)
+		} else {
+			tracked = append(tracked, p)
+		}
+	}
+	if len(touched) == 0 {
+		return err
+	}
+	msg := fmt.Sprintf("%v. The checkout may be partly updated: Git changed %s before it stopped, while HEAD and the index stayed put. Check `git status`", err, namedPaths(touched))
+	if len(tracked) > 0 {
+		msg += "; `git checkout -- " + strings.Join(tracked, " ") + "` puts back the tracked files"
+	}
+	if len(added) > 0 {
+		msg += "; " + strings.Join(added, ", ") + " are new files it added"
+	}
+	return errors.New(msg + ".")
+}
+
+// maxNamed caps how many paths one notice names.
+const maxNamed = 10
+
+func namedPaths(paths []string) string {
+	if len(paths) <= maxNamed {
+		return strings.Join(paths, ", ")
+	}
+	return fmt.Sprintf("%s, and %d more", strings.Join(paths[:maxNamed], ", "), len(paths)-maxNamed)
 }
 
 // moveHead moves the checkout's branch from old to new inside one Git ref

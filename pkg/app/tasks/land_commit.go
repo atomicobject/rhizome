@@ -190,8 +190,8 @@ func boolOrder(b bool) int {
 	return 0
 }
 
-// restorePath puts one path back to entry ("<mode> <object id>"), or
-// removes it when entry is "".
+// restorePath puts one path back to entry ("<mode> <object id>") as a
+// checkout would write it, or removes it when entry is "".
 func restorePath(ctx context.Context, dir, path, entry string) error {
 	full, err := checkoutPath(dir, path, entry != "")
 	if entry == "" {
@@ -208,7 +208,13 @@ func restorePath(ctx context.Context, dir, path, entry string) error {
 		return err
 	}
 	mode, id, _ := strings.Cut(entry, " ")
-	data, err := gitBytes(ctx, dir, nil, "cat-file", "blob", id)
+	// A file gets what a checkout writes (smudge and line-ending filters);
+	// a symlink's target is its raw content.
+	args := []string{"cat-file", "--filters", "--path=" + path, id}
+	if mode == "120000" {
+		args = []string{"cat-file", "blob", id}
+	}
+	data, err := gitBytes(ctx, dir, nil, args...)
 	if err != nil {
 		return err
 	}

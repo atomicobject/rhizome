@@ -201,3 +201,54 @@ func TestInPlaceSkipsASlotLandedDuringItsFetch(t *testing.T) {
 		t.Fatalf("a slot that landed during the fetch must not run again: %+v", o)
 	}
 }
+
+func TestInPlaceRestoreAppliesCheckoutFilters(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	writeFile(t, filepath.Join(f.host, ".git/info/attributes"), ".agents/** text eol=crlf\n")
+	const skill = ".agents/skills/a/SKILL.md"
+	if err := os.Remove(filepath.Join(f.host, skill)); err != nil {
+		t.Fatal(err)
+	}
+	run(t, f.host, "checkout", "--", skill)
+	if f.read(skill) != "agent skill\r\n" {
+		t.Fatalf("the checkout must hold CRLF line endings, got %q", f.read(skill))
+	}
+	f.edits(map[string]string{skill: "injected\n"}, nil)
+	o := f.pass()
+	if got := f.read(skill); got != "agent skill\r\n" {
+		t.Fatalf("a restore must write what a checkout would, got %q (%+v)", got, o)
+	}
+	if f.status() != "" {
+		t.Fatalf("the restored file must match the index: %q", f.status())
+	}
+}
+
+func TestInPlaceNeverCommitsANestedRepository(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	f.agent.run = func(req AgentRequest) (AgentResult, error) {
+		for _, sub := range []string{"notes/sub", ".agents/sub"} {
+			dir := filepath.Join(req.Dir, sub)
+			writeFile(t, filepath.Join(dir, "x.md"), "x\n")
+			run(t, dir, "init", "--quiet")
+			run(t, dir, "add", "-A")
+			run(t, dir, "commit", "--quiet", "-m", "nested")
+		}
+		writeFile(t, filepath.Join(req.Dir, "notes/a.md"), "a\n")
+		return AgentResult{Message: "Nested."}, nil
+	}
+	if o := f.pass(); o.Outcome != OutcomeLanded {
+		t.Fatalf("%+v", o)
+	}
+	if got := f.committed("HEAD"); !slices.Equal(got, []string{"notes/a.md"}) {
+		t.Fatalf("a nested repository must not be committed, got %v", got)
+	}
+	if _, err := os.Stat(filepath.Join(f.host, ".agents/sub/.git")); err != nil {
+		t.Fatalf("a nested repository must be left, not removed: %v", err)
+	}
+	it := taskItems(mustState(t, f.svc), "tend")[0]
+	for _, want := range []string{"notes/sub (a nested Git repository)", ".agents/sub (a nested Git repository)"} {
+		if !strings.Contains(it.Reason, want) {
+			t.Fatalf("summary %q must name %q", it.Reason, want)
+		}
+	}
+}
