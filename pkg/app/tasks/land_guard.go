@@ -142,7 +142,7 @@ func incomingNotice(ctx context.Context, dir, from, to string) (string, error) {
 // and while the locks are held those commands fail rather than race. during
 // runs under the locks; when it fails, the branch stays at old. new == ""
 // only holds the locks for during.
-func moveHead(ctx context.Context, ip *inPlace, old, new, reason string, during func() error) (err error) {
+func moveHead(ctx context.Context, ip *inPlace, old, new, reason string, during func() error) error {
 	cmd := exec.CommandContext(ctx, "git", "-c", ip.noHooks, "update-ref", "-m", reason, "--stdin")
 	cmd.Dir = ip.dir
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "LC_ALL=C")
@@ -159,34 +159,42 @@ func moveHead(ctx context.Context, ip *inPlace, old, new, reason string, during 
 	if err := cmd.Start(); err != nil {
 		return err
 	}
+	var waitErr error
+	waited := false
+	// stderr is safe to read only once Wait has returned.
+	wait := func() error {
+		if !waited {
+			waited = true
+			_ = in.Close()
+			waitErr = cmd.Wait()
+		}
+		return waitErr
+	}
+	defer wait()
+	failed := func(step string) error {
+		_ = wait()
+		return fmt.Errorf("git update-ref %s: %s", step, cmp.Or(strings.TrimSpace(stderr.String()), fmt.Sprint(waitErr)))
+	}
 	out := bufio.NewReader(stdout)
-	send := func(command string) error {
+	send := func(command string) bool {
 		if _, err := io.WriteString(in, command+"\n"); err != nil {
-			return err
+			return false
 		}
 		got, err := out.ReadString('\n')
-		if err != nil || strings.TrimSpace(got) != command+": ok" {
-			return fmt.Errorf("git update-ref %s: %s", command, cmp.Or(strings.TrimSpace(stderr.String()), strings.TrimSpace(got), fmt.Sprint(err)))
-		}
-		return nil
+		return err == nil && strings.TrimSpace(got) == command+": ok"
 	}
-	defer func() {
-		_ = in.Close()
-		if waitErr := cmd.Wait(); err == nil && waitErr != nil {
-			err = fmt.Errorf("git update-ref: %v: %s", waitErr, strings.TrimSpace(stderr.String()))
-		}
-	}()
 	change := fmt.Sprintf("update HEAD %s %s", new, old)
 	if new == "" {
 		change = "verify HEAD " + old
 	}
-	if err := send("start"); err != nil {
-		return err
+	if !send("start") {
+		return failed("start")
 	}
 	if _, err := io.WriteString(in, change+"\n"); err != nil {
-		return err
+		return failed(change)
 	}
-	if err := send("prepare"); err != nil {
+	if !send("prepare") {
+		err := failed("prepare")
 		if ip.moved(ctx) != "" {
 			return errHeadMoved
 		}
@@ -194,17 +202,24 @@ func moveHead(ctx context.Context, ip *inPlace, old, new, reason string, during 
 	}
 	// HEAD.lock is held, so this reads what HEAD will stay until commit.
 	if ref, _ := gitOutput(ctx, ip.dir, "symbolic-ref", "--quiet", "HEAD"); ref != "refs/heads/"+ip.branch {
-		_ = send("abort")
+		send("abort")
 		return errHeadMoved
 	}
 	if err := during(); err != nil {
-		_ = send("abort")
+		send("abort")
 		return err
 	}
+	step := "commit"
 	if new == "" {
-		return send("abort")
+		step = "abort"
 	}
-	return send("commit")
+	if !send(step) {
+		return failed(step)
+	}
+	if err := wait(); err != nil {
+		return failed(step)
+	}
+	return nil
 }
 
 // readTree moves the index and working tree from one commit to another as
