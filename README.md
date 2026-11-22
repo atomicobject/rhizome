@@ -107,7 +107,7 @@ The setup gives you starting points to change. Edit `docs/engineering/` with you
 | Define work, implement a spec, or capture meeting context | [Using the skills](docs/reference/guides/using-skills.md) |
 | Change team policy, skills, data, or views | [Adapting Rhizome](docs/reference/guides/adapting-rhizome.md) |
 | Build an experience: several views that run as one site, like Delivery | [Build an experience](docs/reference/guides/build-an-experience.md) |
-| Schedule recurring agent work that commits in your checkout or on a review branch, run from the menu bar on one machine | [Scheduled tasks](docs/reference/guides/scheduled-tasks-guide.md) |
+| Schedule recurring agent work that commits in your checkout or on a review branch, run from the menu bar on one machine, and alerts you off-machine (check with `rzm tasks notify-test`) | [Scheduled tasks](docs/reference/guides/scheduled-tasks-guide.md) |
 | Let Rhizome learn from your agent sessions | [Compounding](docs/reference/guides/compounding.md) |
 | Browse and edit an existing AO KB's knowledge | [AO KB knowledge](pkg/app/cli/init/templates/starters/ao-kb/repo/docs/reference/guides/ao-kb.md) |
 | Compare workflows | [Choosing a starter](docs/reference/guides/choosing-your-starter.md) |
