@@ -205,6 +205,7 @@ Admins set per-provider daily budgets with `rzm auth admin config --server <gate
 | `rzm tasks machine on\|off [--checkout <path>]` | Run this repository's scheduled tasks on this machine, from the checkout you name; off by default |
 | `rzm tasks hosts --json` | The repositories whose tasks run on this machine, for Rhizome Desktop |
 | `rzm tasks doctor [task]` | Check what tasks need here: commands, harness sign-in, MCP servers, trust, fetch, push, Obsidian Git |
+| `rzm tasks notify-test` | Send a sample alert through your `tasks.notify.command` to check it reaches you |
 
 [Scheduled tasks](scheduled-tasks-guide.md) covers declaring tasks and every state.
 
