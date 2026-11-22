@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -22,8 +23,13 @@ type inPlace struct {
 	noHooks string
 	// The person's paths before the run: dirty differ from HEAD in the
 	// snapshot (staged, unstaged, or untracked), staged differ in the
-	// index, and flagged are marked assume-unchanged or skip-worktree.
-	dirty, staged, flagged map[string]bool
+	// index, flagged are marked assume-unchanged or skip-worktree, and
+	// ignored are the untracked files and folders the snapshot left out
+	// because Git ignored them.
+	dirty, staged, flagged, ignored map[string]bool
+	// excludeFile and exclude are the repository's info/exclude file, as
+	// Git names it, and its content before the run.
+	excludeFile, exclude string
 }
 
 // hostCheckout is the checkout in-place tasks land in: the person's
@@ -190,6 +196,10 @@ func (s *Service) prepareInPlace(ctx context.Context, def Definition, a attempt,
 	if ip.flagged, err = flaggedPaths(ctx, dir); err != nil {
 		return nil, "", err
 	}
+	if ip.ignored, err = ignoredPaths(ctx, dir); err != nil {
+		return nil, "", err
+	}
+	ip.excludeFile, ip.exclude = excludeRules(ctx, dir)
 	return ip, "", nil
 }
 
@@ -288,12 +298,17 @@ func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, 
 	var notices []string
 	var guarded []string
 	for _, p := range changed {
-		if protected(def, p) {
+		// What Git ignored before the run was on disk outside the
+		// snapshot, so the snapshot cannot put it back.
+		if protected(def, p) && !ip.wasIgnored(p) {
 			guarded = append(guarded, p)
 		}
 	}
 	if len(guarded) > 0 {
 		notices = append(notices, restoreProtected(ctx, ip, after, guarded, s.runFile(a.id, protectedDiffFile)))
+	}
+	if notice := ip.ignoreRulesNotice(ctx, def, changed); notice != "" {
+		notices = append(notices, notice)
 	}
 	owned, left := ownPaths(def, ip, leftover, before, stagedNow, changed, guarded)
 	entries, err := treeEntries(ctx, ip.dir, after, owned)
@@ -390,8 +405,8 @@ func (l leftPaths) text() string {
 }
 
 // ownPaths splits the run's changed paths into the task's own and the ones
-// it leaves. Anything the person had changed, staged, or flagged before the
-// run is theirs, except a path an earlier failed run left (leftover) whose
+// it leaves. Anything the person had changed, staged, flagged, or ignored
+// before the run is theirs, except a path an earlier failed run left (leftover) whose
 // content before this run (before) is still what that run left. A path
 // staged since the snapshot (stagedNow) is theirs too, and so is any task
 // path whose commit would replace a file or folder that is not the task's.
@@ -404,6 +419,8 @@ func ownPaths(def Definition, ip *inPlace, leftover, before map[string]string, s
 	}
 	why := func(p string) string {
 		switch {
+		case ip.wasIgnored(p):
+			return "ignored before the run"
 		case ip.staged[p]:
 			return "staged before the run"
 		case stagedNow[p]:
@@ -452,6 +469,39 @@ func ownPaths(def Definition, ip *inPlace, leftover, before map[string]string, s
 	})
 	slices.Sort(owned)
 	return owned, left
+}
+
+// wasIgnored reports whether p, or a folder holding it, was an untracked
+// path Git ignored before the run. Such a path was on disk outside the
+// snapshot, so it is the person's even when changed ignore rules now show
+// it as new.
+func (ip *inPlace) wasIgnored(p string) bool {
+	for q := p; q != "." && q != "/"; q = path.Dir(q) {
+		if ip.ignored[q] {
+			return true
+		}
+	}
+	return false
+}
+
+// ignoreRulesNotice names the ignore files the run changed that are not
+// the task's to change: a .gitignore outside writes or protected, and the
+// repository's info/exclude file. Either way, files ignored before the run
+// stay the person's.
+func (ip *inPlace) ignoreRulesNotice(ctx context.Context, def Definition, changed []string) string {
+	var files []string
+	for _, p := range changed {
+		if path.Base(p) == ".gitignore" && (!def.MayWrite(p) || protected(def, p)) {
+			files = append(files, p)
+		}
+	}
+	if name, rules := excludeRules(ctx, ip.dir); rules != ip.exclude {
+		files = append(files, name)
+	}
+	if len(files) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("The run changed ignore rules (%s). Files they hid before the run are yours: Rhizome neither commits nor restores them.", strings.Join(files, ", "))
 }
 
 func joinNotices(parts ...string) string {

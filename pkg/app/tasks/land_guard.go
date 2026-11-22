@@ -69,6 +69,35 @@ func stagedPaths(ctx context.Context, dir string) (map[string]bool, error) {
 	return nameSet(ctx, dir, "diff-index", "--cached", "--name-only", "-z", "--no-renames", "HEAD")
 }
 
+// ignoredPaths are the untracked files and folders Git ignores, which a
+// snapshot leaves out; an ignored folder is one entry, without its slash.
+func ignoredPaths(ctx context.Context, dir string) (map[string]bool, error) {
+	listed, err := nameSet(ctx, dir, "-c", "core.fsmonitor=false", "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory")
+	if err != nil {
+		return nil, err
+	}
+	set := map[string]bool{}
+	for p := range listed {
+		set[strings.TrimSuffix(p, "/")] = true
+	}
+	return set, nil
+}
+
+// excludeRules reads the repository's info/exclude file, returning its
+// name as Git gives it and its content ("" when absent).
+func excludeRules(ctx context.Context, dir string) (string, string) {
+	name, err := gitOutput(ctx, dir, "rev-parse", "--git-path", "info/exclude")
+	if err != nil {
+		return "", ""
+	}
+	full := name
+	if !filepath.IsAbs(full) {
+		full = filepath.Join(dir, full)
+	}
+	data, _ := os.ReadFile(full)
+	return name, string(data)
+}
+
 // flaggedPaths are index entries marked assume-unchanged or skip-worktree:
 // Git does not report their working-tree edits, so they are the person's.
 func flaggedPaths(ctx context.Context, dir string) (map[string]bool, error) {
