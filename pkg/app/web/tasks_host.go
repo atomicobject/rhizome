@@ -40,9 +40,15 @@ type TaskHosts struct {
 // errTaskStarted answers Run now while a run this runtime started is alive.
 var errTaskStarted = errors.New("a task run this runtime started is still running")
 
-// Hold registers an open host stream until release.
+// Hold registers an open host stream until release. A host that connects
+// after the last one closed starts fresh: a drain belongs to the Desktop that
+// asked for it, so an attached runtime that outlived a complete quit
+// schedules again when Desktop reopens.
 func (h *TaskHosts) Hold() (release func()) {
 	h.mu.Lock()
+	if h.open == 0 {
+		h.drained = false
+	}
 	h.open++
 	h.mu.Unlock()
 	var once sync.Once

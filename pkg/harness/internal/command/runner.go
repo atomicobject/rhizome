@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/atomicobject/rhizome/pkg/harness/internal/processlog"
 	"github.com/atomicobject/rhizome/pkg/loginpath"
@@ -46,6 +47,10 @@ func (OSRunner) LookPath(name string) (string, error) {
 	return exec.LookPath(path)
 }
 
+// waitDelay bounds how long Run waits for output pipes after the process
+// exits or is killed.
+const waitDelay = 5 * time.Second
+
 func (r OSRunner) Run(ctx context.Context, spec Spec) (Result, error) {
 	cmd := exec.CommandContext(ctx, spec.Path, spec.Args...)
 	var interrupted atomic.Bool
@@ -57,6 +62,9 @@ func (r OSRunner) Run(ctx context.Context, spec Spec) (Result, error) {
 		}
 		return err
 	}
+	// A grandchild holding the output pipes must not keep Wait blocked after
+	// the command exits or its context ends.
+	cmd.WaitDelay = waitDelay
 	cmd.Dir = spec.Dir
 	cmd.Env = append(loginpath.WithPath(os.Environ(), loginpath.Extend(os.Getenv("PATH"))), spec.Env...)
 	cmd.Stdin = spec.Stdin

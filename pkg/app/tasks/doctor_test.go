@@ -175,3 +175,13 @@ func TestDoctorSpotsObsidianGitTimers(t *testing.T) {
 		})
 	}
 }
+
+func TestDoctorReportsInvalidTaskFiles(t *testing.T) {
+	dir := newRemoteRepo(t, map[string]string{"broken.yml": "name: Broken\nprompt: no cadence\n"})
+	report, err := doctorService(t, dir, &fakeAgent{}, true).Doctor(context.Background(), DoctorOptions{})
+	require.NoError(t, err)
+	require.False(t, report.OK, "a repository whose only task file is invalid is not ready")
+	file := checksByName(report.Checks)[CheckTaskFile]
+	require.False(t, file.OK)
+	require.Contains(t, file.Detail, "broken.yml")
+}

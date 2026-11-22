@@ -20,6 +20,7 @@ const (
 	CheckTrust       = "trust"
 	CheckPrimaryRef  = "primary-ref"
 	CheckPush        = "push"
+	CheckTaskFile    = "task-file"
 	CheckObsidianGit = "obsidian-git"
 	CheckCommand     = "command"
 	CheckHarness     = "harness"
@@ -97,9 +98,12 @@ func (s *Service) Doctor(ctx context.Context, opts DoctorOptions) (DoctorReport,
 	if checkout != "" {
 		report.Checks = append(report.Checks, obsidianGitCheck(checkout))
 	}
-	defs, _, err := LoadDefinitions(ctx, s.opts.Repo, commit)
+	defs, problems, err := LoadDefinitions(ctx, s.opts.Repo, commit)
 	if err != nil {
 		return report, err
+	}
+	for _, p := range problems {
+		report.Checks = append(report.Checks, DoctorCheck{Check: CheckTaskFile, Detail: p.Path + ": " + p.Message})
 	}
 	if opts.Task != "" {
 		i := slices.IndexFunc(defs, func(d Definition) bool { return d.ID == opts.Task })

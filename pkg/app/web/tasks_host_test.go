@@ -145,3 +145,14 @@ func TestTaskHostRoutes(t *testing.T) {
 	require.Equal(t, http.StatusOK, code)
 	require.True(t, machine.runHere)
 }
+
+func TestANewHostAfterADrainSchedulesAgain(t *testing.T) {
+	hosts := &TaskHosts{}
+	release := hosts.Hold()
+	hosts.Drain()
+	require.False(t, hosts.Hosting(), "a drained runtime dispatches nothing while the quitting host is still connected")
+	release()
+	release = hosts.Hold()
+	defer release()
+	require.True(t, hosts.Hosting(), "a Desktop that reopens and holds an attached runtime that outlived the quit schedules again")
+}
