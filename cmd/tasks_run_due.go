@@ -82,16 +82,16 @@ func newTasksPauseCmd(open func(*cobra.Command) (*tasks.Service, error)) *cobra.
 // startTasksRunDue is how a runtime asks for due tasks: a detached
 // `rzm tasks run-due --host` in the vault, so the work outlives the
 // runtime. Its output goes to task state's run-due.log.
-func startTasksRunDue(vaultPath string) error {
+func startTasksRunDue(vaultPath string) (*appruntime.Detached, error) {
 	exe, err := os.Executable()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	args := []string{"tasks", "run-due", "--host"}
 	log, err := tasks.OpenRunDueLog(context.Background(), vaultPath)
 	if err != nil {
 		// ponytail: an unwritable log must not stop scheduled work.
-		return appruntime.StartDetached(exe, vaultPath, args...)
+		return appruntime.StartDetachedTo(nil, exe, vaultPath, args...)
 	}
 	defer log.Close()
 	fmt.Fprintf(log, "\n[%s] rzm %s\n", time.Now().Format(time.RFC3339), "tasks run-due --host")

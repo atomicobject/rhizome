@@ -44,6 +44,9 @@ type DoctorCheck struct {
 	Check  string `json:"check"`
 	OK     bool   `json:"ok"`
 	Detail string `json:"detail"`
+	// Skipped marks a check doctor did not run, as a push check in an
+	// untrusted repository; it is not OK.
+	Skipped bool `json:"skipped,omitempty"`
 }
 
 // TaskDoctor is one task's checks.
@@ -68,8 +71,9 @@ type DoctorReport struct {
 func (s *Service) Doctor(ctx context.Context, opts DoctorOptions) (DoctorReport, error) {
 	report := DoctorReport{Checks: []DoctorCheck{}, Tasks: []TaskDoctor{}}
 	trust := DoctorCheck{Check: CheckTrust, OK: true, Detail: "the repository is trusted"}
-	if reason := s.untrusted(); reason != "" {
-		trust.OK, trust.Detail = false, reason
+	untrusted := s.untrusted()
+	if untrusted != "" {
+		trust.OK, trust.Detail = false, untrusted
 	}
 	report.Checks = append(report.Checks, trust)
 	ref, commit, err := s.opts.Repo.ResolvePrimary(ctx, s.opts.Config.PrimaryRef)
@@ -79,7 +83,11 @@ func (s *Service) Doctor(ctx context.Context, opts DoctorOptions) (DoctorReport,
 	}
 	remote, branch, remoteErr := s.primaryRemote(ctx, ref)
 	report.Checks = append(report.Checks, s.freshness(ref, commit, remote, remoteErr))
-	if opts.Push {
+	switch {
+	case opts.Push && untrusted != "":
+		// A push runs the repository's hooks and its configured commands.
+		report.Checks = append(report.Checks, DoctorCheck{Check: CheckPush, Skipped: true, Detail: "skipped: the repository is not trusted, and a push would run its hooks"})
+	case opts.Push:
 		report.Checks = append(report.Checks, s.pushCheck(ctx, commit, remote, branch, remoteErr))
 	}
 	checkout := opts.Checkout
@@ -156,18 +164,25 @@ func (s *Service) freshness(ref, commit, remote string, remoteErr error) DoctorC
 }
 
 // pushCheck asks the remote whether a push to the primary branch would be
-// accepted, pushing the commit it already has so nothing would change.
+// accepted, pushing the commit it already has so nothing would change. The
+// repository's hooks do not run, as for the runner's own Git commands.
 func (s *Service) pushCheck(ctx context.Context, commit, remote, branch string, remoteErr error) DoctorCheck {
 	check := DoctorCheck{Check: CheckPush}
 	if remoteErr != nil {
 		check.Detail = "push is on, but " + remoteErr.Error()
 		return check
 	}
+	hooks, err := os.MkdirTemp("", "rhizome-no-hooks-*")
+	if err != nil {
+		check.Detail = err.Error()
+		return check
+	}
+	defer os.RemoveAll(hooks)
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	target := fmt.Sprintf("%s:refs/heads/%s", commit, branch)
-	if _, err := s.opts.Repo.git(ctx, "push", "--dry-run", "--quiet", remote, target); err != nil {
-		check.Detail = err.Error()
+	if _, err := s.opts.Repo.git(ctx, "-c", "core.hooksPath="+hooks, "push", "--dry-run", "--quiet", remote, target); err != nil {
+		check.Detail = redactURLCredentials(err.Error())
 		return check
 	}
 	check.OK, check.Detail = true, fmt.Sprintf("git push --dry-run to %s %s succeeds", remote, branch)

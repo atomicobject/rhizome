@@ -92,7 +92,7 @@ func TestTaskHostStreamHoldsTheRuntimeAndSendsStatusChanges(t *testing.T) {
 	require.Equal(t, "/repo", status["repository"])
 	require.Equal(t, false, status["draining"])
 	require.Equal(t, int32(1), held.Load(), "an open host stream keeps the runtime from idling")
-	require.True(t, hosts.Dispatching())
+	require.True(t, hosts.Hosting())
 
 	api.set(func(st *tasks.HostStatus) { st.Attention = 2 })
 	_, status = readHostEvent(t, events)
@@ -100,8 +100,8 @@ func TestTaskHostStreamHoldsTheRuntimeAndSendsStatusChanges(t *testing.T) {
 
 	code, drained := serveTasks(t, s, http.MethodPost, "/api/tasks/host/drain", "")
 	require.Equal(t, http.StatusOK, code)
-	require.Equal(t, map[string]any{"running": nil}, drained)
-	require.False(t, hosts.Dispatching(), "a drained runtime dispatches nothing")
+	require.Equal(t, map[string]any{"running": nil, "dispatching": nil}, drained)
+	require.False(t, hosts.Hosting(), "a drained runtime dispatches nothing")
 	_, status = readHostEvent(t, events)
 	require.Equal(t, true, status["draining"])
 

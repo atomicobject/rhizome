@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/tasks"
 	"github.com/stretchr/testify/require"
 )
@@ -148,9 +149,9 @@ func newTasksTestServer(api *fakeTasks) (*Server, *[]launch) {
 		VaultPath:   "/repo/vault",
 		TasksOpener: func(context.Context, string) (TasksAPI, error) { return api, nil },
 	}}
-	s.tasksLaunch = func(vault, item string) error {
+	s.tasksLaunch = func(vault, item string) (*appruntime.Detached, error) {
 		*launches = append(*launches, launch{vault, item})
-		return nil
+		return nil, nil
 	}
 	return s, launches
 }
@@ -285,7 +286,7 @@ func TestTasksRunLaunchesDetachedAfterPrecheck(t *testing.T) {
 
 	api.precheck = nil
 	api.calls = nil
-	s.tasksLaunch = func(string, string) error { return errors.New("no rzm") }
+	s.tasksLaunch = func(string, string) (*appruntime.Detached, error) { return nil, errors.New("no rzm") }
 	code, _ = serveTasks(t, s, http.MethodPost, "/api/tasks/items/4/run", "")
 	require.Equal(t, http.StatusInternalServerError, code)
 	require.Equal(t, []string{"precheck 4", "launch error 4 no rzm"}, api.calls, "a failed spawn is recorded on the item")

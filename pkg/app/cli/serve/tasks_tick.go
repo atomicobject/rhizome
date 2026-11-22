@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/web"
 )
 
@@ -18,9 +19,9 @@ import (
 // repository's run lock.
 const (
 	tasksCheckInterval = 30 * time.Second
-	// tasksRetryAfter spaces out dispatches for a due time an earlier
-	// run-due did not move, as when that pass found nothing it could run.
-	// ponytail: a fixed wait; tie it to run-due's outcome if it ever matters.
+	// tasksRetryAfter spaces out dispatches after a run-due that exited
+	// without recording a run, as when that pass found nothing it could run
+	// or failed to start: another at once would repeat it every check.
 	tasksRetryAfter = 5 * time.Minute
 )
 
@@ -28,22 +29,37 @@ const (
 type taskDispatch struct {
 	hosts *web.TaskHosts
 	open  func(ctx context.Context) (web.TasksAPI, error)
-	start func() error
+	start func() (*appruntime.Detached, error)
 	now   func() time.Time
-	// last is when run-due was last started; lastErr is the last error
-	// recorded, so a lasting one is recorded once.
-	last    time.Time
+	// child is the last run-due this check started, at startedAt; exitedAt
+	// is when a check first saw it gone.
+	child     *appruntime.Detached
+	startedAt time.Time
+	exitedAt  time.Time
+	// lastErr is the last error recorded, so a lasting one is recorded once.
 	lastErr string
 }
 
 // check starts run-due when a host holds the runtime, it is not drained, no
-// run holds the repository's run lock, and a task is due that the last
-// dispatch did not already start.
+// run holds the repository's run lock, a task is due, and the last run-due
+// it started has exited having recorded a run, or long enough ago. The host
+// registry rechecks the host and drain under its lock as it starts.
 func (d *taskDispatch) check(ctx context.Context) {
-	if !d.hosts.Dispatching() {
+	if !d.hosts.Hosting() {
 		return
 	}
-	due, ok, err := d.nextDue(ctx)
+	api, err := d.open(ctx)
+	if err == nil && api.RunLockHeld() {
+		// That run's pass handles what is due.
+		return
+	}
+	var (
+		due time.Time
+		ok  bool
+	)
+	if err == nil {
+		due, ok, err = api.NextDueAt(ctx)
+	}
 	if err != nil {
 		if err.Error() != d.lastErr {
 			d.lastErr = err.Error()
@@ -53,30 +69,45 @@ func (d *taskDispatch) check(ctx context.Context) {
 	}
 	d.lastErr = ""
 	now := d.now()
-	if !ok || due.After(now) {
+	if !ok || due.After(now) || d.waiting(ctx, api, now) {
 		return
 	}
-	if !d.last.IsZero() && !due.After(d.last) && now.Sub(d.last) < tasksRetryAfter {
-		return
-	}
-	if err := d.start(); err != nil {
+	child, err := d.hosts.Dispatch(d.start)
+	if err != nil {
 		recordServeDiagnostic(ctx, slog.LevelWarn, "tasks.start_failed", err)
 		return
 	}
-	d.last = now
+	if child != nil {
+		d.child, d.startedAt, d.exitedAt = child, now, time.Time{}
+	}
 }
 
-// nextDue reports the earliest due time, and nothing due while a run holds
-// the run lock: that run's pass handles what is due.
-func (d *taskDispatch) nextDue(ctx context.Context) (time.Time, bool, error) {
-	api, err := d.open(ctx)
+// waiting reports whether the last run-due this check started is still
+// running, or exited less than tasksRetryAfter ago without recording a run.
+// It does not compare due times, which can move without any run.
+func (d *taskDispatch) waiting(ctx context.Context, api web.TasksAPI, now time.Time) bool {
+	if d.child == nil {
+		return false
+	}
+	if d.child.Alive() {
+		return true
+	}
+	if d.exitedAt.IsZero() {
+		d.exitedAt = now
+	}
+	if now.Sub(d.exitedAt) >= tasksRetryAfter {
+		return false
+	}
+	live, err := api.LiveState(ctx)
 	if err != nil {
-		return time.Time{}, false, err
+		return true
 	}
-	if api.RunLockHeld() {
-		return time.Time{}, false, nil
+	for _, r := range live.Recent {
+		if !r.At.Before(d.startedAt) {
+			return false
+		}
 	}
-	return api.NextDueAt(ctx)
+	return true
 }
 
 // runTaskChecks runs d.check every interval until ctx ends.

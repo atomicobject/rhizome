@@ -365,11 +365,12 @@ func TestRunHeadlessStaysUpAndDispatchesWhileATaskHostStreamIsHeld(t *testing.T)
 		o.OpenTasks = func(context.Context, string) (web.TasksAPI, error) {
 			return &dueTasks{ok: true, due: time.Now().Add(-time.Minute)}, nil
 		}
-		o.RunTasks = func(path string) error {
+		o.RunTasks = func(path string) (*appruntime.Detached, error) {
 			if path == vault.path {
 				calls.Add(1)
 			}
-			return nil
+			// A run-due that is still running.
+			return &appruntime.Detached{Done: make(chan struct{})}, nil
 		}
 	})
 	manifest := handle.waitForManifest(t, vault.path)
@@ -391,7 +392,7 @@ func TestRunHeadlessStaysUpAndDispatchesWhileATaskHostStreamIsHeld(t *testing.T)
 		t.Fatalf("the runtime idle-exited under a host stream: %v\n%s", result.err, result.stderr)
 	case <-time.After(3 * time.Second):
 	}
-	require.Equal(t, int32(1), calls.Load(), "one due time starts run-due once")
+	require.Equal(t, int32(1), calls.Load(), "a run-due still running is not started again")
 
 	closeStream()
 	result := handle.awaitExit(t, 30*time.Second)

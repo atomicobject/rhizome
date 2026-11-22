@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 )
@@ -41,8 +42,10 @@ func (s *Service) dueInputs(ctx context.Context) ([]Definition, map[string]*Tagg
 // `rzm tasks run-due --host` has work. It reads the local primary ref and
 // task state only, with no network and no Git writes. ok is false when
 // nothing will come due here: tasks do not run on this machine, work is
-// paused until resumed, every task is off or blocked by an open item, or an
-// untrusted repository was already reported.
+// paused until resumed, every task is off or blocked by an open item with
+// nothing to settle, or an untrusted repository was already reported. Only
+// a pass settles items (settleDue), so items that block their tasks make a
+// pass due at most every settleInterval.
 func (s *Service) NextDueAt(ctx context.Context) (time.Time, bool, error) {
 	m, err := s.MachineSettings()
 	if err != nil || !m.Repository.RunHere {
@@ -55,21 +58,66 @@ func (s *Service) NextDueAt(ctx context.Context) (time.Time, bool, error) {
 	if s.untrusted() != "" && st.PassError != nil && st.PassError.Code == PassUntrusted {
 		return time.Time{}, false, nil
 	}
-	_, at, ok, err := s.nextDue(ctx, &st, m)
-	return at, ok, err
-}
-
-// nextDue is the task that comes due first and when, skipping what RunDue
-// skips, so a due time always leads to a run. A timed pause moves it to when
-// the pause lifts.
-func (s *Service) nextDue(ctx context.Context, st *State, m MachineSettings) (Definition, time.Time, bool, error) {
 	now := s.opts.Now()
 	if st.PausedAt(now) && st.PausedUntil.IsZero() {
-		return Definition{}, time.Time{}, false, nil
+		return time.Time{}, false, nil
 	}
 	defs, tagged, err := s.dueInputs(ctx)
 	if err != nil {
-		return Definition{}, time.Time{}, false, err
+		return time.Time{}, false, err
+	}
+	_, at, ok := s.nextDue(&st, m, defs, tagged)
+	if settle, due := settleAt(&st, defs, s.RunLockHeld()); due {
+		if st.PausedAt(now) && settle.Before(st.PausedUntil) {
+			settle = st.PausedUntil
+		}
+		if !ok || settle.Before(at) {
+			at, ok = settle, true
+		}
+	}
+	return at, ok, nil
+}
+
+// settleInterval spaces passes that are due only to settle items.
+const settleInterval = 15 * time.Minute
+
+// settleAt is when a pass is due only to settle items that block their
+// tasks and that only a pass settles (bookkeep, finalizeInterrupted): a
+// ready or started item of a declared task, whose work may have reached
+// the primary ref, and, unless a live process holds the run lock, an item
+// left running or a Running whose process died. It is settleInterval after
+// the last pass, or zero (due now) before any.
+func settleAt(st *State, defs []Definition, lockHeld bool) (time.Time, bool) {
+	settle := st.Running != nil && !lockHeld
+	for _, it := range st.Items {
+		switch {
+		case it.Kind != KindTask:
+		case it.State == StateRunning:
+			settle = settle || !lockHeld
+		case it.State == StateReady || it.State == StateStarted:
+			settle = settle || slices.ContainsFunc(defs, func(d Definition) bool { return d.ID == it.Task })
+		}
+	}
+	if !settle || st.LastPass.IsZero() {
+		return time.Time{}, settle
+	}
+	return st.LastPass.Add(settleInterval), true
+}
+
+// settleDue reports whether settling items is due at now.
+func settleDue(st *State, defs []Definition, lockHeld bool, now time.Time) bool {
+	at, due := settleAt(st, defs, lockHeld)
+	return due && !at.After(now)
+}
+
+// nextDue is the task that comes due first and when, skipping what RunDue
+// skips, so a due time always leads to a run. A task that never ran is due
+// from when a pass first saw it (zero before one has), so its due time does
+// not move with the clock. A timed pause moves it to when the pause lifts.
+func (s *Service) nextDue(st *State, m MachineSettings, defs []Definition, tagged map[string]*Tagged) (Definition, time.Time, bool) {
+	now := s.opts.Now()
+	if st.PausedAt(now) && st.PausedUntil.IsZero() {
+		return Definition{}, time.Time{}, false
 	}
 	zone, _ := s.personZone(m)
 	var (
@@ -84,7 +132,7 @@ func (s *Service) nextDue(ctx context.Context, st *State, m MachineSettings) (De
 		}
 		at := d.due.At
 		if d.due.Now && at.IsZero() {
-			at = now
+			at = st.Seen[def.ID]
 		}
 		if !found || at.Before(next) {
 			best, next, found = def, at, true
@@ -93,7 +141,7 @@ func (s *Service) nextDue(ctx context.Context, st *State, m MachineSettings) (De
 	if found && st.PausedAt(now) && next.Before(st.PausedUntil) {
 		next = st.PausedUntil
 	}
-	return best, next, found, nil
+	return best, next, found
 }
 
 // RunLockHeld reports whether a live process holds the repository's run

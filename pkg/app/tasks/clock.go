@@ -127,22 +127,37 @@ func nextSlot(e taskdef.ScheduleEntry, loc *time.Location, now time.Time) time.T
 
 // slotTime is a time of day on a date in loc. A time inside a
 // daylight-saving gap becomes the first instant after the gap. A time in a
-// repeated hour is its first occurrence, so the slot exists once.
+// repeated hour is one slot at its first occurrence, so a run that started
+// at either occurrence satisfies it; time.Date alone picks either one,
+// depending on the zone.
 func slotTime(y int, m time.Month, d, minutes int, loc *time.Location) time.Time {
 	t := time.Date(y, m, d, minutes/60, minutes%60, 0, 0, loc)
 	want := time.Date(y, m, d, minutes/60, minutes%60, 0, 0, time.UTC)
-	wall := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 0, 0, time.UTC)
-	if wall.Equal(want) {
+	if wallClock(t).Equal(want) {
+		// Clocks went back at the start of t's zone period: the same wall
+		// time may also exist that much earlier, before the change.
+		if start, _ := t.ZoneBounds(); !start.IsZero() {
+			_, before := start.Add(-time.Second).Zone()
+			_, after := t.Zone()
+			if earlier := t.Add(-time.Duration(before-after) * time.Second); before > after && earlier.Before(start) && wallClock(earlier).Equal(want) {
+				return earlier
+			}
+		}
 		return t
 	}
 	// time.Date picked an offset that moved the wall clock: the time does
 	// not exist that day. The gap ends where the zone t fell in ends (t
 	// before the gap) or starts (t after it).
 	start, end := t.ZoneBounds()
-	if wall.Before(want) && !end.IsZero() {
+	if wallClock(t).Before(want) && !end.IsZero() {
 		return end
 	}
 	return start
+}
+
+// wallClock is t's date and time of day in its own zone, as a UTC time.
+func wallClock(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 0, 0, time.UTC)
 }
 
 // zoneName is a location's IANA name, reading the host's from TZ or

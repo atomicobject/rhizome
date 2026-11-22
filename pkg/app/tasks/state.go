@@ -82,6 +82,9 @@ type RunRecord struct {
 	Changed        []string  `json:"changed,omitempty"`
 	// Missing names the requirements a failed run lacked (SPEC-0127 US11).
 	Missing []string `json:"missing,omitempty"`
+	// Holder names the run lock acquisition that started the run (PID and
+	// lock time), so Stop marks only its holder's run.
+	Holder string `json:"holder,omitempty"`
 }
 
 // State is one person's task state for one repository.
@@ -104,9 +107,11 @@ type State struct {
 	// PassError is why the latest run-due pass failed before running tasks.
 	PassError *PassError `json:"passError,omitempty"`
 	// Fetch is the latest fetch of the primary ref's remote.
-	Fetch  *FetchStatus `json:"fetch,omitempty"`
-	Items  []Item       `json:"items,omitempty"`
-	NextID int          `json:"nextId,omitempty"`
+	Fetch *FetchStatus `json:"fetch,omitempty"`
+	// LastPass is when the latest run-due pass settled items (bookkeep).
+	LastPass time.Time `json:"lastPass,omitzero"`
+	Items    []Item    `json:"items,omitempty"`
+	NextID   int       `json:"nextId,omitempty"`
 	// Stopping is the run Stop was asked to end. Whichever process records
 	// that run records it as stopped.
 	Stopping string `json:"stopping,omitempty"`
@@ -153,7 +158,7 @@ func (s *State) LastRun(task string) (RunRecord, bool) {
 // Record appends a run and counts its tokens. It clears Running when that
 // is this run. Retention trims history at the end of each run.
 func (s *State) Record(r RunRecord) {
-	r.Stage = ""
+	r.Stage, r.Holder = "", ""
 	if s.Stopping != "" && r.ID == s.Stopping {
 		r.Outcome, r.Message, s.Stopping = OutcomeStopped, stoppedMessage, ""
 	}
