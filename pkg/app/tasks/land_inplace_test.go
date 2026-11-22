@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/atomicobject/rhizome/pkg/harness"
 )
 
 func TestInPlaceLandsManyRunsWhileAnotherClonePushes(t *testing.T) {
@@ -231,5 +233,21 @@ func TestInPlaceSkipsAWrongBranchWithOneNotice(t *testing.T) {
 	}
 	if n := len(taskItems(mustState(t, f.svc), "tend")); n != 1 || len(f.attention()) != 1 {
 		t.Fatalf("expected one deduplicated notice, got %+v", taskItems(mustState(t, f.svc), "tend"))
+	}
+}
+
+func TestInPlaceRunsCarryTheTaskAndItsDenyList(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nwrites: [\"notes/**\"]\ndeny: [WebFetch]\nprompt: Tend the notes.\n")
+	var got AgentRequest
+	f.agent.run = func(req AgentRequest) (AgentResult, error) {
+		got = req
+		return AgentResult{Message: "nothing to do"}, nil
+	}
+	f.svc.opts.Agent = resolvingAgent{fakeAgent: f.agent, kind: harness.KindClaude, driver: &listingHarness{}}
+	if o := f.pass(); o.Outcome != OutcomeNoChanges {
+		t.Fatalf("%+v", o)
+	}
+	if got.Task != "tend" || !slices.Equal(got.Deny, []string{"WebFetch"}) || got.Dir != f.host {
+		t.Fatalf("the in-place run must name the task, its deny list, and the checkout: %+v", got)
 	}
 }
