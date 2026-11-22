@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-
-	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 )
 
 const protectedDiffFile = "protected.diff"
@@ -458,19 +456,6 @@ func ownPaths(def Definition, ip *inPlace, leftover, before map[string]string, s
 
 func joinNotices(parts ...string) string {
 	return strings.Join(slices.DeleteFunc(parts, func(p string) bool { return p == "" }), " ")
-}
-
-// inPlaceMessage is the commit message: the agent's message without lines
-// that would pose as Rhizome's own, then the task tag and slot line.
-func inPlaceMessage(def Definition, message, slot string) string {
-	var kept []string
-	for _, line := range strings.Split(message, "\n") {
-		if !strings.HasPrefix(strings.TrimSpace(line), TagKey) {
-			kept = append(kept, line)
-		}
-	}
-	body := cmp.Or(strings.TrimSpace(strings.Join(kept, "\n")), "The task's agent left no message.")
-	return fmt.Sprintf("chore(tasks): %s\n\n%s\n\n%s\n%s: %s\n", truncate(def.Name, 60), body, def.Tag(), taskdef.SlotKey, slot)
 }
 
 func diffTrees(ctx context.Context, dir, from, to string) ([]string, error) {

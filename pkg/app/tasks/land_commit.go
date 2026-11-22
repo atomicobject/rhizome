@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -8,6 +9,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 )
 
 var errHeadMoved = errors.New("HEAD moved during the run")
@@ -220,4 +223,17 @@ func restorePath(ctx context.Context, dir, path, entry string) error {
 	default:
 		return os.WriteFile(full, data, 0o644)
 	}
+}
+
+// inPlaceMessage is the commit message: the agent's message without lines
+// that would pose as Rhizome's own, then the task tag and slot line.
+func inPlaceMessage(def Definition, message, slot string) string {
+	var kept []string
+	for _, line := range strings.Split(message, "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), TagKey) {
+			kept = append(kept, line)
+		}
+	}
+	body := cmp.Or(strings.TrimSpace(strings.Join(kept, "\n")), "The task's agent left no message.")
+	return fmt.Sprintf("chore(tasks): %s\n\n%s\n\n%s\n%s: %s\n", truncate(def.Name, 60), body, def.Tag(), taskdef.SlotKey, slot)
 }
