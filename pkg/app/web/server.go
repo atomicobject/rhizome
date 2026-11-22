@@ -77,6 +77,9 @@ type Config struct {
 	// TasksOpener opens the vault's scheduled-tasks service for one
 	// /api/tasks request. Nil answers every tasks route with 503.
 	TasksOpener func(ctx context.Context, vaultPath string) (TasksAPI, error)
+	// TaskHosts counts Desktop host streams for the runtime's due-task
+	// check (SPEC-0104 US7). Nil answers the host routes 503.
+	TaskHosts *TaskHosts
 	// Actions runs the vault's module actions; nil uses actions.New on
 	// VaultPath, which checks the person's repository trust.
 	Actions         *actions.Runner
@@ -137,6 +140,7 @@ type Server struct {
 	viewWatch           viewFolderWatch
 	tasksTestLaunch     func(vaultPath, file string) error
 	tasksLaunch         func(vaultPath, itemID string) error // nil starts `rzm tasks run`
+	taskHostPoll        time.Duration                        // zero uses taskHostPoll
 }
 
 var agentHarnessOverride func() map[harness.Kind]harness.Harness

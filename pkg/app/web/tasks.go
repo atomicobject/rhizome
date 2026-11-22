@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,8 +18,9 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/tasks"
 )
 
-// TasksAPI is the part of the scheduled-tasks service the Tasks page uses
-// (SPEC-0127 US8). *tasks.Service implements it.
+// TasksAPI is the part of the scheduled-tasks service the Tasks page
+// (SPEC-0127 US8), the Desktop host stream, and the runtime's due-task
+// check (SPEC-0104 US7) use. *tasks.Service implements it.
 type TasksAPI interface {
 	Status(ctx context.Context) (tasks.Report, error)
 	LiveState(ctx context.Context) (tasks.LiveState, error)
@@ -34,8 +36,13 @@ type TasksAPI interface {
 	Done(ctx context.Context, itemID string) error
 	SetMode(ctx context.Context, task, mode string) error
 	SetPaused(ctx context.Context, paused bool) error
+	PauseUntil(ctx context.Context, until time.Time) error
 	RecordLaunchError(ctx context.Context, itemID, reason string) error
 	CopyPrompt(ctx context.Context, itemID string) (string, error)
+	HostStatus(ctx context.Context) (tasks.HostStatus, error)
+	NextDueAt(ctx context.Context) (time.Time, bool, error)
+	RunLockHeld() bool
+	Stop(ctx context.Context, wait time.Duration) (bool, error)
 }
 
 var (
@@ -143,7 +150,8 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		serve = s.taskItemAction(w, r, itemID, action)
-	case len(parts) == 2 && parts[0] == "run" && post:
+	case post && (len(parts) == 2 && parts[0] == "run" || len(parts) == 3 && parts[0] == "tasks" && parts[2] == "run"):
+		// Run now: `run/<task>` is the Tasks page's, `tasks/<task>/run` Desktop's.
 		task := parts[1]
 		if !tasks.ValidID(task) {
 			writeError(w, http.StatusBadRequest, errors.New("invalid task id"))
@@ -152,7 +160,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		serve = func(api TasksAPI) {
 			itemID, err := api.RequestRun(r.Context(), task)
 			if err != nil {
-				writeTasksAction(w, err)
+				writeError(w, http.StatusConflict, err)
 				return
 			}
 			s.launchItemRun(w, r.Context(), api, itemID)
@@ -199,9 +207,41 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		serve = func(api TasksAPI) { writeTasksAction(w, api.SetMode(r.Context(), task, req.Mode)) }
-	case len(parts) == 1 && (parts[0] == "pause" || parts[0] == "resume") && post:
-		paused := parts[0] == "pause"
-		serve = func(api TasksAPI) { writeTasksAction(w, api.SetPaused(r.Context(), paused)) }
+	case len(parts) == 1 && parts[0] == "pause" && post:
+		var req struct {
+			Until *time.Time `json:"until"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+			writeError(w, http.StatusBadRequest, errors.New(`pause takes no body or {"until": RFC3339}`))
+			return
+		}
+		serve = func(api TasksAPI) {
+			if req.Until == nil {
+				writeTasksAction(w, api.SetPaused(r.Context(), true))
+				return
+			}
+			writeTasksAction(w, api.PauseUntil(r.Context(), *req.Until))
+		}
+	case len(parts) == 1 && parts[0] == "resume" && post:
+		serve = func(api TasksAPI) { writeTasksAction(w, api.SetPaused(r.Context(), false)) }
+	case len(parts) == 1 && parts[0] == "host" && get:
+		serve = func(api TasksAPI) { s.serveTaskHost(w, r, api) }
+	case len(parts) == 2 && parts[0] == "host" && parts[1] == "drain" && post:
+		serve = func(api TasksAPI) { s.drainTaskHost(w, r, api) }
+	case len(parts) == 1 && parts[0] == "stop" && post:
+		serve = func(api TasksAPI) {
+			stopped, err := api.Stop(r.Context(), tasks.DefaultStopWait)
+			writeTasksResult(w, map[string]bool{"stopped": stopped}, err)
+		}
+	case len(parts) == 1 && parts[0] == "machine" && post:
+		var req struct {
+			RunHere *bool `json:"runHere"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RunHere == nil {
+			writeError(w, http.StatusBadRequest, errors.New(`machine needs {"runHere": bool}`))
+			return
+		}
+		serve = func(api TasksAPI) { s.setTaskMachine(w, r, api, *req.RunHere) }
 	case get || post:
 		writeError(w, http.StatusNotFound, errors.New("unknown tasks route"))
 		return
