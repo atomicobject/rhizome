@@ -140,11 +140,13 @@ fn an_error_event_replaces_the_status_with_why_it_cannot_be_read() {
 #[test]
 fn a_stream_that_only_repeats_errors_ends_after_the_quiet_window() {
     let mut parts = vec![HEADERS.to_string()];
-    parts.extend(std::iter::repeat(UNREADABLE.to_string()).take(50));
+    // Errors every 20 ms for 4 s; the stream must give up after its 500 ms
+    // quiet window, long before the server stops, however slow the runner.
+    parts.extend(std::iter::repeat(UNREADABLE.to_string()).take(200));
     let (origin, _request) = serve(parts);
     let api = Api::new(origin).unwrap();
     let mut errors = 0;
-    let ended = runtime().block_on(api.stream_within(Duration::from_millis(150), |u| {
+    let ended = runtime().block_on(api.stream_within(Duration::from_millis(500), |u| {
         assert!(matches!(u, Update::Error(_)));
         errors += 1;
     }));
