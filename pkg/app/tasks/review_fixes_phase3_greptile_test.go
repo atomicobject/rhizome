@@ -55,3 +55,23 @@ func TestPullRequestCleanupLeavesTheWorktreeThePersonUses(t *testing.T) {
 		})
 	}
 }
+
+// A stop cancels delivery: the host does not start the notify command again
+// on a context the stop cannot end, and the stop itself is not a failed
+// pass to alert about.
+func TestCancelledHostPassDeliversNothing(t *testing.T) {
+	f := newNotifyFixture(t, map[string]string{"look.yml": notNeededTask}, nil, "")
+	f.writeHostConfig(t)
+	ctx := context.Background()
+	require.NoError(t, f.svc.Store().Update(ctx, func(st *State) error {
+		f.svc.queueAlert(st, Notification{Task: "look", Outcome: OutcomeFailed, Summary: "queued"})
+		return nil
+	}))
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	_, _ = f.svc.RunDueHost(cancelled)
+	require.Empty(t, f.notifications(t))
+	st := mustState(t, f.svc)
+	require.Len(t, st.PendingAlerts, 1, "the alert waits for the next process")
+	require.Nil(t, st.PassError, "a stop is not a failed pass")
+}

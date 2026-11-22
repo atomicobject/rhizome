@@ -169,17 +169,22 @@ func (s *Service) RunDueHost(ctx context.Context) (RunSummary, error) {
 		return RunSummary{}, err
 	}
 	summary, err := s.runDue(ctx, true)
+	// The pass's own delivery ran before its failure was noted; the deferred
+	// one sends it, unless a stop cancelled ctx, which leaves it queued.
 	s.notePassAlert(context.WithoutCancel(ctx))
-	// The pass's own delivery ran before its failure was noted.
-	s.deliverAlerts(context.WithoutCancel(ctx))
 	return summary, err
 }
 
 const notRunHere = "tasks do not run on this machine for this repository; turn them on with `rzm tasks machine on`"
 
 // notePassError records why a pass failed before running any task, so
-// status can explain why automatic work stopped. It returns err.
+// status can explain why automatic work stopped. It returns err. A stop
+// that cancelled ctx is not a failure of the pass and is not recorded, so
+// it raises no pass alert.
 func (s *Service) notePassError(ctx context.Context, err error) error {
+	if ctx.Err() != nil {
+		return err
+	}
 	_ = s.store.Update(ctx, func(st *State) error {
 		st.PassError = &PassError{At: s.opts.Now(), Message: err.Error()}
 		return nil
