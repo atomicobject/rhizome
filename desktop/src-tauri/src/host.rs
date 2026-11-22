@@ -240,6 +240,16 @@ impl Host {
         Some(notices)
     }
 
+    /// The stream `generation` reports that the runtime cannot read the
+    /// status: the menu shows why instead of the last status.
+    fn unreadable(&self, key: &str, generation: u64, problem: String) {
+        let mut hosts = self.hosts.lock().unwrap();
+        if let Some(held) = hosts.get_mut(key).filter(|h| h.generation == generation) {
+            held.status = None;
+            held.problem = Some(problem);
+        }
+    }
+
     /// A stream ended or a runtime could not start: retry with backoff.
     fn failed(&self, key: &str, generation: Option<u64>, problem: String) -> Duration {
         let mut hosts = self.hosts.lock().unwrap();
@@ -384,11 +394,14 @@ fn attach(app: &AppHandle, key: &str, opened: pipeline::Opened) {
     let (app, key, generation) = (app.clone(), key.to_string(), held.generation);
     held.stream = Some(tauri::async_runtime::spawn(async move {
         let problem = api
-            .stream(|status| {
+            .stream(|update| {
                 let host = app.state::<Host>();
-                match host.record(&key, generation, status) {
-                    Some(notices) => notify(&app, &key, &notices),
-                    None => host.refresh(),
+                match update {
+                    api::Update::Error(problem) => host.unreadable(&key, generation, problem),
+                    api::Update::Status(status) => match host.record(&key, generation, status) {
+                        Some(notices) => notify(&app, &key, &notices),
+                        None => host.refresh(),
+                    },
                 }
                 crate::tray::refresh(&app);
                 crate::inbox::refresh(&app);

@@ -125,6 +125,34 @@ fn statuses_from_a_replaced_stream_are_ignored_and_run_here_off_drops_the_host()
 }
 
 #[test]
+fn an_unreadable_status_replaces_the_stale_one_until_a_status_arrives() {
+    let host = Host::default();
+    host.reconcile(
+        &[listed("/work/notes/.git", "/work/notes", true)],
+        &library(),
+    );
+    host.record("/work/notes/.git", 0, status(2, &[])).unwrap();
+    host.unreadable("/work/notes/.git", 1, "older stream".into());
+    assert!(
+        host.views()[0].status.is_some(),
+        "an older stream changes nothing"
+    );
+    host.unreadable(
+        "/work/notes/.git",
+        0,
+        "Can't read task status: denied".into(),
+    );
+    let view = &host.views()[0];
+    assert!(view.status.is_none());
+    assert_eq!(
+        view.problem.as_deref(),
+        Some("Can't read task status: denied")
+    );
+    host.record("/work/notes/.git", 0, status(1, &[])).unwrap();
+    assert_eq!(host.views()[0].problem, None);
+}
+
+#[test]
 fn releasing_reports_what_each_host_held_and_ends_hosting() {
     let host = Host::default();
     host.reconcile(

@@ -33,8 +33,11 @@ fn serve(parts: Vec<String>) -> (Url, mpsc::Receiver<(String, String)>) {
             .unwrap();
         let mut stream = stream;
         for part in parts {
-            stream.write_all(part.as_bytes()).unwrap();
-            stream.flush().unwrap();
+            // The client may hang up first.
+            if stream.write_all(part.as_bytes()).is_err() {
+                return;
+            }
+            let _ = stream.flush();
             std::thread::sleep(Duration::from_millis(20));
         }
     });
@@ -102,12 +105,54 @@ fn the_stream_delivers_each_status_until_the_runtime_closes_it() {
     ]);
     let api = Api::new(origin).unwrap();
     let mut seen = vec![];
-    let ended = runtime().block_on(api.stream(|status| seen.push(status)));
+    let ended = runtime().block_on(api.stream(|update| match update {
+        Update::Status(status) => seen.push(status),
+        Update::Error(problem) => panic!("{problem}"),
+    }));
     assert_eq!(request.recv().unwrap().0, "GET /api/tasks/host HTTP/1.1");
     assert_eq!(seen.len(), 2);
     assert_eq!(seen[0].attention, 2);
     assert!(!seen[1].run_here);
     assert_eq!(ended, "Rhizome closed the task host.");
+}
+
+const HEADERS: &str =
+    "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n";
+const UNREADABLE: &str = "event: error\ndata: {\"error\":\"state.json: permission denied\"}\n\n";
+
+#[test]
+fn an_error_event_replaces_the_status_with_why_it_cannot_be_read() {
+    let (origin, _request) = serve(vec![
+        HEADERS.into(),
+        "event: status\ndata: {\"runHere\":true}\n\n".into(),
+        UNREADABLE.into(),
+    ]);
+    let mut seen = vec![];
+    let ended = runtime().block_on(Api::new(origin).unwrap().stream(|u| seen.push(u)));
+    assert!(matches!(seen[0], Update::Status(_)));
+    assert_eq!(
+        seen[1],
+        Update::Error("Can't read task status: state.json: permission denied".into())
+    );
+    assert_eq!(ended, "Rhizome closed the task host.");
+}
+
+#[test]
+fn a_stream_that_only_repeats_errors_ends_after_the_quiet_window() {
+    let mut parts = vec![HEADERS.to_string()];
+    parts.extend(std::iter::repeat(UNREADABLE.to_string()).take(50));
+    let (origin, _request) = serve(parts);
+    let api = Api::new(origin).unwrap();
+    let mut errors = 0;
+    let ended = runtime().block_on(api.stream_within(Duration::from_millis(150), |u| {
+        assert!(matches!(u, Update::Error(_)));
+        errors += 1;
+    }));
+    assert!(errors >= 2, "errors arrived while the stream was held");
+    assert_eq!(
+        ended,
+        "Can't read task status: state.json: permission denied"
+    );
 }
 
 #[test]

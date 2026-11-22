@@ -89,6 +89,18 @@ pub struct Notice {
     pub body: String,
 }
 
+/// What the host stream reports.
+#[derive(Debug, PartialEq)]
+pub enum Update {
+    Status(HostStatus),
+    /// The runtime could not read the status; the message is for the menu.
+    Error(String),
+}
+
+fn cannot_read(message: &str) -> String {
+    format!("Can't read task status: {message}")
+}
+
 /// A task's display name, else its id.
 pub fn label<'a>(name: &'a Option<String>, task: &'a str) -> &'a str {
     name.as_deref().filter(|n| !n.is_empty()).unwrap_or(task)
@@ -164,9 +176,15 @@ impl Api {
         url
     }
 
-    /// Holds the host stream, handing each status to `on`, until the
-    /// runtime closes it, goes quiet, or fails. The result says why.
-    pub async fn stream(&self, mut on: impl FnMut(HostStatus)) -> String {
+    /// Holds the host stream, handing each status or error event to `on`,
+    /// until the runtime closes it, fails, or sends no status for
+    /// [`QUIET`]. The runtime resends an unchanged error every 25 seconds, so
+    /// a status that keeps failing ends the stream too. The result says why.
+    pub async fn stream(&self, on: impl FnMut(Update)) -> String {
+        self.stream_within(QUIET, on).await
+    }
+
+    async fn stream_within(&self, quiet: Duration, mut on: impl FnMut(Update)) -> String {
         let request = self
             .client
             .get(self.url(&["api", "tasks", "host"]))
@@ -182,19 +200,36 @@ impl Api {
             Err(error) => return format!("Cannot reach Rhizome: {error}"),
         };
         let mut events = Events::default();
+        let mut status_by = tokio::time::Instant::now() + quiet;
+        let mut failing: Option<String> = None;
         loop {
-            let chunk = match tokio::time::timeout(QUIET, response.chunk()).await {
-                Err(_) => return "Rhizome stopped reporting task status.".into(),
+            let chunk = match tokio::time::timeout_at(status_by, response.chunk()).await {
+                Err(_) => {
+                    return match failing {
+                        Some(message) => cannot_read(&message),
+                        None => "Rhizome stopped reporting task status.".into(),
+                    }
+                }
                 Ok(Err(error)) => return format!("Lost the connection to Rhizome: {error}"),
                 Ok(Ok(None)) => return "Rhizome closed the task host.".into(),
                 Ok(Ok(Some(chunk))) => chunk,
             };
             for (event, data) in events.push(&chunk) {
-                if event != "status" {
-                    continue;
-                }
-                if let Ok(status) = serde_json::from_str::<HostStatus>(&data) {
-                    on(status);
+                match event.as_str() {
+                    "status" => {
+                        if let Ok(status) = serde_json::from_str::<HostStatus>(&data) {
+                            status_by = tokio::time::Instant::now() + quiet;
+                            failing = None;
+                            on(Update::Status(status));
+                        }
+                    }
+                    "error" => {
+                        let value: Value = serde_json::from_str(&data).unwrap_or(Value::Null);
+                        let message = value["error"].as_str().unwrap_or(data.trim()).to_string();
+                        on(Update::Error(cannot_read(&message)));
+                        failing = Some(message);
+                    }
+                    _ => {}
                 }
             }
         }
