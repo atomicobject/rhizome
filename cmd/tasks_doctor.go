@@ -34,6 +34,7 @@ func newTasksDoctorCmd(open func(*cobra.Command) (*tasks.Service, error), asJSON
 				return err
 			}
 			if !report.OK {
+				cmd.SilenceErrors = true // the report already says what failed
 				return silentExitError{code: 1}
 			}
 			return nil
