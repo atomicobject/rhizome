@@ -275,8 +275,9 @@ func (ip *inPlace) moved(ctx context.Context) string {
 func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, itemID, commit string, ip *inPlace, leftover map[string]string, res AgentResult, runErr error) Outcome {
 	after, err := s.captureTree(ctx, ip.dir, ip.noHooks)
 	var changed []string
+	var gitlinks map[string]bool
 	if err == nil {
-		changed, err = diffTrees(ctx, ip.dir, ip.tree, after)
+		changed, gitlinks, err = treeChanges(ctx, ip.dir, ip.tree, after)
 	}
 	var stagedNow map[string]bool
 	if err == nil {
@@ -293,8 +294,9 @@ func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, 
 	var guarded []string
 	for _, p := range changed {
 		// What Git ignored before the run was on disk outside the
-		// snapshot, so the snapshot cannot put it back.
-		if protected(def, p) && !ip.wasIgnored(p) {
+		// snapshot, so the snapshot cannot put it back; a nested
+		// repository is a folder of someone's history.
+		if protected(def, p) && !ip.wasIgnored(p) && !gitlinks[p] {
 			guarded = append(guarded, p)
 		}
 	}
@@ -304,7 +306,7 @@ func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, 
 	if notice := ip.ignoreRulesNotice(ctx, def, changed); notice != "" {
 		notices = append(notices, notice)
 	}
-	owned, left := ownPaths(def, ip, leftover, before, stagedNow, changed, guarded)
+	owned, left := ownPaths(def, ip, leftover, before, stagedNow, gitlinks, changed, guarded)
 	entries, err := treeEntries(ctx, ip.dir, after, owned)
 	if err != nil {
 		return s.fail(ctx, def, a, itemID, commit, "read what the run changed: "+err.Error(), res.Tokens)
@@ -402,10 +404,11 @@ func (l leftPaths) text() string {
 // before the run is theirs, except a path an earlier failed run left (leftover) whose
 // content before this run (before) is still what that run left. A path
 // staged since the snapshot (stagedNow) is theirs too, and so is any task
-// path whose commit would replace a file or folder that is not the task's.
+// path whose commit would replace a file or folder that is not the task's,
+// and a gitlink (a submodule or nested repository) on either side.
 // ponytail: a person's edit to a clean file inside writes during the run
 // is indistinguishable from the task's and is committed with it (US12).
-func ownPaths(def Definition, ip *inPlace, leftover, before map[string]string, stagedNow map[string]bool, changed, guarded []string) ([]string, leftPaths) {
+func ownPaths(def Definition, ip *inPlace, leftover, before map[string]string, stagedNow, gitlinks map[string]bool, changed, guarded []string) ([]string, leftPaths) {
 	adopted := func(p string) bool {
 		want, ok := leftover[p]
 		return ok && before[p] == want
@@ -414,6 +417,8 @@ func ownPaths(def Definition, ip *inPlace, leftover, before map[string]string, s
 		switch {
 		case ip.wasIgnored(p):
 			return "ignored before the run"
+		case gitlinks[p]:
+			return "a nested Git repository"
 		case ip.staged[p]:
 			return "staged before the run"
 		case stagedNow[p]:
@@ -502,17 +507,29 @@ func joinNotices(parts ...string) string {
 }
 
 func diffTrees(ctx context.Context, dir, from, to string) ([]string, error) {
-	out, err := gitBytes(ctx, dir, nil, "diff-tree", "-r", "-z", "--no-renames", "--name-only", from, to)
+	paths, _, err := treeChanges(ctx, dir, from, to)
+	return paths, err
+}
+
+// treeChanges lists the paths that differ between two trees, and the ones
+// among them that are a gitlink (mode 160000) on either side.
+func treeChanges(ctx context.Context, dir, from, to string) ([]string, map[string]bool, error) {
+	out, err := gitBytes(ctx, dir, nil, "diff-tree", "-r", "-z", "--no-renames", "--raw", from, to)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var paths []string
-	for _, p := range strings.Split(string(out), "\x00") {
-		if p != "" {
-			paths = append(paths, p)
+	gitlinks := map[string]bool{}
+	fields := strings.Split(string(out), "\x00")
+	for i := 0; i+1 < len(fields); i += 2 {
+		// ":<old mode> <new mode> <old id> <new id> <status>", then the path.
+		meta, p := strings.Fields(fields[i]), fields[i+1]
+		paths = append(paths, p)
+		if len(meta) > 1 && (meta[0] == ":160000" || meta[1] == "160000") {
+			gitlinks[p] = true
 		}
 	}
-	return paths, nil
+	return paths, gitlinks, nil
 }
 
 // InPlacePrompt is the preamble plus the task's prompt for a run in the

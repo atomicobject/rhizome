@@ -222,3 +222,33 @@ func TestInPlaceRestoreAppliesCheckoutFilters(t *testing.T) {
 		t.Fatalf("the restored file must match the index: %q", f.status())
 	}
 }
+
+func TestInPlaceNeverCommitsANestedRepository(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	f.agent.run = func(req AgentRequest) (AgentResult, error) {
+		for _, sub := range []string{"notes/sub", ".agents/sub"} {
+			dir := filepath.Join(req.Dir, sub)
+			writeFile(t, filepath.Join(dir, "x.md"), "x\n")
+			run(t, dir, "init", "--quiet")
+			run(t, dir, "add", "-A")
+			run(t, dir, "commit", "--quiet", "-m", "nested")
+		}
+		writeFile(t, filepath.Join(req.Dir, "notes/a.md"), "a\n")
+		return AgentResult{Message: "Nested."}, nil
+	}
+	if o := f.pass(); o.Outcome != OutcomeLanded {
+		t.Fatalf("%+v", o)
+	}
+	if got := f.committed("HEAD"); !slices.Equal(got, []string{"notes/a.md"}) {
+		t.Fatalf("a nested repository must not be committed, got %v", got)
+	}
+	if _, err := os.Stat(filepath.Join(f.host, ".agents/sub/.git")); err != nil {
+		t.Fatalf("a nested repository must be left, not removed: %v", err)
+	}
+	it := taskItems(mustState(t, f.svc), "tend")[0]
+	for _, want := range []string{"notes/sub (a nested Git repository)", ".agents/sub (a nested Git repository)"} {
+		if !strings.Contains(it.Reason, want) {
+			t.Fatalf("summary %q must name %q", it.Reason, want)
+		}
+	}
+}
