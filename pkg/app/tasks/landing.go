@@ -89,19 +89,28 @@ func (st *State) landingMode(task string, mode Mode) Mode {
 	return mode
 }
 
-// Approve accepts a task's current landing from the primary ref, so a task
-// whose landing widened runs in its own mode again, and closes the task's
-// announcements.
+// Approve accepts the widened landing the person was told about, so the
+// task runs in its own mode again, and closes the task's announcements. It
+// approves only the landing recorded with the notice: when the task file
+// on the primary ref now lands differently, it raises a notice for the new
+// landing and refuses, so nothing is approved unseen.
 func (s *Service) Approve(ctx context.Context, task string) error {
 	_, _, def, err := s.currentDefinition(ctx, task)
 	if err != nil {
 		return err
 	}
-	return s.store.Update(ctx, func(st *State) error {
+	unseen := false
+	if err := s.store.Update(ctx, func(st *State) error {
+		next := landingOf(def)
+		if pending, ok := st.Widened[def.ID]; !ok || !pending.equal(next) {
+			reviewLandings(st, []Definition{def}, s.opts.Now())
+			_, unseen = st.Widened[def.ID]
+			return nil
+		}
 		if st.Landings == nil {
 			st.Landings = map[string]Landing{}
 		}
-		st.Landings[def.ID] = landingOf(def)
+		st.Landings[def.ID] = next
 		delete(st.Widened, def.ID)
 		for i := range st.Items {
 			if it := &st.Items[i]; it.Task == def.ID && it.Kind == KindAnnouncement && it.Active() {
@@ -109,7 +118,13 @@ func (s *Service) Approve(ctx context.Context, task string) error {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	if unseen {
+		return fmt.Errorf("task %s now %s, which differs from the landing you were asked to approve; read the new inbox note, then run `rzm tasks approve %s` again", task, landingOf(def).describe(), task)
+	}
+	return nil
 }
 
 // protectedPrefixes hold agent instructions and Rhizome configuration,

@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -115,5 +116,41 @@ func TestPRLandingPushesTheBranchAndOpensAPullRequest(t *testing.T) {
 	}
 	if f.status() != "" || !strings.HasPrefix(it.Worktree, filepath.Join(f.host, ".rhizome", "task-state")) {
 		t.Fatal("a pr run never touches the open checkout")
+	}
+}
+
+func TestApproveAcceptsOnlyTheLandingTheNoticeShowed(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nprompt: Tend the notes.\n")
+	f.pass()
+	f.push(".rhizome/tasks/tend.yml", inPlaceTask)
+	run(t, f.host, "fetch", "--quiet", "origin")
+	if o := f.pass(); o.Outcome != OutcomeNotified {
+		t.Fatalf("%+v", o)
+	}
+	// The file widens again before the person approves what they read.
+	f.push(".rhizome/tasks/tend.yml", strings.Replace(inPlaceTask, `["notes/**"]`, `["notes/**", "**"]`, 1))
+	run(t, f.host, "fetch", "--quiet", "origin")
+	err := f.svc.Approve(context.Background(), "tend")
+	if err == nil || !strings.Contains(err.Error(), "new inbox note") {
+		t.Fatalf("approving an unseen landing must fail, got %v", err)
+	}
+	st := mustState(t, f.svc)
+	if st.Landings["tend"].Land != "pr" || !slices.Contains(st.Widened["tend"].Writes, "**") {
+		t.Fatalf("nothing may be approved, and the new landing waits: %+v %+v", st.Landings, st.Widened)
+	}
+	var notes int
+	for _, it := range st.Items {
+		if it.Kind == KindAnnouncement && it.Active() && strings.Contains(it.Summary, "notes/**, **") {
+			notes++
+		}
+	}
+	if notes != 1 {
+		t.Fatalf("the new landing needs one notice, got %d: %+v", notes, st.Items)
+	}
+	if err := f.svc.Approve(context.Background(), "tend"); err != nil {
+		t.Fatalf("approving the landing the new notice showed works: %v", err)
+	}
+	if got := mustState(t, f.svc).Landings["tend"]; !slices.Contains(got.Writes, "**") {
+		t.Fatalf("%+v", got)
 	}
 }
