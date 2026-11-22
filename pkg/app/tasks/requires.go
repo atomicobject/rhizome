@@ -2,9 +2,11 @@ package tasks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/atomicobject/rhizome/pkg/harness"
 	"github.com/atomicobject/rhizome/pkg/loginpath"
@@ -63,12 +65,21 @@ func (s *Service) missingRequirements(ctx context.Context, def Definition) []str
 // (docs/reference/subsystems/harness.md).
 func enforcesDeny(kind harness.Kind) bool { return kind == harness.KindClaude }
 
+// mcpListTimeout bounds one harness's MCP listing, which health-checks every
+// configured server while run.lock is held.
+var mcpListTimeout = 30 * time.Second
+
 func listMCP(ctx context.Context, kind harness.Kind, driver harness.Harness, dir string) ([]harness.MCPServerState, error) {
 	lister, ok := driver.(harness.MCPLister)
 	if !ok {
 		return nil, fmt.Errorf("%s cannot list its MCP servers, so requires.mcp cannot be checked", kind)
 	}
-	servers, err := lister.ListMCPServers(ctx, dir)
+	probe, cancel := context.WithTimeout(ctx, mcpListTimeout)
+	defer cancel()
+	servers, err := lister.ListMCPServers(probe, dir)
+	if err != nil && ctx.Err() == nil && errors.Is(probe.Err(), context.DeadlineExceeded) {
+		return nil, fmt.Errorf("could not list %s MCP servers within %s", kind, mcpListTimeout)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("list %s MCP servers: %w", kind, err)
 	}
