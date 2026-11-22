@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/agentchat"
-	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/tasks"
 	"github.com/atomicobject/rhizome/pkg/app/web"
 	"github.com/atomicobject/rhizome/pkg/harness"
@@ -69,20 +68,9 @@ func newTasksCmd(registry harnessRegistry) *cobra.Command {
 			return printTasks(cmd, asJSON, items, func(w io.Writer) { renderInbox(w, items) })
 		},
 	})
-	cmd.AddCommand(&cobra.Command{
-		Use: "run-due", Short: "Run every task that is due, once per repository", Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			svc, err := open(cmd)
-			if err != nil {
-				return err
-			}
-			summary, err := svc.RunDue(cmd.Context())
-			if err != nil {
-				return err
-			}
-			return printTasks(cmd, asJSON, summary, func(w io.Writer) { renderRunSummary(w, summary) })
-		},
-	})
+	cmd.AddCommand(newTasksRunDueCmd(open, &asJSON))
+	cmd.AddCommand(newTasksMachineCmd(open))
+	cmd.AddCommand(newTasksHostsCmd(&asJSON))
 	cmd.AddCommand(newTasksRunCmd(open, &asJSON))
 	cmd.AddCommand(newTasksStartCmd(registry, open))
 	cmd.AddCommand(newTasksSnoozeCmd(open))
@@ -115,21 +103,17 @@ func newTasksCmd(registry harnessRegistry) *cobra.Command {
 			return svc.SetMode(cmd.Context(), args[0], args[1])
 		},
 	})
-	for _, p := range []struct {
-		use, short string
-		paused     bool
-	}{{"pause", "Stop all background task work for you here", true}, {"resume", "Resume background task work", false}} {
-		cmd.AddCommand(&cobra.Command{
-			Use: p.use, Short: p.short, Args: cobra.NoArgs,
-			RunE: func(cmd *cobra.Command, _ []string) error {
-				svc, err := open(cmd)
-				if err != nil {
-					return err
-				}
-				return svc.SetPaused(cmd.Context(), p.paused)
-			},
-		})
-	}
+	cmd.AddCommand(newTasksPauseCmd(open))
+	cmd.AddCommand(&cobra.Command{
+		Use: "resume", Short: "Resume background task work", Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			svc, err := open(cmd)
+			if err != nil {
+				return err
+			}
+			return svc.SetPaused(cmd.Context(), false)
+		},
+	})
 	for _, sub := range cmd.Commands() {
 		sub.SilenceUsage = true
 	}
@@ -299,6 +283,7 @@ func openTasksService(ctx context.Context, cmd *cobra.Command, registry harnessR
 		Drivers:  registry(),
 		Settings: func() (agentchat.Settings, error) { return agentchat.LoadSettings(env) },
 		Trusted:  trust.Trusted,
+		Env:      env,
 	})
 }
 
@@ -328,16 +313,6 @@ func openTasksForPage() func(context.Context, string) (web.TasksAPI, error) {
 		service = opened
 		return service, nil
 	}
-}
-
-// startTasksRunDue is how a runtime asks for due tasks: a detached
-// `rzm tasks run-due` in the vault, so the work outlives the runtime.
-func startTasksRunDue(vaultPath string) error {
-	exe, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	return appruntime.StartDetached(exe, vaultPath, "tasks", "run-due")
 }
 
 func printTasks(cmd *cobra.Command, asJSON bool, v any, human func(io.Writer)) error {

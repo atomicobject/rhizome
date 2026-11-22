@@ -79,14 +79,25 @@ type Definition struct {
 	Path        string `yaml:"-"`
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
-	Every       string `yaml:"every"`
-	Scope       string `yaml:"scope,omitempty"`
-	Check       *Check `yaml:"check,omitempty"`
-	Prompt      string `yaml:"prompt,omitempty"`
-	Timeout     string `yaml:"timeout,omitempty"`
+	// Every is a duration cadence; Schedule is wall-clock slots. A task has
+	// exactly one (SPEC-0127 US9).
+	Every    string   `yaml:"every,omitempty"`
+	Schedule Schedule `yaml:"schedule,omitempty"`
+	Scope    string   `yaml:"scope,omitempty"`
+	Check    *Check   `yaml:"check,omitempty"`
+	Prompt   string   `yaml:"prompt,omitempty"`
+	Timeout  string   `yaml:"timeout,omitempty"`
 
 	Cadence time.Duration `yaml:"-"`
 	Limit   time.Duration `yaml:"-"`
+}
+
+// CadenceText describes when the task runs: "every 1d" or its schedule.
+func (d Definition) CadenceText() string {
+	if len(d.Schedule) > 0 {
+		return d.Schedule.String()
+	}
+	return "every " + d.Every
 }
 
 // Tag is the line that marks a commit as this task's work.
@@ -115,17 +126,26 @@ func ParseDefinition(filePath string, data []byte) (Definition, error) {
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
 	if err := dec.Decode(&def); err != nil {
+		if schedErr := (*ScheduleError)(nil); errors.As(err, &schedErr) {
+			return Definition{}, schedErr
+		}
 		return Definition{}, fmt.Errorf("parse: %w", err)
 	}
 	def.ID, def.Path = id, filePath
 	if strings.TrimSpace(def.Name) == "" {
 		return Definition{}, errors.New("name is required")
 	}
-	cadence, err := ParseDuration(def.Every)
-	if err != nil {
-		return Definition{}, fmt.Errorf("every: %w", err)
+	switch {
+	case def.Every != "" && len(def.Schedule) > 0:
+		return Definition{}, errors.New("a task has every or schedule, not both")
+	case len(def.Schedule) > 0:
+	default:
+		cadence, err := ParseDuration(def.Every)
+		if err != nil {
+			return Definition{}, fmt.Errorf("every: %w (or give a schedule)", err)
+		}
+		def.Cadence = cadence
 	}
-	def.Cadence = cadence
 	switch def.Scope {
 	case "":
 		def.Scope = ScopePerson
@@ -141,6 +161,7 @@ func ParseDefinition(filePath string, data []byte) (Definition, error) {
 	}
 	def.Limit = defaultTimeout
 	if def.Timeout != "" {
+		var err error
 		if def.Limit, err = ParseDuration(def.Timeout); err != nil {
 			return Definition{}, fmt.Errorf("timeout: %w", err)
 		}

@@ -9,6 +9,7 @@ import {
   formatAgo,
   formatRunAge,
   formatDue,
+  formatCadence,
   formatEvery,
   formatRelative,
   itemStatePresentation,
@@ -202,8 +203,9 @@ function FailureBanner({ tasks }: { tasks: TaskStatus[] }) {
   );
 }
 
-// The runner writes 'New task "Name" runs every 7d in notify mode. <purpose>'.
-const ANNOUNCEMENT_PREFIX = /^New task ".*?" runs every \S+ in \S+ mode\.\s*/;
+// The runner writes 'New task "Name" runs every 7d in notify mode. <purpose>',
+// or 'runs weekdays at 05:00 in ...' for a schedule.
+const ANNOUNCEMENT_PREFIX = /^New task ".*?" runs .+? in \S+ mode\.\s*/;
 
 function announcementText(item: TaskItem) {
   return item.summary || item.reason || item.message || "";
@@ -307,7 +309,7 @@ function TaskRow({
             <span className="task-table__none">—</span>
           )}
         </td>
-        <td className="task-table__time is-optional">{formatEvery(task.every)}</td>
+        <td className="task-table__time is-optional">{task.schedule || formatEvery(task.every)}</td>
         <td>
           {last && task.lastRun ? (
             <span className="task-table__last">
@@ -335,7 +337,7 @@ function TaskRow({
           <td colSpan={6}>
             <code>{task.id}</code>
             <p>
-              Runs every {formatEvery(task.every)} in {MODE_LABELS[task.mode] ?? task.mode} mode.
+              Runs {formatCadence(task)} in {MODE_LABELS[task.mode] ?? task.mode} mode.
               {purpose ? ` ${purpose}` : ""}
             </p>
             {onDismiss ? (

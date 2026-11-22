@@ -11,3 +11,5 @@ Partial graph, code, and embedding setters load and edit under `UpdateLocalConfi
 Saving loaded config with unchanged workflow settings preserves authored workflow bytes without reserializing, including runtime-pin-only updates. Changed workflows still persist when the main config is unchanged.
 
 Desktop provider settings use `PatchCliConfigValues` for private user-global `env` and `provider_access` edits. It changes only the requested scalar entries in the original YAML tree, preserving unknown root/nested fields and comments. Nil removes an entry. The native caller holds its existing global lock; writes are atomic with mode `0600`, and malformed or multiple documents are rejected without rewriting. Errors never include credential values.
+
+The user configuration's `tasks:` section (`TasksUserConfig`) holds one person's scheduled-task settings on this machine ([[scheduled-tasks|SPEC-0127]] US10), keyed by canonical Git common directory. `UpdateTasksRepository` edits one repository's entry through `UpdateCliConfig`, removes an entry left empty, and drops an empty section; `pkg/app/tasks` owns what the fields mean.

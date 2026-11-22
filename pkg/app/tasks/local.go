@@ -109,7 +109,11 @@ func (s *Service) addLocalTasks(ctx context.Context, report *Report, defs []Defi
 		if name == "" {
 			name = id
 		}
-		report.Tasks = append(report.Tasks, TaskStatus{ID: id, Name: name, Scope: local.def.Scope, Every: local.def.Every, CheckOnly: strings.TrimSpace(local.def.Prompt) == "", Local: &local.version})
+		ts := TaskStatus{ID: id, Name: name, Scope: local.def.Scope, Every: local.def.Every, CheckOnly: strings.TrimSpace(local.def.Prompt) == "", Local: &local.version}
+		if len(local.def.Schedule) > 0 {
+			ts.Schedule = local.def.Schedule.String()
+		}
+		report.Tasks = append(report.Tasks, ts)
 	}
 	return nil
 }

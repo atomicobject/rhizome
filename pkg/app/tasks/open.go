@@ -9,6 +9,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/agentchat"
 	"github.com/atomicobject/rhizome/pkg/harness"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
@@ -26,6 +27,8 @@ type OpenOptions struct {
 	Trusted func(checkout string) (bool, error)
 	// Rzm runs code-mode check scripts; empty means this executable.
 	Rzm string
+	// Env locates the user configuration; zero means the context's.
+	Env vaultconfig.Env
 	Now func() time.Time
 }
 
@@ -77,13 +80,20 @@ func Open(ctx context.Context, opts OpenOptions) (*Service, error) {
 			return nil, errors.New("selected checkout belongs to a different repository")
 		}
 	}
+	env := opts.Env
+	if env.IsZero() {
+		env = vaultconfig.FromContext(ctx)
+	}
 	return New(Options{
 		Checkout: checkout,
 		Repo:     repo,
 		Config:   cfg,
 		Rzm:      opts.Rzm,
 		Trusted:  opts.Trusted,
-		Agent:    HarnessAgent{Drivers: opts.Drivers, Settings: opts.Settings},
-		Now:      opts.Now,
+		Agent: HarnessAgent{Drivers: opts.Drivers, Settings: opts.Settings, TaskSettings: func(task string) (repoconfig.TaskAgentConfig, error) {
+			return taskAgent(env, repo.CommonDir, task)
+		}},
+		Env: env,
+		Now: opts.Now,
 	})
 }

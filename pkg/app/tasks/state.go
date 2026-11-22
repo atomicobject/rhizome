@@ -82,11 +82,13 @@ type RunRecord struct {
 
 // State is one person's task state for one repository.
 type State struct {
-	Tests   []RunRecord          `json:"tests,omitempty"`
-	Paused  bool                 `json:"paused,omitempty"`
-	Modes   map[string]Mode      `json:"modes,omitempty"`
-	Seen    map[string]time.Time `json:"seen,omitempty"`
-	History []RunRecord          `json:"history,omitempty"`
+	Tests  []RunRecord `json:"tests,omitempty"`
+	Paused bool        `json:"paused,omitempty"`
+	// PausedUntil ends a pause on its own; zero pauses until resumed.
+	PausedUntil time.Time            `json:"pausedUntil,omitzero"`
+	Modes       map[string]Mode      `json:"modes,omitempty"`
+	Seen        map[string]time.Time `json:"seen,omitempty"`
+	History     []RunRecord          `json:"history,omitempty"`
 	// Last keeps each task's latest run even after history is trimmed.
 	Last map[string]RunRecord `json:"last,omitempty"`
 	// Running is the run holding run.lock, set when it starts. One left
@@ -97,14 +99,35 @@ type State struct {
 	Tokens map[string]map[string]int64 `json:"tokens,omitempty"`
 	// PassError is why the latest run-due pass failed before running tasks.
 	PassError *PassError `json:"passError,omitempty"`
-	Items     []Item     `json:"items,omitempty"`
-	NextID    int        `json:"nextId,omitempty"`
+	// Fetch is the latest fetch of the primary ref's remote.
+	Fetch  *FetchStatus `json:"fetch,omitempty"`
+	Items  []Item       `json:"items,omitempty"`
+	NextID int          `json:"nextId,omitempty"`
 }
 
 // PassError records a run-due pass that failed before running any task.
 type PassError struct {
-	At      time.Time `json:"at"`
-	Message string    `json:"message"`
+	At time.Time `json:"at"`
+	// Code is PassUntrusted for a host pass in an untrusted repository.
+	Code    string `json:"code,omitempty"`
+	Message string `json:"message"`
+}
+
+// PassUntrusted marks a host pass refused because the repository is not
+// trusted; it is recorded once.
+const PassUntrusted = "untrusted"
+
+// FetchStatus is the latest fetch before a pass with due tasks. A failed
+// fetch leaves the last fetched primary ref in use.
+type FetchStatus struct {
+	At    time.Time `json:"at"`
+	Error string    `json:"error,omitempty"`
+}
+
+// PausedAt reports whether background work is paused at now; a pause
+// whose PausedUntil has passed is over.
+func (s *State) PausedAt(now time.Time) bool {
+	return s.Paused && (s.PausedUntil.IsZero() || now.Before(s.PausedUntil))
 }
 
 // LastRun returns the person's latest run of a task.

@@ -82,12 +82,19 @@ export type TaskStatus = {
   name: string;
   scope: string;
   every: string;
+  /** A wall-clock schedule, described; `every` is then empty. */
+  schedule?: string;
   mode: TaskMode;
   modeSource: "override" | "repository" | "default" | string;
   lastRun?: TaskRunRecord;
   lastTagged?: TaskTagged;
   nextDue?: string;
   due: boolean;
+  /** When the task is or next comes due, and the zone of a scheduled slot. */
+  nextAt?: string;
+  timezone?: string;
+  /** Why the task is not running, as a stable code such as "not-run-here". */
+  blockedBy?: string;
   item?: TaskItem;
   tokensLast30Days?: number;
   /** The task has no prompt, so its items cannot be run, started, or copied. */
@@ -109,8 +116,13 @@ export type TasksReport = {
   refError?: string;
   fetchedAt?: string;
   paused: boolean;
+  pausedUntil?: string;
+  /** Scheduled tasks run on this machine for this repository. */
+  runHere?: boolean;
+  /** The latest fetch of the primary ref's remote. */
+  fetch?: { at: string; error?: string };
   untrusted?: string;
-  lastPassError?: { at: string; message: string };
+  lastPassError?: { at: string; code?: string; message: string };
   mergeWarning?: string;
   stateDir: string;
   tasks: TaskStatus[];
