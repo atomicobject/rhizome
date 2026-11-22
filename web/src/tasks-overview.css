@@ -167,3 +167,15 @@
   max-width: 1320px;
   margin-inline: auto;
 }
+
+/* "Run tasks on this machine" beside Pause all. */
+.task-run-here {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}

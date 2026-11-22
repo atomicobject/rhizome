@@ -182,6 +182,38 @@ describe("TasksWorkspace", () => {
     await waitFor(() => expect(http.count("POST", "/api/tasks/resume")).toBe(1));
   });
 
+  it("says when a timed pause lifts", async () => {
+    http.json("GET", "/api/tasks", {
+      ...reportFixture(NOW),
+      paused: true,
+      pausedUntil: "2026-11-01T09:00:00Z",
+    });
+    http.json("GET", "/api/tasks/state", { ...stateFixture(NOW), paused: true });
+    open("/tasks");
+    render(<TasksWorkspace />);
+
+    expect(await screen.findByText(/Background work is paused until Nov 1/)).toBeVisible();
+  });
+
+  it("turns running tasks on this machine on and off", async () => {
+    http.json("GET", "/api/tasks", { ...reportFixture(NOW), runHere: false });
+    http.json("POST", "/api/tasks/machine", {});
+    open("/tasks");
+    render(<TasksWorkspace />);
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Run tasks on this machine" }));
+    await waitFor(() => expect(http.count("POST", "/api/tasks/machine")).toBe(1));
+    expect(http.requests("POST", "/api/tasks/machine")[0]?.body).toBe('{"runHere":true}');
+  });
+
+  it("hides the machine setting when this Rhizome cannot tell", async () => {
+    open("/tasks");
+    render(<TasksWorkspace />);
+
+    await screen.findByRole("table");
+    expect(screen.queryByRole("checkbox", { name: "Run tasks on this machine" })).toBeNull();
+  });
+
   it("shows run history newest first, with not-needed checks as quiet single lines", async () => {
     open("/tasks/docs-drift");
     render(<TasksWorkspace />);

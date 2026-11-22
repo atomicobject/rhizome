@@ -109,6 +109,10 @@ export type TasksReport = {
   refError?: string;
   fetchedAt?: string;
   paused: boolean;
+  /** When a timed pause lifts. */
+  pausedUntil?: string;
+  /** "Run tasks on this machine"; absent when this Rhizome cannot tell. */
+  runHere?: boolean;
   untrusted?: string;
   lastPassError?: { at: string; message: string };
   mergeWarning?: string;
@@ -143,7 +147,7 @@ export type TaskRunDetail = {
 
 export type TaskItemAction = "snooze" | "skip" | "discard" | "done";
 
-type TaskRequestBody = { until?: string } | { mode: TaskModeChoice };
+type TaskRequestBody = { until?: string } | { mode: TaskModeChoice } | { runHere: boolean };
 
 function post<T>(url: string, body?: TaskRequestBody) {
   return fetchJSON<T>(url, {
@@ -211,4 +215,9 @@ export function setTaskMode(task: string, mode: TaskModeChoice) {
 
 export function setTasksPaused(paused: boolean) {
   return post<Record<string, never>>(paused ? "/api/tasks/pause" : "/api/tasks/resume");
+}
+
+/** Turns "Run tasks on this machine" on or off for this repository. */
+export function setRunTasksHere(runHere: boolean) {
+  return post<Record<string, never>>("/api/tasks/machine", { runHere });
 }
