@@ -83,6 +83,11 @@ export function formatEvery(every: string): string {
   return `${count} ${word}${count === "1" ? "" : "s"}`;
 }
 
+/** "every 1 day", or a task's wall-clock schedule. */
+export function formatCadence(task: { every: string; schedule?: string }): string {
+  return task.schedule || `every ${formatEvery(task.every)}`;
+}
+
 export function formatDuration(from?: string, to?: string): string {
   if (!from || !to) return "";
   const ms = new Date(to).getTime() - new Date(from).getTime();
