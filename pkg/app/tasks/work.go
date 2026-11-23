@@ -83,6 +83,16 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 		_ = s.removeWorktree(ctx, branch, dir)
 		return Outcome{Task: def.ID, Outcome: OutcomeSkipped, Item: itemID, Reason: "the item was closed before the prompt ran"}
 	}
+	if a.missing = s.missingMCP(ctx, def, dir); len(a.missing) > 0 {
+		reason := requirementsMessage(a.missing)
+		if err := s.removeWorktree(ctx, branch, dir); err != nil {
+			// The item keeps the worktree's location, so Discard can retry.
+			return s.fail(ctx, def, a, itemID, commit, fmt.Sprintf("%s (remove the unused worktree at %s: %v)", reason, dir, err), 0)
+		}
+		return s.failWith(ctx, def, a, itemID, commit, OutcomeFailed, reason, 0, func(_ *State, it *Item, r *RunRecord) {
+			it.Branch, it.Worktree, r.Branch, r.Worktree = "", "", "", ""
+		})
+	}
 	loc := s.withResultFile(s.locations(def, commit), a) // SPEC-0127 US14
 	if err := os.MkdirAll(loc.DataDir, 0o700); err != nil {
 		return s.fail(ctx, def, a, itemID, commit, err.Error(), 0)

@@ -218,7 +218,8 @@ func (s *State) LastRun(task string) (RunRecord, bool) {
 // is this run. Retention trims history at the end of each run.
 func (s *State) Record(r RunRecord) {
 	r.Stage, r.Holder = "", ""
-	if r.Landing == taskdef.LandInPlace && r.Landed != "" {
+	// A skipped slot's Landed is another machine's commit, not Rhizome's.
+	if r.Landing == taskdef.LandInPlace && r.Landed != "" && r.Outcome != OutcomeSkipped {
 		s.noteMade(r.Landed)
 	}
 	if s.Stopping != "" && r.ID == s.Stopping {

@@ -73,6 +73,9 @@ func TestSlotAlreadyOnThePrimaryRefIsDone(t *testing.T) {
 	if o := f.pass(); o.Outcome != OutcomeSkipped || !strings.Contains(o.Reason, "already landed") || f.agent.calls() != 0 {
 		t.Fatalf("%+v", o)
 	}
+	if f.svc.madeCommits()[run(t, f.other, "rev-parse", "HEAD")] {
+		t.Fatal("another machine's commit for a skipped slot counts as Rhizome's own, so a push could republish it")
+	}
 	f.svc.slotFor = func(Definition, time.Time) string { return "2026-11-24T05:00:00-05:00" }
 	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
 	if o := f.pass(); o.Outcome != OutcomeLanded {

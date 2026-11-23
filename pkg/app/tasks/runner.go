@@ -293,7 +293,7 @@ func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, c
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}
 	}
 	defer s.end(ctx, a)
-	if a.missing = s.missingRequirements(ctx, def); len(a.missing) > 0 {
+	if a.missing = s.missingRequirements(ctx, def, s.sessionDir(def)); len(a.missing) > 0 {
 		return s.fail(ctx, def, a, "", commit, requirementsMessage(a.missing), 0)
 	}
 	loc := s.locations(def, commit)
@@ -361,7 +361,7 @@ func (s *Service) recheck(ctx context.Context, def Definition, itemID, commit st
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}
 	}
 	defer s.end(ctx, a)
-	if a.missing = s.missingRequirements(ctx, def); len(a.missing) > 0 {
+	if a.missing = s.missingRequirements(ctx, def, s.sessionDir(def)); len(a.missing) > 0 {
 		return s.failRecheck(ctx, def, a, itemID, commit, requirementsMessage(a.missing))
 	}
 	check := CheckResult{Needed: true}
