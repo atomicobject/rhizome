@@ -70,7 +70,10 @@ const (
 // the person's clock. A record keeps its own item, branch, and worktree, so
 // an old run never shows a newer attempt's work.
 type RunRecord struct {
-	Test           bool      `json:"test,omitempty"`
+	Test bool `json:"test,omitempty"`
+	// Scheduled is a run a pass started rather than the person; only its
+	// tokens count toward the daily token cap (SPEC-0127 US14).
+	Scheduled      bool      `json:"scheduled,omitempty"`
 	SourceCheckout string    `json:"sourceCheckout,omitempty"`
 	ID             string    `json:"id,omitempty"`
 	Task           string    `json:"task"`
@@ -95,6 +98,10 @@ type RunRecord struct {
 	Landed  string   `json:"landed,omitempty"`
 	PR      string   `json:"pr,omitempty"`
 	Left    []string `json:"left,omitempty"`
+	// Result is what the agent wrote to $RZM_TASK_RESULT_FILE, and
+	// NotifyError why the notify command failed after the run (US14).
+	Result      *RunResult `json:"result,omitempty"`
+	NotifyError string     `json:"notifyError,omitempty"`
 	// Holder names the run lock acquisition that started the run (PID and
 	// lock time), so Stop marks only its holder's run.
 	Holder string `json:"holder,omitempty"`
@@ -117,6 +124,9 @@ type State struct {
 	// Tokens is task -> UTC day ("2006-01-02") -> tokens, for 30 days, so
 	// totals survive history trimming.
 	Tokens map[string]map[string]int64 `json:"tokens,omitempty"`
+	// ScheduledTokens is UTC day -> tokens of scheduled runs only, summed
+	// over tasks: the unattended spending the daily token cap limits.
+	ScheduledTokens map[string]int64 `json:"scheduledTokens,omitempty"`
 	// PassError is why the latest run-due pass failed before running tasks.
 	PassError *PassError `json:"passError,omitempty"`
 	// Fetch is the latest fetch of the primary ref's remote.
@@ -141,6 +151,16 @@ type State struct {
 	// last, kept apart from the trimmed run history so commits that waited
 	// while push was off are still recognised as Rhizome's (US13).
 	Made []string `json:"madeCommits,omitempty"`
+
+	// TokenCapNotified is the UTC day the daily token cap last stopped
+	// work and notified, so it notifies once a day (SPEC-0127 US14).
+	TokenCapNotified string `json:"tokenCapNotified,omitempty"`
+	// PendingAlerts are notify-command calls waiting for delivery, oldest
+	// first; DroppedAlerts counts older ones dropped to keep the bound.
+	// PassAlert is the pass-level failure last alerted (US14).
+	PendingAlerts []PendingAlert `json:"pendingAlerts,omitempty"`
+	DroppedAlerts int            `json:"droppedAlerts,omitempty"`
+	PassAlert     *PassAlert     `json:"passAlert,omitempty"`
 }
 
 // Leftover is the files an in-place run left in one checkout: path -> the
@@ -170,6 +190,9 @@ const PassUntrusted = "untrusted"
 type FetchStatus struct {
 	At    time.Time `json:"at"`
 	Error string    `json:"error,omitempty"`
+	// FailingSince is the first failure of the current run of failed
+	// fetches; zero after a success.
+	FailingSince time.Time `json:"failingSince,omitzero"`
 }
 
 // PausedAt reports whether background work is paused at now; a pause
@@ -219,6 +242,12 @@ func (s *State) Record(r RunRecord) {
 	if r.Tokens > 0 {
 		s.addTokens(r.Task, r.At, r.Tokens)
 	}
+	if r.Scheduled && r.Tokens > 0 {
+		if s.ScheduledTokens == nil {
+			s.ScheduledTokens = map[string]int64{}
+		}
+		s.ScheduledTokens[tokenDay(r.At)] += r.Tokens
+	}
 }
 
 const tokenDays = 30
@@ -252,6 +281,11 @@ func (s *State) seedTokens() {
 // trimTokens drops day buckets older than 30 days.
 func (s *State) trimTokens(now time.Time) {
 	cutoff := tokenCutoff(now)
+	for day := range s.ScheduledTokens {
+		if day < cutoff {
+			delete(s.ScheduledTokens, day)
+		}
+	}
 	for task, days := range s.Tokens {
 		for day := range days {
 			if day < cutoff {

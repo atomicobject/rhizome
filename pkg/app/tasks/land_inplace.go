@@ -103,7 +103,7 @@ func (s *Service) runInPlace(ctx context.Context, def Definition, a attempt, ite
 	}); err != nil {
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: err.Error()}
 	}
-	loc := s.locations(def, ip.head)
+	loc := s.withResultFile(s.locations(def, ip.head), a) // SPEC-0127 US14
 	transcript := s.runFile(a.id, transcriptFile)
 	for _, dir := range []string{loc.DataDir, filepath.Dir(transcript)} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -113,6 +113,7 @@ func (s *Service) runInPlace(ctx context.Context, def Definition, a attempt, ite
 	runCtx, cancel := context.WithTimeout(ctx, def.Limit)
 	res, runErr := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Task: def.ID, Deny: def.Deny, Dir: ip.dir, Prompt: InPlacePrompt(def, loc, check, ref, ip.dir, ip.branch), Transcript: transcript, Env: s.agentEnv(loc)})
 	cancel()
+	a.result = afterPrompt(def, loc) // SPEC-0127 US14: trim the handoff note, read the result file
 	// A stopped run still records and protects what it changed.
 	return s.settleInPlace(context.WithoutCancel(ctx), def, a, itemID, commit, ip, leftover, res, runErr)
 }
@@ -358,8 +359,13 @@ func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, 
 		reason := joinNotices(append([]string{left.text()}, notices...)...)
 		if it, err := st.Item(itemID); err == nil && it.State == StateRunning {
 			it.Message, it.Tokens, it.Changed, it.Landed, it.Reason = message, res.Tokens, owned, landed, reason
-			if len(notices) > 0 {
+			// A landed commit needs no review (SPEC-0127 US14): only notices
+			// and an attention result wait for the person.
+			if len(notices) > 0 || a.result.attention() {
 				it.set(StateAttention, now)
+				if len(notices) == 0 {
+					it.Reason = a.result.Summary
+				}
 			} else {
 				it.set(StateDone, now)
 			}
@@ -368,6 +374,9 @@ func (s *Service) settleInPlace(ctx context.Context, def Definition, a attempt, 
 		r.Tokens, r.Message, r.Item, r.Commit, r.Changed = res.Tokens, firstLine(message), itemID, ip.head, owned
 		r.Landing, r.Landed, r.Left = def.Land, landed, left.paths()
 		st.Record(r)
+		if len(notices) > 0 || a.result.attention() {
+			s.queueRunAlert(st, def.Name, a.id, joinNotices(notices...)) // SPEC-0127 US14
+		}
 		return nil
 	}); err != nil {
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: fmt.Sprintf("the run finished (%s, commit %s) but its result could not be saved: %v", outcome, short(landed), err)}
@@ -382,6 +391,8 @@ func InPlacePrompt(def Definition, loc Locations, check CheckResult, ref, dir, b
 	fmt.Fprintf(&b, "You are running the scheduled task %q (%s) in the background. No person is present to answer questions, so make reasonable choices and keep going.\n\n", def.Name, def.ID)
 	fmt.Fprintf(&b, "Work in this checkout: %s\nIt is on the branch %s at commit %s, up to date with %s. A person works here too, so leave files you were not asked to change alone.\n\n", dir, branch, loc.Commit, ref)
 	writeLocations(&b, loc, check)
+	writeMemory(&b, def, loc)
+	writeResultFile(&b, loc)
 	fmt.Fprintf(&b, "Change only files matching these patterns: %s\nWhen you finish, Rhizome commits your changes to those files with your final message and tags the commit with the task; changes to other files stay uncommitted, and changes under .agents/ or .rhizome/ that the patterns do not name are undone. Do not stage, commit, stash, push, or switch branches. End with a short message for the person: what you did and anything they should check.\n\n", strings.Join(def.Writes, ", "))
 	b.WriteString("Task instructions:\n\n")
 	b.WriteString(strings.TrimSpace(def.Prompt))

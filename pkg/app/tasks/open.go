@@ -30,6 +30,10 @@ type OpenOptions struct {
 	// Env locates the user configuration; zero means the context's.
 	Env vaultconfig.Env
 	Now func() time.Time
+	// DeliverAlerts hands queued alerts to another process (the CLI starts a
+	// detached `rzm tasks deliver-alerts`), so a slow notify command never
+	// keeps a task pass alive after its work is done. Nil delivers inline.
+	DeliverAlerts func() error
 }
 
 // Open composes the Service for the repository holding opts.Dir, reading
@@ -93,7 +97,8 @@ func Open(ctx context.Context, opts OpenOptions) (*Service, error) {
 		Agent: HarnessAgent{Drivers: opts.Drivers, Settings: opts.Settings, TaskSettings: func(task string) (repoconfig.TaskAgentConfig, error) {
 			return taskAgent(env, repo.CommonDir, task)
 		}},
-		Env: env,
-		Now: opts.Now,
+		Env:           env,
+		Now:           opts.Now,
+		DeliverAlerts: opts.DeliverAlerts,
 	})
 }

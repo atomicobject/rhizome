@@ -1,17 +1,21 @@
 package tasks
 
 import (
+	"cmp"
 	"context"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 )
 
 // Status codes for why a task is not running (SPEC-0127 US10). They are
 // the only skip vocabulary Rhizome Desktop shows. This package sets
-// not-run-here, untrusted, paused, off, and open-item; the runtime host
-// and landing set the others.
+// not-run-here, untrusted, paused, off, open-item, requires, and
+// token-cap; the runtime host and landing set the others.
 const (
 	BlockedNotRunHere  = "not-run-here"
 	BlockedNoHost      = "no-host"
@@ -22,6 +26,9 @@ const (
 	BlockedWrongBranch = "wrong-branch"
 	BlockedRequires    = "requires"
 	BlockedFetchFailed = "fetch-failed"
+	// BlockedTokenCap: today's tokens reached the person's dailyTokenCap,
+	// so scheduled agent work waits (SPEC-0127 US14).
+	BlockedTokenCap = "token-cap"
 )
 
 // fetchTimeout bounds the fetch before a pass, where a hung remote falls
@@ -107,8 +114,12 @@ func (s *Service) fetchPrimary(ctx context.Context, ref string) {
 	status := &FetchStatus{At: s.opts.Now()}
 	if err != nil {
 		status.Error = redactURLCredentials(err.Error())
+		status.FailingSince = status.At
 	}
 	_ = s.store.Update(ctx, func(st *State) error {
+		if prev := st.Fetch; status.Error != "" && prev != nil && prev.Error != "" {
+			status.FailingSince = cmp.Or(prev.FailingSince, prev.At)
+		}
 		st.Fetch = status
 		return nil
 	})
@@ -132,7 +143,10 @@ func redactURLCredentials(s string) string {
 // RunDueHost is RunDue for a Rhizome Desktop host (`rzm tasks run-due
 // --host`): it runs nothing unless the person turned on running this
 // repository's tasks on this machine, and it records an untrusted
-// repository once as the pass error instead of skipping silently.
+// repository once as the pass error instead of skipping silently. It
+// alerts once per distinct pass-level failure (an untrusted repository, a
+// primary ref that cannot be read, a fetch failing for fetchAlertAfter)
+// until it clears, then delivers queued alerts.
 func (s *Service) RunDueHost(ctx context.Context) (RunSummary, error) {
 	m, err := s.MachineSettings()
 	if err != nil {
@@ -141,16 +155,54 @@ func (s *Service) RunDueHost(ctx context.Context) (RunSummary, error) {
 	if !m.Repository.RunHere {
 		return RunSummary{Skipped: notRunHere}, nil
 	}
+	defer s.deliverAlerts(ctx)
 	if reason := s.untrusted(); reason != "" {
 		err := s.store.Update(ctx, func(st *State) error {
 			if st.PassError == nil || st.PassError.Code != PassUntrusted || st.PassError.Message != reason {
 				st.PassError = &PassError{At: s.opts.Now(), Code: PassUntrusted, Message: reason}
 			}
+			s.reviewPassAlert(st)
 			return nil
 		})
 		return RunSummary{Skipped: reason}, err
 	}
-	return s.runDue(ctx, true)
+	// The person chose this machine for the repository, so a pass that
+	// cannot read the primary ref records why even before any task ran.
+	if err := os.MkdirAll(s.stateDir, 0o700); err != nil {
+		return RunSummary{}, err
+	}
+	summary, err := s.runDue(ctx, true)
+	// The pass's own delivery ran before its failure was noted; the deferred
+	// one sends it, unless a stop cancelled ctx, which leaves it queued.
+	s.notePassAlert(context.WithoutCancel(ctx))
+	return summary, err
 }
 
 const notRunHere = "tasks do not run on this machine for this repository; turn them on with `rzm tasks machine on`"
+
+// notePassError records why a pass failed before running any task, so
+// status can explain why automatic work stopped. It returns err. A stop
+// that cancelled ctx is not a failure of the pass and is not recorded, so
+// it raises no pass alert.
+func (s *Service) notePassError(ctx context.Context, err error) error {
+	if ctx.Err() != nil {
+		return err
+	}
+	_ = s.store.Update(ctx, func(st *State) error {
+		st.PassError = &PassError{At: s.opts.Now(), Message: err.Error()}
+		return nil
+	})
+	return err
+}
+
+// untrusted explains why tasks may not run here, or returns "".
+func (s *Service) untrusted() string {
+	if s.opts.Trusted == nil {
+		return ""
+	}
+	checkout := s.opts.Repo.MainCheckout
+	if checkout == "" {
+		checkout = s.opts.Repo.CommonDir
+	}
+	return repositorytrust.DenialReason(checkout, "tasks", s.opts.Trusted)
+}

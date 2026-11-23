@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -94,7 +93,7 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 			it.Branch, it.Worktree, r.Branch, r.Worktree = "", "", "", ""
 		})
 	}
-	loc := s.locations(def, commit)
+	loc := s.withResultFile(s.locations(def, commit), a) // SPEC-0127 US14
 	if err := os.MkdirAll(loc.DataDir, 0o700); err != nil {
 		return s.fail(ctx, def, a, itemID, commit, err.Error(), 0)
 	}
@@ -105,6 +104,7 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	runCtx, cancel := context.WithTimeout(ctx, def.Limit)
 	res, err := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Task: def.ID, Dir: dir, Deny: def.Deny, Prompt: BackgroundPrompt(def, loc, check, ref, branch, dir), Transcript: transcript, Env: s.agentEnv(loc)})
 	cancel()
+	a.result = afterPrompt(def, loc) // SPEC-0127 US14: trim the handoff note, read the result file
 	if err != nil {
 		return s.fail(ctx, def, a, itemID, commit, fmt.Sprintf("prompt run failed: %v (worktree kept at %s)", err, dir), res.Tokens)
 	}
@@ -125,34 +125,64 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 	} else if s.pushAllowed() {
 		pr, notice = s.pushPR(ctx, def, a, ref, branch, dir, message)
 	}
+	// A local task branch waits for the person's review; a pushed pull
+	// request is the review surface itself, so a quiet or ok run's item
+	// closes and its worktree goes (SPEC-0127 US14). The local branch stays,
+	// so a later run that day takes a new name instead of the pull
+	// request's branch.
+	alert := notifiesFor(outcome, a.result.status(), pr == "") || cleanupErr != nil
+	reviewed := outcome == OutcomeReady && !alert
+	if reviewed {
+		if err := s.removePushedWorktree(ctx, branch, dir, noHooks); err != nil {
+			reviewed, alert = false, true
+			notice = fmt.Sprintf("The pull request is open, but its local worktree could not be removed: %v.", err)
+		}
+	}
 	now := s.opts.Now()
 	if err := s.store.Update(ctx, func(st *State) error {
 		// The person may have closed the item during the run; keep their
 		// state, dropping only a worktree this run removed.
 		if it, err := st.Item(itemID); err == nil && it.State == StateRunning {
-			it.Message, it.Tokens, it.Changed = message, res.Tokens, changed
+			it.Message, it.Tokens, it.Changed, it.PR = message, res.Tokens, changed, pr
 			switch {
+			case reviewed:
+				it.set(StateDone, now)
+				it.Branch, it.Worktree = "", ""
 			case outcome == OutcomeReady:
 				it.set(StateReady, now)
-				it.PR, it.Reason = pr, notice
+				it.Reason = notice
 			case cleanupErr != nil:
 				// Keep the location so discard can retry the cleanup.
 				it.set(StateAttention, now)
 				it.Reason = "nothing changed, but the worktree could not be removed: " + cleanupErr.Error()
+			case alert:
+				it.set(StateAttention, now)
+				it.Branch, it.Worktree = "", ""
 			default:
 				it.set(StateDone, now)
 				it.Branch, it.Worktree = "", ""
 			}
-		} else if err == nil && !committed && cleanupErr == nil {
+			if a.result.attention() && cleanupErr == nil {
+				// A push, pull request, or cleanup notice stays first, as in
+				// the alert.
+				it.Reason = joinNotices(notice, a.result.Summary)
+			}
+		} else if err == nil && (!committed || reviewed) && cleanupErr == nil {
 			it.Branch, it.Worktree = "", ""
 		}
 		r := a.record(def.ID, outcome, now)
 		r.Tokens, r.Message, r.Item, r.Commit, r.Changed = res.Tokens, firstLine(message), itemID, commit, changed
 		r.Landing, r.PR = def.Land, pr
-		if outcome == OutcomeReady || cleanupErr != nil {
+		switch {
+		case reviewed:
+			r.Branch = branch // pushed; the worktree is gone
+		case outcome == OutcomeReady || cleanupErr != nil:
 			r.Branch, r.Worktree = branch, dir
 		}
 		st.Record(r)
+		if alert {
+			s.queueRunAlert(st, def.Name, a.id, notice) // SPEC-0127 US14
+		}
 		return nil
 	}); err != nil {
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: fmt.Sprintf("the run finished (%s, worktree at %s) but its result could not be saved: %v", outcome, dir, err)}
@@ -167,6 +197,8 @@ func BackgroundPrompt(def Definition, loc Locations, check CheckResult, ref, bra
 	fmt.Fprintf(&b, "You are running the scheduled task %q (%s) in the background. No person is present to answer questions, so make reasonable choices and keep going.\n\n", def.Name, def.ID)
 	fmt.Fprintf(&b, "Work only in this worktree: %s\nIt is on the branch %s, made from commit %s of %s.\n\n", dir, branch, loc.Commit, ref)
 	writeLocations(&b, loc, check)
+	writeMemory(&b, def, loc)
+	writeResultFile(&b, loc)
 	b.WriteString("When you finish, Rhizome commits every change in this worktree with your final message and tags it with the task. Do not push, open a pull request, or change other worktrees or branches. End with a short message for the person: what you did and what they should review.\n\n")
 	b.WriteString("Task instructions:\n\n")
 	b.WriteString(strings.TrimSpace(def.Prompt))
@@ -214,19 +246,32 @@ func worktreeName(def Definition, branch string) string {
 }
 
 // freeBranch returns rzm/<task>/<YYYY-MM-DD>, with -2, -3, ... appended
-// when a branch of that name exists.
+// when a branch of that name exists here or on a remote-tracking ref, so a
+// discarded run's pushed branch is not pushed over.
 func (s *Service) freeBranch(ctx context.Context, def Definition) (string, error) {
 	base := fmt.Sprintf("rzm/%s/%s", def.ID, s.opts.Now().Format("2006-01-02"))
-	for n := 1; n < 100; n++ {
+	// One listing of the day's names, local and remote, so a task that runs
+	// every minute still finds a free one without a Git call per name.
+	out, err := s.opts.Repo.git(ctx, "for-each-ref", "--format=%(refname:lstrip=2)", "refs/heads/"+base, "refs/heads/"+base+"-*", "refs/remotes/*/"+base, "refs/remotes/*/"+base+"-*")
+	if err != nil {
+		return "", err
+	}
+	taken := map[string]bool{}
+	for _, ref := range strings.Split(out, "\n") {
+		// Remote refs list as <remote>/<branch>; keep the branch part.
+		if i := strings.Index(ref, "rzm/"); i >= 0 {
+			taken[ref[i:]] = true
+		}
+	}
+	for n := 1; ; n++ {
 		name := base
 		if n > 1 {
 			name = fmt.Sprintf("%s-%d", base, n)
 		}
-		if _, err := s.opts.Repo.git(ctx, "show-ref", "--verify", "--quiet", "refs/heads/"+name); err != nil {
+		if !taken[name] {
 			return name, nil
 		}
 	}
-	return "", errors.New("no free branch name")
 }
 
 // removeWorktree removes a run's worktree and local branch. Ones already
@@ -256,6 +301,26 @@ func (s *Service) removeWorktree(ctx context.Context, branch, dir string) error 
 		}
 	}
 	return nil
+}
+
+// removePushedWorktree removes a pushed run's worktree but keeps its
+// branch, which the pull request uses. Like removeWorktree, it leaves a
+// worktree that is no longer on the run's branch, and it also leaves one
+// with uncommitted changes, since the person may be working there.
+func (s *Service) removePushedWorktree(ctx context.Context, branch, dir, noHooks string) error {
+	if err := s.removable(ctx, branch, dir); err != nil {
+		return err
+	}
+	if _, err := os.Stat(dir); err == nil {
+		// Ignored files count: they are the person's too, and removing the
+		// worktree would delete them.
+		if status, err := gitOutput(ctx, dir, "-c", noHooks, "status", "--porcelain", "--ignored=matching", "--untracked-files=all"); err != nil {
+			return err
+		} else if status != "" {
+			return fmt.Errorf("%s has uncommitted changes, so it was left alone", dir)
+		}
+	}
+	return s.removeWorktree(ctx, "", dir)
 }
 
 // removable refuses to remove dir unless it is a run or test worktree

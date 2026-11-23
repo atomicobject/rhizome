@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 )
 
@@ -21,6 +22,8 @@ type landFixture struct {
 	now                 time.Time
 	agent               *fakeAgent
 	svc                 *Service
+	// env is the user configuration services get; zero means none.
+	env vaultconfig.Env
 }
 
 func newLandFixture(t *testing.T, task string) *landFixture {
@@ -65,7 +68,7 @@ func (f *landFixture) service(cfg repoconfig.LocalTasksConfig, push bool) *Servi
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	svc, err := New(Options{Repo: repo, Config: cfg, Agent: f.agent, Push: push, Now: func() time.Time { return f.now }})
+	svc, err := New(Options{Repo: repo, Config: cfg, Agent: f.agent, Push: push, Now: func() time.Time { return f.now }, Env: f.env})
 	if err != nil {
 		f.t.Fatal(err)
 	}

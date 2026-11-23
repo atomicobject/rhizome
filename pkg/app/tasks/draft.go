@@ -106,10 +106,12 @@ func (s *Service) RunDraft(ctx context.Context, file string) (Outcome, error) {
 	if err = s.store.Update(ctx, func(st *State) error { running(st, a, func(r *RunRecord) { r.Stage = StageAgent }); return nil }); err != nil {
 		return Outcome{}, err
 	}
+	loc = s.withResultFile(loc, a) // SPEC-0127 US14
 	prompt := testPrompt(def, loc, check, dir)
 	runCtx, cancel := context.WithTimeout(ctx, def.Limit)
 	res, runErr := s.opts.Agent.RunPrompt(runCtx, AgentRequest{Task: def.ID, Dir: dir, Deny: def.Deny, Prompt: prompt, Transcript: s.runFile(a.id, transcriptFile), Env: s.agentEnv(loc)})
 	cancel()
+	a.result = afterPrompt(def, loc)
 	outcome := OutcomeReady
 	message := strings.TrimSpace(res.Message)
 	if len(message) > maxMessage {
@@ -125,6 +127,8 @@ func testPrompt(def Definition, loc Locations, check CheckResult, dir string) st
 	var b strings.Builder
 	fmt.Fprintf(&b, "You are testing the task %q (%s). No person is present; make reasonable choices and keep going.\n\nWork only in this detached test worktree: %s\nIts immutable source snapshot is %s.\n\n", def.Name, def.ID, dir, loc.Commit)
 	writeLocations(&b, loc, check)
+	writeMemory(&b, def, loc)
+	writeResultFile(&b, loc)
 	b.WriteString("This is a local test with fresh private data. Rhizome records your changes for review without committing or scheduling them. Do not commit, push, open a pull request, or change other worktrees or branches. End with a short message describing the result.\n\nTask instructions:\n\n")
 	b.WriteString(strings.TrimSpace(def.Prompt))
 	b.WriteByte('\n')

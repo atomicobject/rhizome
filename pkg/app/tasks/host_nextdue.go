@@ -64,7 +64,10 @@ func (s *Service) NextDueAt(ctx context.Context) (time.Time, bool, error) {
 	}
 	defs, tagged, err := s.dueInputs(ctx)
 	if err != nil {
-		return time.Time{}, false, err
+		// Pass-alert hook (SPEC-0127 US14): the primary ref or its
+		// definitions cannot be read, so allow one host pass every
+		// passRetryEvery to record the error and alert.
+		return passRetryAt(&st, now), true, nil
 	}
 	_, at, ok := s.nextDue(&st, m, defs, tagged)
 	if settle, due := settleAt(&st, defs, s.RunLockHeld()); due {

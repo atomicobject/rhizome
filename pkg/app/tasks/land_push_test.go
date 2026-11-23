@@ -111,17 +111,22 @@ func TestPRLandingPushesTheBranchAndOpensAPullRequest(t *testing.T) {
 	if o := f.pass(); o.Outcome != OutcomeReady {
 		t.Fatalf("%+v", o)
 	}
-	it := taskItems(mustState(t, f.svc), "tend")[0]
-	if it.PR != "https://example.test/pull/1" || it.Landing != "pr" || it.Worktree == "" || it.Reason != "" {
-		t.Fatalf("%+v", it)
+	// The pull request is the review surface, so an ok run leaves no item
+	// and no local worktree (SPEC-0127 US14).
+	r := lastRun(t, f.svc, "tend")
+	if r.PR != "https://example.test/pull/1" || r.Landing != "pr" || r.Branch == "" || r.Worktree != "" {
+		t.Fatalf("%+v", r)
 	}
-	if got.base != "main" || got.head != it.Branch || !hasLine(got.body, "Rhizome-Task: tend") {
+	if it := activeItem(t, f.svc, "tend"); it != nil {
+		t.Fatalf("an ok run with an open pull request leaves no inbox item: %+v", it)
+	}
+	if got.base != "main" || got.head != r.Branch || !hasLine(got.body, "Rhizome-Task: tend") || !strings.HasPrefix(got.dir, filepath.Join(f.host, ".rhizome", "task-state")) {
 		t.Fatalf("unexpected pull request %+v", got)
 	}
-	if out := run(t, f.remote, "branch", "--list", it.Branch); !strings.Contains(out, it.Branch) {
+	if out := run(t, f.remote, "branch", "--list", r.Branch); !strings.Contains(out, r.Branch) {
 		t.Fatalf("the branch must reach the remote, got %q", out)
 	}
-	if f.status() != "" || !strings.HasPrefix(it.Worktree, filepath.Join(f.host, ".rhizome", "task-state")) {
+	if f.status() != "" {
 		t.Fatal("a pr run never touches the open checkout")
 	}
 }

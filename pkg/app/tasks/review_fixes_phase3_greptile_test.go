@@ -1,0 +1,193 @@
+package tasks
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+)
+
+// stubPullRequest replaces gh for one test; during, when set, runs as the
+// pull request opens, after the push and before cleanup.
+func stubPullRequest(t *testing.T, prErr error, during func(dir string)) {
+	t.Helper()
+	saved := openPullRequest
+	t.Cleanup(func() { openPullRequest = saved })
+	openPullRequest = func(_ context.Context, dir, _, _, _, _ string) (string, error) {
+		if during != nil {
+			during(dir)
+		}
+		return "https://example.test/pull/1", prErr
+	}
+}
+
+func okNotesAgent(t *testing.T, result string) func(AgentRequest) (AgentResult, error) {
+	return func(req AgentRequest) (AgentResult, error) {
+		writeFile(t, filepath.Join(req.Dir, "notes/a.md"), "a\n")
+		writeResult(t, req, result)
+		return AgentResult{Message: "Tended the notes."}, nil
+	}
+}
+
+// Cleaning up after an opened pull request never removes a worktree the
+// person switched to another branch or left uncommitted work in, and it
+// keeps the task branch the pull request uses.
+func TestPullRequestCleanupLeavesTheWorktreeThePersonUses(t *testing.T) {
+	for name, touch := range map[string]func(t *testing.T, dir string){
+		"switched": func(t *testing.T, dir string) { run(t, dir, "switch", "--quiet", "-c", "mine") },
+		"dirty":    func(t *testing.T, dir string) { writeFile(t, filepath.Join(dir, "notes/mine.md"), "mine\n") },
+		"ignored file": func(t *testing.T, dir string) {
+			exclude := run(t, dir, "rev-parse", "--git-path", "info/exclude")
+			if !filepath.IsAbs(exclude) {
+				exclude = filepath.Join(dir, exclude)
+			}
+			require.NoError(t, os.MkdirAll(filepath.Dir(exclude), 0o755))
+			writeFile(t, exclude, "local.cache\n")
+			writeFile(t, filepath.Join(dir, "local.cache"), "the person's\n")
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newLandFixture(t, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n")
+			var worktree string
+			stubPullRequest(t, nil, func(dir string) { worktree = dir; touch(t, dir) })
+			f.agent.run = okNotesAgent(t, `{"status": "ok"}`)
+			require.Equal(t, OutcomeReady, f.pass().Outcome)
+
+			require.DirExists(t, worktree, "the person's worktree is left")
+			r := lastRun(t, f.svc, "tend")
+			run(t, f.host, "show-ref", "--verify", "--quiet", "refs/heads/"+r.Branch)
+			it := activeItem(t, f.svc, "tend")
+			require.NotNil(t, it, "the item stays, so the worktree can be found")
+			require.Equal(t, worktree, it.Worktree)
+			require.Contains(t, it.Reason, "The pull request is open, but its local worktree could not be removed")
+		})
+	}
+}
+
+// A stop cancels delivery: the host does not start the notify command again
+// on a context the stop cannot end, and the stop itself is not a failed
+// pass to alert about.
+func TestCancelledHostPassDeliversNothing(t *testing.T) {
+	f := newNotifyFixture(t, map[string]string{"look.yml": notNeededTask}, nil, "")
+	f.writeHostConfig(t)
+	ctx := context.Background()
+	require.NoError(t, f.svc.Store().Update(ctx, func(st *State) error {
+		f.svc.queueAlert(st, Notification{Task: "look", Outcome: OutcomeFailed, Summary: "queued"})
+		return nil
+	}))
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	_, _ = f.svc.RunDueHost(cancelled)
+	require.Empty(t, f.notifications(t))
+	st := mustState(t, f.svc)
+	require.Len(t, st.PendingAlerts, 1, "the alert waits for the next process")
+	require.Nil(t, st.PassError, "a stop is not a failed pass")
+}
+
+// The daily cap guards unattended spending: tokens from the person's own Run
+// show in totals but do not count toward it.
+func TestTokenCapCountsScheduledRunsOnly(t *testing.T) {
+	agent := &fakeAgent{run: func(req AgentRequest) (AgentResult, error) {
+		return AgentResult{Message: "done", Tokens: 150}, nil
+	}}
+	f := newNotifyFixture(t, map[string]string{"a.yml": "name: A\nevery: 1h\nprompt: p\n"}, agent, "")
+	now := time.Date(2026, 11, 23, 5, 0, 0, 0, time.UTC)
+	f.svc.opts.Now = func() time.Time { return now }
+	ctx := context.Background()
+	f.writeConfig(t, 100)
+	require.NoError(t, f.svc.SetMode(ctx, "a", "notify"))
+	_, err := f.svc.RunDue(ctx)
+	require.NoError(t, err)
+	it := activeItem(t, f.svc, "a")
+	require.NotNil(t, it)
+	_, err = f.svc.Run(ctx, it.ID)
+	require.NoError(t, err)
+
+	st := mustState(t, f.svc)
+	require.Equal(t, int64(150), st.TokensLast30Days("a", now), "a manual run still shows in totals")
+	report, err := f.svc.Status(ctx)
+	require.NoError(t, err)
+	require.Equal(t, &TokenCap{Cap: 100, Used: 0, Day: tokenDay(now), Reached: false}, report.TokenCap)
+
+	now = now.Add(2 * time.Hour)
+	require.NoError(t, f.svc.SetMode(ctx, "a", "auto"))
+	_, err = f.svc.RunDue(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 2, agent.calls(), "the scheduled run was not capped by manual tokens")
+	report, err = f.svc.Status(ctx)
+	require.NoError(t, err)
+	require.Equal(t, &TokenCap{Cap: 100, Used: 150, Day: tokenDay(now), Reached: true}, report.TokenCap)
+}
+
+// A result file must hold one JSON object and nothing after it but
+// whitespace; trailing text makes it malformed, which counts as ok.
+func TestResultFileWithTrailingTextCountsAsOK(t *testing.T) {
+	for name, content := range map[string]string{
+		"garbage":       attentionResult + " and then some",
+		"second object": attentionResult + `{"status": "ok"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			agent := &fakeAgent{run: func(req AgentRequest) (AgentResult, error) {
+				writeResult(t, req, content)
+				return AgentResult{Message: "done"}, nil
+			}}
+			f := newNotifyFixture(t, map[string]string{"a.yml": "name: A\nevery: 1h\nprompt: p\n"}, agent, "")
+			_, err := f.svc.RunDue(context.Background())
+			require.NoError(t, err)
+
+			r := lastRun(t, f.svc, "a")
+			require.NotNil(t, r.Result)
+			require.Empty(t, r.Result.Status)
+			require.NotEmpty(t, r.Result.Error)
+			require.Nil(t, activeItem(t, f.svc, "a"))
+			require.Empty(t, f.notifications(t))
+		})
+	}
+	// Trailing whitespace is fine.
+	agent := &fakeAgent{run: func(req AgentRequest) (AgentResult, error) {
+		writeResult(t, req, attentionResult+"\n\n")
+		return AgentResult{Message: "done"}, nil
+	}}
+	f := newNotifyFixture(t, map[string]string{"a.yml": "name: A\nevery: 1h\nprompt: p\n"}, agent, "")
+	_, err := f.svc.RunDue(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, ResultAttention, lastRun(t, f.svc, "a").Result.Status)
+}
+
+// An attention result does not hide a publishing failure: the item's reason
+// names the failure first, then the agent's summary, as the alert does.
+func TestAttentionKeepsThePublishingNotice(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n")
+	stubPullRequest(t, errors.New("gh is not signed in"), nil)
+	f.agent.run = okNotesAgent(t, attentionResult)
+	require.Equal(t, OutcomeReady, f.pass().Outcome)
+
+	it := activeItem(t, f.svc, "tend")
+	require.NotNil(t, it)
+	require.True(t, strings.HasPrefix(it.Reason, "Pushed rzm/tend/"), it.Reason)
+	require.Contains(t, it.Reason, "gh is not signed in")
+	require.True(t, strings.HasSuffix(it.Reason, " look"), it.Reason)
+	require.DirExists(t, it.Worktree)
+}
+
+// A task that runs every minute keeps every quiet pull request's branch, so a
+// day can hold far more than 99 of them; the next run still gets a name.
+func TestFreeBranchFindsANameAfterManyRunsInADay(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1m\nland: pr\nprompt: Tend the notes.\n")
+	def, err := ParseDefinition(".rhizome/tasks/tend.yml", []byte("name: Tend notes\nevery: 1m\nland: pr\nprompt: Tend the notes.\n"))
+	require.NoError(t, err)
+	base := "rzm/tend/" + f.svc.opts.Now().Format("2006-01-02")
+	run(t, f.host, "branch", base)
+	for n := 2; n <= 150; n++ {
+		run(t, f.host, "branch", fmt.Sprintf("%s-%d", base, n))
+	}
+	name, err := f.svc.freeBranch(context.Background(), def)
+	require.NoError(t, err)
+	require.Equal(t, base+"-151", name)
+}

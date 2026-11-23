@@ -82,6 +82,10 @@ type attempt struct {
 	missing []string
 	// slot is the scheduled slot the run is for; "" means its own ID.
 	slot string
+	// scheduled is a run a pass started, not the person.
+	scheduled bool
+	// result is what the agent reported in its result file.
+	result *RunResult
 }
 
 // slotID names the run's slot in its commit's slot line.
@@ -106,7 +110,7 @@ func testSource(a attempt) string {
 }
 
 func (a attempt) record(task, outcome string, at time.Time) RunRecord {
-	return RunRecord{ID: a.id, Task: task, StartedAt: a.started, At: at, Outcome: outcome, Test: a.draft, SourceCheckout: testSource(a), Missing: a.missing}
+	return RunRecord{ID: a.id, Task: task, StartedAt: a.started, At: at, Outcome: outcome, Test: a.draft, Scheduled: a.scheduled, SourceCheckout: testSource(a), Missing: a.missing, Result: a.result}
 }
 
 // checkLog writes a check's stderr to its run folder, creating the file on
@@ -189,6 +193,7 @@ func (s *Service) end(ctx context.Context, a attempt) {
 				it.Reason = r.Message
 			}
 			st.Record(r)
+			s.queueRunAlert(st, r.Task, a.id, "") // SPEC-0127 US14
 		}
 		return nil
 	})
@@ -203,8 +208,11 @@ func running(st *State, a attempt, fn func(*RunRecord)) {
 
 // finalizeInterrupted records a Running left by a process that ended
 // mid-run as one interrupted run (stopped, when Stop marked it), keeping its
-// folder, and moves its item to needs attention. Callers hold run.lock, so
-// nothing else is running and any stop request is settled.
+// folder, and moves its item to needs attention. A scheduled run that
+// crashed before it had an item, as during its check, gets a
+// needs-attention item, reusing the task's earlier notice, so its alert
+// points somewhere. Callers hold run.lock, so nothing else is running and
+// any stop request is settled.
 func (s *Service) finalizeInterrupted(ctx context.Context) error {
 	return s.store.Update(ctx, func(st *State) error {
 		defer func() { st.Stopping = "" }()
@@ -215,8 +223,9 @@ func (s *Service) finalizeInterrupted(ctx context.Context) error {
 		r := *st.Running
 		r.At, r.Outcome = now, OutcomeInterrupted
 		r.Message = interruptedMessage
+		stopped := st.Stopping == r.ID
 		reason := interruptedMessage
-		if st.Stopping == r.ID {
+		if stopped {
 			reason = stoppedMessage
 		}
 		if r.Item != "" {
@@ -228,9 +237,17 @@ func (s *Service) finalizeInterrupted(ctx context.Context) error {
 					it.interrupt(now, reason)
 				}
 			}
+		} else if !r.Test && !stopped {
+			it := st.ActiveTaskItem(r.Task)
+			if it == nil || it.State != StateAttention || it.Worktree != "" {
+				it = st.AddItem(Item{Task: r.Task, Kind: KindTask, Commit: r.Commit, Landing: r.Landing}, now)
+			}
+			it.interrupt(now, reason)
+			r.Item = it.ID
 		}
 		st.Record(r)
 		st.Running = nil
+		s.queueRunAlert(st, r.Task, r.ID, "") // SPEC-0127 US14
 		return nil
 	})
 }

@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atomicobject/rhizome/pkg/repositorytrust"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
@@ -33,6 +32,10 @@ type Options struct {
 	// task settings; a zero Env means none, so tasks do not run here.
 	Env vaultconfig.Env
 	Now func() time.Time
+	// DeliverAlerts hands queued alerts to another process (the CLI starts a
+	// detached `rzm tasks deliver-alerts`), so a slow notify command never
+	// keeps a task pass alive after its work is done. Nil delivers inline.
+	DeliverAlerts func() error
 	// Push is the person's per-machine push setting for this repository
 	// (SPEC-0127 US13); pushing also needs the repository's allowPush.
 	Push bool
@@ -100,6 +103,7 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) { return s.run
 // runDue is RunDue; a host pass stops before any task once the person turns
 // off running tasks on this machine.
 func (s *Service) runDue(ctx context.Context, host bool) (RunSummary, error) {
+	defer s.deliverAlerts(ctx) // after run.lock is released, oldest first (SPEC-0127 US14)
 	// Runtimes call this in every Git checkout. A repository that declares
 	// no tasks, or that the person has not trusted, is left untouched: no
 	// state folder, no lock, no recorded error.
@@ -212,16 +216,6 @@ func (s *Service) runDue(ctx context.Context, host bool) (RunSummary, error) {
 	return summary, nil
 }
 
-// notePassError records why a pass failed before running any task, so
-// status can explain why automatic work stopped. It returns err.
-func (s *Service) notePassError(ctx context.Context, err error) error {
-	_ = s.store.Update(ctx, func(st *State) error {
-		st.PassError = &PassError{At: s.opts.Now(), Message: err.Error()}
-		return nil
-	})
-	return err
-}
-
 // bookkeep announces tasks the person has not seen and closes items whose
 // work reached the primary ref.
 func (s *Service) bookkeep(ctx context.Context, st *State, defs []Definition, tagged map[string]*Tagged, now time.Time) {
@@ -292,7 +286,7 @@ func (s *Service) lastTagged(ctx context.Context, ref string, defs []Definition)
 // runTask runs one due task's check, then notifies or does the work.
 func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, commit, slot string) Outcome {
 	a := s.newAttempt(false)
-	a.slot = slot
+	a.slot, a.scheduled = slot, true
 	base := a.record(def.ID, "", time.Time{})
 	base.Commit = commit
 	if err := s.begin(ctx, a, base, nil); err != nil {
@@ -330,12 +324,16 @@ func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, c
 			r := a.record(def.ID, OutcomeNotified, now)
 			r.Message, r.Item, r.Commit = check.Summary, id, commit
 			st.Record(r)
+			s.queueRunAlert(st, def.Name, a.id, "") // SPEC-0127 US14
 			return nil
 		})
 		if err != nil {
 			return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}
 		}
 		return Outcome{Task: def.ID, Outcome: OutcomeNotified, Item: id}
+	}
+	if out, capped := s.skipForTokenCap(ctx, def, a, commit); capped { // SPEC-0127 US14
+		return out
 	}
 	if def.Land == taskdef.LandInPlace {
 		return s.runInPlace(ctx, def, a, "", check, ref, commit)
@@ -416,6 +414,7 @@ func (s *Service) failRecheck(ctx context.Context, def Definition, a attempt, it
 		r := a.record(def.ID, OutcomeFailed, now)
 		r.Message, r.Item, r.Commit = reason, itemID, commit
 		st.Record(r)
+		s.queueRunAlert(st, def.Name, a.id, "") // SPEC-0127 US14
 		return nil
 	})
 	return Outcome{Task: def.ID, Outcome: OutcomeFailed, Item: itemID, Reason: reason}
@@ -464,21 +463,10 @@ func (s *Service) failWith(ctx context.Context, def Definition, a attempt, itemI
 			extra(st, it, &r)
 		}
 		st.Record(r)
+		s.queueRunAlert(st, def.Name, a.id, "") // SPEC-0127 US14
 		return nil
 	})
 	return Outcome{Task: def.ID, Outcome: outcome, Item: itemID, Reason: reason}
-}
-
-// untrusted explains why tasks may not run here, or returns "".
-func (s *Service) untrusted() string {
-	if s.opts.Trusted == nil {
-		return ""
-	}
-	checkout := s.opts.Repo.MainCheckout
-	if checkout == "" {
-		checkout = s.opts.Repo.CommonDir
-	}
-	return repositorytrust.DenialReason(checkout, "tasks", s.opts.Trusted)
 }
 
 func (s *Service) locations(def Definition, commit string) Locations {

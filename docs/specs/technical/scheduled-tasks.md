@@ -297,7 +297,7 @@ Task authors can see and test a local version before it reaches the primary bran
 - With `memory: true`, the preamble names `$RZM_TASK_DATA_DIR/handoff.md` (about 8 KB at most). The agent reads it first and rewrites it last; Rhizome trims it to the cap.
 - The agent may write `$RZM_TASK_RESULT_FILE` as JSON `{"status": "quiet" | "ok" | "attention", "summary": "..."}`. Not-needed, no-change, quiet, and ok runs record history only; attention, conflicts, and failures always create an inbox item and notify.
 - A per-person `tasks.notify.command` (an argument list) runs after each run that notifies, with the summary on stdin and the task, outcome, and run ID in its environment, for alerts that reach the person off-machine. Its failure is recorded and never fails the run.
-- An optional per-person `dailyTokenCap` per repository stops new agent work once that day's tokens, from the existing day buckets, reach it, and `status` says so.
+- An optional per-person `dailyTokenCap` per repository stops new scheduled agent work once that UTC day's tokens from scheduled runs reach it, and `status` says so. Runs the person starts still show in token totals but do not count toward the cap, which limits unattended spending.
 
 ## Requirements
 
