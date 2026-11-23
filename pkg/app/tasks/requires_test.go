@@ -19,11 +19,15 @@ type listingHarness struct {
 	servers []harness.MCPServerState
 	listed  int
 	dirs    []string
+	onList  func(dir string)
 }
 
 func (h *listingHarness) ListMCPServers(_ context.Context, dir string) ([]harness.MCPServerState, error) {
 	h.listed++
 	h.dirs = append(h.dirs, dir)
+	if h.onList != nil {
+		h.onList(dir)
+	}
 	return h.servers, nil
 }
 
@@ -133,6 +137,23 @@ func TestMCPAndDenyRequirementsAskTheTasksHarness(t *testing.T) {
 		item, err := st.Item(summary.Outcomes[0].Item)
 		require.NoError(t, err)
 		require.Empty(t, item.Worktree, "a run refused for a missing server keeps no worktree")
+	})
+
+	t.Run("a worktree that cannot be removed stays on its item", func(t *testing.T) {
+		dir := newRepo(t, map[string]string{"linear.yml": task})
+		driver := &listingHarness{servers: []harness.MCPServerState{{Name: "linear", Usable: true}}}
+		driver.onList = func(worktree string) { run(t, dir, "worktree", "lock", worktree) }
+		agent := resolvingAgent{fakeAgent: &fakeAgent{}, kind: harness.KindClaude, driver: driver}
+		svc := newService(t, dir, agent, "auto")
+		summary, err := svc.RunDue(ctx)
+		require.NoError(t, err)
+		require.Equal(t, OutcomeFailed, summary.Outcomes[0].Outcome)
+		require.Contains(t, summary.Outcomes[0].Reason, "remove the unused worktree")
+		st := mustState(t, svc)
+		item, err := st.Item(summary.Outcomes[0].Item)
+		require.NoError(t, err)
+		require.Equal(t, driver.dirs[0], item.Worktree, "Discard needs the worktree's location to retry")
+		require.DirExists(t, item.Worktree)
 	})
 
 	t.Run("a listing that does not finish in time is a missing requirement", func(t *testing.T) {
