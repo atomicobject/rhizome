@@ -10,6 +10,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/harness"
 	"github.com/atomicobject/rhizome/pkg/loginpath"
+	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 )
 
 // harnessResolver is an AgentRunner that names the harness a prompt run
@@ -21,12 +22,16 @@ type harnessResolver interface {
 
 // missingRequirements reports what a task declares it needs and lacks
 // (SPEC-0127 US11), before its check or prompt runs: requires.commands not
-// on the login shell's PATH, requires.mcp servers the prompt's harness does
-// not list as usable, and a deny list that harness cannot enforce. Only a
-// task that declares requires.mcp or deny asks the harness anything, and
-// listing MCP servers spawns its CLI, so status must not call this; it
-// reads a run's recorded Missing instead (requirementsBlocked).
-func (s *Service) missingRequirements(ctx context.Context, def Definition) []string {
+// on the login shell's PATH, a deny list the prompt's harness cannot
+// enforce, and, when dir is set, requires.mcp servers that harness does not
+// list as usable in dir. MCP configuration can be scoped to a directory, so
+// dir must be where the prompt's session runs; a worktree run, whose
+// directory does not exist yet, passes "" and checks MCP with missingMCP
+// once it does. Only a task that declares requires.mcp or deny asks the
+// harness anything, and listing MCP servers spawns its CLI, so status must
+// not call this; it reads a run's recorded Missing instead
+// (requirementsBlocked).
+func (s *Service) missingRequirements(ctx context.Context, def Definition, dir string) []string {
 	var missing []string
 	for _, name := range def.Requires.Commands {
 		if name == "rzm" {
@@ -36,28 +41,58 @@ func (s *Service) missingRequirements(ctx context.Context, def Definition) []str
 			missing = append(missing, err.Error())
 		}
 	}
-	if len(def.Requires.MCP) == 0 && len(def.Deny) == 0 {
+	if len(def.Deny) > 0 {
+		kind, _, err := s.resolveHarness(ctx, def)
+		if err != nil {
+			return append(missing, err.Error())
+		}
+		if !enforcesDeny(kind) {
+			missing = append(missing, fmt.Sprintf("%s cannot enforce deny; use Claude Code for this task or remove deny", kind))
+		}
+	}
+	if dir == "" {
 		return missing
 	}
+	return append(missing, s.missingMCP(ctx, def, dir)...)
+}
+
+// missingMCP names each requires.mcp server the prompt's harness does not
+// list as usable in dir, the directory its session runs in.
+func (s *Service) missingMCP(ctx context.Context, def Definition, dir string) []string {
+	if len(def.Requires.MCP) == 0 {
+		return nil
+	}
+	kind, driver, err := s.resolveHarness(ctx, def)
+	if err != nil {
+		return []string{err.Error()}
+	}
+	servers, err := listMCP(ctx, kind, driver, dir)
+	if err != nil {
+		return []string{err.Error()}
+	}
+	return missingServers(kind, def.Requires.MCP, servers)
+}
+
+func (s *Service) resolveHarness(ctx context.Context, def Definition) (harness.Kind, harness.Harness, error) {
 	resolver, ok := s.opts.Agent.(harnessResolver)
 	if !ok {
-		return append(missing, "no agent harness is available to check requires.mcp and deny")
+		return "", nil, errors.New("no agent harness is available to check requires.mcp and deny")
 	}
 	kind, driver, err := resolver.Harness(ctx, def.ID)
 	if err != nil {
-		return append(missing, "resolve the agent harness: "+err.Error())
+		return "", nil, fmt.Errorf("resolve the agent harness: %w", err)
 	}
-	if len(def.Deny) > 0 && !enforcesDeny(kind) {
-		missing = append(missing, fmt.Sprintf("%s cannot enforce deny; use Claude Code for this task or remove deny", kind))
+	return kind, driver, nil
+}
+
+// sessionDir is where a task's prompt session runs when that directory
+// already exists before the run: the open checkout for in-place tasks. A
+// worktree run's directory is made later, so it is "".
+func (s *Service) sessionDir(def Definition) string {
+	if def.Land == taskdef.LandInPlace {
+		return s.hostCheckout()
 	}
-	if len(def.Requires.MCP) == 0 {
-		return missing
-	}
-	servers, err := listMCP(ctx, kind, driver, s.taskCheckout())
-	if err != nil {
-		return append(missing, err.Error())
-	}
-	return append(missing, missingMCP(kind, def.Requires.MCP, servers)...)
+	return ""
 }
 
 // enforcesDeny reports whether a harness's driver honors
@@ -86,8 +121,8 @@ func listMCP(ctx context.Context, kind harness.Kind, driver harness.Harness, dir
 	return servers, nil
 }
 
-// missingMCP names each required server the harness lacks or cannot use.
-func missingMCP(kind harness.Kind, required []string, servers []harness.MCPServerState) []string {
+// missingServers names each required server the harness lacks or cannot use.
+func missingServers(kind harness.Kind, required []string, servers []harness.MCPServerState) []string {
 	var missing []string
 	for _, name := range required {
 		if ok, detail := mcpState(kind, name, servers); !ok {
@@ -121,10 +156,8 @@ func requirementsBlocked(last *RunRecord) bool {
 	return last != nil && last.Outcome == OutcomeFailed && len(last.Missing) > 0
 }
 
-// taskCheckout is the checkout whose project MCP configuration a task's
-// session sees: the one registered for task running on this machine, else
-// the main checkout. Worktree runs start from the primary ref, whose
-// committed project configuration that checkout shares when it is on it.
+// taskCheckout is the checkout in-place tasks run in: the one registered
+// for task running on this machine, else the main checkout.
 func (s *Service) taskCheckout() string {
 	if m, err := s.MachineSettings(); err == nil && m.Repository.Checkout != "" {
 		return m.Repository.Checkout

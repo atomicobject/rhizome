@@ -44,60 +44,15 @@ func (s *Service) testSource(ctx context.Context, file string) (string, string, 
 	return root, filepath.ToSlash(rel), nil
 }
 
-// captureTest copies only the Git index and lets Git capture effective source bytes.
-// It never changes the author's index, HEAD, or working tree.
+// captureTest commits a snapshot of the checkout's effective source bytes
+// and checks it out detached for the test. It never changes the author's
+// index, HEAD, or working tree.
 func (s *Service) captureTest(ctx context.Context, a attempt, root string) (string, string, error) {
-	index, err := gitOutput(ctx, root, "rev-parse", "--path-format=absolute", "--git-path", "index")
+	noHooks, err := s.noHooks(a)
 	if err != nil {
 		return "", "", err
 	}
-	data, err := os.ReadFile(index)
-	if err != nil {
-		return "", "", err
-	}
-	runDir, _ := s.runDir(a.id)
-	if err = os.MkdirAll(runDir, 0o700); err != nil {
-		return "", "", err
-	}
-	hooks := filepath.Join(runDir, "hooks")
-	if err = os.Mkdir(hooks, 0o700); err != nil {
-		return "", "", err
-	}
-	noHooks := "core.hooksPath=" + hooks
-	indexFile, err := os.CreateTemp("", "rhizome-task-index-*")
-	if err != nil {
-		return "", "", err
-	}
-	privateIndex := indexFile.Name()
-	if err = indexFile.Close(); err != nil {
-		return "", "", err
-	}
-	defer os.Remove(privateIndex)
-	if err = os.WriteFile(privateIndex, data, 0o600); err != nil {
-		return "", "", err
-	}
-	env := []string{"GIT_INDEX_FILE=" + privateIndex}
-	tracked, err := gitBytes(ctx, root, env, "-c", noHooks, "ls-files", "-z")
-	if err != nil {
-		return "", "", err
-	}
-	if _, err = gitBytesInput(ctx, root, env, tracked, "-c", noHooks, "update-index", "--no-assume-unchanged", "-z", "--stdin"); err != nil {
-		return "", "", err
-	}
-	args := []string{"-c", noHooks, "-c", "core.splitIndex=false", "add", "-A", "--", "."}
-	// The executing runner owns this directory, including its changing locks.
-	if rel, err := filepath.Rel(root, s.stateDir); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		rel = filepath.ToSlash(rel)
-		// Git rejects even a negative pathspec naming an ignored directory.
-		// Already-ignored state needs no explicit exclusion.
-		if _, err := gitBytes(ctx, root, nil, "check-ignore", "--quiet", "--", rel); err != nil {
-			args = append(args, ":(exclude)"+rel)
-		}
-	}
-	if _, err = gitBytes(ctx, root, env, args...); err != nil {
-		return "", "", err
-	}
-	tree, err := gitBytes(ctx, root, env, "-c", noHooks, "write-tree")
+	tree, err := s.captureTree(ctx, root, noHooks)
 	if err != nil {
 		return "", "", err
 	}
@@ -105,8 +60,8 @@ func (s *Service) captureTest(ctx context.Context, a attempt, root string) (stri
 	if err != nil {
 		return "", "", err
 	}
-	env = append(env, "GIT_AUTHOR_NAME=Rhizome task test", "GIT_AUTHOR_EMAIL=task-test@rhizome.local", "GIT_COMMITTER_NAME=Rhizome task test", "GIT_COMMITTER_EMAIL=task-test@rhizome.local")
-	commit, err := gitBytes(ctx, root, env, "-c", noHooks, "-c", "commit.gpgSign=false", "commit-tree", strings.TrimSpace(string(tree)), "-p", head, "-m", "Local task test snapshot", "--no-gpg-sign")
+	env := []string{"GIT_AUTHOR_NAME=Rhizome task test", "GIT_AUTHOR_EMAIL=task-test@rhizome.local", "GIT_COMMITTER_NAME=Rhizome task test", "GIT_COMMITTER_EMAIL=task-test@rhizome.local"}
+	commit, err := gitBytes(ctx, root, env, "-c", noHooks, "-c", "commit.gpgSign=false", "commit-tree", tree, "-p", head, "-m", "Local task test snapshot", "--no-gpg-sign")
 	if err != nil {
 		return "", "", err
 	}
@@ -125,6 +80,80 @@ func (s *Service) captureTest(ctx context.Context, a attempt, root string) (stri
 		return snapshot, dir, err
 	}
 	return snapshot, dir, nil
+}
+
+// noHooks is the -c setting that points Git at an empty hooks folder in
+// the run's folder, so runner-owned Git commands run no repository hooks
+// without changing Git configuration.
+func (s *Service) noHooks(a attempt) (string, error) {
+	runDir, err := s.runDir(a.id)
+	if err != nil {
+		return "", err
+	}
+	hooks := filepath.Join(runDir, "hooks")
+	if err := os.MkdirAll(hooks, 0o700); err != nil {
+		return "", err
+	}
+	return "core.hooksPath=" + hooks, nil
+}
+
+// passNoHooks is noHooks for Git commands a pass runs outside any one run,
+// such as its fetch and the check checkout.
+func (s *Service) passNoHooks() string {
+	hooks := filepath.Join(s.stateDir, "no-hooks")
+	_ = os.MkdirAll(hooks, 0o700)
+	return "core.hooksPath=" + hooks
+}
+
+// captureTree writes the checkout's effective working-tree contents as a
+// Git tree through a private copy of its index, so the author's index,
+// HEAD, and working tree never change. The runner's state folder is left
+// out.
+func (s *Service) captureTree(ctx context.Context, root, noHooks string) (string, error) {
+	index, err := gitOutput(ctx, root, "rev-parse", "--path-format=absolute", "--git-path", "index")
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(index)
+	if err != nil {
+		return "", err
+	}
+	indexFile, err := os.CreateTemp("", "rhizome-task-index-*")
+	if err != nil {
+		return "", err
+	}
+	privateIndex := indexFile.Name()
+	if err = indexFile.Close(); err != nil {
+		return "", err
+	}
+	defer os.Remove(privateIndex)
+	if err = os.WriteFile(privateIndex, data, 0o600); err != nil {
+		return "", err
+	}
+	env := []string{"GIT_INDEX_FILE=" + privateIndex}
+	tracked, err := gitBytes(ctx, root, env, "-c", noHooks, "ls-files", "-z")
+	if err != nil {
+		return "", err
+	}
+	if _, err = gitBytesInput(ctx, root, env, tracked, "-c", noHooks, "update-index", "--no-assume-unchanged", "-z", "--stdin"); err != nil {
+		return "", err
+	}
+	// A stale file-system monitor would hide edits from the snapshot.
+	args := []string{"-c", noHooks, "-c", "core.splitIndex=false", "-c", "core.fsmonitor=false", "add", "-A", "--", "."}
+	// The executing runner owns this directory, including its changing locks.
+	if rel, err := filepath.Rel(root, s.stateDir); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		rel = filepath.ToSlash(rel)
+		// Git rejects even a negative pathspec naming an ignored directory.
+		// Already-ignored state needs no explicit exclusion.
+		if _, err := gitBytes(ctx, root, nil, "check-ignore", "--quiet", "--", rel); err != nil {
+			args = append(args, ":(exclude)"+rel)
+		}
+	}
+	if _, err = gitBytes(ctx, root, env, args...); err != nil {
+		return "", err
+	}
+	tree, err := gitBytes(ctx, root, env, "-c", noHooks, "write-tree")
+	return strings.TrimSpace(string(tree)), err
 }
 
 func requireTestIndex(root string) error {

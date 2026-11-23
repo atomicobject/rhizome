@@ -150,6 +150,14 @@ func (r Repo) FetchedAt() (time.Time, bool) {
 	return info.ModTime(), true
 }
 
+// short is a commit id's first eight characters, as notices show it.
+func short(commit string) string {
+	if len(commit) > 8 {
+		return commit[:8]
+	}
+	return commit
+}
+
 func gitOutput(ctx context.Context, dir string, args ...string) (string, error) {
 	out, err := gitBytes(ctx, dir, nil, args...)
 	return strings.TrimRight(string(out), "\n"), err

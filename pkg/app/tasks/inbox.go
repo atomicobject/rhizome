@@ -47,6 +47,12 @@ type Item struct {
 	// LaunchError is why the person's last Run failed before it started;
 	// the item's next state change clears it.
 	LaunchError string `json:"launchError,omitempty"`
+	// Landing is the run's land mode. An in-place item never owns a
+	// worktree, so Discard only dismisses it. Landed is the commit an
+	// in-place run made; PR is a pr run's pull request.
+	Landing string `json:"landing,omitempty"`
+	Landed  string `json:"landed,omitempty"`
+	PR      string `json:"pr,omitempty"`
 }
 
 // Active reports whether the item still needs the person or is in progress.

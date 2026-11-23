@@ -1,0 +1,371 @@
+package tasks
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"slices"
+	"strconv"
+	"strings"
+	"syscall"
+	"testing"
+	"time"
+
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
+	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
+)
+
+func TestWidenedLandingRunsAsNotifyUntilApproved(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nprompt: Tend the notes.\n")
+	if o := f.pass(); o.Outcome != OutcomeNoChanges {
+		t.Fatalf("a task without writes lands as pr: %+v", o)
+	}
+	f.push(".rhizome/tasks/tend.yml", inPlaceTask)
+	run(t, f.host, "fetch", "--quiet", "origin")
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	o := f.pass()
+	if o.Outcome != OutcomeNotified || f.agent.calls() != 1 {
+		t.Fatalf("a widened task must notify, not run: %+v", o)
+	}
+	st := mustState(t, f.svc)
+	var notice *Item
+	for i, it := range st.Items {
+		if it.Kind == KindAnnouncement && strings.Contains(it.Summary, "rzm tasks approve tend") {
+			notice = &st.Items[i]
+		}
+	}
+	if notice == nil || !strings.Contains(notice.Summary, "committing only notes/**") {
+		t.Fatalf("expected an announcement asking for approval, got %+v", st.Items)
+	}
+	report, err := f.svc.Status(context.Background())
+	if err != nil || report.Tasks[0].Mode != ModeNotify || report.Tasks[0].ModeSource != "approval" || report.Tasks[0].Land != "in-place" {
+		t.Fatalf("status must explain the approval wait: %+v, %v", report.Tasks, err)
+	}
+	if err := f.svc.Approve(context.Background(), "tend"); err != nil {
+		t.Fatal(err)
+	}
+	if report, _ := f.svc.Status(context.Background()); report.Tasks[0].Mode != ModeAuto {
+		t.Fatalf("an approved task runs in its own mode: %+v", report.Tasks[0])
+	}
+	if it, _ := mustStatePtr(t, f.svc).Item(notice.ID); it.Active() {
+		t.Fatal("approving closes the announcement")
+	}
+	// The person's Run of the notify item lands in place.
+	if o, err := f.svc.Run(context.Background(), o.Item); err != nil || o.Outcome != OutcomeLanded {
+		t.Fatalf("%+v %v", o, err)
+	}
+	// Adding a write pattern widens it again.
+	f.push(".rhizome/tasks/tend.yml", strings.Replace(inPlaceTask, `["notes/**"]`, `["notes/**", "docs/**"]`, 1))
+	run(t, f.host, "fetch", "--quiet", "origin")
+	if o := f.pass(); o.Outcome != OutcomeNotified {
+		t.Fatalf("a new write pattern must ask again: %+v", o)
+	}
+}
+
+func TestSlotAlreadyOnThePrimaryRefIsDone(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	slot := "2026-11-23T05:00:00-05:00"
+	f.svc.slotFor = func(Definition, time.Time) string { return slot }
+	f.push("notes/other.md", "other machine\n")
+	run(t, f.other, "commit", "--quiet", "--allow-empty", "-m", "chore(tasks): Tend notes\n\nRhizome-Task: tend\nRhizome-Task-Slot: "+slot)
+	run(t, f.other, "push", "--quiet", "origin", "HEAD:main")
+	run(t, f.host, "fetch", "--quiet", "origin")
+	if o := f.pass(); o.Outcome != OutcomeSkipped || !strings.Contains(o.Reason, "already landed") || f.agent.calls() != 0 {
+		t.Fatalf("%+v", o)
+	}
+	if f.svc.madeCommits()[run(t, f.other, "rev-parse", "HEAD")] {
+		t.Fatal("another machine's commit for a skipped slot counts as Rhizome's own, so a push could republish it")
+	}
+	f.svc.slotFor = func(Definition, time.Time) string { return "2026-11-24T05:00:00-05:00" }
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	if o := f.pass(); o.Outcome != OutcomeLanded {
+		t.Fatalf("%+v", o)
+	}
+	if !hasLine(run(t, f.host, "log", "-1", "--format=%B"), "Rhizome-Task-Slot: 2026-11-24T05:00:00-05:00") {
+		t.Fatal("the commit names its slot")
+	}
+}
+
+func TestPushNeedsTheRepositoryAndThePerson(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	f.svc = f.service(repoconfig.LocalTasksConfig{PrimaryRef: "origin/main", DefaultMode: "auto"}, true)
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	if o := f.pass(); o.Outcome != OutcomeLanded {
+		t.Fatalf("%+v", o)
+	}
+	if run(t, f.host, "rev-parse", "HEAD") == run(t, f.host, "rev-parse", "origin/main") {
+		t.Fatal("without the repository's allowPush the commit stays local")
+	}
+}
+
+func TestPRLandingPushesTheBranchAndOpensAPullRequest(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n")
+	var got struct{ dir, base, head, title, body string }
+	saved := openPullRequest
+	t.Cleanup(func() { openPullRequest = saved })
+	openPullRequest = func(_ context.Context, dir, base, head, title, body string) (string, error) {
+		got.dir, got.base, got.head, got.title, got.body = dir, base, head, title, body
+		return "https://example.test/pull/1", nil
+	}
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	if o := f.pass(); o.Outcome != OutcomeReady {
+		t.Fatalf("%+v", o)
+	}
+	it := taskItems(mustState(t, f.svc), "tend")[0]
+	if it.PR != "https://example.test/pull/1" || it.Landing != "pr" || it.Worktree == "" || it.Reason != "" {
+		t.Fatalf("%+v", it)
+	}
+	if got.base != "main" || got.head != it.Branch || !hasLine(got.body, "Rhizome-Task: tend") {
+		t.Fatalf("unexpected pull request %+v", got)
+	}
+	if out := run(t, f.remote, "branch", "--list", it.Branch); !strings.Contains(out, it.Branch) {
+		t.Fatalf("the branch must reach the remote, got %q", out)
+	}
+	if f.status() != "" || !strings.HasPrefix(it.Worktree, filepath.Join(f.host, ".rhizome", "task-state")) {
+		t.Fatal("a pr run never touches the open checkout")
+	}
+}
+
+func TestPRLandingStopsAStalledPushOrPullRequest(t *testing.T) {
+	for stalled, want := range map[string]string{
+		"git push":     "so the branch stays local: git timed out after 2s",
+		"gh pr create": "opening its pull request failed: gh timed out after 2s",
+	} {
+		t.Run(stalled, func(t *testing.T) {
+			saved := fetchTimeout
+			fetchTimeout = 2 * time.Second
+			t.Cleanup(func() { fetchTimeout = saved })
+			f := newLandFixture(t, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n")
+			// The stalled command starts a child and waits on it, as ssh
+			// or a credential helper would on a dead connection.
+			bin, pidFile := t.TempDir(), filepath.Join(t.TempDir(), "child.pid")
+			script := filepath.Join(bin, "gh")
+			writeFile(t, script, "#!/bin/sh\nsleep 30 &\necho $! > "+pidFile+".tmp && mv "+pidFile+".tmp "+pidFile+"\nwait\n")
+			if err := os.Chmod(script, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if stalled == "git push" {
+				run(t, f.host, "config", "remote.origin.pushurl", "ssh://example.invalid/remote.git")
+				run(t, f.host, "config", "ssh.variant", "ssh")
+				run(t, f.host, "config", "core.sshCommand", script)
+			} else {
+				t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+			}
+			f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+			start := time.Now()
+			if o := f.pass(); o.Outcome != OutcomeReady {
+				t.Fatalf("%+v", o)
+			}
+			if elapsed := time.Since(start); elapsed > 15*time.Second {
+				t.Fatalf("the stalled %s held the run for %s", stalled, elapsed)
+			}
+			if it := taskItems(mustState(t, f.svc), "tend")[0]; !strings.Contains(it.Reason, want) {
+				t.Fatalf("the item must say the step timed out, got %q", it.Reason)
+			}
+			data, err := os.ReadFile(pidFile)
+			if err != nil {
+				t.Fatalf("the stalled command never ran: %v", err)
+			}
+			pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			child, _ := os.FindProcess(pid)
+			for deadline := time.Now().Add(5 * time.Second); child.Signal(syscall.Signal(0)) == nil; time.Sleep(50 * time.Millisecond) {
+				if time.Now().After(deadline) {
+					t.Fatalf("the stalled command's child %d must be killed", pid)
+				}
+			}
+		})
+	}
+}
+
+func TestApproveAcceptsOnlyTheLandingTheNoticeShowed(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nprompt: Tend the notes.\n")
+	f.pass()
+	f.push(".rhizome/tasks/tend.yml", inPlaceTask)
+	run(t, f.host, "fetch", "--quiet", "origin")
+	if o := f.pass(); o.Outcome != OutcomeNotified {
+		t.Fatalf("%+v", o)
+	}
+	// The file widens again before the person approves what they read.
+	f.push(".rhizome/tasks/tend.yml", strings.Replace(inPlaceTask, `["notes/**"]`, `["notes/**", "**"]`, 1))
+	run(t, f.host, "fetch", "--quiet", "origin")
+	err := f.svc.Approve(context.Background(), "tend")
+	if err == nil || !strings.Contains(err.Error(), "new inbox note") {
+		t.Fatalf("approving an unseen landing must fail, got %v", err)
+	}
+	st := mustState(t, f.svc)
+	if st.Landings["tend"].Land != "pr" || !slices.Contains(st.Widened["tend"].Writes, "**") {
+		t.Fatalf("nothing may be approved, and the new landing waits: %+v %+v", st.Landings, st.Widened)
+	}
+	var notes int
+	for _, it := range st.Items {
+		if it.Kind == KindAnnouncement && it.Active() && strings.Contains(it.Summary, "notes/**, **") {
+			notes++
+		}
+	}
+	if notes != 1 {
+		t.Fatalf("the new landing needs one notice, got %d: %+v", notes, st.Items)
+	}
+	if err := f.svc.Approve(context.Background(), "tend"); err != nil {
+		t.Fatalf("approving the landing the new notice showed works: %v", err)
+	}
+	if got := mustState(t, f.svc).Landings["tend"]; !slices.Contains(got.Writes, "**") {
+		t.Fatalf("%+v", got)
+	}
+}
+
+func TestDiscardNeverRemovesTheHostCheckout(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n")
+	f.svc = f.service(repoconfig.LocalTasksConfig{PrimaryRef: "origin/main", DefaultMode: "auto"}, false)
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	if o := f.pass(); o.Outcome != OutcomeReady {
+		t.Fatalf("%+v", o)
+	}
+	it := taskItems(mustState(t, f.svc), "tend")[0]
+	// The person makes the run's worktree the checkout tasks run in.
+	f.svc.opts.Env = vaultconfig.Env{CLIConfigFile: filepath.Join(t.TempDir(), "config.yml")}
+	if err := f.svc.SetHostCheckout(context.Background(), it.Worktree); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(it.Worktree, "notes/mine.md"), "the person's work\n")
+	if err := f.svc.Discard(context.Background(), it.ID); err == nil || !strings.Contains(err.Error(), "holds the checkout") {
+		t.Fatalf("Discard must refuse the host checkout, got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(it.Worktree, "notes/mine.md")); err != nil {
+		t.Fatalf("the host checkout must survive: %v", err)
+	}
+
+	// A worktree the person switched to their own branch is theirs too.
+	if err := f.svc.SetHostCheckout(context.Background(), ""); err != nil {
+		t.Fatal(err)
+	}
+	run(t, it.Worktree, "switch", "--quiet", "-c", "mine")
+	if err := f.svc.Discard(context.Background(), it.ID); err == nil || !strings.Contains(err.Error(), "is on mine") {
+		t.Fatalf("Discard must refuse a worktree on another branch, got %v", err)
+	}
+	run(t, it.Worktree, "switch", "--quiet", it.Branch)
+	if err := f.svc.Discard(context.Background(), it.ID); err != nil {
+		t.Fatalf("Discard removes the run's own worktree: %v", err)
+	}
+}
+
+func TestLandingsRunNoRepositoryHooks(t *testing.T) {
+	saved := openPullRequest
+	t.Cleanup(func() { openPullRequest = saved })
+	openPullRequest = func(context.Context, string, string, string, string, string) (string, error) {
+		return "https://example.test/pull/1", nil
+	}
+	for _, task := range []string{inPlaceTask, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n"} {
+		f := newLandFixture(t, task)
+		marker := filepath.Join(t.TempDir(), "hook-ran")
+		for _, hook := range []string{"post-checkout", "pre-commit", "commit-msg", "post-commit", "post-index-change", "reference-transaction", "pre-push"} {
+			path := filepath.Join(f.host, ".git", "hooks", hook)
+			writeFile(t, path, "#!/bin/sh\necho "+hook+" >> "+marker+"\n")
+			if err := os.Chmod(path, 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+		if o := f.pass(); o.Outcome != OutcomeLanded && o.Outcome != OutcomeReady {
+			t.Fatalf("%+v", o)
+		}
+		if ran, err := os.ReadFile(marker); err == nil {
+			t.Fatalf("hooks ran for %q: %s", strings.SplitN(task, "\n", 4)[2], ran)
+		}
+	}
+}
+
+// breakPush points the host's push URL at a missing repository, so pushes
+// fail while fetches still work, until the returned func undoes it.
+func (f *landFixture) breakPush() func() {
+	run(f.t, f.host, "config", "remote.origin.pushurl", filepath.Join(f.t.TempDir(), "missing.git"))
+	return func() { run(f.t, f.host, "config", "--unset", "remote.origin.pushurl") }
+}
+
+func TestInPlaceRecordsAReplayedCommitWhosePushFailed(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	var fixPush func()
+	f.onStep("push", func() {
+		f.push("other/race.md", "race\n")
+		fixPush = f.breakPush()
+	})
+	if o := f.pass(); !strings.Contains(o.Reason, "Push after rebasing failed") {
+		t.Fatalf("the replayed commit's push must fail: %+v", o)
+	}
+	head := run(t, f.host, "rev-parse", "HEAD")
+	if r := mustState(t, f.svc).Last["tend"]; r.Landed != head || !isAncestor(context.Background(), f.host, "origin/main", head) {
+		t.Fatalf("the record must name the replayed commit the branch holds, %s: %+v", short(head), r)
+	}
+	landingHook = nil
+	fixPush()
+	f.edits(map[string]string{"notes/b.md": "b\n"}, nil)
+	if o := f.pass(); o.Outcome != OutcomeLanded || o.Reason != "" {
+		t.Fatalf("the next run must push the replayed commit with its own: %+v", o)
+	}
+	if got := run(t, f.remote, "rev-parse", "main"); got != run(t, f.host, "rev-parse", "HEAD") {
+		t.Fatalf("the remote must hold both task commits, it is at %s", short(got))
+	}
+}
+
+func TestInPlacePushesTheCommitOfAStoppedLanding(t *testing.T) {
+	f := newLandFixture(t, inPlaceTask)
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	var fixPush func()
+	f.onStep("push", func() {
+		// The person stops the run as it pushes, and the push fails.
+		if err := f.svc.Store().Update(context.Background(), func(st *State) error {
+			st.Stopping = st.Running.ID
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		fixPush = f.breakPush()
+	})
+	f.pass()
+	if r := mustState(t, f.svc).Last["tend"]; r.Outcome != OutcomeStopped || r.Landed == "" {
+		t.Fatalf("the stopped run must record the commit it landed: %+v", r)
+	}
+	landingHook = nil
+	fixPush()
+	f.edits(map[string]string{"notes/b.md": "b\n"}, nil)
+	if o := f.pass(); o.Outcome != OutcomeLanded || o.Reason != "" {
+		t.Fatalf("the next run must push the stopped run's commit with its own: %+v", o)
+	}
+	if got := run(t, f.remote, "rev-parse", "main"); got != run(t, f.host, "rev-parse", "HEAD") {
+		t.Fatalf("the remote must hold both task commits, it is at %s", short(got))
+	}
+}
+
+func TestMergedPRRunMakesAnotherMachineSkipItsSlot(t *testing.T) {
+	f := newLandFixture(t, "name: Tend notes\nevery: 1h\nland: pr\nprompt: Tend the notes.\n")
+	cfg := repoconfig.LocalTasksConfig{PrimaryRef: "origin/main", DefaultMode: "auto"}
+	f.svc = f.service(cfg, false)
+	slot := "2026-11-23T05:00:00-05:00"
+	f.svc.slotFor = func(Definition, time.Time) string { return slot }
+	f.edits(map[string]string{"notes/a.md": "a\n"}, nil)
+	if o := f.pass(); o.Outcome != OutcomeReady {
+		t.Fatalf("%+v", o)
+	}
+	// The pull request merges.
+	run(t, f.host, "push", "--quiet", "origin", taskItems(mustState(t, f.svc), "tend")[0].Branch+":main")
+	repo, err := OpenRepo(context.Background(), f.other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent := &fakeAgent{}
+	other, err := New(Options{Repo: repo, Config: cfg, Agent: agent, Now: func() time.Time { return f.now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other.slotFor = f.svc.slotFor
+	summary, err := other.RunDue(context.Background())
+	if err != nil || len(summary.Outcomes) != 1 {
+		t.Fatalf("%+v %v", summary, err)
+	}
+	if o := summary.Outcomes[0]; o.Outcome != OutcomeSkipped || !strings.Contains(o.Reason, "already landed") || agent.calls() != 0 {
+		t.Fatalf("another machine must skip a slot whose pull request merged: %+v", o)
+	}
+}

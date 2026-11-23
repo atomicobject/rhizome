@@ -1,10 +1,13 @@
 package tasks
 
 import (
+	"slices"
+
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -53,6 +56,8 @@ const (
 	OutcomeInterrupted = "interrupted"
 	// OutcomeStopped is a run the person stopped (Service.Stop).
 	OutcomeStopped = "stopped"
+	// OutcomeLanded is an in-place run that committed its files.
+	OutcomeLanded = "landed"
 )
 
 // Run stages, recorded only on State.Running.
@@ -82,6 +87,14 @@ type RunRecord struct {
 	Changed        []string  `json:"changed,omitempty"`
 	// Missing names the requirements a failed run lacked (SPEC-0127 US11).
 	Missing []string `json:"missing,omitempty"`
+
+	// Landing (SPEC-0127 US12, US13): the run's land mode, the commit an
+	// in-place run made or pushed, a pr run's pull request, and the paths an
+	// in-place run left uncommitted.
+	Landing string   `json:"landing,omitempty"`
+	Landed  string   `json:"landed,omitempty"`
+	PR      string   `json:"pr,omitempty"`
+	Left    []string `json:"left,omitempty"`
 	// Holder names the run lock acquisition that started the run (PID and
 	// lock time), so Stop marks only its holder's run.
 	Holder string `json:"holder,omitempty"`
@@ -115,6 +128,29 @@ type State struct {
 	// Stopping is the run Stop was asked to end. Whichever process records
 	// that run records it as stopped.
 	Stopping string `json:"stopping,omitempty"`
+
+	// Landings is each task's landing as the person last saw or approved
+	// it; Widened holds a wider landing awaiting approval, which runs as
+	// notify (SPEC-0127 US12).
+	Landings map[string]Landing `json:"landings,omitempty"`
+	Widened  map[string]Landing `json:"widened,omitempty"`
+	// Leftover is the files each task's failed, stopped, or uncommitted
+	// in-place run left, by task.
+	Leftover map[string]Leftover `json:"leftoverFiles,omitempty"`
+	// Made is the in-place commits Rhizome landed on this machine, newest
+	// last, kept apart from the trimmed run history so commits that waited
+	// while push was off are still recognised as Rhizome's (US13).
+	Made []string `json:"madeCommits,omitempty"`
+}
+
+// Leftover is the files an in-place run left in one checkout: path -> the
+// content ("<mode> <object id>", "" when deleted). The task's next run
+// adopts a path only in that checkout and only while its content is still
+// that; otherwise the path is the person's.
+type Leftover struct {
+	// Checkout is the checkout's resolved path.
+	Checkout string            `json:"checkout"`
+	Files    map[string]string `json:"files"`
 }
 
 // PassError records a run-due pass that failed before running any task.
@@ -159,6 +195,10 @@ func (s *State) LastRun(task string) (RunRecord, bool) {
 // is this run. Retention trims history at the end of each run.
 func (s *State) Record(r RunRecord) {
 	r.Stage, r.Holder = "", ""
+	// A skipped slot's Landed is another machine's commit, not Rhizome's.
+	if r.Landing == taskdef.LandInPlace && r.Landed != "" && r.Outcome != OutcomeSkipped {
+		s.noteMade(r.Landed)
+	}
 	if s.Stopping != "" && r.ID == s.Stopping {
 		r.Outcome, r.Message, s.Stopping = OutcomeStopped, stoppedMessage, ""
 	}
@@ -332,4 +372,19 @@ var errLocked = errors.New("lock is held by another process")
 func (s *State) newItemID() string {
 	s.NextID++
 	return strconv.Itoa(s.NextID)
+}
+
+// maxMade bounds State.Made; a commit older than this many landings is long
+// since pushed or abandoned.
+const maxMade = 1000
+
+// noteMade records an in-place commit Rhizome landed.
+func (s *State) noteMade(c string) {
+	if slices.Contains(s.Made, c) {
+		return
+	}
+	s.Made = append(s.Made, c)
+	if over := len(s.Made) - maxMade; over > 0 {
+		s.Made = s.Made[over:]
+	}
 }

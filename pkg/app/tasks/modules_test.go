@@ -33,7 +33,7 @@ func TestModuleTasksGetQualifiedIDsAndSeparateFolders(t *testing.T) {
 	date := svc.opts.Now().Format("2006-01-02")
 	var dirs []string
 	for _, def := range defs {
-		branch, wt, err := svc.createWorktree(ctx, def, commit)
+		branch, wt, err := svc.createWorktree(ctx, def, commit, "core.hooksPath="+t.TempDir())
 		if err != nil {
 			t.Fatal(err)
 		}

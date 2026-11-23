@@ -100,6 +100,11 @@ type Definition struct {
 	Requires Requires `yaml:"requires,omitempty"`
 	Deny     []string `yaml:"deny,omitempty"`
 
+	// Landing (SPEC-0127 US12, US13): where a background run's changes go.
+	// ParseDefinition resolves Land's default.
+	Land   string   `yaml:"land,omitempty"`
+	Writes []string `yaml:"writes,omitempty"`
+
 	Cadence time.Duration `yaml:"-"`
 	Limit   time.Duration `yaml:"-"`
 }
@@ -172,6 +177,9 @@ func ParseDefinition(filePath string, data []byte) (Definition, error) {
 		return Definition{}, errors.New("a task needs a check, a prompt, or both")
 	}
 	if err := validateRequires(def); err != nil {
+		return Definition{}, err
+	}
+	if err := def.parseLanding(); err != nil {
 		return Definition{}, err
 	}
 	def.Limit = defaultTimeout

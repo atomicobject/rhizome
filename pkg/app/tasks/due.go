@@ -24,9 +24,10 @@ const (
 	BlockedFetchFailed = "fetch-failed"
 )
 
-// fetchTimeout bounds the fetch before a pass; a hung remote then falls
-// back to the last fetched ref.
-const fetchTimeout = 60 * time.Second
+// fetchTimeout bounds the fetch before a pass, where a hung remote falls
+// back to the last fetched ref, and every other command that talks to a
+// remote. Tests shorten it.
+var fetchTimeout = 60 * time.Second
 
 // dueTask is one task's due state in a pass.
 type dueTask struct {
@@ -102,7 +103,7 @@ func (s *Service) fetchPrimary(ctx context.Context, ref string) {
 	}
 	fetchCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
-	_, err = s.opts.Repo.git(fetchCtx, "fetch", "--quiet", "--no-tags", name, "+refs/heads/"+branch+":"+full)
+	_, err = s.opts.Repo.git(fetchCtx, "-c", s.passNoHooks(), "fetch", "--quiet", "--no-tags", name, "+refs/heads/"+branch+":"+full)
 	status := &FetchStatus{At: s.opts.Now()}
 	if err != nil {
 		status.Error = redactURLCredentials(err.Error())
