@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/atomicobject/rhizome/pkg/logging"
 )
@@ -102,21 +103,58 @@ func openRuntimeLog(vaultRoot string) (*os.File, error) {
 
 // StartDetached starts executable with args in dir, detached from this
 // process the way a headless runtime is (its own session or process group,
-// stdio on the null device), and does not wait for it.
+// stdio on the null device), and does not wait for it. A long-lived caller
+// reaps it when it exits, so PID checks (the run lock's, Stop's) see it end.
 func StartDetached(executable, dir string, args ...string) error {
+	_, err := StartDetachedTo(nil, executable, dir, args...)
+	return err
+}
+
+// Detached is a child StartDetachedTo started.
+type Detached struct {
+	PID       int
+	StartedAt time.Time
+	// Done is closed once the child has exited and been reaped.
+	Done <-chan struct{}
+}
+
+// Alive reports whether the child has not exited; a nil child has.
+func (d *Detached) Alive() bool {
+	if d == nil {
+		return false
+	}
+	select {
+	case <-d.Done:
+		return false
+	default:
+		return true
+	}
+}
+
+// StartDetachedTo is StartDetached with stdout and stderr appended to
+// output (nil discards them), returning the child so the caller can tell
+// when it exits.
+func StartDetachedTo(output *os.File, executable, dir string, args ...string) (*Detached, error) {
 	cmd := exec.Command(executable, args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), skipRepoDelegateEnv+"=1")
 	devNull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
 	if err != nil {
-		return fmt.Errorf("open %s: %w", os.DevNull, err)
+		return nil, fmt.Errorf("open %s: %w", os.DevNull, err)
 	}
 	defer devNull.Close()
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = devNull, devNull, devNull
+	if output != nil {
+		cmd.Stdout, cmd.Stderr = output, output
+	}
 	detachProcess(cmd)
 	if err := cmd.Start(); err != nil {
-		return err
+		return nil, err
 	}
-	_ = cmd.Process.Release()
-	return nil
+	done := make(chan struct{})
+	go func() {
+		_ = cmd.Wait()
+		close(done)
+	}()
+	return &Detached{PID: cmd.Process.Pid, StartedAt: time.Now(), Done: done}, nil
 }

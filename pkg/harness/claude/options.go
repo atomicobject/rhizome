@@ -33,7 +33,11 @@ func approvalResponse(id string, request controlRequest, decision harness.Decisi
 
 func sessionArgs(options harness.SessionOptions, cwd string) ([]string, error) {
 	mode, dangerous := permissionMode(options.PermissionMode)
-	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--strict-mcp-config", "--permission-prompt-tool", "stdio", "--permission-mode", mode}
+	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages"}
+	if !options.UserMCPConfig {
+		args = append(args, "--strict-mcp-config")
+	}
+	args = append(args, "--permission-prompt-tool", "stdio", "--permission-mode", mode)
 	if dangerous {
 		args = append(args, "--dangerously-skip-permissions")
 	}

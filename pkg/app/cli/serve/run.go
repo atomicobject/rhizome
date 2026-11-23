@@ -294,6 +294,7 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 		Hooks:    hooks,
 	})
 
+	taskHosts := &web.TaskHosts{}
 	modules := moduleReadiness(rt.VaultPath, rt.VaultDef.Name, rt.NoteFormatRegistry(), func() { rt.PublishGlobalEvent(appruntime.GlobalEventStarterReadinessChanged, nil) })
 	srv, err := web.NewServer(serveCtx, web.Config{
 		Vault:                     rt.Vault,
@@ -309,6 +310,7 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 		RuntimeControl:            control,
 		ModuleReadiness:           modules,
 		TasksOpener:               opts.OpenTasks,
+		TaskHosts:                 taskHosts,
 	}, web.Assets())
 	if err != nil {
 		return err
@@ -415,18 +417,21 @@ func Run(ctx context.Context, opts Options) (resultErr error) {
 			stopServe()
 		})
 	}()
-	if opts.RunTasks != nil {
-		first, interval := defaultTasksFirstDelay, defaultTasksInterval
-		if opts.TasksFirstDelay > 0 {
-			first = opts.TasksFirstDelay
+	if opts.RunTasks != nil && opts.OpenTasks != nil {
+		interval := tasksCheckInterval
+		if opts.TasksCheckInterval > 0 {
+			interval = opts.TasksCheckInterval
 		}
-		if opts.TasksInterval > 0 {
-			interval = opts.TasksInterval
+		dispatch := &taskDispatch{
+			hosts: taskHosts,
+			open:  func(ctx context.Context) (web.TasksAPI, error) { return opts.OpenTasks(ctx, vaultPath) },
+			start: func() (*appruntime.Detached, error) { return opts.RunTasks(vaultPath) },
+			now:   time.Now,
 		}
 		bg.Add(1)
 		go func() {
 			defer bg.Done()
-			runTasksTicker(serveCtx, vaultPath, first, interval, opts.RunTasks)
+			runTaskChecks(serveCtx, interval, dispatch)
 		}()
 	}
 	if opts.Headless {

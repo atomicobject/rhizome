@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/tasks"
 	"github.com/stretchr/testify/require"
 )
@@ -30,6 +31,8 @@ type fakeTasks struct {
 	calls      []string
 	snoozeTill time.Time
 	prompt     string
+	host       tasks.HostStatus
+	stopped    bool
 }
 
 func (f *fakeTasks) record(format string, args ...any) {
@@ -96,6 +99,26 @@ func (f *fakeTasks) SetPaused(_ context.Context, paused bool) error {
 	return f.actionErr
 }
 
+func (f *fakeTasks) PauseUntil(_ context.Context, until time.Time) error {
+	f.record("pause until %s", until.UTC().Format(time.RFC3339))
+	return f.actionErr
+}
+
+func (f *fakeTasks) HostStatus(context.Context) (tasks.HostStatus, error) {
+	return f.host, f.statusErr
+}
+
+func (f *fakeTasks) NextDueAt(context.Context) (time.Time, bool, error) {
+	return time.Time{}, false, nil
+}
+
+func (f *fakeTasks) RunLockHeld() bool { return false }
+
+func (f *fakeTasks) Stop(_ context.Context, wait time.Duration) (bool, error) {
+	f.record("stop %s", wait)
+	return f.stopped, f.actionErr
+}
+
 func (f *fakeTasks) RecordLaunchError(_ context.Context, itemID, reason string) error {
 	f.record("launch error %s %s", itemID, reason)
 	return nil
@@ -126,9 +149,9 @@ func newTasksTestServer(api *fakeTasks) (*Server, *[]launch) {
 		VaultPath:   "/repo/vault",
 		TasksOpener: func(context.Context, string) (TasksAPI, error) { return api, nil },
 	}}
-	s.tasksLaunch = func(vault, item string) error {
+	s.tasksLaunch = func(vault, item string) (*appruntime.Detached, error) {
 		*launches = append(*launches, launch{vault, item})
-		return nil
+		return nil, nil
 	}
 	return s, launches
 }
@@ -263,7 +286,7 @@ func TestTasksRunLaunchesDetachedAfterPrecheck(t *testing.T) {
 
 	api.precheck = nil
 	api.calls = nil
-	s.tasksLaunch = func(string, string) error { return errors.New("no rzm") }
+	s.tasksLaunch = func(string, string) (*appruntime.Detached, error) { return nil, errors.New("no rzm") }
 	code, _ = serveTasks(t, s, http.MethodPost, "/api/tasks/items/4/run", "")
 	require.Equal(t, http.StatusInternalServerError, code)
 	require.Equal(t, []string{"precheck 4", "launch error 4 no rzm"}, api.calls, "a failed spawn is recorded on the item")
@@ -278,10 +301,22 @@ func TestTasksRunATaskWithoutAnItem(t *testing.T) {
 	require.Equal(t, []launch{{"/repo/vault", "7"}}, *launches)
 	require.Equal(t, []string{"request compounding/mine", "precheck 7"}, api.calls)
 
-	api.actionErr = errors.New("task has no prompt")
-	code, _ = serveTasks(t, s, http.MethodPost, "/api/tasks/run/compounding%2Fmine", "")
-	require.Equal(t, http.StatusBadRequest, code)
-	require.Len(t, *launches, 1, "a refused request must not spawn")
+	// Desktop's Run now takes the same path.
+	api.calls = nil
+	code, _ = serveTasks(t, s, http.MethodPost, "/api/tasks/tasks/compounding%2Fmine/run", "")
+	require.Equal(t, http.StatusOK, code)
+	require.Equal(t, []string{"request compounding/mine", "precheck 7"}, api.calls)
+
+	for _, target := range []string{"/api/tasks/run/compounding%2Fmine", "/api/tasks/tasks/compounding%2Fmine/run"} {
+		api.actionErr = errors.New("item 7 already has this task ready; finish or discard it first")
+		code, _ = serveTasks(t, s, http.MethodPost, target, "")
+		require.Equal(t, http.StatusConflict, code, "a blocked task is a conflict")
+		api.actionErr, api.precheck = nil, tasks.ErrBusy
+		code, _ = serveTasks(t, s, http.MethodPost, target, "")
+		require.Equal(t, http.StatusConflict, code, "a busy run lock is a conflict")
+		api.precheck = nil
+	}
+	require.Len(t, *launches, 2, "a refused request must not spawn")
 }
 
 func TestTasksActions(t *testing.T) {

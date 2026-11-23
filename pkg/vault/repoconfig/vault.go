@@ -28,6 +28,7 @@ type CliConfig struct {
 	Agent            *AgentUserConfig                    `json:"agent,omitempty" yaml:"agent,omitempty"`
 	CredentialSource *CredentialSource                   `json:"credential_source,omitempty" yaml:"credential_source,omitempty"`
 	CredentialSkips  map[string]bool                     `json:"credential_skips,omitempty" yaml:"credentialSkips,omitempty"`
+	Tasks            *TasksUserConfig                    `json:"tasks,omitempty" yaml:"tasks,omitempty"`
 }
 
 // CredentialSource stores non-secret import references only in user configuration.

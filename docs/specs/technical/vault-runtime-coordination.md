@@ -4,7 +4,7 @@ id: SPEC-0104
 aliases: [SPEC-0104, vault-runtime-coordination]
 summary: "One auto-started vault runtime per vault root owns watching, scheduling, and indexing; every client finds or starts it safely, `rzm index` and code mode execute inside it, and the cross-process lock protocol becomes diagnosable and prompt."
 spec-status: active
-last-updated: 2026-10-04
+last-updated: 2026-11-22
 ---
 
 # Vault runtime coordination
@@ -143,6 +143,46 @@ Prior art: Watchman's per-root daemon started on demand by clients, and `git mai
 - Yielding holders poll for priority every second; the priority file is refreshed and expires as today.
   verification:: existing yield tests adjusted to the new interval.
 
+### US7 - Rhizome Desktop holds runtimes that host scheduled tasks
+
+- id:: ^SPEC-0104-US7
+- summary:: On a machine where the person turned on "Run tasks on this machine", Rhizome Desktop keeps that repository's runtime up with no window open, and scheduled tasks dispatch only while it does.
+- status:: draft
+
+#### Acceptance Criteria
+
+- Rhizome Desktop runs a host loop independent of windows. At launch and on each presence poll it ensures a runtime for every repository whose per-person, per-machine "run tasks on this machine" setting is on, and holds one open host stream (`GET /api/tasks/host`) to each. The stream counts as an open event stream, so the runtime does not idle-exit while it is held. There is no separate no-idle-exit mode: when the app exits or crashes, the stream closes and the runtime idle-exits as usual.
+  verification:: serve test that a held host stream keeps a shortened idle timeout from firing and that closing it lets the runtime exit.
+- A runtime dispatches scheduled tasks only while at least one host stream is open and it has not been drained. A runtime started by the CLI, MCP, or a window alone runs no scheduled tasks. A person can still run a task explicitly with `rzm tasks run`.
+  verification:: serve test that the wall-clock check starts `rzm tasks run-due --host` only while a host stream is held.
+- The runtime checks for due tasks against the wall clock every 30 seconds instead of a fixed long interval, because Go timers pause during macOS sleep. A check with nothing due starts no process.
+  verification:: serve test with an injected clock.
+- `POST /api/tasks/host/drain` stops new dispatch for the runtime. `POST /api/tasks/stop` stops the active run by signalling the process group of the `run.lock` holder (the detached `run-due` survives `rzm stop --all`), waits for it to exit, and records the run as stopped. Quit Rhizome Completely drains, then waits for or stops the active run, then stops the runtimes the app holds.
+  verification:: integration test that stop ends a running fixture task's whole process group and records it.
+- OS logout, restart, shutdown, Dock Quit, and updater restarts terminate Rhizome Desktop through the native terminate path, which the app never prevents. On that path it stops the runtimes it holds and any active task without prompting; the run is recorded as interrupted.
+  verification:: code-path review of `RunEvent::Exit` handling; desktop test that exit does not call `prevent_exit()`.
+
+### US8 - Rhizome Desktop keeps running in the menu bar
+
+- id:: ^SPEC-0104-US8
+- summary:: On macOS, quitting with ⌘Q closes windows but keeps a menu bar host running tasks; Quit Rhizome Completely exits; reopening restores the windows that were open.
+- status:: draft
+
+#### Acceptance Criteria
+
+- The Dock icon shows only while a window is open. Closing the last window, or **Quit Rhizome** (⌘Q), switches the app to a menu-bar-only (accessory) app that keeps the host loop running. ⌘Q first stashes the window session (geometry and open windows), then closes the windows; the first time, a one-time notice explains that Rhizome keeps running in the menu bar.
+  verification:: real-app check on macOS: two windows, ⌘Q, then double-clicking the app restores both.
+- **Quit Rhizome Completely** asks whether to wait for or stop a running task, then exits through the normal terminate path. A complete quit, logout, or update before the first window opens never overwrites the saved layout.
+  verification:: desktop unit tests of the session stash, resume, and quit transitions; real-app check that login → Quit Completely → relaunch restores the saved layout.
+- One resume step restores every stashed window and returns the app to a regular Dock app. Every path that opens a window calls it: Reopen (double-clicking the app), Open Rhizome in the menu bar menu, and the other window openers.
+  verification:: desktop unit tests.
+- Launch at login (a setting, default off) and the updater's restart start with no windows and keep the saved session pending.
+  verification:: real-app check of launch at login.
+- The setting "Keep running in the menu bar" defaults on. Off, ⌘Q quits completely and the menu bar menu has no separate complete-quit item.
+  verification:: desktop unit test.
+- The menu bar menu shows, per hosted repository, the next task and when it runs, a running indicator, the inbox count, and the last failure, read from the runtime's host stream rather than from webviews. It offers Run now, Pause tasks (one hour or until tomorrow), Open Rhizome, and Quit Rhizome Completely. New needs-attention and failed runs raise a macOS notification once each.
+  verification:: desktop unit tests over a fake host status; real-app check.
+
 ## Requirements
 
 ### Runtime process
@@ -190,7 +230,7 @@ Prior art: Watchman's per-root daemon started on demand by clients, and `git mai
 
 ### Lifecycle
 
-- Headless idle timeout defaults to one hour and is configurable through `runtime.idleTimeout`; activity means any control-API or agent-operation request or open event stream. Attached runtimes never idle-exit.
+- Headless idle timeout defaults to one hour and is configurable through `runtime.idleTimeout`; activity means any control-API or agent-operation request or open event stream. Attached runtimes never idle-exit. A Desktop host stream (US7) is an open event stream.
 - `rzm stop` MUST use the shutdown endpoint, wait for the runtime to exit, and for headless runtimes MUST terminate after a 10 second grace period. Exit means the PID is gone or the runtime released a `runtime.lock` that named it: an exited runtime whose parent has not reaped it still has a PID. `rzm stop --all` uses the global registry.
 - Build-identity mismatch: a client MUST replace a headless runtime and MUST NOT replace an attached one.
 - A runtime MUST shut down when its vault root is removed.
@@ -199,7 +239,7 @@ Prior art: Watchman's per-root daemon started on demand by clients, and `git mai
 
 - Spawn, liveness, identity, and lock reclaim MUST have Unix and Windows implementations with tests that run on the existing `ubuntu-latest` and `windows-latest` CI matrix. Detached-spawn tests use the helper-process pattern so they do not require a separately built binary.
 - Race coverage MUST include concurrent ensure, concurrent `rzm index`, election with a stale lock, PID reuse (manifest PID alive but instance id mismatch), and priority yield latency.
-- The lifecycle MUST be exercised through the real binary on both CI platforms (`tests/integration/runtime`): concurrent `rzm index` on a fresh vault sharing one runtime, stop and restart, recovery after the runtime is killed, auto-start disabled, rebuild stop and restart, an attached serve replacing a headless runtime and a second attached serve exiting 3, `rzm start` taking over a headless runtime and joining an attached one, idle exit, `rzm index` racing `rzm stop`, index freshness after an edit with no explicit index, `rzm new-worktree` from a source with a live runtime, and `rzm stop --all`.
+- The lifecycle MUST be exercised through the real binary on both CI platforms (`tests/integration/runtime`): concurrent `rzm index` on a fresh vault sharing one runtime, stop and restart, recovery after the runtime is killed, auto-start disabled, rebuild stop and restart, an attached serve replacing a headless runtime and a second attached serve exiting 3, `rzm start` taking over a headless runtime and joining an attached one, idle exit, `rzm index` racing `rzm stop`, index freshness after an edit with no explicit index, `rzm new-worktree` from a source with a live runtime, `rzm stop --all`, and a Desktop host stream (US7) holding a headless runtime past its idle timeout, draining, and releasing it to idle-exit.
 - A runtime MUST report ready on a vault whose configuration turns embeddings off; only a semantic capability that was requested and failed blocks readiness.
 
 ### Configuration

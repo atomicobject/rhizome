@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -17,8 +19,9 @@ import (
 	"github.com/atomicobject/rhizome/pkg/app/tasks"
 )
 
-// TasksAPI is the part of the scheduled-tasks service the Tasks page uses
-// (SPEC-0127 US8). *tasks.Service implements it.
+// TasksAPI is the part of the scheduled-tasks service the Tasks page
+// (SPEC-0127 US8), the Desktop host stream, and the runtime's due-task
+// check (SPEC-0104 US7) use. *tasks.Service implements it.
 type TasksAPI interface {
 	Status(ctx context.Context) (tasks.Report, error)
 	LiveState(ctx context.Context) (tasks.LiveState, error)
@@ -34,8 +37,13 @@ type TasksAPI interface {
 	Done(ctx context.Context, itemID string) error
 	SetMode(ctx context.Context, task, mode string) error
 	SetPaused(ctx context.Context, paused bool) error
+	PauseUntil(ctx context.Context, until time.Time) error
 	RecordLaunchError(ctx context.Context, itemID, reason string) error
 	CopyPrompt(ctx context.Context, itemID string) (string, error)
+	HostStatus(ctx context.Context) (tasks.HostStatus, error)
+	NextDueAt(ctx context.Context) (time.Time, bool, error)
+	RunLockHeld() bool
+	Stop(ctx context.Context, wait time.Duration) (bool, error)
 }
 
 var (
@@ -45,12 +53,12 @@ var (
 
 // launchTaskRun starts `rzm tasks run <item>` detached in the vault, the
 // way the runtime starts `rzm tasks run-due`.
-func launchTaskRun(vaultPath, itemID string) error {
+func launchTaskRun(vaultPath, itemID string) (*appruntime.Detached, error) {
 	exe, err := os.Executable()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return appruntime.StartDetached(exe, vaultPath, "tasks", "run", itemID)
+	return appruntime.StartDetachedTo(nil, exe, vaultPath, "tasks", "run", itemID)
 }
 
 func launchTaskTest(vaultPath, file string) error {
@@ -143,7 +151,8 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		serve = s.taskItemAction(w, r, itemID, action)
-	case len(parts) == 2 && parts[0] == "run" && post:
+	case post && (len(parts) == 2 && parts[0] == "run" || len(parts) == 3 && parts[0] == "tasks" && parts[2] == "run"):
+		// Run now: `run/<task>` is the Tasks page's, `tasks/<task>/run` Desktop's.
 		task := parts[1]
 		if !tasks.ValidID(task) {
 			writeError(w, http.StatusBadRequest, errors.New("invalid task id"))
@@ -152,7 +161,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		serve = func(api TasksAPI) {
 			itemID, err := api.RequestRun(r.Context(), task)
 			if err != nil {
-				writeTasksAction(w, err)
+				writeError(w, http.StatusConflict, err)
 				return
 			}
 			s.launchItemRun(w, r.Context(), api, itemID)
@@ -199,9 +208,41 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		serve = func(api TasksAPI) { writeTasksAction(w, api.SetMode(r.Context(), task, req.Mode)) }
-	case len(parts) == 1 && (parts[0] == "pause" || parts[0] == "resume") && post:
-		paused := parts[0] == "pause"
-		serve = func(api TasksAPI) { writeTasksAction(w, api.SetPaused(r.Context(), paused)) }
+	case len(parts) == 1 && parts[0] == "pause" && post:
+		var req struct {
+			Until *time.Time `json:"until"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+			writeError(w, http.StatusBadRequest, errors.New(`pause takes no body or {"until": RFC3339}`))
+			return
+		}
+		serve = func(api TasksAPI) {
+			if req.Until == nil {
+				writeTasksAction(w, api.SetPaused(r.Context(), true))
+				return
+			}
+			writeTasksAction(w, api.PauseUntil(r.Context(), *req.Until))
+		}
+	case len(parts) == 1 && parts[0] == "resume" && post:
+		serve = func(api TasksAPI) { writeTasksAction(w, api.SetPaused(r.Context(), false)) }
+	case len(parts) == 1 && parts[0] == "host" && get:
+		serve = func(api TasksAPI) { s.serveTaskHost(w, r, api) }
+	case len(parts) == 2 && parts[0] == "host" && parts[1] == "drain" && post:
+		serve = func(api TasksAPI) { s.drainTaskHost(w, r, api) }
+	case len(parts) == 1 && parts[0] == "stop" && post:
+		serve = func(api TasksAPI) {
+			stopped, err := s.stopTaskRun(r.Context(), api)
+			writeTasksResult(w, map[string]bool{"stopped": stopped}, err)
+		}
+	case len(parts) == 1 && parts[0] == "machine" && post:
+		var req struct {
+			RunHere *bool `json:"runHere"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RunHere == nil {
+			writeError(w, http.StatusBadRequest, errors.New(`machine needs {"runHere": bool}`))
+			return
+		}
+		serve = func(api TasksAPI) { s.setTaskMachine(w, r, api, *req.RunHere) }
 	case get || post:
 		writeError(w, http.StatusNotFound, errors.New("unknown tasks route"))
 		return
@@ -220,11 +261,23 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 	serve(api)
 }
 
+// serveTasksStatus answers the status report. Inside a runtime it also
+// knows whether a Desktop host holds it: with tasks on for this machine and
+// no host stream, a scheduled task that could otherwise run is blocked by
+// no-host. The CLI cannot know, so its report never says so.
 func (s *Server) serveTasksStatus(w http.ResponseWriter, r *http.Request, api TasksAPI) {
 	report, err := api.Status(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+	if report.RunHere && !s.cfg.TaskHosts.Held() {
+		report.Tasks = slices.Clone(report.Tasks)
+		for i := range report.Tasks {
+			if t := &report.Tasks[i]; t.Scheduled && t.BlockedBy == "" {
+				t.BlockedBy = tasks.BlockedNoHost
+			}
+		}
 	}
 	writeJSON(w, http.StatusOK, report)
 }
@@ -257,20 +310,32 @@ func (s *Server) taskItemAction(w http.ResponseWriter, r *http.Request, itemID, 
 }
 
 // launchItemRun starts an item's run in a separate process and answers with
-// when it launched and which item it runs.
+// when it launched and which item it runs. Prechecking and starting hold the
+// runtime's dispatch lock (TaskHosts.Launch), so a second request before the
+// first run takes the run lock answers 409 instead of starting another.
 func (s *Server) launchItemRun(w http.ResponseWriter, ctx context.Context, api TasksAPI, itemID string) {
-	if err := api.PrecheckRun(ctx, itemID); err != nil {
-		writeError(w, http.StatusConflict, err)
-		return
-	}
 	launchedAt := time.Now().UTC()
 	launch := s.tasksLaunch
 	if launch == nil {
 		launch = launchTaskRun
 	}
-	if err := launch(s.cfg.VaultPath, itemID); err != nil {
-		_ = api.RecordLaunchError(ctx, itemID, err.Error())
-		writeError(w, http.StatusInternalServerError, fmt.Errorf("start task run: %w", err))
+	var spawnErr error
+	err := s.cfg.TaskHosts.Launch(func() (*appruntime.Detached, error) {
+		if err := api.PrecheckRun(ctx, itemID); err != nil {
+			return nil, err
+		}
+		launchedAt = time.Now().UTC()
+		child, err := launch(s.cfg.VaultPath, itemID)
+		spawnErr = err
+		return child, err
+	})
+	switch {
+	case spawnErr != nil:
+		_ = api.RecordLaunchError(ctx, itemID, spawnErr.Error())
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("start task run: %w", spawnErr))
+		return
+	case err != nil:
+		writeError(w, http.StatusConflict, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"launchedAt": launchedAt.Format(time.RFC3339Nano), "item": itemID})

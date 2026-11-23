@@ -10,6 +10,7 @@ import {
   type AppSettings,
   type GlobalInfo,
   type LinkInfo,
+  type MenuBarSettings,
   type RenderProfiling,
   type UpdateStatus,
 } from "./api";
@@ -97,6 +98,64 @@ function Diagnostics() {
             onChange={(e) => void toggle(e.target.checked)}
           />
           Record render timings
+        </label>
+      </div>
+      {error && (
+        <p className="error-text" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** macOS menu bar hosting of scheduled tasks (SPEC-0104 US8). */
+function MenuBar() {
+  const [settings, setSettings] = useState<MenuBarSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    void request("menu-bar-settings", {})
+      .then(setSettings)
+      .catch((cause) => setError(failure(cause).message));
+  }, []);
+  async function change(next: Partial<MenuBarSettings>) {
+    setSaving(true);
+    setError("");
+    try {
+      setSettings(await request("set-menu-bar-settings", next));
+    } catch (cause) {
+      setError(failure(cause).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+  if (!settings && !error) return null;
+  return (
+    <div className="setting-group">
+      <h2>Menu bar</h2>
+      <p>
+        Rhizome runs scheduled tasks from the menu bar while its windows are closed. Quit Rhizome
+        Completely stops them.
+      </p>
+      <div className="inline-choices">
+        <label>
+          <input
+            type="checkbox"
+            checked={settings?.keepInMenuBar ?? true}
+            disabled={!settings || saving}
+            onChange={(e) => void change({ keepInMenuBar: e.target.checked })}
+          />
+          Keep running in the menu bar when you quit
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={settings?.launchAtLogin ?? false}
+            disabled={!settings || saving}
+            onChange={(e) => void change({ launchAtLogin: e.target.checked })}
+          />
+          Launch at login, in the menu bar
         </label>
       </div>
       {error && (
@@ -262,6 +321,7 @@ export function Settings({
         {info?.path && <span className="badge">{info.bundled ? "Bundled" : "Selected"}</span>}
       </div>
       <Appearance settings={appearance} onChange={onAppearance} />
+      {window.__RHIZOME_MACOS__ !== false && <MenuBar />}
       <div className="setting-group">
         <h2>Updates</h2>
         <p role="status">{updateText(update)}</p>

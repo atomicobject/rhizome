@@ -198,9 +198,13 @@ Admins set per-provider daily budgets with `rzm auth admin config --server <gate
 | `rzm tasks status` | Each task's mode, schedule, recent token use, and problems |
 | `rzm tasks inbox` | Items that need you |
 | `rzm tasks run --task <task>` | Run one task now, check first |
+| `rzm tasks stop [--wait 10s]` | Stop the task run in progress and record it as stopped |
 | `rzm tasks start <item>` | Open your agent harness on an inbox item |
 | `rzm tasks mode <task> auto\|notify\|off\|default` | Your own mode for a task |
-| `rzm tasks pause`, `rzm tasks resume` | Stop or restart all background task work for you in this repository |
+| `rzm tasks pause [--for 1h \| --until <time>]`, `rzm tasks resume` | Stop or restart all background task work for you in this repository, optionally until a time |
+| `rzm tasks machine on\|off [--checkout <path>]` | Run this repository's scheduled tasks on this machine, from the checkout you name; off by default |
+| `rzm tasks hosts --json` | The repositories whose tasks run on this machine, for Rhizome Desktop |
+| `rzm tasks doctor [task]` | Check what tasks need here: commands, harness sign-in, MCP servers, trust, fetch, push, Obsidian Git |
 
 [Scheduled tasks](scheduled-tasks-guide.md) covers declaring tasks and every state.
 

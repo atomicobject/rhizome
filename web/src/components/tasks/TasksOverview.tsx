@@ -7,8 +7,10 @@ import { PauseIcon, PlayIcon } from "./TaskIcons";
 import { navigateTasks, tasksHref } from "./tasksRoute";
 import {
   formatAgo,
+  formatDateTime,
   formatRunAge,
   formatDue,
+  formatCadence,
   formatEvery,
   formatRelative,
   itemStatePresentation,
@@ -145,7 +147,9 @@ export function TasksNotices({
         <div className="banner task-notice" role="status">
           <StatusMark tone="muted" label="Paused" />
           <p className="banner__text">
-            Background work is paused. Due tasks wait until you resume.
+            {report.pausedUntil
+              ? `Background work is paused until ${formatDateTime(report.pausedUntil)}.`
+              : "Background work is paused. Due tasks wait until you resume."}
           </p>
           <button type="button" className="button" disabled={pausePending} onClick={onResume}>
             <PlayIcon />
@@ -202,8 +206,9 @@ function FailureBanner({ tasks }: { tasks: TaskStatus[] }) {
   );
 }
 
-// The runner writes 'New task "Name" runs every 7d in notify mode. <purpose>'.
-const ANNOUNCEMENT_PREFIX = /^New task ".*?" runs every \S+ in \S+ mode\.\s*/;
+// The runner writes 'New task "Name" runs every 7d in notify mode. <purpose>',
+// or 'runs weekdays at 05:00 in ...' for a schedule.
+const ANNOUNCEMENT_PREFIX = /^New task ".*?" runs .+? in \S+ mode\.\s*/;
 
 function announcementText(item: TaskItem) {
   return item.summary || item.reason || item.message || "";
@@ -307,7 +312,7 @@ function TaskRow({
             <span className="task-table__none">—</span>
           )}
         </td>
-        <td className="task-table__time is-optional">{formatEvery(task.every)}</td>
+        <td className="task-table__time is-optional">{task.schedule || formatEvery(task.every)}</td>
         <td>
           {last && task.lastRun ? (
             <span className="task-table__last">
@@ -335,7 +340,7 @@ function TaskRow({
           <td colSpan={6}>
             <code>{task.id}</code>
             <p>
-              Runs every {formatEvery(task.every)} in {MODE_LABELS[task.mode] ?? task.mode} mode.
+              Runs {formatCadence(task)} in {MODE_LABELS[task.mode] ?? task.mode} mode.
               {purpose ? ` ${purpose}` : ""}
             </p>
             {onDismiss ? (
@@ -355,12 +360,40 @@ function TaskRow({
   );
 }
 
+/** "Run tasks on this machine": scheduled tasks run here only while it is on. */
+function RunHereToggle({
+  runHere,
+  pending,
+  onChange,
+}: {
+  runHere: boolean;
+  pending: boolean;
+  onChange: (runHere: boolean) => void;
+}) {
+  return (
+    <label
+      className="task-run-here"
+      title="Scheduled tasks run on a machine only while Rhizome Desktop runs there with this on"
+    >
+      <input
+        type="checkbox"
+        checked={runHere}
+        disabled={pending}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      Run tasks on this machine
+    </label>
+  );
+}
+
 export function TasksOverview({
   report,
   onOpen,
   pausePending,
   onTogglePause,
   onResume,
+  machinePending = false,
+  onRunHere,
   error,
   announcements = [],
   onDismiss,
@@ -372,6 +405,8 @@ export function TasksOverview({
   pausePending: boolean;
   onTogglePause: () => void;
   onResume: () => void;
+  machinePending?: boolean;
+  onRunHere?: (runHere: boolean) => void;
   error?: ReactNode;
   /**
    * New-task notices and open items of tasks no longer registered; both count
@@ -404,6 +439,13 @@ export function TasksOverview({
           </span>
           <div className="view-header__actions">
             <SourceDetails report={report} />
+            {report.runHere !== undefined && onRunHere ? (
+              <RunHereToggle
+                runHere={report.runHere}
+                pending={machinePending}
+                onChange={onRunHere}
+              />
+            ) : null}
             <PauseButton paused={report.paused} pending={pausePending} onToggle={onTogglePause} />
           </div>
         </div>

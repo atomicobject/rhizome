@@ -93,6 +93,9 @@ func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
 		return Outcome{}, notStartedError{err}
 	}
 	defer s.end(ctx, a)
+	if a.missing = s.missingRequirements(ctx, def); len(a.missing) > 0 {
+		return s.fail(ctx, def, a, itemID, commit, requirementsMessage(a.missing), 0), nil
+	}
 	if def.Check != nil {
 		// The work uses fresh context, and a check that failed must pass
 		// before any agent work starts.
@@ -352,7 +355,18 @@ func (s *Service) SetMode(ctx context.Context, task, mode string) error {
 // SetPaused pauses or resumes all background work for the person.
 func (s *Service) SetPaused(ctx context.Context, paused bool) error {
 	return s.store.Update(ctx, func(st *State) error {
-		st.Paused = paused
+		st.Paused, st.PausedUntil = paused, time.Time{}
+		return nil
+	})
+}
+
+// PauseUntil pauses all background work for the person until a time.
+func (s *Service) PauseUntil(ctx context.Context, until time.Time) error {
+	if !until.After(s.opts.Now()) {
+		return errors.New("pause until a time in the future")
+	}
+	return s.store.Update(ctx, func(st *State) error {
+		st.Paused, st.PausedUntil = true, until
 		return nil
 	})
 }

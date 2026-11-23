@@ -51,7 +51,7 @@ func (s *Service) LiveState(ctx context.Context) (LiveState, error) {
 	if err != nil {
 		return LiveState{}, err
 	}
-	live := LiveState{Paused: st.Paused, Running: st.Running, Items: []Item{}, Recent: []RunRecord{}}
+	live := LiveState{Paused: st.PausedAt(s.opts.Now()), Running: st.Running, Items: []Item{}, Recent: []RunRecord{}}
 	for _, it := range st.Items {
 		if it.Active() {
 			live.Items = append(live.Items, it)
@@ -70,16 +70,26 @@ func (s *Service) LiveState(ctx context.Context) (LiveState, error) {
 // runLockHeld reports whether a live process on this host and boot holds
 // the lock. Unreadable metadata on an existing file counts as held.
 func runLockHeld(path string) bool {
+	_, live := liveRunLockHolder(path)
+	return live
+}
+
+// liveRunLockHolder reads the run lock's holder once. live reports a
+// process on this host and boot holding this very file: not dead, not from
+// another boot or host, and not the original's lock copied with the
+// checkout (indexlock.IsCopiedLock). Unreadable metadata on an existing
+// file counts as live, with no holder to signal.
+func liveRunLockHolder(path string) (indexlock.LockData, bool) {
 	data, ok := indexlock.ReadLockData(path)
 	if !ok {
 		_, err := os.Stat(path)
-		return !errors.Is(err, os.ErrNotExist)
+		return indexlock.LockData{}, !errors.Is(err, os.ErrNotExist)
 	}
 	id, err := indexlock.RuntimeIdentity()
-	if err != nil || data.Runtime != id {
-		return false
+	if err != nil || data.Runtime != id || indexlock.IsCopiedLock(path, data) {
+		return data, false
 	}
-	return indexlock.PIDExists(data.PID)
+	return data, indexlock.PIDExists(data.PID)
 }
 
 // Runs lists a task's runs newest first, the one in progress first of all;

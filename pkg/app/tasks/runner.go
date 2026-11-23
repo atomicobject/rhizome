@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/repositorytrust"
+	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/repoconfig"
 	"github.com/atomicobject/rhizome/pkg/vault/taskdef"
 )
@@ -28,7 +29,10 @@ type Options struct {
 	Rzm string
 	// Trusted reports whether the person trusted a checkout; nil trusts all.
 	Trusted func(checkout string) (bool, error)
-	Now     func() time.Time
+	// Env locates the user configuration with the person's per-machine
+	// task settings; a zero Env means none, so tasks do not run here.
+	Env vaultconfig.Env
+	Now func() time.Time
 }
 
 // Service runs and reports on one repository's tasks for one person.
@@ -41,6 +45,7 @@ type Service struct {
 		value string
 		at    time.Time
 	}
+	due dueInputsCache
 }
 
 // New prepares a Service for the repository.
@@ -81,9 +86,14 @@ type RunSummary struct {
 	Problems []Problem `json:"problems,omitempty"`
 }
 
-// RunDue runs every enabled task that is due, once per repository: a pass
-// that finds another pass in progress skips.
-func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
+// RunDue runs every enabled task that is due, once per repository, nearest
+// deadline first: a pass that finds another pass in progress skips, and a
+// pass with due work fetches the primary ref's remote first.
+func (s *Service) RunDue(ctx context.Context) (RunSummary, error) { return s.runDue(ctx, false) }
+
+// runDue is RunDue; a host pass stops before any task once the person turns
+// off running tasks on this machine.
+func (s *Service) runDue(ctx context.Context, host bool) (RunSummary, error) {
 	// Runtimes call this in every Git checkout. A repository that declares
 	// no tasks, or that the person has not trusted, is left untouched: no
 	// state folder, no lock, no recorded error.
@@ -118,22 +128,35 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 	}
 	defer s.retain(ctx)
 
-	ref, commit, err := s.opts.Repo.ResolvePrimary(ctx, s.opts.Config.PrimaryRef)
+	ref, commit, defs, problems, err := s.primary(ctx)
 	if err != nil {
 		return RunSummary{}, s.notePassError(ctx, err)
 	}
-	defs, problems, err := LoadDefinitions(ctx, s.opts.Repo, commit)
-	if err != nil {
-		return RunSummary{}, s.notePassError(ctx, err)
+	zone := s.zone()
+	// Whether anything is due is decided from the local primary ref, with
+	// no network; only a pass with due work, or items waiting for their work
+	// to reach the primary ref, fetches, then reloads.
+	if st, err := s.store.Load(); err == nil && (len(dueNow(&st, defs, s.lastTagged(ctx, ref, defs), s.opts.Now(), zone, s.opts.Config.DefaultMode)) > 0 || settleDue(&st, defs, true, s.opts.Now())) {
+		s.fetchPrimary(ctx, ref)
+		if ref, commit, defs, problems, err = s.primary(ctx); err != nil {
+			return RunSummary{}, s.notePassError(ctx, err)
+		}
 	}
 	summary := RunSummary{Ref: ref, Commit: commit, Problems: problems}
 	tagged := s.lastTagged(ctx, ref, defs)
 	now := s.opts.Now()
-	var paused bool
+	var (
+		paused bool
+		order  []dueTask
+	)
 	if err := s.store.Update(ctx, func(st *State) error {
-		st.PassError = nil
+		st.PassError, st.LastPass = nil, now
+		if st.Paused && !st.PausedAt(now) {
+			st.Paused, st.PausedUntil = false, time.Time{}
+		}
 		s.bookkeep(ctx, st, defs, tagged, now)
-		paused = st.Paused
+		paused = st.PausedAt(now)
+		order = dueNow(st, defs, tagged, now, zone, s.opts.Config.DefaultMode)
 		return nil
 	}); err != nil {
 		return summary, err
@@ -142,7 +165,7 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 		summary.Skipped = "paused"
 		return summary, nil
 	}
-	for _, def := range defs {
+	for _, d := range order {
 		if ctx.Err() != nil {
 			break
 		}
@@ -150,27 +173,27 @@ func (s *Service) RunDue(ctx context.Context) (RunSummary, error) {
 		if err != nil {
 			return summary, err
 		}
-		if st.Paused {
+		if st.PausedAt(s.opts.Now()) {
 			summary.Skipped = "paused"
 			break
 		}
-		mode, _ := st.ResolveMode(def.ID, s.opts.Config.DefaultMode)
-		// An open item blocks the task, except a needs-attention item, which
-		// waits only for the next cadence, and a due item, whose check runs
-		// again to keep it current.
-		it := st.ActiveTaskItem(def.ID)
-		if mode == ModeOff || (it != nil && it.State != StateAttention && it.State != StateDue) {
+		if host {
+			if m, err := s.MachineSettings(); err != nil || !m.Repository.RunHere {
+				summary.Skipped = notRunHere
+				break
+			}
+		}
+		// An earlier task's run took time: decide again now, so a slot whose
+		// late window passed meanwhile waits for its next slot.
+		current, blocked := taskDue(&st, d.def, tagged[d.def.ID], s.opts.Now(), zone, s.opts.Config.DefaultMode)
+		if blocked != "" || !current.due.Now {
 			continue
 		}
-		last, _ := st.LastRun(def.ID)
-		if !(Clock{LastLocal: last.At, LastTagged: tagged[def.ID]}).Due(def, now) {
+		if it := st.ActiveTaskItem(d.def.ID); it != nil && it.State == StateDue {
+			summary.Outcomes = append(summary.Outcomes, s.recheck(ctx, d.def, it.ID, commit))
 			continue
 		}
-		if it != nil && it.State == StateDue {
-			summary.Outcomes = append(summary.Outcomes, s.recheck(ctx, def, it.ID, commit))
-			continue
-		}
-		summary.Outcomes = append(summary.Outcomes, s.runTask(ctx, def, mode, ref, commit))
+		summary.Outcomes = append(summary.Outcomes, s.runTask(ctx, d.def, current.mode, ref, commit))
 	}
 	return summary, nil
 }
@@ -198,7 +221,7 @@ func (s *Service) bookkeep(ctx context.Context, st *State, defs []Definition, ta
 		}
 		st.Seen[def.ID] = now
 		mode, _ := st.ResolveMode(def.ID, s.opts.Config.DefaultMode)
-		text := fmt.Sprintf("New task %q runs every %s in %s mode.", def.Name, def.Every, mode)
+		text := fmt.Sprintf("New task %q runs %s in %s mode.", def.Name, def.CadenceText(), mode)
 		if def.Description != "" {
 			text += " " + def.Description
 		}
@@ -213,9 +236,9 @@ func (s *Service) bookkeep(ctx context.Context, st *State, defs []Definition, ta
 		// here, as phase 1 did.
 		if it.State == StateRunning {
 			if it.Kind == KindTask && it.Run == "" {
-				st.Record(RunRecord{Task: it.Task, At: now, Outcome: OutcomeInterrupted, Item: it.ID, Message: "the run was interrupted before it finished"})
+				st.Record(RunRecord{Task: it.Task, At: now, Outcome: OutcomeInterrupted, Item: it.ID, Message: interruptedMessage})
 			}
-			it.interrupt(now)
+			it.interrupt(now, interruptedMessage)
 		}
 		if t := tagged[it.Task]; it.Kind == KindTask && it.Active() && t != nil && s.newlyMerged(ctx, *t, *it) {
 			it.set(StateDone, now)
@@ -258,6 +281,9 @@ func (s *Service) runTask(ctx context.Context, def Definition, mode Mode, ref, c
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}
 	}
 	defer s.end(ctx, a)
+	if a.missing = s.missingRequirements(ctx, def); len(a.missing) > 0 {
+		return s.fail(ctx, def, a, "", commit, requirementsMessage(a.missing), 0)
+	}
 	loc := s.locations(def, commit)
 	check := CheckResult{Needed: true}
 	if def.Check != nil {
@@ -316,6 +342,9 @@ func (s *Service) recheck(ctx context.Context, def Definition, itemID, commit st
 		return Outcome{Task: def.ID, Outcome: OutcomeFailed, Reason: err.Error()}
 	}
 	defer s.end(ctx, a)
+	if a.missing = s.missingRequirements(ctx, def); len(a.missing) > 0 {
+		return s.failRecheck(ctx, def, a, itemID, commit, requirementsMessage(a.missing))
+	}
 	check := CheckResult{Needed: true}
 	if def.Check != nil {
 		log := s.openCheckLog(a)
@@ -435,8 +464,10 @@ func (s *Service) lockRun(ctx context.Context, wait time.Duration) (func() error
 	if err := os.MkdirAll(s.stateDir, 0o700); err != nil {
 		return nil, err
 	}
-	return acquire(ctx, filepath.Join(s.stateDir, runLock), "tasks/run", wait)
+	return acquire(ctx, s.runLockPath(), "tasks/run", wait)
 }
+
+func (s *Service) runLockPath() string { return filepath.Join(s.stateDir, runLock) }
 
 func short(commit string) string {
 	if len(commit) > 8 {

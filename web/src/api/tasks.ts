@@ -82,12 +82,19 @@ export type TaskStatus = {
   name: string;
   scope: string;
   every: string;
+  /** A wall-clock schedule, described; `every` is then empty. */
+  schedule?: string;
   mode: TaskMode;
   modeSource: "override" | "repository" | "default" | string;
   lastRun?: TaskRunRecord;
   lastTagged?: TaskTagged;
   nextDue?: string;
   due: boolean;
+  /** When the task is or next comes due, and the zone of a scheduled slot. */
+  nextAt?: string;
+  timezone?: string;
+  /** Why the task is not running, as a stable code such as "not-run-here". */
+  blockedBy?: string;
   item?: TaskItem;
   tokensLast30Days?: number;
   /** The task has no prompt, so its items cannot be run, started, or copied. */
@@ -109,8 +116,13 @@ export type TasksReport = {
   refError?: string;
   fetchedAt?: string;
   paused: boolean;
+  pausedUntil?: string;
+  /** Scheduled tasks run on this machine for this repository. */
+  runHere?: boolean;
+  /** The latest fetch of the primary ref's remote. */
+  fetch?: { at: string; error?: string };
   untrusted?: string;
-  lastPassError?: { at: string; message: string };
+  lastPassError?: { at: string; code?: string; message: string };
   mergeWarning?: string;
   stateDir: string;
   tasks: TaskStatus[];
@@ -143,7 +155,7 @@ export type TaskRunDetail = {
 
 export type TaskItemAction = "snooze" | "skip" | "discard" | "done";
 
-type TaskRequestBody = { until?: string } | { mode: TaskModeChoice };
+type TaskRequestBody = { until?: string } | { mode: TaskModeChoice } | { runHere: boolean };
 
 function post<T>(url: string, body?: TaskRequestBody) {
   return fetchJSON<T>(url, {
@@ -211,4 +223,9 @@ export function setTaskMode(task: string, mode: TaskModeChoice) {
 
 export function setTasksPaused(paused: boolean) {
   return post<Record<string, never>>(paused ? "/api/tasks/pause" : "/api/tasks/resume");
+}
+
+/** Turns "Run tasks on this machine" on or off for this repository. */
+export function setRunTasksHere(runHere: boolean) {
+  return post<Record<string, never>>("/api/tasks/machine", { runHere });
 }

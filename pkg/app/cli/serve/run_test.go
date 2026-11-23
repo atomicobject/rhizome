@@ -1,10 +1,12 @@
 package serve
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/atomicobject/rhizome/internal/testkit"
 	"net"
 	"net/http"
@@ -20,6 +22,7 @@ import (
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap/lane"
 	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
+	"github.com/atomicobject/rhizome/pkg/app/web"
 	semdb "github.com/atomicobject/rhizome/pkg/store"
 	vaultconfig "github.com/atomicobject/rhizome/pkg/vault/config"
 	"github.com/atomicobject/rhizome/pkg/vault/indexlock"
@@ -349,30 +352,51 @@ func TestRunHeadlessExitsWhenIdle(t *testing.T) {
 	require.NoFileExists(t, appruntime.ManifestPath(vault.path))
 }
 
-func TestRunHeadlessAsksForTasksAndStillExitsWhenIdle(t *testing.T) {
+// A Desktop host stream keeps a headless runtime from idling and lets it
+// dispatch due tasks; closing the stream lets it idle out (SPEC-0104 US7).
+func TestRunHeadlessStaysUpAndDispatchesWhileATaskHostStreamIsHeld(t *testing.T) {
 	vault := newTestVault(t)
-	require.NoError(t, os.MkdirAll(filepath.Join(vault.path, ".git"), 0o755))
 	var calls atomic.Int32
 	handle := startRun(t, vault, func(o *Options) {
 		o.Headless = true
-		o.IdleTimeout = time.Millisecond
-		// Startup may consume the idle budget. Let tasks run before the first
-		// idle poll, rather than racing two equal-delay timers on Windows.
-		o.IdlePoll = time.Second
-		o.TasksFirstDelay = 20 * time.Millisecond
-		o.TasksInterval = 10 * time.Millisecond
-		o.RunTasks = func(path string) error {
+		// Long enough that startup cannot use it up before the stream opens.
+		o.IdleTimeout = 2 * time.Second
+		o.TasksCheckInterval = 10 * time.Millisecond
+		o.OpenTasks = func(context.Context, string) (web.TasksAPI, error) {
+			return &dueTasks{ok: true, due: time.Now().Add(-time.Minute)}, nil
+		}
+		o.RunTasks = func(path string) (*appruntime.Detached, error) {
 			if path == vault.path {
 				calls.Add(1)
 			}
-			return nil
+			// A run-due that is still running.
+			return &appruntime.Detached{Done: make(chan struct{})}, nil
 		}
 	})
+	manifest := handle.waitForManifest(t, vault.path)
+	ctx, closeStream := context.WithCancel(context.Background())
+	defer closeStream()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/api/tasks/host", manifest.HTTPPort), nil)
+	require.NoError(t, err)
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	line, err := bufio.NewReader(resp.Body).ReadString('\n')
+	require.NoError(t, err)
+	require.Equal(t, "event: status\n", line)
 
+	select {
+	case result := <-handle.done:
+		handle.collected.Store(true)
+		t.Fatalf("the runtime idle-exited under a host stream: %v\n%s", result.err, result.stderr)
+	case <-time.After(3 * time.Second):
+	}
+	require.Equal(t, int32(1), calls.Load(), "a run-due still running is not started again")
+
+	closeStream()
 	result := handle.awaitExit(t, 30*time.Second)
 	require.NoError(t, result.err)
-	// Repetition is covered by TestRunTasksTickerRepeatsUntilCanceled.
-	require.GreaterOrEqual(t, calls.Load(), int32(1), "the runtime should ask for due tasks")
 }
 
 func TestRunAttachedNeverIdleExits(t *testing.T) {

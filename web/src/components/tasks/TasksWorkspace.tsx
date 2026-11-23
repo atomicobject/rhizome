@@ -7,6 +7,7 @@ import {
   runTask,
   runTaskItem,
   setTaskMode,
+  setRunTasksHere,
   setTasksPaused,
   testTask,
   type TaskItem,
@@ -132,6 +133,8 @@ function TasksRail({ tasks, selected }: { tasks: TaskStatus[]; selected?: string
   );
 }
 
+type PendingAction = "" | "item" | "mode" | "pause" | "run" | "test" | "machine";
+
 export function TasksWorkspace({
   sidebarTitle,
   sidebarHint,
@@ -145,8 +148,8 @@ export function TasksWorkspace({
   const reportQuery = useTasksReport();
   const live = useTasksLiveState();
   const runsQuery = useTaskRuns(location.task);
-  const [pending, setPending] = useState<"" | "item" | "mode" | "pause" | "run" | "test">("");
-  // Which action failed: an item ID, "mode", "pause", "run", or "test:<task>".
+  const [pending, setPending] = useState<PendingAction>("");
+  // Which action failed: an item ID, "mode", "pause", "run", "machine", or "test:<task>".
   const [actionError, setActionError] = useState<{ scope: string; text: string } | null>(null);
 
   const report = reportQuery.data;
@@ -183,6 +186,11 @@ export function TasksWorkspace({
 
   const togglePause = () => pauseAll(!paused);
   const resume = () => pauseAll(false);
+
+  const setRunHere = (runHere: boolean) =>
+    void perform("machine", "machine", async () => {
+      await setRunTasksHere(runHere);
+    });
 
   const changeMode = (mode: TaskModeChoice) =>
     task &&
@@ -225,13 +233,16 @@ export function TasksWorkspace({
   const pageError =
     actionError?.scope === "mode" ||
     actionError?.scope === "pause" ||
-    actionError?.scope === "run" ? (
+    actionError?.scope === "run" ||
+    actionError?.scope === "machine" ? (
       <p className="task-inline-error task-page-error" role="alert">
         {actionError.scope === "mode"
           ? "Could not change the mode: "
           : actionError.scope === "run"
             ? "Could not run the task: "
-            : "Could not change pausing: "}
+            : actionError.scope === "machine"
+              ? "Could not change where tasks run: "
+              : "Could not change pausing: "}
         {actionError.text}
       </p>
     ) : null;
@@ -272,6 +283,8 @@ export function TasksWorkspace({
         pausePending={pending === "pause"}
         onTogglePause={togglePause}
         onResume={resume}
+        machinePending={pending === "machine"}
+        onRunHere={setRunHere}
         announcements={(state?.items ?? []).filter(
           (item) =>
             (item.kind === "announcement" && item.state === "due") ||

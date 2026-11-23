@@ -129,6 +129,41 @@ describe("TasksWorkspace", () => {
     await waitFor(() => expect(http.count("POST", "/api/tasks/items/12/done")).toBe(1));
   });
 
+  it("shows a scheduled task's schedule in its row and announcement", async () => {
+    const report = reportFixture(NOW);
+    const state = stateFixture(NOW);
+    http.json("GET", "/api/tasks", {
+      ...report,
+      tasks: report.tasks.map((task) =>
+        task.id === "changelog" ? { ...task, every: "", schedule: "weekdays at 05:00" } : task,
+      ),
+    });
+    http.json("GET", "/api/tasks/state", {
+      ...state,
+      items: [
+        ...state.items,
+        {
+          ...state.items[0]!,
+          id: "12",
+          task: "changelog",
+          kind: "announcement",
+          state: "due",
+          summary:
+            'New task "Changelog draft" runs weekdays at 05:00 in auto mode. Drafts release notes.',
+        },
+      ],
+    });
+    open("/tasks");
+    render(<TasksWorkspace />);
+
+    const row = (await screen.findByRole("rowheader", { name: /Changelog draft/ })).closest("tr")!;
+    expect(within(row).getByText("weekdays at 05:00")).toBeVisible();
+    fireEvent.click(within(row).getByRole("button", { name: "What it does" }));
+    expect(
+      screen.getByText("Runs weekdays at 05:00 in Off mode. Drafts release notes."),
+    ).toBeVisible();
+  });
+
   it("reloads the task's history after an item action", async () => {
     http.json("POST", "/api/tasks/items/9/skip", {});
     open("/tasks/dependency-updates");
@@ -180,6 +215,38 @@ describe("TasksWorkspace", () => {
     expect(await screen.findByText(/Background work is paused/)).toBeVisible();
     fireEvent.click(screen.getAllByRole("button", { name: "Resume all" })[0]!);
     await waitFor(() => expect(http.count("POST", "/api/tasks/resume")).toBe(1));
+  });
+
+  it("says when a timed pause lifts", async () => {
+    http.json("GET", "/api/tasks", {
+      ...reportFixture(NOW),
+      paused: true,
+      pausedUntil: "2026-11-01T09:00:00Z",
+    });
+    http.json("GET", "/api/tasks/state", { ...stateFixture(NOW), paused: true });
+    open("/tasks");
+    render(<TasksWorkspace />);
+
+    expect(await screen.findByText(/Background work is paused until Nov 1/)).toBeVisible();
+  });
+
+  it("turns running tasks on this machine on and off", async () => {
+    http.json("GET", "/api/tasks", { ...reportFixture(NOW), runHere: false });
+    http.json("POST", "/api/tasks/machine", {});
+    open("/tasks");
+    render(<TasksWorkspace />);
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Run tasks on this machine" }));
+    await waitFor(() => expect(http.count("POST", "/api/tasks/machine")).toBe(1));
+    expect(http.requests("POST", "/api/tasks/machine")[0]?.body).toBe('{"runHere":true}');
+  });
+
+  it("hides the machine setting when this Rhizome cannot tell", async () => {
+    open("/tasks");
+    render(<TasksWorkspace />);
+
+    await screen.findByRole("table");
+    expect(screen.queryByRole("checkbox", { name: "Run tasks on this machine" })).toBeNull();
   });
 
   it("shows run history newest first, with not-needed checks as quiet single lines", async () => {

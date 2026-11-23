@@ -95,10 +95,11 @@ func (it *Item) set(state ItemState, now time.Time) {
 	it.State, it.Updated, it.LaunchError = state, now, ""
 }
 
-// interrupt moves an item left running by a crash to needs attention.
-func (it *Item) interrupt(now time.Time) {
+// interrupt moves an item left running by a crash or a stop to needs
+// attention, saying why.
+func (it *Item) interrupt(now time.Time, reason string) {
 	it.set(StateAttention, now)
-	it.Reason = "the run was interrupted before it finished"
+	it.Reason = reason
 	if it.Worktree != "" {
 		it.Reason += " (worktree kept at " + it.Worktree + ")"
 	}

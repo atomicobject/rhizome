@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/atomicobject/rhizome/pkg/app/bootstrap"
+	appruntime "github.com/atomicobject/rhizome/pkg/app/runtime"
 	"github.com/atomicobject/rhizome/pkg/app/web"
 )
 
@@ -61,12 +62,12 @@ type Options struct {
 	IdlePoll time.Duration
 	RootPoll time.Duration
 
-	// RunTasks starts a pass over the vault's scheduled tasks; nil turns
-	// the task interval off. TasksFirstDelay and TasksInterval override the
-	// timing for tests.
-	RunTasks        func(vaultPath string) error
-	TasksFirstDelay time.Duration
-	TasksInterval   time.Duration
+	// RunTasks starts a pass over the vault's scheduled tasks; the runtime
+	// calls it only while a Desktop host stream holds it (SPEC-0104 US7).
+	// Nil, or a nil OpenTasks, turns dispatch off. TasksCheckInterval
+	// overrides the 30-second check for tests.
+	RunTasks           func(vaultPath string) (*appruntime.Detached, error)
+	TasksCheckInterval time.Duration
 	// OpenTasks opens the scheduled-tasks service for the Tasks page; nil
 	// makes /api/tasks report the feature unavailable.
 	OpenTasks func(ctx context.Context, vaultPath string) (web.TasksAPI, error)
