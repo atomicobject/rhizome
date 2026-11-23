@@ -249,7 +249,7 @@ Task authors can see and test a local version before it reaches the primary bran
 
 #### Acceptance Criteria
 
-- `requires: {commands: [...], mcp: [...]}` names commands that must resolve on the login shell's PATH and MCP servers the person's harness must have configured. A missing requirement fails the run as needs attention before the check or prompt runs.
+- `requires: {commands: [...], mcp: [...]}` names commands that must resolve on the login shell's PATH and MCP servers the person's harness must have configured. A missing requirement fails the run as needs attention before the check or prompt runs. MCP configuration can be scoped to a directory, so servers are checked where the prompt's session runs: the open checkout for an in-place task, before the check; for a worktree run, in its new worktree, which is removed when a server is missing, before the prompt.
 - Task sessions load the person's own MCP configuration for both Claude Code and Codex. Claude Code task sessions no longer run with an empty strict MCP configuration.
 - Optional `deny: [...]` names tools the harness must refuse, passed as the session's disallowed tools.
 - `rzm tasks doctor [task]` reports, per task: `requires` commands on the login PATH, harness sign-in, MCP server reachability, repository trust, how fresh the primary ref is, `git push --dry-run` when push is on, and whether Obsidian Git auto-commit is enabled in the host checkout.

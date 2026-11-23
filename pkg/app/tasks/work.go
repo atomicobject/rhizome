@@ -84,6 +84,12 @@ func (s *Service) work(ctx context.Context, def Definition, a attempt, itemID st
 		_ = s.removeWorktree(ctx, branch, dir)
 		return Outcome{Task: def.ID, Outcome: OutcomeSkipped, Item: itemID, Reason: "the item was closed before the prompt ran"}
 	}
+	if a.missing = s.missingMCP(ctx, def, dir); len(a.missing) > 0 {
+		_ = s.removeWorktree(ctx, branch, dir)
+		return s.failWith(ctx, def, a, itemID, commit, OutcomeFailed, requirementsMessage(a.missing), 0, func(_ *State, it *Item, r *RunRecord) {
+			it.Branch, it.Worktree, r.Branch, r.Worktree = "", "", "", ""
+		})
+	}
 	loc := s.locations(def, commit)
 	if err := os.MkdirAll(loc.DataDir, 0o700); err != nil {
 		return s.fail(ctx, def, a, itemID, commit, err.Error(), 0)

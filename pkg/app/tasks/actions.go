@@ -95,7 +95,7 @@ func (s *Service) Run(ctx context.Context, itemID string) (Outcome, error) {
 		return Outcome{}, notStartedError{err}
 	}
 	defer s.end(ctx, a)
-	if a.missing = s.missingRequirements(ctx, def); len(a.missing) > 0 {
+	if a.missing = s.missingRequirements(ctx, def, s.sessionDir(def)); len(a.missing) > 0 {
 		return s.fail(ctx, def, a, itemID, commit, requirementsMessage(a.missing), 0), nil
 	}
 	if def.Check != nil {

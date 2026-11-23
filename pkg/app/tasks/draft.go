@@ -75,7 +75,7 @@ func (s *Service) RunDraft(ctx context.Context, file string) (Outcome, error) {
 	if err = os.MkdirAll(loc.DataDir, 0o700); err != nil {
 		return s.finishTest(ctx, a, def.ID, snapshot, dir, OutcomeFailed, err.Error(), 0)
 	}
-	if a.missing = s.missingRequirements(ctx, def); len(a.missing) > 0 {
+	if a.missing = s.missingRequirements(ctx, def, dir); len(a.missing) > 0 {
 		return s.finishTest(ctx, a, def.ID, snapshot, dir, OutcomeFailed, requirementsMessage(a.missing), 0)
 	}
 	check := CheckResult{Needed: true}

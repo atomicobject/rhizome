@@ -18,10 +18,12 @@ type listingHarness struct {
 	harnesstest.Harness
 	servers []harness.MCPServerState
 	listed  int
+	dirs    []string
 }
 
-func (h *listingHarness) ListMCPServers(context.Context, string) ([]harness.MCPServerState, error) {
+func (h *listingHarness) ListMCPServers(_ context.Context, dir string) ([]harness.MCPServerState, error) {
 	h.listed++
+	h.dirs = append(h.dirs, dir)
 	return h.servers, nil
 }
 
@@ -127,6 +129,10 @@ func TestMCPAndDenyRequirementsAskTheTasksHarness(t *testing.T) {
 		require.Contains(t, summary.Outcomes[0].Reason, `MCP server "files" for claude reports "failed to connect"`)
 		require.NotContains(t, summary.Outcomes[0].Reason, `"linear"`)
 		require.Zero(t, agent.calls())
+		st := mustState(t, newService(t, dir, agent, "auto"))
+		item, err := st.Item(summary.Outcomes[0].Item)
+		require.NoError(t, err)
+		require.Empty(t, item.Worktree, "a run refused for a missing server keeps no worktree")
 	})
 
 	t.Run("a listing that does not finish in time is a missing requirement", func(t *testing.T) {
@@ -156,8 +162,9 @@ func TestMCPAndDenyRequirementsAskTheTasksHarness(t *testing.T) {
 		dir := newRepo(t, map[string]string{"linear.yml": task})
 		driver := &listingHarness{servers: []harness.MCPServerState{{Name: "linear", Usable: true}, {Name: "files", Usable: true}}}
 		var deny []string
+		var sessionDir string
 		agent := resolvingAgent{fakeAgent: &fakeAgent{run: func(req AgentRequest) (AgentResult, error) {
-			deny = req.Deny
+			deny, sessionDir = req.Deny, req.Dir
 			return AgentResult{Message: "nothing to do"}, nil
 		}}, kind: harness.KindClaude, driver: driver}
 		summary, err := newService(t, dir, agent, "auto").RunDue(ctx)
@@ -165,6 +172,9 @@ func TestMCPAndDenyRequirementsAskTheTasksHarness(t *testing.T) {
 		require.Equal(t, OutcomeNoChanges, summary.Outcomes[0].Outcome)
 		require.Equal(t, 1, agent.calls())
 		require.Equal(t, []string{"WebFetch"}, deny)
+		// MCP configuration can be scoped to a directory, so the servers are
+		// listed where the session runs: the run's worktree.
+		require.Equal(t, []string{sessionDir}, driver.dirs)
 	})
 }
 
