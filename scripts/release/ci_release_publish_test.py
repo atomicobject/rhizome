@@ -32,6 +32,7 @@ class FakeHost:
         self.tap_files = {"rhizome.rb": self.old_recipes["rhizome.rb"]}
         self.latest_id = None
         self.fail_anonymous = False
+        self.bad_latest = False
         self.fail_upload = None
         self.fail_brew = False
         self.fail_brew_path = None
@@ -121,6 +122,8 @@ class FakeHost:
                 self.events.append("create")
                 self.release = {**payload, "id": 1}
                 value = self.release
+            elif endpoint.endswith("/releases/1") and method == "GET":
+                value = self.release
             elif "/assets?" in endpoint:
                 value = list(self.uploaded.values())
             elif method == "PATCH":
@@ -166,6 +169,9 @@ class FakeHost:
         elif "/latest/download/" in url:
             if not self.latest_id:
                 raise AdvertisementError("no latest release")
+            if self.bad_latest:
+                path.write_bytes(b"{}")
+                return
             name = "latest.json"
         else:
             if self.fail_anonymous:
@@ -253,6 +259,38 @@ class PublisherTests(unittest.TestCase):
         self.assertNotIn("upload", self.host.events)
         self.assertLess(self.host.events.index("promote"), self.host.events.index("brew"))
         self.assertIn("Casks/rhizome-desktop.rb", self.host.tap_files)
+
+    def test_recovered_untagged_draft_resumes_without_duplicate_release_or_reupload(self):
+        self.host.bad_latest = True
+        with unittest.mock.patch("release_advertise.time.sleep"):
+            with self.assertRaisesRegex(PublishError, "advertisement failed"):
+                self.publish()
+        self.assertTrue(self.host.release["draft"])
+        self.assertIsNone(self.host.latest_id)
+        self.host.release["tag_name"] = "untagged-072ac595e1bcffa8331c"
+        self.host.bad_latest = False
+        self.host.events.clear()
+        self.publish()
+        self.assertNotIn("create", self.host.events)
+        self.assertNotIn("upload", self.host.events)
+        self.assertNotIn("recover", self.host.events)
+        self.assertEqual(self.host.release["tag_name"], VERSION)
+        self.assertFalse(self.host.release["draft"])
+        self.assertEqual(self.host.latest_id, 1)
+        self.assertIn("brew", self.host.events)
+
+    def test_receipt_pinned_untagged_draft_missing_asset_fails_without_patch_or_upload(self):
+        self.host.bad_latest = True
+        with unittest.mock.patch("release_advertise.time.sleep"):
+            with self.assertRaisesRegex(PublishError, "advertisement failed"):
+                self.publish()
+        self.host.release["tag_name"] = "untagged-072ac595e1bcffa8331c"
+        self.host.uploaded.pop(next(iter(BUNDLE_FILES)))
+        self.host.bad_latest = False
+        self.host.events.clear()
+        with self.assertRaisesRegex(PublishError, "missing assets"):
+            self.publish()
+        self.assertEqual(self.host.events, [])
 
     def test_conflicting_refs_prevent_gateway_and_upload(self):
         self.host.remote_release = "b" * 40

@@ -41,9 +41,9 @@ class ReleaseServer:
     """Records public visibility and simulates interrupted GitHub PATCH requests."""
     def __init__(self, files):
         self.files = files
-        self.release = {"id": 2, "tag_name": "v" + VERSION, "target_commitish": COMMIT,
+        self.release = {"id": 2, "name": "v" + VERSION, "tag_name": "v" + VERSION, "target_commitish": COMMIT,
                         "draft": True, "prerelease": False}
-        self.previous = {"id": 1, "tag_name": "v1.0.0", "draft": False, "prerelease": False}
+        self.previous = {"id": 1, "name": "v1.0.0", "tag_name": "v1.0.0", "draft": False, "prerelease": False}
         self.latest_id = 1
         self.assets = [{"id": index, "name": name, "size": len(value), "state": "uploaded"}
                        for index, (name, value) in enumerate(files.items(), 10)]
@@ -51,7 +51,13 @@ class ReleaseServer:
         self.missing_asset = False
         self.wrong_hash = False
         self.anonymous_failure = False
+        self.anonymous_404_count = 0
         self.bad_latest = False
+        self.previous_has_feed = True
+        self.latest_503_count = 0
+        self.latest_404_count = 0
+        self.stale_latest_api = 0
+        self.stale_latest_feed = 0
         self.interrupt_publish = False
         self.crash_promote = False
         self.recovery_failure = False
@@ -59,6 +65,15 @@ class ReleaseServer:
 
     def latest(self):
         if self.latest_id == 2:
+            if self.latest_503_count > 0:
+                self.latest_503_count -= 1
+                raise ApiError(503)
+            if self.latest_404_count > 0:
+                self.latest_404_count -= 1
+                return None
+            if self.stale_latest_api > 0:
+                self.stale_latest_api -= 1
+                return copy.deepcopy(self.previous)
             return copy.deepcopy(self.release)
         return copy.deepcopy(self.previous) if self.latest_id == 1 else None
 
@@ -69,10 +84,16 @@ class ReleaseServer:
                 if data.get("draft") is True:
                     if self.recovery_failure:
                         raise ApiError(503)
+                    if self.release["draft"] and "tag_name" not in data:
+                        self.release["tag_name"] = "untagged-072ac595e1bcffa8331c"
+                    elif "tag_name" in data:
+                        self.release["tag_name"] = data["tag_name"]
                     self.release["draft"] = True
                     if self.latest_id == 2:
                         self.latest_id = 1
                 if data.get("draft") is False:
+                    if "tag_name" in data:
+                        self.release["tag_name"] = data["tag_name"]
                     self.release["draft"] = False
                     if self.interrupt_publish:
                         self.interrupt_publish = False
@@ -107,8 +128,14 @@ class ReleaseServer:
                 value = b"x" * len(value)
         elif "/latest/download/" in url:
             if self.latest_id == 2:
-                value = b"{}" if self.bad_latest else self.files["latest.json"]
+                if self.stale_latest_feed > 0:
+                    self.stale_latest_feed -= 1
+                    value = feed("1.0.0", ["darwin-aarch64"])
+                else:
+                    value = b"{}" if self.bad_latest else self.files["latest.json"]
             else:
+                if not self.previous_has_feed:
+                    raise ApiError(404)
                 value = feed("1.0.0", ["darwin-aarch64"])
         elif "/download/v1.0.0/" in url:
             value = b"previous-package"
@@ -116,7 +143,10 @@ class ReleaseServer:
             assert url.startswith(f"{DOWNLOAD}/download/v{VERSION}/")
             if self.anonymous_failure:
                 raise ApiError(503)
-            if self.release["draft"]:
+            if self.release["draft"] or self.release["tag_name"] != "v" + VERSION:
+                raise ApiError(404)
+            if self.anonymous_404_count > 0:
+                self.anonymous_404_count -= 1
                 raise ApiError(404)
             value = self.files[url.rsplit("/", 1)[1]]
             if self.concurrent_latest:
@@ -162,6 +192,7 @@ class AdvertisementTest(unittest.TestCase):
         self.receipt = self.root / "advertisement-receipt.json"
         self.api = ReleaseServer(self.files)
         self.verified = []
+        self.sleeps = []
 
     def verifier(self, root, archive, signature, *, environ):
         self.assertEqual(root, self.root)
@@ -171,13 +202,13 @@ class AdvertisementTest(unittest.TestCase):
 
     def advertise(self, expected=True):
         return advertise(self.root, self.receipt, expected=self.expected if expected else None,
-                         api=self.api, env={"PATH": "/bin"}, verifier=self.verifier)
+                         api=self.api, env={"PATH": "/bin"}, verifier=self.verifier, sleep=self.sleeps.append)
 
     def test_complete_release_publishes_nonlatest_then_promotes_after_anonymous_verification(self):
         result = self.advertise()
         self.assertEqual(result["phase"], "complete")
         self.assertEqual(self.api.latest_id, 2)
-        self.assertEqual(self.api.patches, [("releases/2", {"draft": False, "make_latest": "false"}),
+        self.assertEqual(self.api.patches, [("releases/2", {"tag_name": "v" + VERSION, "draft": False, "make_latest": "false"}),
                                            ("releases/2", {"make_latest": "true"})])
         versioned = [latest for url, authenticated, latest in self.api.downloads
                      if not authenticated and f"/download/v{VERSION}/" in url]
@@ -226,8 +257,9 @@ class AdvertisementTest(unittest.TestCase):
         self.assertTrue(advertisement_resume_available(self.receipt, expected_commit=COMMIT, expected_version=VERSION))
         self.api.anonymous_failure = False
         resume_advertisement(self.root, self.receipt, expected_commit=COMMIT, expected_version=VERSION,
-                             environ={"GITHUB_TOKEN": "synthetic"}, api=self.api, verifier=self.verifier)
-        self.assertEqual(self.api.patches.count(("releases/2", {"draft": False, "make_latest": "false"})), 1)
+                             environ={"GITHUB_TOKEN": "synthetic"}, api=self.api, verifier=self.verifier,
+                             sleep=self.sleeps.append)
+        self.assertEqual(self.api.patches.count(("releases/2", {"tag_name": "v" + VERSION, "draft": False, "make_latest": "false"})), 1)
         self.assertEqual(self.api.latest_id, 2)
 
     def test_interrupted_publish_reconciles_remote_state_without_uploading_again(self):
@@ -252,17 +284,84 @@ class AdvertisementTest(unittest.TestCase):
 
     def test_bad_promoted_feed_restores_old_latest_and_drafts_faulty_release(self):
         self.api.bad_latest = True
-        with self.assertRaisesRegex(AdvertisementError, "previous latest retained"):
+        with self.assertRaisesRegex(AdvertisementError, r"latest feed does not resolve.*previous latest retained"):
             self.advertise()
         self.assertTrue(self.api.release["draft"])
         self.assertEqual(self.api.latest_id, 1)
         self.assertEqual(json.loads(self.receipt.read_text())["phase"], "recovered")
-        self.assertEqual(self.api.patches[-2:], [("releases/2", {"draft": True, "make_latest": "false"}),
+        self.assertEqual(self.api.patches[-2:], [("releases/2", {"tag_name": "v" + VERSION, "draft": True, "make_latest": "false"}),
                                                ("releases/1", {"make_latest": "true"})])
         self.assertTrue(any("/download/v1.0.0/" in url for url, authenticated, latest in self.api.downloads))
         self.api.bad_latest = False
         self.advertise(expected=False)
         self.assertEqual(self.api.latest_id, 2)
+
+    def test_eventual_consistency_on_latest_and_anonymous_download_retries_to_success(self):
+        self.api.anonymous_404_count = 1
+        self.api.latest_503_count = 1
+        self.api.latest_404_count = 1
+        self.api.stale_latest_api = 1
+        self.api.stale_latest_feed = 1
+        result = self.advertise()
+        self.assertEqual(result["phase"], "complete")
+        self.assertEqual(self.api.latest_id, 2)
+        self.assertEqual(self.api.patches, [("releases/2", {"tag_name": "v" + VERSION, "draft": False, "make_latest": "false"}),
+                                            ("releases/2", {"make_latest": "true"})])
+        self.assertEqual(self.sleeps, [2, 2, 4, 8, 16])
+
+    def test_recovery_succeeds_when_previous_release_has_no_updater_feed(self):
+        self.api.previous_has_feed = False
+        self.api.bad_latest = True
+        with self.assertRaisesRegex(AdvertisementError, r"latest feed does not resolve.*previous latest retained"):
+            self.advertise()
+        self.assertTrue(self.api.release["draft"])
+        self.assertEqual(self.api.latest_id, 1)
+        self.assertEqual(json.loads(self.receipt.read_text())["phase"], "recovered")
+
+    def test_anonymous_download_retry_stops_when_latest_changes_concurrently(self):
+        self.api.anonymous_404_count = 1
+        def change_latest_during_sleep(delay):
+            self.sleeps.append(delay)
+            self.api.previous = {"id": 3, "tag_name": "v3.0.0"}
+            self.api.latest_id = 1
+        with self.assertRaisesRegex(AdvertisementError, "latest changed concurrently"):
+            advertise(self.root, self.receipt, expected=self.expected, api=self.api,
+                      env={"PATH": "/bin"}, verifier=self.verifier, sleep=change_latest_during_sleep)
+        self.assertEqual(self.sleeps, [2])
+        self.assertEqual(self.api.latest()["id"], 3)
+        versioned = [url for url, authenticated, _ in self.api.downloads
+                     if not authenticated and f"/download/v{VERSION}/" in url]
+        self.assertEqual(len(versioned), 1)
+
+    def test_recovered_untagged_draft_resumes_without_redundant_recovery_and_rebinds_tag(self):
+        self.api.bad_latest = True
+        with self.assertRaisesRegex(AdvertisementError, "previous latest retained"):
+            self.advertise()
+        self.assertEqual(json.loads(self.receipt.read_text())["phase"], "recovered")
+        self.api.release["tag_name"] = "untagged-072ac595e1bcffa8331c"
+        self.api.patches.clear()
+        self.api.bad_latest = False
+        result = self.advertise(expected=False)
+        self.assertEqual(result["phase"], "complete")
+        self.assertEqual(self.api.release["tag_name"], "v" + VERSION)
+        self.assertFalse(self.api.release["draft"])
+        self.assertEqual(self.api.latest_id, 2)
+        self.assertEqual(self.api.patches, [("releases/2", {"tag_name": "v" + VERSION, "draft": False, "make_latest": "false"}),
+                                            ("releases/2", {"make_latest": "true"})])
+
+    def test_untagged_draft_requires_matching_receipt_and_release_name(self):
+        self.api.release["tag_name"] = "untagged-072ac595e1bcffa8331c"
+        with self.assertRaisesRegex(AdvertisementError, "expected exactly one"):
+            self.advertise()
+        self.api.release["tag_name"] = "v" + VERSION
+        self.api.bad_latest = True
+        with self.assertRaises(AdvertisementError):
+            self.advertise()
+        self.api.bad_latest = False
+        self.api.release["tag_name"] = "untagged-072ac595e1bcffa8331c"
+        self.api.release["name"] = "v9.9.9"
+        with self.assertRaisesRegex(AdvertisementError, "identity differs"):
+            self.advertise(expected=False)
 
     def test_failed_recovery_is_explicit_and_retains_intent_for_resume(self):
         self.api.bad_latest = self.api.recovery_failure = True
@@ -294,7 +393,7 @@ class AdvertisementTest(unittest.TestCase):
         with self.assertRaises(AdvertisementError):
             self.advertise()
         self.assertEqual(self.api.latest()["id"], 3)
-        self.assertEqual(self.api.patches, [("releases/2", {"draft": False, "make_latest": "false"})])
+        self.assertEqual(self.api.patches, [("releases/2", {"tag_name": "v" + VERSION, "draft": False, "make_latest": "false"})])
 
     def test_wrong_remote_tag_after_an_interrupted_promotion_recovers_previous_latest(self):
         self.api.crash_promote = True

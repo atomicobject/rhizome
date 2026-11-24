@@ -13,7 +13,8 @@ import sys
 import tempfile
 
 from ci_release_artifacts import BUNDLE_FILES, digest, identity, verify_bundle
-from release_advertise import AdvertisementError, GitHub, advertise, expected_bundle
+from release_advertise import (AdvertisementError, GitHub, advertise, advertisement_resume_available,
+                               expected_bundle, is_untagged_draft)
 from release_homebrew import HomebrewError, RECIPES, publish_tap, retain_recipes
 from verify_desktop_signing import DesktopSigningError, verify_archive
 from release_gateway import GatewayError, ensure_gateway
@@ -151,7 +152,7 @@ def revalidate_refs(root, source, commands):
     validate_topology(root, source, runner=runner)
 
 
-def release_for_tag(commands, version):
+def release_for_tag(commands, version, *, release_id=None):
     # A paginated listing distinguishes an absent tag from authentication/API errors.
     pages = commands.api(f"{API}/releases?per_page=100", method="GET")
     if not isinstance(pages, list) or any(not isinstance(item, dict) for item in pages):
@@ -166,10 +167,17 @@ def release_for_tag(commands, version):
         matches += [item for item in pages if item.get("tag_name") == version]
     if len(matches) > 1:
         raise PublishError("ambiguous GitHub release state")
-    return matches[0] if matches else None
+    tagged = matches[0] if matches else None
+    if release_id is None:
+        return tagged
+    if tagged is not None and tagged.get("id") != release_id:
+        raise PublishError("ambiguous GitHub release state")
+    if tagged is not None:
+        return tagged
+    return commands.api(f"{API}/releases/{release_id}", method="GET")
 
 
-def asset_matches(commands, asset, path, version):
+def asset_matches(commands, asset, path, tag):
     if asset.get("size") != path.stat().st_size:
         return False
     expected = "sha256:" + digest(path)
@@ -182,13 +190,17 @@ def asset_matches(commands, asset, path, version):
     # Older GitHub responses omit digest; verify downloaded bytes rather than size alone.
     with tempfile.TemporaryDirectory(prefix="rzm-release-asset-") as temporary:
         destination = Path(temporary) / path.name
-        commands.run(("gh", "release", "download", version, "--repo", REPOSITORY,
+        commands.run(("gh", "release", "download", tag, "--repo", REPOSITORY,
                       "--pattern", path.name, "--output", str(destination)))
         return destination.is_file() and digest(destination) == expected.removeprefix("sha256:")
 
 
-def checked_assets(commands, release, source, version, notes, assets, *, complete=False):
-    if (not isinstance(release, dict) or release.get("tag_name") != version
+def checked_assets(commands, release, source, version, notes, assets, *, complete=False, allow_untagged_draft=False):
+    tag_ok = isinstance(release, dict) and (
+        release.get("tag_name") == version
+        or (allow_untagged_draft and is_untagged_draft(release, version))
+    )
+    if (not tag_ok
             or release.get("target_commitish") != source or release.get("body") != notes
             or type(release.get("draft")) is not bool or release.get("prerelease") is not False
             or type(release.get("id")) is not int or release["id"] <= 0):
@@ -201,7 +213,7 @@ def checked_assets(commands, release, source, version, notes, assets, *, complet
     if len(names) != len(set(names)) or not set(names) <= BUNDLE_FILES or (complete and set(names) != BUNDLE_FILES):
         raise PublishError("release contains conflicting or missing assets")
     for item in listed:
-        if not asset_matches(commands, item, assets / item["name"], version):
+        if not asset_matches(commands, item, assets / item["name"], release["tag_name"]):
             raise PublishError("existing release asset differs from the verified bundle")
     return set(names)
 
@@ -266,9 +278,16 @@ def publish(root, source, assets, receipt, *, environment=None, runner=subproces
     except (AdvertisementError, HomebrewError) as error:
         raise PublishError(str(error)) from error
     expected["releaseNotesSha256"] = hashlib.sha256(notes.encode()).hexdigest()
-    existing = release_for_tag(commands, version)
+    resume_id = None
+    if advertisement_path.exists():
+        if not advertisement_resume_available(advertisement_path, expected_commit=source, expected_version=version):
+            raise PublishError("invalid advertisement receipt; manual inspection required")
+        resume_id = json.loads(advertisement_path.read_text())["releaseId"]
+    existing = release_for_tag(commands, version, release_id=resume_id)
     if existing:
-        checked_assets(commands, existing, source, version, notes, assets, complete=existing.get("draft") is False)
+        checked_assets(commands, existing, source, version, notes, assets,
+                       complete=resume_id is not None or existing.get("draft") is False,
+                       allow_untagged_draft=resume_id is not None)
     advance_refs(commands, source, intent)
     gateway_ready = False
     def ready():
@@ -280,17 +299,18 @@ def publish(root, source, assets, receipt, *, environment=None, runner=subproces
         bundle_verifier(source, version, assets)
     if not existing or existing["draft"]:
         ready()
-        release = release_for_tag(commands, version)
+        release = release_for_tag(commands, version, release_id=resume_id)
         if release is None:
             release = commands.api(f"{API}/releases", method="POST", payload={"tag_name": version,
                 "target_commitish": source, "name": version, "body": notes, "draft": True,
                 "prerelease": False, "make_latest": "false"})
-        if release.get("draft"):
+        if release.get("draft") and resume_id is None:
             present = checked_assets(commands, release, source, version, notes, assets)
             for name in sorted(BUNDLE_FILES - present):
                 commands.run(("gh", "release", "upload", version, str(assets / name), "--repo", REPOSITORY), timeout=600)
             bundle_verifier(source, version, assets)
-        checked_assets(commands, release, source, version, notes, assets, complete=True)
+        checked_assets(commands, release, source, version, notes, assets, complete=True,
+                       allow_untagged_draft=resume_id is not None)
     revalidate_refs(root, source, commands)
     try:
         advertise(root, advertisement_path, expected=expected, api=api_factory(commands), env=commands.environment,
