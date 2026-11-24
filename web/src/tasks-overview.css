@@ -119,6 +119,13 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* A schedule such as "weekdays every 1h 08:00–17:00 (America/Detroit)" is
+   wider than its fixed column, so it wraps instead of spilling into the next. */
+.task-table tbody .task-table__time {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .task-table__due.is-due {
   color: var(--info-ink);
   font-weight: 500;
