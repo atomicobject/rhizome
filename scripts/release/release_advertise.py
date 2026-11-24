@@ -28,6 +28,9 @@ REPOSITORY = "atomicobject/rhizome"
 API = f"https://api.github.com/repos/{REPOSITORY}"
 DOWNLOAD = f"https://github.com/{REPOSITORY}/releases"
 PHASES = {"verified-draft", "publishing", "public", "promoting", "recovering", "recovered", "complete"}
+UNTAGGED_DRAFT_TAG = re.compile(r"untagged-[0-9a-f]+")
+PROPAGATION_DELAYS = (2, 4, 8, 16)
+TRANSIENT_HTTP_STATUSES = {404, 429, 500, 502, 503, 504}
 
 
 class AdvertisementError(RuntimeError):
@@ -229,12 +232,28 @@ def _release_id(release):
     return release["id"] if release is not None else None
 
 
+def is_untagged_draft(release, expected_tag):
+    """GitHub replaces tag_name with untagged-<hex> when patching a draft without tag_name."""
+    return (isinstance(release, dict)
+            and release.get("draft") is True
+            and release.get("name") == expected_tag
+            and isinstance(release.get("tag_name"), str)
+            and bool(UNTAGGED_DRAFT_TAG.fullmatch(release["tag_name"])))
+
+
+def _safe_error_detail(error):
+    if isinstance(error, (AdvertisementError, DesktopSigningError)):
+        return str(error)
+    return type(error).__name__
+
+
 def _release(api, expected, release_id=None):
+    expected_tag = "v" + expected["version"]
     if release_id is None:
         matches = []
         for page in range(1, 101):
             releases = api.api(f"releases?per_page=100&page={page}")
-            matches.extend(item for item in releases if item.get("tag_name") == "v" + expected["version"])
+            matches.extend(item for item in releases if item.get("tag_name") == expected_tag)
             if len(releases) < 100:
                 break
         else:
@@ -244,8 +263,11 @@ def _release(api, expected, release_id=None):
         release = matches[0]
     else:
         release = api.api(f"releases/{release_id}")
+    tag_ok = release.get("tag_name") == expected_tag or (
+        release_id is not None and is_untagged_draft(release, expected_tag)
+    )
     if (type(release.get("id")) is not int or release["id"] <= 0
-            or release.get("tag_name") != "v" + expected["version"]
+            or not tag_ok
             or release.get("target_commitish") != expected["sourceCommit"]
             or release.get("prerelease") is not ("-" in expected["version"])
             or type(release.get("draft")) is not bool):
@@ -285,7 +307,24 @@ def _feed(api, path, *, version, directory, root, env, verifier, required=REQUIR
     return feed
 
 
-def _verify_assets(api, release, expected, directory, *, authenticated):
+def _download_anonymous(api, url, path, *, size=None, sleep=None, delays=PROPAGATION_DELAYS, before_retry=None):
+    sleep = time.sleep if sleep is None else sleep
+    for attempt in range(len(delays) + 1):
+        try:
+            api.download(url, path, size=size, authenticated=False)
+            return
+        except ApiError as error:
+            if error.status not in TRANSIENT_HTTP_STATUSES or attempt == len(delays):
+                raise
+            if before_retry is not None:
+                before_retry()
+            sleep(delays[attempt])
+            if before_retry is not None:
+                before_retry()
+
+
+def _verify_assets(api, release, expected, directory, *, authenticated, sleep=None, delays=PROPAGATION_DELAYS,
+                   before_retry=None):
     if authenticated:
         items = api.api(f"releases/{release['id']}/assets?per_page=100")
         remote = {item["name"]: item for item in items}
@@ -300,13 +339,18 @@ def _verify_assets(api, release, expected, directory, *, authenticated):
                     or type(item.get("id")) is not int or item["id"] <= 0):
                 raise AdvertisementError("draft asset is incomplete")
             url = f"{API}/releases/assets/{item['id']}"
-        api.download(url, path, size=asset["size"], authenticated=authenticated)
+            api.download(url, path, size=asset["size"], authenticated=True)
+        else:
+            _download_anonymous(api, url, path, size=asset["size"], sleep=sleep, delays=delays,
+                                before_retry=before_retry)
         if sha256(path) != asset["sha256"]:
             raise AdvertisementError("release asset checksum mismatch")
 
 
-def advertise(root, receipt_path, *, expected=None, api, env, verifier=verify_archive, before_change=lambda: None):
+def advertise(root, receipt_path, *, expected=None, api, env, verifier=verify_archive, before_change=lambda: None,
+              sleep=None, delays=PROPAGATION_DELAYS):
     """Resume only a verified upload. Persist intent before each public mutation."""
+    sleep = time.sleep if sleep is None else sleep
     root, receipt_path = Path(root), Path(receipt_path)
     if receipt_path.exists():
         receipt = _read(receipt_path)
@@ -323,6 +367,7 @@ def advertise(root, receipt_path, *, expected=None, api, env, verifier=verify_ar
         receipt = None
     if expected["publicKeySha256"] != hashlib.sha256(release_pubkey(root).encode()).hexdigest():
         raise AdvertisementError("committed updater key differs from this advertisement")
+    expected_tag = "v" + expected["version"]
     release = _release(api, expected, receipt["releaseId"] if receipt else None)
     if receipt is None and not release["draft"]:
         raise AdvertisementError("public release without a verified-upload receipt requires manual inspection")
@@ -336,25 +381,50 @@ def advertise(root, receipt_path, *, expected=None, api, env, verifier=verify_ar
             raise AdvertisementError("latest changed concurrently; manual inspection required")
 
     def smoke(snapshot=None):
-        latest_is(snapshot if snapshot is not None else release)
-        if snapshot is not None and "feedSha256" not in snapshot:
-            return
-        with tempfile.TemporaryDirectory(prefix="rzm-feed-") as temporary:
-            directory = Path(temporary)
-            path = directory / "latest.json"
-            api.download(f"{DOWNLOAD}/latest/download/latest.json", path)
-            digest = snapshot["feedSha256"] if snapshot is not None else expected["assets"]["latest.json"]["sha256"]
-            if sha256(path) != digest:
-                raise AdvertisementError("latest feed does not resolve to the verified release")
-            _feed(api, path, version=snapshot["version"] if snapshot else expected["version"], directory=directory,
-                  root=root, env=env, verifier=verifier, required=snapshot["targets"] if snapshot else REQUIRED_TARGETS)
+        target = snapshot if snapshot is not None else release
+        prior = release if snapshot is not None else receipt["previousLatest"]
+        for attempt in range(len(delays) + 1):
+            try:
+                current = api.latest()
+            except ApiError as error:
+                if error.status in TRANSIENT_HTTP_STATUSES and attempt < len(delays):
+                    sleep(delays[attempt])
+                    continue
+                raise
+            if _release_id(current) != _release_id(target):
+                if _release_id(current) in {None, _release_id(prior)} and attempt < len(delays):
+                    sleep(delays[attempt])
+                    continue
+                raise AdvertisementError("latest changed concurrently; manual inspection required")
+            if snapshot is not None and "feedSha256" not in snapshot:
+                return
+            expected_digest = snapshot["feedSha256"] if snapshot is not None else expected["assets"]["latest.json"]["sha256"]
+            with tempfile.TemporaryDirectory(prefix="rzm-feed-") as temporary:
+                directory = Path(temporary)
+                path = directory / "latest.json"
+                try:
+                    api.download(f"{DOWNLOAD}/latest/download/latest.json", path)
+                except ApiError as error:
+                    if error.status in TRANSIENT_HTTP_STATUSES and attempt < len(delays):
+                        sleep(delays[attempt])
+                        continue
+                    raise
+                if sha256(path) != expected_digest:
+                    if attempt < len(delays):
+                        sleep(delays[attempt])
+                        continue
+                    raise AdvertisementError("latest feed does not resolve to the verified release")
+                _feed(api, path, version=snapshot["version"] if snapshot else expected["version"], directory=directory,
+                      root=root, env=env, verifier=verifier, required=snapshot["targets"] if snapshot else REQUIRED_TARGETS)
+                return
 
     def recover():
         save("recovering")
         current, previous = api.latest(), receipt["previousLatest"]
         if _release_id(current) not in {_release_id(release), _release_id(previous)}:
             raise AdvertisementError("latest changed concurrently during recovery; manual inspection required")
-        api.api(f"releases/{release['id']}", method="PATCH", data={"draft": True, "make_latest": "false"})
+        api.api(f"releases/{release['id']}", method="PATCH",
+                data={"tag_name": expected_tag, "draft": True, "make_latest": "false"})
         if previous is not None:
             api.api(f"releases/{previous['id']}", method="PATCH", data={"make_latest": "true"})
             smoke(previous)
@@ -396,7 +466,7 @@ def advertise(root, receipt_path, *, expected=None, api, env, verifier=verify_ar
                 raise AdvertisementError("completed release returned to draft; manual inspection required")
             try:
                 _verify_tag(api, expected)
-                _verify_assets(api, release, expected, directory, authenticated=False)
+                _verify_assets(api, release, expected, directory, authenticated=False, sleep=sleep, delays=delays)
                 if _release_id(api.latest()) == release["id"]:
                     smoke()
             except (AdvertisementError, DesktopSigningError, OSError, ValueError, KeyError):
@@ -404,7 +474,10 @@ def advertise(root, receipt_path, *, expected=None, api, env, verifier=verify_ar
                     recover()
                 raise
             return receipt
-        if receipt["phase"] in {"recovering", "recovered"}:
+        if receipt["phase"] == "recovering" or (
+            receipt["phase"] == "recovered"
+            and (not release["draft"] or _release_id(api.latest()) != _release_id(receipt["previousLatest"]))
+        ):
             recover()
             release = _release(api, expected, receipt["releaseId"])
         try:
@@ -413,11 +486,13 @@ def advertise(root, receipt_path, *, expected=None, api, env, verifier=verify_ar
                 if release["draft"]:
                     before_change()
                     save("publishing")
-                    api.api(f"releases/{release['id']}", method="PATCH", data={"draft": False, "make_latest": "false"})
+                    api.api(f"releases/{release['id']}", method="PATCH",
+                            data={"tag_name": expected_tag, "draft": False, "make_latest": "false"})
                 save("public")
                 latest_is(receipt["previousLatest"])
                 _verify_tag(api, expected)
-                _verify_assets(api, release, expected, directory, authenticated=False)
+                _verify_assets(api, release, expected, directory, authenticated=False, sleep=sleep, delays=delays,
+                               before_retry=lambda: latest_is(receipt["previousLatest"]))
                 _feed(api, directory / "latest.json", version=expected["version"], directory=directory,
                       root=root, env=env, verifier=verifier)
                 latest_is(receipt["previousLatest"])
@@ -436,17 +511,23 @@ def advertise(root, receipt_path, *, expected=None, api, env, verifier=verify_ar
                 try:
                     recover()
                 except (AdvertisementError, DesktopSigningError, OSError, ValueError, KeyError) as recovery:
-                    raise AdvertisementError("advertisement failed and recovery is incomplete; inspect the retained receipt") from recovery
-            raise AdvertisementError("advertisement failed; previous latest retained, inspect or resume its receipt") from error
+                    raise AdvertisementError(
+                        f"advertisement failed ({_safe_error_detail(error)}) and recovery is incomplete "
+                        f"({_safe_error_detail(recovery)}); inspect the retained receipt"
+                    ) from recovery
+            raise AdvertisementError(
+                f"advertisement failed ({_safe_error_detail(error)}); previous latest retained, inspect or resume its receipt"
+            ) from error
     return receipt
 
 
 def resume_advertisement(root, receipt_path, *, expected_commit, expected_version, environ=None, api=None,
-                         verifier=verify_archive):
+                         verifier=verify_archive, sleep=None, delays=PROPAGATION_DELAYS):
     if not advertisement_resume_available(receipt_path, expected_commit=expected_commit, expected_version=expected_version):
         raise AdvertisementError("no exact verified-upload receipt; manual inspection required")
     env = advertisement_environment(os.environ if environ is None else environ)
-    return advertise(root, receipt_path, api=api or GitHub(env["GITHUB_TOKEN"]), env=env, verifier=verifier)
+    return advertise(root, receipt_path, api=api or GitHub(env["GITHUB_TOKEN"]), env=env, verifier=verifier,
+                     sleep=sleep, delays=delays)
 
 
 if __name__ == "__main__":
