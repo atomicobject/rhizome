@@ -2,6 +2,7 @@ import type { Route } from "@playwright/test";
 import type { TaskRunDetail, TaskRunView, TasksLiveState } from "../../src/api/tasks";
 import {
   localDraftsReportFixture,
+  reportFixture,
   SOURCE_CHECKOUT,
   stateFixture,
 } from "../../src/components/tasks/taskFixtures";
@@ -149,4 +150,35 @@ test("tests a local-only task draft and reads its result", async ({ page }) => {
   await expect(history).toBeHidden();
   await run.getByRole("button", { name: "History" }).click();
   await expect(history).toBeVisible();
+});
+
+test("wraps a long schedule inside the Frequency column", async ({ page }) => {
+  const now = Date.now();
+  const report = reportFixture(now);
+
+  report.tasks[0] = {
+    ...report.tasks[0],
+    schedule:
+      "weekdays every 1h 08:00–17:00 (America/Detroit); weekends at 05:00 (America/Detroit)",
+  };
+
+  await page.route(
+    (url) => url.pathname.startsWith("/api/tasks"),
+    (route: Route) => {
+      const { pathname } = new URL(route.request().url());
+
+      if (pathname === "/api/tasks") return route.fulfill({ json: report });
+
+      if (pathname === "/api/tasks/state") return route.fulfill({ json: stateFixture(now) });
+
+      return route.fulfill({ json: { runs: [] } });
+    },
+  );
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.goto("/tasks");
+
+  const cell = page.locator(".task-table tbody .task-table__time").first();
+  await expect(cell).toBeVisible();
+  await expect(cell).toContainText("weekends at 05:00");
+  expect(await cell.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 });
